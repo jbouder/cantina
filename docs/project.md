@@ -69,6 +69,17 @@ returns the inverse command, so undo is "apply the inverse" and redo is
 "apply the original". A command either applies completely or leaves the
 project untouched: a batch that fails part way reverts what it had done.
 
+Every command goes through a `History` (`crates/project/src/history.rs`):
+apply records the inverse, undo applies it and moves the step to the redo
+stack, redo applies the command again, and a new edit clears redo. The log
+keeps the last 1000 steps. Continuous changes coalesce: a run of commands
+with the same `coalesce_key` (one pedal parameter, one strip's gain or pan,
+the tempo) within 800 ms of each other is one step whose inverse is the
+first value and whose forward command is the last, so a fader drag undoes
+in one go. A property test applies random command sequences, undoes them
+all and checks the model is back to the original, then redoes them all
+and checks it is back at the end.
+
 The shell's `Engine::apply` is the one place commands go through. After
 applying, it brings the live graph in line: parameter and arm changes go
 over the audio thread's queue; anything structural reconciles the graph's

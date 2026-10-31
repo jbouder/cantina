@@ -32,7 +32,8 @@ use cantina_engine::{
     StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
 };
 use cantina_project::{
-    Clip, ClipId, Command, Pedal, PedalId, Project, Strip as StripModel, Tempo, Track, TrackId,
+    Clip, ClipId, Command, History, Pedal, PedalId, Project, Strip as StripModel, Tempo, Track,
+    TrackId,
 };
 use serde::Serialize;
 use tauri::ipc::{Channel, InvokeResponseBody};
@@ -85,6 +86,10 @@ pub struct ProjectStatus {
     pub dir: String,
     /// True when there are edits since the last save.
     pub dirty: bool,
+    /// What Undo would revert, if anything.
+    pub undo_label: Option<String>,
+    /// What Redo would reapply, if anything.
+    pub redo_label: Option<String>,
     pub sample_rate: f64,
     pub tempo: Tempo,
     pub tracks: Vec<TrackStatus>,
@@ -563,6 +568,7 @@ pub struct Engine {
     project: Project,
     project_dir: PathBuf,
     dirty: bool,
+    history: History,
     catalog: Catalog,
     recording: Vec<Recording>,
     last_error: Option<String>,
@@ -618,6 +624,7 @@ impl Engine {
             project,
             project_dir,
             dirty: false,
+            history: History::new(),
             catalog: Catalog::default(),
             recording: Vec::new(),
             last_error,
@@ -694,6 +701,8 @@ impl Engine {
             name: p.name.clone(),
             dir: self.project_dir.display().to_string(),
             dirty: self.dirty,
+            undo_label: self.history.undo_label().map(str::to_string),
+            redo_label: self.history.redo_label().map(str::to_string),
             sample_rate: p.sample_rate,
             tempo: p.tempo.clone(),
             tracks: p
@@ -726,13 +735,48 @@ impl Engine {
 
     // ----- the project -----
 
-    /// Applies an edit to the project and brings the graph in line.
+    /// Applies an edit to the project, records it for undo and brings
+    /// the graph in line.
     pub fn apply(&mut self, command: Command) -> Result<EngineStatus> {
-        command
-            .apply(&mut self.project)
-            .map_err(|e| anyhow!("{e}"))?;
-        self.dirty = true;
-        self.react(&command)?;
+        self.apply_quietly(command)?;
+        Ok(self.publish())
+    }
+
+    /// Reverts the last edit.
+    pub fn undo(&mut self) -> Result<EngineStatus> {
+        if self
+            .history
+            .undo(&mut self.project)
+            .map_err(|e| anyhow!("{e}"))?
+            .is_some()
+        {
+            self.dirty = true;
+            let command = self
+                .history
+                .last_undone()
+                .cloned()
+                .expect("an undone step is on the redo stack");
+            self.react(&command)?;
+        }
+        Ok(self.publish())
+    }
+
+    /// Reapplies the last undone edit.
+    pub fn redo(&mut self) -> Result<EngineStatus> {
+        if self
+            .history
+            .redo(&mut self.project)
+            .map_err(|e| anyhow!("{e}"))?
+            .is_some()
+        {
+            self.dirty = true;
+            let command = self
+                .history
+                .last_redone()
+                .cloned()
+                .expect("a redone step is on the undo stack");
+            self.react(&command)?;
+        }
         Ok(self.publish())
     }
 
@@ -831,6 +875,7 @@ impl Engine {
         self.project = project;
         self.project_dir = dir;
         self.dirty = false;
+        self.history.clear();
         self.remember_project();
         if self.adopt_sample_rate() {
             self.rebuild(None);
@@ -1141,8 +1186,8 @@ impl Engine {
     /// Applies a command without pushing a status: for continuous
     /// controls the UI already shows the value it sent.
     fn apply_quietly(&mut self, command: Command) -> Result<()> {
-        command
-            .apply(&mut self.project)
+        self.history
+            .apply(&mut self.project, command.clone())
             .map_err(|e| anyhow!("{e}"))?;
         self.dirty = true;
         self.react(&command)

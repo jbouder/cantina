@@ -34,6 +34,10 @@ export interface ProjectStatus {
   dir: string;
   /** True when there are edits since the last save. */
   dirty: boolean;
+  /** What Undo would revert, if anything. */
+  undoLabel: string | null;
+  /** What Redo would reapply, if anything. */
+  redoLabel: string | null;
   sampleRate: number;
   tempo: Tempo;
   tracks: TrackStatus[];
@@ -253,6 +257,8 @@ const mock: EngineStatus = {
     name: mockParams?.get("project") ?? "Untitled",
     dir: "/Users/you/Music/Cantina/Untitled.cantina",
     dirty: mockParams?.has("dirty") ?? false,
+    undoLabel: mockParams?.has("dirty") ? "move clip" : null,
+    redoLabel: null,
     sampleRate: MOCK_RATE,
     tempo: { bpm: 120, numerator: 4, denominator: 4 },
     tracks: [
@@ -322,8 +328,20 @@ function mockTrack(id: number): TrackStatus {
   return track;
 }
 
-function mockEdit(): EngineStatus {
+// The stand-in's undo: a stack of snapshots taken after each edit, so
+// the one before the top is what undo goes back to. No coalescing.
+const mockUndo: ProjectStatus[] = [];
+const mockRedo: ProjectStatus[] = [];
+let mockLast: ProjectStatus = structuredClone(mock.project);
+
+/** Called after an edit to the mock project. */
+function mockEdit(label = "edit"): EngineStatus {
   mock.project.dirty = true;
+  mock.project.undoLabel = label;
+  mock.project.redoLabel = null;
+  mockRedo.length = 0;
+  mockUndo.push(mockLast);
+  mockLast = structuredClone(mock.project);
   return mockStatus();
 }
 
@@ -419,6 +437,32 @@ export async function projectOpen(name: string): Promise<EngineStatus> {
 export async function projectSave(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("project_save");
   mock.project.dirty = false;
+  return mockStatus();
+}
+
+export async function projectUndo(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("project_undo");
+  const previous = mockUndo.pop();
+  if (!previous) return mockStatus();
+  mockRedo.push(mockLast);
+  mock.project = structuredClone(previous);
+  mockLast = previous;
+  mock.project.redoLabel = "edit";
+  mock.project.undoLabel = mockUndo.length > 0 ? "edit" : null;
+  mock.project.dirty = true;
+  return mockStatus();
+}
+
+export async function projectRedo(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("project_redo");
+  const next = mockRedo.pop();
+  if (!next) return mockStatus();
+  mockUndo.push(mockLast);
+  mock.project = structuredClone(next);
+  mockLast = next;
+  mock.project.undoLabel = "edit";
+  mock.project.redoLabel = mockRedo.length > 0 ? "edit" : null;
+  mock.project.dirty = true;
   return mockStatus();
 }
 
