@@ -7,6 +7,7 @@ import { Mixer } from "./components/Mixer";
 import { Notice } from "./components/Notice";
 import { ProjectBar } from "./components/ProjectBar";
 import { Projects } from "./components/Projects";
+import { Recovery } from "./components/Recovery";
 import { Settings } from "./components/Settings";
 import { Timeline } from "./components/Timeline";
 import { TrackPanel } from "./components/TrackPanel";
@@ -131,6 +132,9 @@ export function App() {
     >
       <main ref={main} className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto p-window">
         {status?.notice ? <Notice message={status.notice} onDismiss={dismiss} /> : null}
+        {status?.project.recovery ? (
+          <Recovery recovery={status.project.recovery} onStatus={setStatus} onError={setError} />
+        ) : null}
 
         <section
           aria-labelledby="engine-title"

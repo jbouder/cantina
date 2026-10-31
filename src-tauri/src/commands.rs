@@ -89,6 +89,16 @@ pub fn project_save(engine: State<'_, EngineState>) -> Result<EngineStatus, Stri
 }
 
 #[tauri::command]
+pub fn project_recover(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().project_recover().map_err(fail)
+}
+
+#[tauri::command]
+pub fn project_discard_recovery(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().project_discard_recovery().map_err(fail)
+}
+
+#[tauri::command]
 pub fn project_undo(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
     engine.lock().undo().map_err(fail)
 }

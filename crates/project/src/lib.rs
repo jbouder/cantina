@@ -8,6 +8,7 @@
 mod command;
 mod file;
 mod history;
+mod journal;
 mod model;
 
 pub use command::{Command, CommandError};
@@ -16,6 +17,7 @@ pub use file::{
     EXTENSION, PEDALS_DIR, PLUGINS_DIR, PROJECT_FILE,
 };
 pub use history::{History, UNDO_LIMIT};
+pub use journal::{replay, Entry as JournalEntry, Journal, Read as JournalRead, JOURNAL_FILE};
 pub use model::{
     Clip, ClipId, Id, Pedal, PedalId, Project, Strip, Tempo, Track, TrackId, FORMAT_VERSION,
 };

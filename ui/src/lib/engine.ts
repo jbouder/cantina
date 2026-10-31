@@ -38,6 +38,8 @@ export interface ProjectStatus {
   undoLabel: string | null;
   /** What Redo would reapply, if anything. */
   redoLabel: string | null;
+  /** Unsaved edits from a session that did not save, waiting on the user. */
+  recovery: RecoveryInfo | null;
   sampleRate: number;
   tempo: Tempo;
   tracks: TrackStatus[];
@@ -55,6 +57,12 @@ export interface Strip {
 }
 
 export const UNITY: Strip = { gainDb: 0, pan: 0, mute: false, solo: false };
+
+export interface RecoveryInfo {
+  edits: number;
+  /** The last edit's label. */
+  last: string;
+}
 
 export interface Tempo {
   bpm: number;
@@ -259,6 +267,7 @@ const mock: EngineStatus = {
     dirty: mockParams?.has("dirty") ?? false,
     undoLabel: mockParams?.has("dirty") ? "move clip" : null,
     redoLabel: null,
+    recovery: mockParams?.has("recovery") ? { edits: 7, last: "split clip" } : null,
     sampleRate: MOCK_RATE,
     tempo: { bpm: 120, numerator: 4, denominator: 4 },
     tracks: [
@@ -437,6 +446,19 @@ export async function projectOpen(name: string): Promise<EngineStatus> {
 export async function projectSave(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("project_save");
   mock.project.dirty = false;
+  return mockStatus();
+}
+
+export async function projectRecover(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("project_recover");
+  mock.project.recovery = null;
+  mock.project.dirty = true;
+  return mockStatus();
+}
+
+export async function projectDiscardRecovery(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("project_discard_recovery");
+  mock.project.recovery = null;
   return mockStatus();
 }
 

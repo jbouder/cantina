@@ -19,7 +19,9 @@ graph from any number of tracks, records takes into the project and
 places them as clips. Clips live on a canvas timeline with waveforms from
 peak caches built in a worker: move, trim, split and delete, snapped to a
 grid from the tempo. A mixer with gain, pan, mute and solo per track and
-a master, smoothed in a stereo engine, with post-fader meters. Before that, M2 built the shell: a Tauri 2 app with
+a master, smoothed in a stereo engine, with post-fader meters. Undo and
+redo over the command log, with fader drags as one step, and autosave of
+that log to a journal that a relaunch offers to replay. Before that, M2 built the shell: a Tauri 2 app with
 a device picker that survives relaunches and rebuilds the stream when an
 interface vanishes or changes rate, input and output meters over a binary
 frame channel, a pedal chain you can reorder while audio runs, and the
