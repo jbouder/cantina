@@ -8,7 +8,7 @@ use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
-use hound::{SampleFormat, WavReader};
+use hound::{SampleFormat, WavReader, WavSpec, WavWriter};
 
 /// What a WAV file holds.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,6 +34,52 @@ pub fn info(path: &Path) -> Result<WavInfo> {
         float: spec.sample_format == SampleFormat::Float,
         frames: reader.duration() as u64,
     })
+}
+
+/// Reads a whole file as channel-major `f32`.
+pub fn read_all(path: &Path) -> Result<(WavInfo, Vec<Vec<f32>>)> {
+    let mut reader = Reader::open(path)?;
+    let info = reader.info().clone();
+    let mut interleaved = Vec::with_capacity(info.frames as usize * info.channels as usize);
+    let mut frame = 0;
+    loop {
+        let got = reader.read(frame, 1 << 16, &mut interleaved)?;
+        if got == 0 {
+            break;
+        }
+        frame += got as u64;
+    }
+    let channels = info.channels as usize;
+    let mut planar = vec![Vec::with_capacity(info.frames as usize); channels];
+    for (i, sample) in interleaved.into_iter().enumerate() {
+        planar[i % channels].push(sample);
+    }
+    Ok((info, planar))
+}
+
+/// Writes channel-major `f32` as a 32-bit float file. Every channel must
+/// be the same length.
+pub fn write(path: &Path, sample_rate: f64, channels: &[Vec<f32>]) -> Result<()> {
+    let frames = channels.first().map_or(0, |c| c.len());
+    if channels.is_empty() || channels.iter().any(|c| c.len() != frames) {
+        bail!("need at least one channel, all the same length");
+    }
+    let spec = WavSpec {
+        channels: channels.len() as u16,
+        sample_rate: sample_rate as u32,
+        bits_per_sample: 32,
+        sample_format: SampleFormat::Float,
+    };
+    let mut writer =
+        WavWriter::create(path, spec).with_context(|| format!("creating {}", path.display()))?;
+    for frame in 0..frames {
+        for channel in channels {
+            writer.write_sample(channel[frame])?;
+        }
+    }
+    writer
+        .finalize()
+        .with_context(|| format!("finishing {}", path.display()))
 }
 
 /// A file open for reading regions as `f32`, whatever it stores.
@@ -202,6 +248,24 @@ pub(crate) mod tests {
             assert_eq!(reader.read(3, 1, &mut out).unwrap(), 1);
             assert!((out[0] - ramp(3, 0)).abs() < 1e-4);
         }
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn whole_files_round_trip() {
+        let dir = tempdir();
+        let path = dir.join("planar.wav");
+        let channels = vec![
+            (0..1000).map(|i| ramp(i, 0)).collect::<Vec<f32>>(),
+            (0..1000).map(|i| ramp(i, 1)).collect::<Vec<f32>>(),
+        ];
+        write(&path, 48_000.0, &channels).unwrap();
+        let (info, back) = read_all(&path).unwrap();
+        assert_eq!(info.channels, 2);
+        assert_eq!(info.frames, 1000);
+        assert_eq!(back, channels);
+        assert!(write(&path, 48_000.0, &[]).is_err());
+        assert!(write(&path, 48_000.0, &[vec![0.0; 2], vec![0.0; 3]]).is_err());
         std::fs::remove_dir_all(dir).unwrap();
     }
 

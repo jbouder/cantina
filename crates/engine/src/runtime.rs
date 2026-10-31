@@ -222,6 +222,33 @@ impl Runtime {
         self.transport.publish();
     }
 
+    /// Runs the graph over whole signals offline, in blocks of
+    /// `block_frames`, as fast as the machine allows. `inputs` is
+    /// channel-major with the graph's channel count; fewer channels are
+    /// treated as silence. Returns the output the same shape as the input.
+    pub fn render(&mut self, inputs: &[Vec<f32>], block_frames: usize) -> Vec<Vec<f32>> {
+        let frames = inputs.first().map_or(0, |c| c.len());
+        let channels = self.config.channels;
+        let block = block_frames.clamp(1, self.config.max_block_frames);
+        let silence = vec![0.0f32; frames];
+        let mut outputs = vec![vec![0.0f32; frames]; channels];
+        let mut start = 0;
+        while start < frames {
+            let end = (start + block).min(frames);
+            let mut ins: [&[f32]; MAX_CHANNELS] = [&[]; MAX_CHANNELS];
+            for (lane, c) in ins.iter_mut().zip(0..channels) {
+                *lane = &inputs.get(c).unwrap_or(&silence)[start..end];
+            }
+            let mut outs: [&mut [f32]; MAX_CHANNELS] = std::array::from_fn(|_| &mut [][..]);
+            for (lane, output) in outs.iter_mut().zip(outputs.iter_mut()) {
+                *lane = &mut output[start..end];
+            }
+            self.run(&ins[..channels], &mut outs[..channels]);
+            start = end;
+        }
+        outputs
+    }
+
     /// Takes the newest queued schedule, retiring the current one and
     /// anything older that was queued behind it.
     fn swap_in_latest(&mut self) {
@@ -675,6 +702,33 @@ mod tests {
         assert!(out[12_000 - 1].abs() <= 1e-4);
         assert_eq!(controller.collect(), 1, "the old tempo map was retired");
         assert_eq!(controller.stats().leaked.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn offline_render_matches_block_processing() {
+        let (mut runtime, mut controller) = Runtime::new(config(2)).unwrap();
+        let g = controller
+            .graph_mut()
+            .add_processor(Box::new(Overdrive::default()));
+        controller.graph_mut().set_chain(&[g]).unwrap();
+        controller.commit().unwrap();
+        let input = sine(BLOCK * 10 + 17);
+        let rendered = runtime.render(std::slice::from_ref(&input), 50);
+        assert_eq!(rendered.len(), 2);
+        assert_eq!(rendered[0].len(), input.len());
+        assert!(
+            rendered[1].iter().all(|s| *s == 0.0),
+            "missing lane is silence"
+        );
+
+        let (mut reference, mut rc) = Runtime::new(config(1)).unwrap();
+        let g = rc.graph_mut().add_processor(Box::new(Overdrive::default()));
+        rc.graph_mut().set_chain(&[g]).unwrap();
+        rc.commit().unwrap();
+        let expected = render(&mut reference, &input, |_| {});
+        for (a, e) in rendered[0].iter().zip(&expected) {
+            assert!((a - e).abs() < 1e-6);
+        }
     }
 
     #[test]

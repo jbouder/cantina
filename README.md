@@ -12,10 +12,12 @@ progress.
 
 ## Status
 
-M0 Spike done, apart from the latency measurement, which needs an audio
-interface. The engine passes audio from an input device to an output device
-through a chain of processors: stock gain and overdrive, any Audio Unit
-effect, any CLAP plugin. Findings in [docs/spike.md](docs/spike.md).
+M1 Engine done. The engine runs a graph of processors that is edited on the
+UI thread and swapped in on a block boundary, with parameters smoothed on
+the audio thread; a transport with a tempo map, loop and metronome click;
+WAV playback and recording streamed on their own threads; and an offline
+renderer with golden-file tests for the DSP. M0's latency measurement still
+needs an audio interface. Spike findings in [docs/spike.md](docs/spike.md).
 
 ## Build
 
@@ -24,6 +26,15 @@ macOS only. Install Rust with [rustup](https://rustup.rs), then:
 ```sh
 cargo build --workspace
 cargo test --workspace
+```
+
+The DSP tests include golden-file renders in `crates/dsp/tests/golden/`:
+every stock processor over generated fixtures, compared sample by sample.
+A change that is meant to alter a processor's sound regenerates them, and
+the summary next to them shows what moved:
+
+```sh
+UPDATE_GOLDEN=1 cargo test -p cantina-dsp --test golden
 ```
 
 ## Run the passthrough
@@ -42,7 +53,10 @@ another, for example `--chain gain,overdrive,gain` or
 `--chain gain,au:AUDelay` for an Audio Unit (`--list-au` names them) or
 `--chain 'clap:Surge XT'` for a CLAP plugin (`--list-clap`). While it runs, type
 `list` to see processors and parameters, `2.drive 30` to change one, `s`
-for the callback and dropout counters, `q` to quit.
+for the callback and dropout counters, `q` to quit. `--click 120` mixes in a
+metronome and `--play file.wav` streams a mono WAV at the stream rate from
+the start of the timeline; `play`, `stop`, `loop 4`, `pos`, `rec take.wav`
+and `rec stop` drive the transport and the recorder while it runs.
 
 Using the same device for input and output runs one duplex audio unit with
 no buffering between the callbacks. Two different devices run on separate

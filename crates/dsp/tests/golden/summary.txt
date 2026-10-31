@@ -1,0 +1,19 @@
+Golden renders: 48 kHz, 64-frame blocks, 12 000 frames per fixture.
+Regenerate with UPDATE_GOLDEN=1 cargo test -p cantina-dsp --test golden
+
+gain_impulse                 peak  1.00000  rms  0.00913  nonzero 0..1
+gain_sine                    peak  0.50000  rms  0.35355  nonzero 1..12000
+gain_sweep                   peak  0.50000  rms  0.35352  nonzero 1..12000
+gain_square                  peak  1.00000  rms  0.63246  nonzero 0..4800
+overdrive_impulse            peak  0.07547  rms  0.00476  nonzero 0..1421
+overdrive_sine               peak  0.51902  rms  0.46491  nonzero 1..12000
+overdrive_sweep              peak  0.54568  rms  0.39803  nonzero 1..12000
+overdrive_square             peak  0.52402  rms  0.30972  nonzero 0..6927
+gain-12db_impulse            peak  0.25119  rms  0.00229  nonzero 0..1
+gain-12db_sine               peak  0.12559  rms  0.08881  nonzero 1..12000
+gain-12db_sweep              peak  0.12559  rms  0.08880  nonzero 1..12000
+gain-12db_square             peak  0.25119  rms  0.15887  nonzero 0..4800
+overdrive-hot_impulse        peak  0.86923  rms  0.06977  nonzero 0..1848
+overdrive-hot_sine           peak  1.08924  rms  0.86795  nonzero 1..12000
+overdrive-hot_sweep          peak  1.09054  rms  0.68148  nonzero 1..12000
+overdrive-hot_square         peak  1.08629  rms  0.65209  nonzero 0..7348
