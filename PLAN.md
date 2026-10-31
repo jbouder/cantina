@@ -20,6 +20,7 @@ where the band plays.
 | User-made pedals | Visual node graph over DSP primitives, saved as JSON | Real-time safe by construction, shareable, no compiler. Power users write a CLAP plugin instead, so no Faust tier. |
 | Visualizer | Extract the scenes from `music-visualizer` into a shared package | 23 WebGL 2 and Canvas 2D scenes plus 395 MilkDrop presets already exist. Cantina adds exact beat and bar positions from the tempo map. |
 | Plugin process model | In-process on the audio thread | What every mainstream DAW except Bitwig does. Scanning runs in a child process so a crashing plugin cannot take the app down at startup. Sandboxing is a later project. |
+| Docs | Astro with Starlight in `docs/`, published to Cloudflare | Great docs from the start. Starlight gives search, navigation and dark mode for free, Cloudflare gives a preview deployment per pull request. Tracked in the Docs milestone, which runs alongside the numbered ones. |
 | License | MIT | AU and CLAP cover the plugin need, so VST3 is dropped for good. Permissive is simplest for contributors and lets anyone reuse the `dsp` crate. Decided 2026-10-31 before the first commit. |
 
 ## Architecture
@@ -163,7 +164,7 @@ cantina/
   ui/                     React app
   packages/
     scenes/               visualizer scenes, extracted from music-visualizer
-  docs/                   site
+  docs/                   Astro docs site, published to Cloudflare
   PLAN.md
 ```
 
@@ -174,7 +175,9 @@ queues, `realfft` for analysis, `hound` and `symphonia` for audio files,
 
 ## Milestones
 
-One issue per pull request. Each milestone has a demo you can play.
+One issue per pull request. Each milestone has a demo you can play. A
+Docs milestone runs alongside them: the Astro site goes up first, then each
+milestone lands its guides and references on it.
 
 ### M0 Spike: can this work?
 
@@ -255,7 +258,7 @@ processor trait.
 - Mixdown export to WAV, bounce a track in place.
 - Keyboard shortcuts and accessibility pass.
 - Signing, notarization, DMG, auto-update.
-- Docs site, contributing guide, first release.
+- Contributing guide, first release.
 
 ### Later
 
