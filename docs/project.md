@@ -97,7 +97,7 @@ output:
 ```
 input -> mute -> bus -> pedals... -> strip -> master -> output
            |      ^                    |         |
-      recorder  player               meter   output meter
+      recorder  delay <- player      meter   output meter
 input -> input meter
 ```
 
@@ -105,7 +105,10 @@ The graph runs in stereo: the mono input is copied to both channels on
 the way in, pedals process both, and the strips pan. The mute is the
 monitor gate, open while the track is armed. The recorder taps the dry
 input, mono, so a take can be played back through a chain that changed
-after the fact. Each strip is gain, pan and mute, every one smoothed on
+after the fact. The delay before the bus is latency compensation: each
+track's playback waits for the slowest chain so clips line up at the
+master, while live input, which joins after it, is never delayed (see
+[latency.md](latency.md)). Each strip is gain, pan and mute, every one smoothed on
 the audio thread so a fader move never clicks; its meter is a tap after
 it. Solo is computed in the shell: a solo anywhere mutes every track that
 is not soloed, and solos add up. The master strip has gain and mute. Recording starts a take on every armed track from

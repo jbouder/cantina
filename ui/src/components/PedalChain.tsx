@@ -7,6 +7,7 @@ import {
   type EngineStatus,
   editorClose,
   editorOpen,
+  ms,
   type PedalInfo,
 } from "../lib/engine";
 import { Button } from "./Button";
@@ -18,6 +19,7 @@ type Props = {
   /** The track whose chain this is. */
   track: number;
   chain: PedalInfo[];
+  sampleRate: number;
   kinds: string[];
   /** Opens the plugin browser for this track. */
   onBrowsePlugins: () => void;
@@ -34,7 +36,15 @@ function titleCase(spec: string) {
  * or with the arrow keys on its grip; add a stock pedal from the picker
  * at the end, or a third-party plugin from the browser.
  */
-export function PedalChain({ track, chain, kinds, onBrowsePlugins, onStatus, onError }: Props) {
+export function PedalChain({
+  track,
+  chain,
+  sampleRate,
+  kinds,
+  onBrowsePlugins,
+  onStatus,
+  onError,
+}: Props) {
   const [dragging, setDragging] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
   const [kind, setKind] = useState(kinds[0] ?? "gain");
@@ -69,6 +79,7 @@ export function PedalChain({ track, chain, kinds, onBrowsePlugins, onStatus, onE
           >
             <PedalCard
               pedal={pedal}
+              sampleRate={sampleRate}
               index={index}
               count={chain.length}
               dragging={dragging === pedal.id}
@@ -114,6 +125,7 @@ export function PedalChain({ track, chain, kinds, onBrowsePlugins, onStatus, onE
 
 type CardProps = {
   pedal: PedalInfo;
+  sampleRate: number;
   index: number;
   count: number;
   dragging: boolean;
@@ -128,6 +140,7 @@ type CardProps = {
 
 function PedalCard({
   pedal,
+  sampleRate,
   index,
   count,
   dragging,
@@ -191,6 +204,14 @@ function PedalCard({
         </button>
         <h3 className="m-0 flex-1 truncate font-bold text-[11px] uppercase tracking-[0.1em]">
           {pedal.name}
+          {pedal.latencyFrames > 0 ? (
+            <small
+              className="block font-normal text-ink-dim normal-case tracking-normal"
+              title="Delay this pedal adds; other tracks are delayed to match"
+            >
+              {ms(pedal.latencyFrames, sampleRate)} latency
+            </small>
+          ) : null}
         </h3>
         <Button aria-label={`Remove ${pedal.name}`} onClick={onRemove} className="px-2">
           <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-current">

@@ -29,7 +29,7 @@ impl Default for AudioSettings {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
     pub audio: AudioSettings,
@@ -38,6 +38,19 @@ pub struct Settings {
     /// Where each plugin's editor window was last, by spec, as the
     /// bottom-left corner in screen points.
     pub editor_positions: HashMap<String, (f64, f64)>,
+    /// Latency compensation above this many milliseconds is flagged.
+    pub latency_warn_ms: f32,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            audio: AudioSettings::default(),
+            last_project: None,
+            editor_positions: HashMap::new(),
+            latency_warn_ms: crate::engine::DEFAULT_LATENCY_WARN_MS,
+        }
+    }
 }
 
 impl Settings {

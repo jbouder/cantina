@@ -12,26 +12,29 @@ progress.
 
 ## Status
 
-M3 Multitrack in progress. The project model landed: a `.cantina`
-directory with `project.json` and immutable audio, every edit a command
-with an inverse, a versioned loader, and a shell that builds the engine
-graph from any number of tracks, records takes into the project and
-places them as clips. Clips live on a canvas timeline with waveforms from
-peak caches built in a worker: move, trim, split and delete, snapped to a
-grid from the tempo. A mixer with gain, pan, mute and solo per track and
-a master, smoothed in a stereo engine, with post-fader meters. Undo and
-redo over the command log, with fader drags as one step, and autosave of
-that log to a journal that a relaunch offers to replay. Before that, M2 built the shell: a Tauri 2 app with
-a device picker that survives relaunches and rebuilds the stream when an
-interface vanishes or changes rate, input and output meters over a binary
-frame channel, a pedal chain you can reorder while audio runs, and the
-six visualizer skins (Classic, Midnight, Brushed metal, Hi-fi, Neon,
-Toxic) on a token system where no component names a color. M1 built the
-engine: a graph of processors edited on the UI thread and swapped in on
-a block boundary, a transport with tempo map, loop and click, WAV
+M4 Hosting done. Third-party plugins are in: a scanner that examines
+Audio Units and CLAP bundles in a child process, so a plugin that
+crashes on load is listed as failed instead of taking the app down, with
+a cache that only rescans what changed; Audio Units and CLAP plugins as
+full processors with parameters, latency and state saved in the project;
+native editor windows parented to the main window, with Apple's generic
+view for units without one; and latency compensation that delays every
+track's playback to the slowest chain while live monitoring is never
+delayed, with recorded takes placed back where they were played. The
+threading decision the spike left open is settled: the engine keeps a
+plugin's main-thread half on the UI thread as a handle. M3 built the
+project model: a `.cantina` directory with `project.json` and immutable
+audio, every edit a command with an inverse, a canvas timeline with
+peak caches, a mixer, undo and redo, and autosave with recovery. M2
+built the shell: a Tauri 2 app with a device picker that survives
+relaunches, meters over a binary frame channel, a pedal chain, and the
+six visualizer skins. M1 built the engine: a graph of processors swapped
+in on a block boundary, a transport with tempo map, loop and click, WAV
 playback and recording on their own threads, and golden-file tests for
 the DSP. M0's latency measurement still needs an audio interface. Spike
-findings in [docs/spike.md](docs/spike.md), the project format in
+findings in [docs/spike.md](docs/spike.md), hosting in
+[docs/hosting.md](docs/hosting.md), latency and compensation in
+[docs/latency.md](docs/latency.md), the project format in
 [docs/project.md](docs/project.md), the timeline in
 [docs/timeline.md](docs/timeline.md), the skin system in
 [docs/skins.md](docs/skins.md), the frame format in

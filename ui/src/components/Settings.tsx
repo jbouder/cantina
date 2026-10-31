@@ -1,17 +1,25 @@
-import type { EngineStatus } from "../lib/engine";
+import { type EngineStatus, latencyWarningSet, ms } from "../lib/engine";
 import { SKINS, useSkin } from "../skins";
 import { Button } from "./Button";
 import { DevicePicker } from "./DevicePicker";
+import { Select } from "./Select";
 import { Sheet } from "./Sheet";
 
 type Props = {
+  status: EngineStatus;
   onClose: () => void;
   onStatusChange: (status: EngineStatus) => void;
 };
 
-/** The settings sheet: audio devices and the skin picker. */
-export function Settings({ onClose, onStatusChange }: Props) {
+const WARN_CHOICES = [5, 10, 20, 50, 100];
+
+/** The settings sheet: audio devices, the latency warning and the skin picker. */
+export function Settings({ status, onClose, onStatusChange }: Props) {
   const [skin, setSkin] = useSkin();
+  const { latency } = status;
+  const choices = WARN_CHOICES.includes(latency.warnMs)
+    ? WARN_CHOICES
+    : [...WARN_CHOICES, latency.warnMs].sort((a, b) => a - b);
   return (
     <Sheet title="Settings" onClose={onClose}>
       <section aria-labelledby="audio-heading" className="grid gap-2">
@@ -19,6 +27,23 @@ export function Settings({ onClose, onStatusChange }: Props) {
           Audio
         </h3>
         <DevicePicker onStatusChange={onStatusChange} />
+        <Select
+          id="latency-warn"
+          label="Warn when plugins delay playback by more than"
+          hint={
+            status.running
+              ? `Now ${ms(latency.compensationFrames, status.sampleRate)}; the devices add ${ms(latency.inputFrames, status.sampleRate)} in and ${ms(latency.outputFrames, status.sampleRate)} out.`
+              : "Live monitoring is never delayed to match other tracks."
+          }
+          value={latency.warnMs}
+          onChange={(e) => latencyWarningSet(Number(e.target.value)).then(onStatusChange)}
+        >
+          {choices.map((c) => (
+            <option key={c} value={c}>
+              {c} ms
+            </option>
+          ))}
+        </Select>
       </section>
       <section aria-labelledby="skin-label" className="grid gap-2">
         <h3 id="skin-label" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
