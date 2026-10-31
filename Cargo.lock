@@ -33,11 +33,23 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "cantina-dsp",
+ "cantina-hosting",
  "coreaudio-rs",
  "objc2-audio-toolbox",
  "objc2-core-audio",
  "objc2-core-audio-types",
  "rtrb",
+]
+
+[[package]]
+name = "cantina-hosting"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "cantina-dsp",
+ "objc2-audio-toolbox",
+ "objc2-core-audio-types",
+ "objc2-core-foundation",
 ]
 
 [[package]]
@@ -128,7 +140,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a180dd8642fa45cdb7dd721cd4c11b1cadd4929ce112ebd8b9f5803cc79d536"
 dependencies = [
  "bitflags",
+ "block2",
  "dispatch2",
+ "libc",
  "objc2",
 ]
 

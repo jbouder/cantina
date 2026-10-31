@@ -4,6 +4,8 @@
 //! cargo run -p cantina-engine --example passthrough -- --list
 //! cargo run -p cantina-engine --example passthrough -- --in Scarlett --out Scarlett --buffer 64
 //! cargo run -p cantina-engine --example passthrough -- --chain gain,overdrive,gain
+//! cargo run -p cantina-engine --example passthrough -- --list-au
+//! cargo run -p cantina-engine --example passthrough -- --chain gain,au:AUDelay
 //! ```
 //!
 //! While running, type `list` to see the chain and its parameters,
@@ -14,11 +16,15 @@
 use std::io::{self, BufRead, Write};
 
 use anyhow::{bail, Context, Result};
-use cantina_dsp::{stock, Chain, Unit, STOCK_NAMES};
-use cantina_engine::{device, ChainProcessor, ParamChange, Stream, StreamConfig, MAX_BLOCK_FRAMES};
+use cantina_dsp::{Chain, Unit, STOCK_NAMES};
+use cantina_engine::{
+    device, processors, ChainProcessor, ParamChange, Stream, StreamConfig, MAX_BLOCK_FRAMES,
+};
+use cantina_hosting::au;
 
 struct Options {
     list: bool,
+    list_au: bool,
     input: Option<String>,
     output: Option<String>,
     sample_rate: f64,
@@ -31,6 +37,7 @@ struct Options {
 fn parse_args() -> Result<Options> {
     let mut opts = Options {
         list: false,
+        list_au: false,
         input: None,
         output: None,
         sample_rate: 48_000.0,
@@ -46,6 +53,7 @@ fn parse_args() -> Result<Options> {
         };
         match arg.as_str() {
             "--list" | "-l" => opts.list = true,
+            "--list-au" => opts.list_au = true,
             "--in" | "-i" => opts.input = Some(value("--in")?),
             "--out" | "-o" => opts.output = Some(value("--out")?),
             "--rate" | "-r" => opts.sample_rate = value("--rate")?.parse()?,
@@ -67,11 +75,12 @@ fn parse_args() -> Result<Options> {
             "--gain" | "-g" => opts.gain_db = value("--gain")?.parse()?,
             "--help" | "-h" => {
                 println!(
-                    "passthrough [--list] [--in NAME] [--out NAME] [--rate HZ] [--buffer FRAMES] \
-                     [--channel N] [--chain a,b,c] [--gain DB]\n\nNames match a prefix, \
-                     case-insensitively. Channel is 1-based. --gain sets every gain processor's \
-                     initial level. Stock processors: {}.\nDefaults: system devices, 48000 Hz, \
-                     128 frames, channel 1, chain gain,overdrive, 0 dB.",
+                    "passthrough [--list] [--list-au] [--in NAME] [--out NAME] [--rate HZ] \
+                     [--buffer FRAMES] [--channel N] [--chain a,b,c] [--gain DB]\n\nNames match a \
+                     prefix, case-insensitively. Channel is 1-based. --gain sets every gain \
+                     processor's initial level. Chain items are stock processors ({}) or \
+                     au:<name or aufx:dely:appl>.\nDefaults: system devices, 48000 Hz, 128 frames, \
+                     channel 1, chain gain,overdrive, 0 dB.",
                     STOCK_NAMES.join(", ")
                 );
                 std::process::exit(0);
@@ -117,11 +126,22 @@ fn print_devices() -> Result<()> {
     Ok(())
 }
 
+fn print_audio_units() {
+    let effects = au::list_effects();
+    println!("{:<16} name", "identifier");
+    for c in &effects {
+        println!("{:<16} {}", c.id.to_string(), c.name);
+    }
+    println!(
+        "{} effect Audio Units. Use au:<name> or au:<identifier> in --chain.",
+        effects.len()
+    );
+}
+
 fn build_chain(names: &[String], gain_db: f32) -> Result<Chain> {
     let mut chain = Chain::new();
     for name in names {
-        let mut processor =
-            stock(name).with_context(|| format!("no stock processor named {name:?}"))?;
+        let mut processor = processors::create(name, 1)?;
         if name.eq_ignore_ascii_case("gain") {
             processor.set_param(0, gain_db);
         }
@@ -209,6 +229,10 @@ fn main() -> Result<()> {
     let opts = parse_args()?;
     if opts.list {
         return print_devices();
+    }
+    if opts.list_au {
+        print_audio_units();
+        return Ok(());
     }
 
     let input = resolve(opts.input.as_deref(), device::default_input(), "input")?;

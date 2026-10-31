@@ -10,6 +10,7 @@ rust-version.workspace = true
 [dependencies]
 anyhow = "1.0.104"
 cantina-dsp.workspace = true
+cantina-hosting.workspace = true
 coreaudio-rs = "0.14.2"
 objc2-audio-toolbox = "0.3"
 objc2-core-audio = "0.3"

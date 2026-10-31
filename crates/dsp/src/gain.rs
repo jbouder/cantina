@@ -2,7 +2,7 @@ use crate::processor::{Buffer, ParamId, ParamInfo, Processor, Unit};
 use crate::smooth::Smoother;
 use crate::{db_to_linear, linear_to_db};
 
-const PARAMS: [ParamInfo; 1] = [ParamInfo::new("Gain", Unit::Decibels, -60.0, 24.0, 0.0)];
+static PARAMS: [ParamInfo; 1] = [ParamInfo::new("Gain", Unit::Decibels, -60.0, 24.0, 0.0)];
 
 /// A smoothed gain stage. The first and simplest processor.
 #[derive(Debug, Clone)]

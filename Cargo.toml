@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/dsp", "crates/engine"]
+members = ["crates/dsp", "crates/engine", "crates/hosting"]
 
 [workspace.package]
 version = "0.0.1"
@@ -11,6 +11,7 @@ rust-version = "1.85"
 
 [workspace.dependencies]
 cantina-dsp = { path = "crates/dsp" }
+cantina-hosting = { path = "crates/hosting" }
 
 [profile.release]
 debug = 1
