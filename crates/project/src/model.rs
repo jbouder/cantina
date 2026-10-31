@@ -180,6 +180,12 @@ pub struct Project {
     /// The master strip: gain and mute on the sum of the tracks.
     #[serde(default)]
     pub master: Strip,
+    /// Edits applied since the project was created. Commands do not
+    /// touch it; the shell bumps it with each one and the journal records
+    /// which revision each line brought the project to, so on open the
+    /// lines newer than the saved file are known.
+    #[serde(default)]
+    pub revision: u64,
 }
 
 impl Project {
@@ -192,6 +198,7 @@ impl Project {
             tempo: Tempo::default(),
             tracks: Vec::new(),
             master: Strip::default(),
+            revision: 0,
         }
     }
 

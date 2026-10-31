@@ -4,7 +4,8 @@ A project is a directory. `Song` lives at `~/Music/Cantina/Song.cantina/`:
 
 ```
 Song.cantina/
-  project.json    tracks, clips, chains, tempo
+  project.json    tracks, clips, chains, tempo, mixer; written by Save only
+  journal.jsonl   every edit since the last save, one per line
   audio/          recorded and imported WAV files, never modified
   plugins/        third-party plugin state blobs (M4)
   pedals/         user pedal definitions used by this project (M7)
@@ -128,6 +129,30 @@ every strip at unity.
 
 Saves write `project.json.tmp` and rename it over `project.json`, so a
 crash mid-save leaves the previous file whole.
+
+## Autosave and recovery
+
+`project.json` is only written by Save. Between saves, every applied
+command, undo and redo inverses included, is appended as one line of JSON
+to `journal.jsonl` in the project directory the moment it is applied
+(`crates/project/src/journal.rs`), with the revision it brought the
+project to. The file carries the revision it was saved at, so the lines
+with a higher revision are exactly the edits since the last save. A
+clean save clears the journal. Appending a line never touches
+`project.json`, so a crash mid-edit cannot corrupt the project.
+
+On open, lines newer than the saved file are held and the UI offers to
+recover or discard them. Recover replays them in order (the replayed edits
+are not undoable; they stay in the journal until the next save); Discard
+empties the journal. Editing before deciding counts as discarding, since
+the old session's edits would collide with the new ones. A line that does
+not parse, such as one cut short by the crash, is skipped with a warning,
+and the lines after it still replay, since each is self-contained. A
+replay that hits an edit the project refuses stops there and says how far
+it got.
+
+To try it: make some edits, do not save, kill the app (`kill -9`), relaunch
+and recover.
 
 ## Where projects live
 

@@ -32,8 +32,8 @@ use cantina_engine::{
     StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
 };
 use cantina_project::{
-    Clip, ClipId, Command, History, Pedal, PedalId, Project, Strip as StripModel, Tempo, Track,
-    TrackId,
+    Clip, ClipId, Command, History, Journal, JournalEntry, Pedal, PedalId, Project,
+    Strip as StripModel, Tempo, Track, TrackId,
 };
 use serde::Serialize;
 use tauri::ipc::{Channel, InvokeResponseBody};
@@ -90,11 +90,23 @@ pub struct ProjectStatus {
     pub undo_label: Option<String>,
     /// What Redo would reapply, if anything.
     pub redo_label: Option<String>,
+    /// Edits found in the journal from a session that did not save,
+    /// waiting for the user to recover or discard them.
+    pub recovery: Option<RecoveryInfo>,
     pub sample_rate: f64,
     pub tempo: Tempo,
     pub tracks: Vec<TrackStatus>,
     /// The master strip; pan and solo are unused on it.
     pub master: StripModel,
+}
+
+/// What a journal left behind. Mirrors `RecoveryInfo` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecoveryInfo {
+    pub edits: usize,
+    /// The last edit's label.
+    pub last: String,
 }
 
 /// A track, as the UI sees it. Mirrors `TrackStatus` in the UI.
@@ -569,6 +581,10 @@ pub struct Engine {
     project_dir: PathBuf,
     dirty: bool,
     history: History,
+    journal: Journal,
+    /// Journal entries newer than the saved file, until recovered or
+    /// discarded.
+    recovery: Option<Vec<JournalEntry>>,
     catalog: Catalog,
     recording: Vec<Recording>,
     last_error: Option<String>,
@@ -615,6 +631,7 @@ impl Engine {
                 (project, dir)
             }
         };
+        let journal = Journal::in_dir(&project_dir);
         let mut engine = Self {
             app,
             live: None,
@@ -625,6 +642,8 @@ impl Engine {
             project_dir,
             dirty: false,
             history: History::new(),
+            journal,
+            recovery: None,
             catalog: Catalog::default(),
             recording: Vec::new(),
             last_error,
@@ -636,6 +655,7 @@ impl Engine {
         };
         engine.adopt_sample_rate();
         engine.remember_project();
+        engine.read_journal();
         // For measuring the UI's cost of the frame stream without audio:
         // a pump of synthetic levels with no stream behind it.
         if std::env::var_os("CANTINA_SYNTHETIC_METERS").is_some() {
@@ -703,6 +723,13 @@ impl Engine {
             dirty: self.dirty,
             undo_label: self.history.undo_label().map(str::to_string),
             redo_label: self.history.redo_label().map(str::to_string),
+            recovery: self.recovery.as_ref().map(|entries| RecoveryInfo {
+                edits: entries.len(),
+                last: entries
+                    .last()
+                    .map(|e| e.command.label())
+                    .unwrap_or_default(),
+            }),
             sample_rate: p.sample_rate,
             tempo: p.tempo.clone(),
             tracks: p
@@ -756,6 +783,7 @@ impl Engine {
                 .last_undone()
                 .cloned()
                 .expect("an undone step is on the redo stack");
+            self.journal_entry(&command);
             self.react(&command)?;
         }
         Ok(self.publish())
@@ -775,8 +803,63 @@ impl Engine {
                 .last_redone()
                 .cloned()
                 .expect("a redone step is on the undo stack");
+            self.journal_entry(&command);
             self.react(&command)?;
         }
+        Ok(self.publish())
+    }
+
+    /// Records an applied command in the journal at the next revision.
+    /// A journal that cannot be written is reported, not fatal: the edit
+    /// is already in the project.
+    fn journal_entry(&mut self, command: &Command) {
+        self.project.revision += 1;
+        if let Err(e) = self.journal.append(self.project.revision, command) {
+            self.last_error = Some(format!("autosave: {e}"));
+        }
+    }
+
+    /// Reads the journal of the open project and holds anything newer
+    /// than the saved file for the user to recover or discard.
+    fn read_journal(&mut self) {
+        self.recovery = None;
+        match self.journal.read() {
+            Ok(read) => {
+                if !read.warnings.is_empty() {
+                    self.notice = Some(read.warnings.join("; "));
+                    self.notice_seq = self.notice_seq.wrapping_add(1);
+                }
+                let pending = Journal::since(read.entries, self.project.revision);
+                if !pending.is_empty() {
+                    self.recovery = Some(pending);
+                }
+            }
+            Err(e) => self.last_error = Some(format!("reading the journal: {e}")),
+        }
+    }
+
+    /// Replays the journal's unsaved edits onto the project. They are not
+    /// undoable afterwards, and stay in the journal until the next save.
+    pub fn project_recover(&mut self) -> Result<EngineStatus> {
+        let Some(entries) = self.recovery.take() else {
+            return Ok(self.status());
+        };
+        let outcome = cantina_project::replay(&mut self.project, &entries);
+        self.dirty = true;
+        self.history.clear();
+        self.sync()?;
+        if let Some(live) = &mut self.live {
+            live.transport()
+                .set_tempo_map(tempo_map(&self.project.tempo));
+        }
+        outcome.map_err(|e| anyhow!("{e}"))?;
+        Ok(self.publish())
+    }
+
+    /// Forgets the journal's unsaved edits.
+    pub fn project_discard_recovery(&mut self) -> Result<EngineStatus> {
+        self.recovery = None;
+        self.journal.clear()?;
         Ok(self.publish())
     }
 
@@ -858,8 +941,12 @@ impl Engine {
         Ok(self.publish())
     }
 
+    /// Writes `project.json` and clears the journal: everything in it
+    /// is in the file now.
     pub fn project_save(&mut self) -> Result<EngineStatus> {
         cantina_project::save(&self.project, &self.project_dir)?;
+        self.journal.clear()?;
+        self.recovery = None;
         self.dirty = false;
         Ok(self.publish())
     }
@@ -873,10 +960,12 @@ impl Engine {
             live.transport().locate(0);
         }
         self.project = project;
+        self.journal = Journal::in_dir(&dir);
         self.project_dir = dir;
         self.dirty = false;
         self.history.clear();
         self.remember_project();
+        self.read_journal();
         if self.adopt_sample_rate() {
             self.rebuild(None);
             Ok(())
@@ -1189,7 +1278,15 @@ impl Engine {
         self.history
             .apply(&mut self.project, command.clone())
             .map_err(|e| anyhow!("{e}"))?;
+        // Editing on without deciding is deciding: the old session's
+        // edits would collide with these in the journal.
+        if self.recovery.take().is_some() {
+            if let Err(e) = self.journal.clear() {
+                self.last_error = Some(format!("clearing the journal: {e}"));
+            }
+        }
         self.dirty = true;
+        self.journal_entry(&command);
         self.react(&command)
     }
 
