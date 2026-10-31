@@ -469,6 +469,13 @@ impl AudioUnitHandle {
         self.unit.raw()
     }
 
+    /// A share in the instance's ownership, so an editor window can
+    /// outlive the processor and the handle without the unit going away
+    /// under its view.
+    pub fn owner(&self) -> Arc<UnitOwner> {
+        Arc::clone(&self.unit)
+    }
+
     /// Current value of a parameter, as the unit reports it.
     pub fn param(&self, id: ParamId) -> f32 {
         self.param_ids
@@ -492,6 +499,12 @@ impl Handle for AudioUnitHandle {
 
     fn latency(&self) -> usize {
         latency_frames(self.unit.raw())
+    }
+
+    /// Every Audio Unit has an editor: its own view, or Apple's generic
+    /// one.
+    fn has_editor(&self) -> bool {
+        true
     }
 
     fn take_changes(&mut self) -> Vec<(ParamId, f32)> {

@@ -132,6 +132,57 @@ values over the state changes nothing. Both formats behave the same from
 the chain's point of view: the shell holds a `Handle` and never asks
 which kind it is.
 
+## Editor windows
+
+Audio Unit and CLAP editors are native `NSView`s. Each opens in its own
+`NSWindow`, added as a child of the main window so it stays above it and
+moves with it, never embedded in the web view: the plan's rule, since a
+native view inside WebKit's view is a fight nobody wins. The code is
+`crates/hosting/src/editor.rs`; it runs on the main thread only, which
+AppKit demands, and takes a `MainThreadMarker` as proof.
+
+- **Audio Units** ship a view through the `CocoaUI` property: a bundle
+  and the name of a factory class in it, which is loaded and asked for
+  the view (`uiViewForAudioUnit:withSize:`). A unit without one gets
+  Apple's `AUGenericView` from CoreAudioKit, so every Audio Unit opens a
+  window: the vendor's when there is one, Apple's generic knobs
+  otherwise.
+- **CLAP** plugins embed their view into a container view we hand them
+  through the `gui` extension (`create`, `set_parent`, `show`). A plugin
+  without the extension, or without Cocoa support, has no window; the
+  pedal card shows no Edit button and the generic knobs are its editor.
+
+The window holds its own share of the plugin's main-thread half (the
+same `Arc` the handle holds), so it can be closed after the pedal is
+gone without the view outliving the instance. The shell keeps the open
+editors in a cell only the main thread may reach, schedules every open,
+close and tick onto the main thread with Tauri's `run_on_main_thread`,
+and closes a plugin's editor when the pedal is removed or the stream
+closes (a rebuild recreates every plugin).
+
+Resizing is polled rather than observed: a few times a second the shell
+ticks every open editor on the main thread. An Audio Unit view that
+changed its own frame gets the window resized to match (the generic
+view does the opposite: the window drives it, so it is resizable). A
+CLAP plugin asks through `host_gui.request_resize`, which the host
+grants by recording the size; the tick applies it to the window and
+confirms it with `set_size`. A user resize of a resizable CLAP window
+goes to the plugin through `adjust_size` and `set_size`. A window the
+user closed is noticed on the tick and forgotten, and its position is
+saved in `settings.json` by spec, so the same plugin reopens where it
+was, in any project.
+
+Parameter changes made in a vendor's editor reach the generic knobs and
+undo through the handle polling above: an Audio Unit view calls
+`AudioUnitSetParameter`, which the next `take_changes` sees as a
+difference; a CLAP plugin reports them as output events.
+
+The editor test (`crates/hosting/tests/editor.rs`) has its own `main`
+so it runs on the main thread: it opens AUDelay's editor, Apple's
+generic view, checks it laid out and sits where it was asked, closes it
+with the processor already gone, and checks the GUI-less test plugin is
+refused with no window.
+
 ## The scanner
 
 Listing what is installed is cheap and runs no plugin code: Audio Units

@@ -12,8 +12,10 @@
 
 pub mod au;
 pub mod clap;
+pub mod editor;
 pub mod scan;
 
 pub use au::{AudioUnitHandle, AudioUnitProcessor, ComponentId, ComponentInfo};
 pub use clap::{ClapHandle, ClapProcessor};
+pub use editor::Editor;
 pub use scan::{Format, PluginEntry, PluginList, Scanner, Source};

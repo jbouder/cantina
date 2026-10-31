@@ -15,8 +15,10 @@
 //! engine to rebuild when its devices go away or change rate, and one
 //! pumps meter levels to the UI at display rate.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::ffi::c_void;
 use std::path::{Path, PathBuf};
+use std::ptr::NonNull;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -32,10 +34,12 @@ use cantina_engine::{
     StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
 };
 use cantina_hosting::scan::{self, PluginList, Scanner};
+use cantina_hosting::{AudioUnitHandle, ClapHandle, Editor};
 use cantina_project::{
     Clip, ClipId, Command, History, Journal, JournalEntry, Pedal, PedalId, Project,
     Strip as StripModel, Tempo, Track, TrackId, PLUGINS_DIR,
 };
+use objc2::MainThreadMarker;
 use serde::Serialize;
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, Manager};
@@ -162,6 +166,9 @@ pub struct PedalInfo {
     pub spec: String,
     pub name: String,
     pub params: Vec<ParamOut>,
+    /// Whether the plugin can open its own editor window.
+    pub has_editor: bool,
+    pub editor_open: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -262,7 +269,25 @@ impl PedalKind {
                     value: pedal.values.get(i).copied().unwrap_or(p.default),
                 })
                 .collect(),
+            has_editor: false,
+            editor_open: false,
         }
+    }
+}
+
+/// Holds what only the main thread may touch (AppKit windows) inside the
+/// engine, which lives in a mutex shared by every thread. Reaching the
+/// contents takes proof of being on the main thread.
+struct MainThreadCell<T>(T);
+
+// The contents are only ever accessed through `get_mut`, which demands a
+// `MainThreadMarker`, and dropped with the engine at exit on the main
+// thread.
+unsafe impl<T> Send for MainThreadCell<T> {}
+
+impl<T> MainThreadCell<T> {
+    fn get_mut(&mut self, _mtm: MainThreadMarker) -> &mut T {
+        &mut self.0
     }
 }
 
@@ -389,6 +414,7 @@ impl Live {
         catalog: &mut Catalog,
         audio_dir: &Path,
         states: &PluginStates,
+        removed_pedals: &mut Vec<PedalId>,
     ) -> Result<()> {
         let sample_rate = self.stream.info().sample_rate;
         let mut problems = Vec::new();
@@ -400,6 +426,7 @@ impl Live {
                 true
             } else {
                 gone.extend(t.nodes());
+                removed_pedals.extend(t.pedals.iter().map(|p| p.id));
                 false
             }
         });
@@ -421,6 +448,7 @@ impl Live {
                     true
                 } else {
                     removed.push(p.node);
+                    removed_pedals.push(p.id);
                     false
                 }
             });
@@ -609,6 +637,8 @@ impl Catalog {
                 spec: pedal.spec.clone(),
                 name: pedal.spec.clone(),
                 params: Vec::new(),
+                has_editor: false,
+                editor_open: false,
             },
         }
     }
@@ -645,6 +675,10 @@ pub struct Engine {
     /// opened, refreshed from the live plugins on save and whenever the
     /// stream closes, so a rebuild hands each plugin back its state.
     plugin_states: PluginStates,
+    /// Open editor windows, main thread only.
+    editors: MainThreadCell<HashMap<PedalId, Editor>>,
+    /// Which pedals have an editor open, for the status from any thread.
+    open_editors: HashSet<PedalId>,
     catalog: Catalog,
     recording: Vec<Recording>,
     last_error: Option<String>,
@@ -722,6 +756,8 @@ impl Engine {
             journal,
             recovery: None,
             plugin_states: PluginStates::new(),
+            editors: MainThreadCell(HashMap::new()),
+            open_editors: HashSet::new(),
             catalog: Catalog::default(),
             recording: Vec::new(),
             last_error,
@@ -889,7 +925,23 @@ impl Engine {
                     name: t.name.clone(),
                     armed: t.armed,
                     recording: self.recording.iter().any(|r| r.track == t.id),
-                    chain: t.chain.iter().map(|p| self.catalog.describe(p)).collect(),
+                    chain: t
+                        .chain
+                        .iter()
+                        .map(|p| {
+                            let mut info = self.catalog.describe(p);
+                            info.has_editor = self.live.as_ref().is_some_and(|l| {
+                                l.tracks
+                                    .iter()
+                                    .flat_map(|t| t.pedals.iter())
+                                    .find(|lp| lp.id == p.id)
+                                    .and_then(|lp| lp.handle.as_ref())
+                                    .is_some_and(|h| h.has_editor())
+                            });
+                            info.editor_open = self.open_editors.contains(&p.id);
+                            info
+                        })
+                        .collect(),
                     clips: t
                         .clips
                         .iter()
@@ -1066,12 +1118,139 @@ impl Engine {
             return Ok(());
         };
         let audio_dir = cantina_project::audio_dir(&self.project_dir);
-        live.sync(
+        let mut removed = Vec::new();
+        let result = live.sync(
             &self.project,
             &mut self.catalog,
             &audio_dir,
             &self.plugin_states,
-        )
+            &mut removed,
+        );
+        self.close_editors(removed);
+        result
+    }
+
+    // ----- editor windows -----
+
+    /// Runs `f` with the engine locked on the main thread, where AppKit
+    /// lives. Queued on the event loop, so it runs after the current
+    /// command returns and never deadlocks on the engine's lock.
+    fn on_main_thread(&self, f: impl FnOnce(&mut Engine, MainThreadMarker) + Send + 'static) {
+        let app = self.app.clone();
+        let _ = self.app.run_on_main_thread(move || {
+            let Some(mtm) = MainThreadMarker::new() else {
+                return;
+            };
+            if let Some(state) = app.try_state::<EngineState>() {
+                f(&mut state.lock(), mtm);
+            }
+        });
+    }
+
+    /// Opens a plugin's editor window, or brings it to the front. The
+    /// window appears once the main thread gets to it; the status push
+    /// then says so.
+    pub fn editor_open(&mut self, id: u64) -> EngineStatus {
+        self.on_main_thread(move |engine, mtm| engine.open_editor_now(PedalId(id), mtm));
+        self.status()
+    }
+
+    pub fn editor_close(&mut self, id: u64) -> EngineStatus {
+        self.on_main_thread(move |engine, mtm| engine.close_editor_now(PedalId(id), mtm));
+        self.status()
+    }
+
+    fn close_editors(&self, ids: Vec<PedalId>) {
+        let ids: Vec<PedalId> = ids
+            .into_iter()
+            .filter(|id| self.open_editors.contains(id))
+            .collect();
+        if ids.is_empty() {
+            return;
+        }
+        self.on_main_thread(move |engine, mtm| {
+            for id in ids {
+                engine.close_editor_now(id, mtm);
+            }
+        });
+    }
+
+    fn open_editor_now(&mut self, id: PedalId, mtm: MainThreadMarker) {
+        if let Some(editor) = self.editors.get_mut(mtm).get(&id) {
+            editor.focus();
+            return;
+        }
+        let Some((track, pedal)) = self.project.pedal(id) else {
+            self.last_error = Some(format!("no pedal {id}"));
+            self.publish();
+            return;
+        };
+        let spec = pedal.spec.clone();
+        let title = format!("{} · {}", self.catalog.describe(pedal).name, track.name);
+        let parent: Option<NonNull<c_void>> = self
+            .app
+            .get_webview_window("main")
+            .and_then(|w| w.ns_window().ok())
+            .and_then(NonNull::new);
+        let origin = self.settings.editor_positions.get(&spec).copied();
+        let Some(live) = &mut self.live else {
+            self.last_error = Some("start the engine before opening an editor".into());
+            self.publish();
+            return;
+        };
+        let handle = live
+            .pedals_mut()
+            .find(|p| p.id == id)
+            .and_then(|p| p.handle.as_mut());
+        let result = match handle {
+            None => Err(anyhow!("this pedal has no editor")),
+            Some(handle) => {
+                let any = handle.as_any();
+                if let Some(au) = any.downcast_ref::<AudioUnitHandle>() {
+                    Editor::open_au(mtm, au, parent, origin, &title)
+                } else if let Some(clap) = any.downcast_ref::<ClapHandle>() {
+                    Editor::open_clap(mtm, clap, parent, origin, &title)
+                } else {
+                    Err(anyhow!("this pedal has no editor"))
+                }
+            }
+        };
+        match result {
+            Ok(editor) => {
+                self.editors.get_mut(mtm).insert(id, editor);
+                self.open_editors.insert(id);
+            }
+            Err(e) => self.last_error = Some(format!("{e:#}")),
+        }
+        self.publish();
+    }
+
+    fn close_editor_now(&mut self, id: PedalId, mtm: MainThreadMarker) {
+        let Some(editor) = self.editors.get_mut(mtm).remove(&id) else {
+            return;
+        };
+        if let Some((_, pedal)) = self.project.pedal(id) {
+            let spec = pedal.spec.clone();
+            self.settings.editor_positions.insert(spec, editor.origin());
+            self.persist();
+        }
+        editor.close(mtm);
+        self.open_editors.remove(&id);
+        self.publish();
+    }
+
+    /// Lets every open editor follow its plugin, and forgets the ones
+    /// the user closed. Main thread, a few times a second.
+    pub fn tick_editors(&mut self, mtm: MainThreadMarker) {
+        let closed: Vec<PedalId> = self
+            .editors
+            .get_mut(mtm)
+            .iter_mut()
+            .filter_map(|(id, editor)| (!editor.tick(mtm)).then_some(*id))
+            .collect();
+        for id in closed {
+            self.close_editor_now(id, mtm);
+        }
     }
 
     // ----- plugin state -----
@@ -1122,6 +1301,9 @@ impl Engine {
     /// editor, a preset) and records them as edits, so the generic UI
     /// and undo follow. Called from the meter pump a few times a second.
     pub fn poll_plugins(&mut self) {
+        if !self.open_editors.is_empty() {
+            self.on_main_thread(|engine, mtm| engine.tick_editors(mtm));
+        }
         let Some(live) = &mut self.live else {
             return;
         };
@@ -1787,6 +1969,7 @@ impl Engine {
     fn close(&mut self) {
         // Plugins are recreated by the next sync; keep what they hold.
         self.capture_plugin_states();
+        self.close_editors(self.open_editors.iter().copied().collect());
         if let Some(mut live) = self.live.take() {
             live.pump_stop.store(true, Ordering::Relaxed);
             // A recording in progress ends with the stream; the writer

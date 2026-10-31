@@ -233,6 +233,12 @@ pub trait Handle: Send {
     /// them; the engine ignores the ones it already knows.
     fn take_changes(&mut self) -> Vec<(ParamId, f32)>;
 
+    /// Whether the plugin can show its own editor in a native window.
+    /// Without one, the generic knobs are its editor.
+    fn has_editor(&self) -> bool {
+        false
+    }
+
     /// For the shell to reach a format's own features, such as its editor.
     fn as_any(&mut self) -> &mut dyn Any;
 }

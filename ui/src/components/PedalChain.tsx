@@ -5,10 +5,13 @@ import {
   chainRemove,
   chainSetParam,
   type EngineStatus,
+  editorClose,
+  editorOpen,
   type PedalInfo,
 } from "../lib/engine";
 import { Button } from "./Button";
 import { Fader } from "./Fader";
+import { Led } from "./Led";
 import { Select } from "./Select";
 
 type Props = {
@@ -76,6 +79,7 @@ export function PedalChain({ track, chain, kinds, onBrowsePlugins, onStatus, onE
               }}
               onMove={(to) => run(chainMove(pedal.id, to))}
               onRemove={() => run(chainRemove(pedal.id))}
+              onEditor={(open) => run(open ? editorOpen(pedal.id) : editorClose(pedal.id))}
               onError={onError}
             />
           </li>
@@ -117,6 +121,8 @@ type CardProps = {
   onDragEnd: () => void;
   onMove: (to: number) => void;
   onRemove: () => void;
+  /** Opens or closes the plugin's own editor window. */
+  onEditor: (open: boolean) => void;
   onError: (message: string) => void;
 };
 
@@ -129,6 +135,7 @@ function PedalCard({
   onDragEnd,
   onMove,
   onRemove,
+  onEditor,
   onError,
 }: CardProps) {
   // Knob values live here between status pushes, since set_param is
@@ -191,6 +198,21 @@ function PedalCard({
           </svg>
         </Button>
       </header>
+      {pedal.hasEditor ? (
+        <Button
+          aria-pressed={pedal.editorOpen}
+          onClick={() => onEditor(!pedal.editorOpen)}
+          variant={pedal.editorOpen ? "transport" : "panel"}
+          title={
+            pedal.editorOpen
+              ? "Close the plugin's own window"
+              : "Open the plugin's own window; the knobs below follow it"
+          }
+        >
+          <Led on={pedal.editorOpen} label="Editor open" />
+          {pedal.editorOpen ? "Editor open" : "Edit…"}
+        </Button>
+      ) : null}
       {pedal.params.map((param, i) => (
         <Fader
           key={param.name}

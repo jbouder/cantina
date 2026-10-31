@@ -21,12 +21,15 @@
 use std::any::Any;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use anyhow::{anyhow, bail, Context, Result};
 use cantina_dsp::{Buffer, Handle, ParamId, ParamInfo, Processor, StateError, Unit};
 use clack_extensions::audio_ports::{AudioPortInfoBuffer, PluginAudioPorts};
+use clack_extensions::gui::{
+    GuiApiType, GuiConfiguration, GuiSize, HostGui, HostGuiImpl, PluginGui,
+};
 use clack_extensions::latency::{HostLatency, HostLatencyImpl, PluginLatency};
 use clack_extensions::params::{
     HostParams, HostParamsImplMainThread, HostParamsImplShared, ParamClearFlags, ParamInfoBuffer,
@@ -127,6 +130,11 @@ pub struct Shared {
     pub rescan_requested: AtomicBool,
     /// The plugin's latency changed and it should be re-activated.
     pub latency_changed: AtomicBool,
+    /// A size the plugin's editor asked for, packed by `GuiSize`; zero
+    /// when there is none pending.
+    pub gui_resize: AtomicU64,
+    /// The plugin closed its own editor.
+    pub gui_closed: AtomicBool,
 }
 
 impl SharedHandler<'_> for Shared {
@@ -176,6 +184,29 @@ impl HostLatencyImpl for MainThreadHost<'_> {
     }
 }
 
+impl HostGuiImpl for Shared {
+    fn resize_hints_changed(&self) {}
+
+    fn request_resize(&self, new_size: GuiSize) -> Result<(), HostError> {
+        // Granted; the editor window applies it on its next tick.
+        self.gui_resize
+            .store(new_size.pack_to_u64(), Ordering::Relaxed);
+        Ok(())
+    }
+
+    fn request_show(&self) -> Result<(), HostError> {
+        Ok(())
+    }
+
+    fn request_hide(&self) -> Result<(), HostError> {
+        Ok(())
+    }
+
+    fn closed(&self, _was_destroyed: bool) {
+        self.gui_closed.store(true, Ordering::Relaxed);
+    }
+}
+
 /// The handler set for every plugin instance.
 pub struct CantinaHost;
 
@@ -185,7 +216,10 @@ impl HostHandlers for CantinaHost {
     type AudioProcessor<'a> = ();
 
     fn declare_extensions(builder: &mut HostExtensions<Self>, _shared: &Self::Shared<'_>) {
-        builder.register::<HostParams>().register::<HostLatency>();
+        builder
+            .register::<HostParams>()
+            .register::<HostLatency>()
+            .register::<HostGui>();
     }
 }
 
@@ -203,7 +237,8 @@ unsafe impl Send for ClapShared {}
 unsafe impl Sync for ClapShared {}
 
 impl ClapShared {
-    fn lock(&self) -> MutexGuard<'_, PluginInstance<CantinaHost>> {
+    /// The instance, for the editor. Never on the audio thread.
+    pub(crate) fn lock(&self) -> MutexGuard<'_, PluginInstance<CantinaHost>> {
         self.instance.lock().unwrap_or_else(|e| e.into_inner())
     }
 }
@@ -214,6 +249,7 @@ pub struct ClapProcessor {
     processor: Option<PluginAudioProcessor<CantinaHost>>,
     info: PluginInfo,
     plugin_channels: usize,
+    has_editor: bool,
     params: Vec<ParamInfo>,
     param_ids: Vec<ClapId>,
     values: Vec<f32>,
@@ -274,6 +310,7 @@ impl ClapProcessor {
 
         let plugin_channels = main_port_channels(&mut instance).unwrap_or(2);
         let (params, param_ids, values) = read_params(&mut instance);
+        let has_editor = has_cocoa_gui(&mut instance);
         let (changes, changes_out) = RingBuffer::new(CHANGE_QUEUE);
 
         Ok(Self {
@@ -284,6 +321,7 @@ impl ClapProcessor {
             processor: None,
             info,
             plugin_channels,
+            has_editor,
             params,
             param_ids,
             values,
@@ -386,6 +424,20 @@ impl ClapProcessor {
             let _ = self.changes.push((id, value));
         }
     }
+}
+
+/// Whether the plugin can embed a Cocoa editor.
+fn has_cocoa_gui(instance: &mut PluginInstance<CantinaHost>) -> bool {
+    let Some(gui) = instance.plugin_shared_handle().get_extension::<PluginGui>() else {
+        return false;
+    };
+    gui.is_api_supported(
+        &instance.plugin_handle(),
+        GuiConfiguration {
+            api_type: GuiApiType::COCOA,
+            is_floating: false,
+        },
+    )
 }
 
 fn latency_of(instance: &mut PluginInstance<CantinaHost>) -> usize {
@@ -665,6 +717,7 @@ impl Processor for ClapProcessor {
         Some(Box::new(ClapHandle {
             shared: Arc::clone(&self.shared),
             info: self.info.clone(),
+            has_editor: self.has_editor,
             params: self.params.clone(),
             param_ids: self.param_ids.clone(),
             values: self.values.clone(),
@@ -678,6 +731,7 @@ impl Processor for ClapProcessor {
 pub struct ClapHandle {
     shared: Arc<ClapShared>,
     info: PluginInfo,
+    has_editor: bool,
     params: Vec<ParamInfo>,
     param_ids: Vec<ClapId>,
     /// Values as last seen here.
@@ -772,6 +826,10 @@ impl Handle for ClapHandle {
 
     fn latency(&self) -> usize {
         latency_of(&mut self.shared.lock())
+    }
+
+    fn has_editor(&self) -> bool {
+        self.has_editor
     }
 
     fn take_changes(&mut self) -> Vec<(ParamId, f32)> {

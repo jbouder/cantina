@@ -67,6 +67,8 @@ pub fn run() {
             commands::chain_remove,
             commands::chain_move,
             commands::chain_set_param,
+            commands::editor_open,
+            commands::editor_close,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Cantina shell")
