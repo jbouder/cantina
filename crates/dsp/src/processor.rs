@@ -148,8 +148,9 @@ pub trait Processor: Send {
     fn process(&mut self, buffer: &mut Buffer);
 
     /// Opaque state for the project file. The default stores every
-    /// parameter as a little-endian `f32`.
-    fn state(&self) -> Vec<u8> {
+    /// parameter as a little-endian `f32`. Takes `&mut self` because plugin
+    /// APIs hand out state through mutable handles.
+    fn state(&mut self) -> Vec<u8> {
         (0..self.params().len())
             .flat_map(|id| self.param(id).to_le_bytes())
             .collect()

@@ -10,6 +10,11 @@ rust-version.workspace = true
 [dependencies]
 anyhow = "1.0.104"
 cantina-dsp.workspace = true
+clack-extensions = { version = "0.2", features = ["clack-host", "audio-ports", "params", "latency", "state"] }
+clack-host = "0.2"
 objc2-audio-toolbox = "0.3"
 objc2-core-audio-types = "0.3"
 objc2-core-foundation = "0.3"
+
+[dev-dependencies]
+cantina-clap-gain = { path = "../clap-fixture" }

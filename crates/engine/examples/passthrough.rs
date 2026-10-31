@@ -6,6 +6,8 @@
 //! cargo run -p cantina-engine --example passthrough -- --chain gain,overdrive,gain
 //! cargo run -p cantina-engine --example passthrough -- --list-au
 //! cargo run -p cantina-engine --example passthrough -- --chain gain,au:AUDelay
+//! cargo run -p cantina-engine --example passthrough -- --list-clap
+//! cargo run -p cantina-engine --example passthrough -- --chain clap:Surge\ XT
 //! ```
 //!
 //! While running, type `list` to see the chain and its parameters,
@@ -20,11 +22,12 @@ use cantina_dsp::{Chain, Unit, STOCK_NAMES};
 use cantina_engine::{
     device, processors, ChainProcessor, ParamChange, Stream, StreamConfig, MAX_BLOCK_FRAMES,
 };
-use cantina_hosting::au;
+use cantina_hosting::{au, clap};
 
 struct Options {
     list: bool,
     list_au: bool,
+    list_clap: bool,
     input: Option<String>,
     output: Option<String>,
     sample_rate: f64,
@@ -38,6 +41,7 @@ fn parse_args() -> Result<Options> {
     let mut opts = Options {
         list: false,
         list_au: false,
+        list_clap: false,
         input: None,
         output: None,
         sample_rate: 48_000.0,
@@ -54,6 +58,7 @@ fn parse_args() -> Result<Options> {
         match arg.as_str() {
             "--list" | "-l" => opts.list = true,
             "--list-au" => opts.list_au = true,
+            "--list-clap" => opts.list_clap = true,
             "--in" | "-i" => opts.input = Some(value("--in")?),
             "--out" | "-o" => opts.output = Some(value("--out")?),
             "--rate" | "-r" => opts.sample_rate = value("--rate")?.parse()?,
@@ -75,12 +80,13 @@ fn parse_args() -> Result<Options> {
             "--gain" | "-g" => opts.gain_db = value("--gain")?.parse()?,
             "--help" | "-h" => {
                 println!(
-                    "passthrough [--list] [--list-au] [--in NAME] [--out NAME] [--rate HZ] \
-                     [--buffer FRAMES] [--channel N] [--chain a,b,c] [--gain DB]\n\nNames match a \
-                     prefix, case-insensitively. Channel is 1-based. --gain sets every gain \
-                     processor's initial level. Chain items are stock processors ({}) or \
-                     au:<name or aufx:dely:appl>.\nDefaults: system devices, 48000 Hz, 128 frames, \
-                     channel 1, chain gain,overdrive, 0 dB.",
+                    "passthrough [--list] [--list-au] [--list-clap] [--in NAME] [--out NAME] \
+                     [--rate HZ] [--buffer FRAMES] [--channel N] [--chain a,b,c] [--gain DB]\n\n\
+                     Names match a prefix, case-insensitively. Channel is 1-based. --gain sets \
+                     every gain processor's initial level. Chain items are stock processors ({}), \
+                     au:<name or aufx:dely:appl>, or clap:<bundle name or path>[#plugin id].\n\
+                     Defaults: system devices, 48000 Hz, 128 frames, channel 1, chain \
+                     gain,overdrive, 0 dB.",
                     STOCK_NAMES.join(", ")
                 );
                 std::process::exit(0);
@@ -135,6 +141,30 @@ fn print_audio_units() {
     println!(
         "{} effect Audio Units. Use au:<name> or au:<identifier> in --chain.",
         effects.len()
+    );
+}
+
+fn print_clap_plugins() {
+    let bundles = clap::installed_bundles();
+    for bundle in &bundles {
+        println!("{}", bundle.display());
+        match clap::list_plugins(bundle) {
+            Ok(plugins) => {
+                for p in plugins {
+                    println!("    {:<40} {} ({})", p.id, p.name, p.vendor);
+                }
+            }
+            Err(e) => println!("    could not load: {e:#}"),
+        }
+    }
+    println!(
+        "{} CLAP bundles in {}. Use clap:<bundle name>[#plugin id] in --chain.",
+        bundles.len(),
+        clap::default_search_paths()
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join(" and ")
     );
 }
 
@@ -232,6 +262,10 @@ fn main() -> Result<()> {
     }
     if opts.list_au {
         print_audio_units();
+        return Ok(());
+    }
+    if opts.list_clap {
+        print_clap_plugins();
         return Ok(());
     }
 
