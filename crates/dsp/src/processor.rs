@@ -110,14 +110,36 @@ impl<'a, 'b> Buffer<'a, 'b> {
     }
 }
 
-/// Anything that sits in a pedal chain.
+/// Anything that sits in a pedal chain: stock pedals, user-designed pedals
+/// and third-party plugins all implement this, so the chain, the mixer,
+/// automation, latency compensation and the project file never ask which
+/// kind they hold.
+///
+/// # Invariants
+///
+/// - **Real-time safety.** `process`, `set_param` and `param` run on the
+///   audio thread and never allocate, lock, block or perform I/O. Every
+///   buffer `process` touches is reserved in `prepare` or the constructor.
+/// - **Smoothing.** A `set_param` call changes a target; `process` eases
+///   the audible value toward it so a step never clicks. `prepare` snaps
+///   smoothers to their targets because nothing is playing yet.
+/// - **One owner at a time.** A processor lives on the UI thread while it
+///   is being built, prepared or saved, and on the audio thread while it
+///   is in a running graph. Graph edits move it between the two; nothing
+///   touches it from both at once. Plugin wrappers rely on this: their
+///   main-thread operations (`prepare`, `state`, `set_state`) are only
+///   valid outside a running graph. See `docs/spike.md` for the decision
+///   this leaves to M4.
+/// - **Clamping.** `set_param` clamps to the parameter's range and ignores
+///   unknown ids rather than panicking.
+/// - **Failure is bypass.** A processor that cannot prepare or process
+///   leaves the buffer untouched and counts the failure; it never panics
+///   on the audio thread.
 ///
 /// # Threading
 ///
 /// `prepare`, `reset`, `state` and `set_state` run off the audio thread and
-/// may allocate. `process`, `set_param` and `param` run on the audio thread
-/// and must not allocate, lock, block or perform I/O. Parameter changes
-/// are smoothed inside `process`.
+/// may allocate. `process`, `set_param` and `param` run on the audio thread.
 pub trait Processor: Send {
     /// Display name.
     fn name(&self) -> &str;
