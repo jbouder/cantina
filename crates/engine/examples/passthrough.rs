@@ -16,7 +16,8 @@
 //! are numbered from 1 as `list` shows them. With `--click BPM` a
 //! metronome is mixed in while the transport plays, and `--play FILE`
 //! streams a WAV file from the start of the timeline: `play`, `stop`,
-//! `loop BARS` and `pos` drive the transport.
+//! `loop BARS` and `pos` drive the transport. `rec FILE` records the
+//! chain's output to a WAV while the transport plays; `rec stop` ends it.
 
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
@@ -25,7 +26,8 @@ use anyhow::{bail, Context, Result};
 use cantina_dsp::{Unit, STOCK_NAMES};
 use cantina_engine::{
     device, processors, Click, Clip, Controller, Endpoint, GraphConfig, LoopRange, NodeId, Player,
-    PlayerHandle, Runtime, Stream, StreamConfig, TempoMap, TimeSignature, MAX_BLOCK_FRAMES,
+    PlayerHandle, Recorder, RecorderHandle, Runtime, Stream, StreamConfig, TempoMap, TimeSignature,
+    MAX_BLOCK_FRAMES,
 };
 use cantina_hosting::{au, clap};
 
@@ -332,6 +334,12 @@ fn main() -> Result<()> {
             .transport_mut()
             .set_tempo_map(TempoMap::new(bpm, TimeSignature::COMMON));
     }
+    // A recorder taps the chain's output, idle until `rec FILE`.
+    let (recorder, mut recorder_handle) = Recorder::new(opts.sample_rate, 1);
+    let recorder = controller.graph_mut().add(Box::new(recorder));
+    let last = nodes.last().map_or(Endpoint::Input, |n| Endpoint::Node(*n));
+    controller.graph_mut().connect(last, recorder)?;
+    controller.commit()?;
     let layout = Layout::of(&controller, &nodes);
 
     let stream = Stream::open(
@@ -382,7 +390,10 @@ fn main() -> Result<()> {
     println!("Run measure_latency for the real number.");
     println!();
     layout.print(&controller);
-    println!("Type <processor>.<param> <value>, list, s, play, stop, loop BARS, pos, or q.");
+    println!(
+        "Type <processor>.<param> <value>, list, s, play, stop, loop BARS, pos, rec FILE, \
+         rec stop, or q."
+    );
 
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
@@ -391,12 +402,27 @@ fn main() -> Result<()> {
         match (words.next(), words.next()) {
             (None, _) => {}
             (Some("q") | Some("quit"), _) => break,
-            (Some("s") | Some("stats"), _) => {
-                print_stats(&stream, &controller, player_handle.as_ref())
-            }
+            (Some("s") | Some("stats"), _) => print_stats(
+                &stream,
+                &controller,
+                player_handle.as_ref(),
+                &recorder_handle,
+            ),
             (Some("play"), _) => {
                 controller.transport_mut().play();
             }
+            (Some("rec"), Some("stop")) => match recorder_handle.stop() {
+                Ok(()) => println!("recording stopped"),
+                Err(e) => println!("{e:#}"),
+            },
+            (Some("rec"), Some(file)) => {
+                let from = controller.transport().position();
+                match recorder_handle.start(PathBuf::from(file), from) {
+                    Ok(()) => println!("recording {file} from sample {from} while playing"),
+                    Err(e) => println!("{e:#}"),
+                }
+            }
+            (Some("rec"), None) => println!("rec FILE starts a recording, rec stop ends it"),
             (Some("stop"), _) => {
                 controller.transport_mut().stop();
             }
@@ -443,12 +469,22 @@ fn main() -> Result<()> {
         }
         io::stdout().flush()?;
     }
-    print_stats(&stream, &controller, player_handle.as_ref());
+    print_stats(
+        &stream,
+        &controller,
+        player_handle.as_ref(),
+        &recorder_handle,
+    );
     stream.close();
     Ok(())
 }
 
-fn print_stats(stream: &Stream, controller: &Controller, player: Option<&PlayerHandle>) {
+fn print_stats(
+    stream: &Stream,
+    controller: &Controller,
+    player: Option<&PlayerHandle>,
+    recorder: &RecorderHandle,
+) {
     use std::sync::atomic::Ordering::Relaxed;
     let s = stream.stats();
     println!(
@@ -478,6 +514,25 @@ fn print_stats(stream: &Stream, controller: &Controller, player: Option<&PlayerH
             p.seeks.load(Relaxed),
             p.stale_chunks.load(Relaxed),
             p.read_errors.load(Relaxed),
+        );
+    }
+    let r = recorder.stats();
+    if r.captured_frames.load(Relaxed) > 0 || recorder.is_armed() {
+        println!(
+            "recorder {}, started at {}, captured frames {}, overrun frames {}, written frames {}, files closed {}, write errors {}",
+            if r.recording.load(Relaxed) {
+                "recording"
+            } else if recorder.is_armed() {
+                "armed"
+            } else {
+                "idle"
+            },
+            r.started_at.load(Relaxed),
+            r.captured_frames.load(Relaxed),
+            r.overrun_frames.load(Relaxed),
+            r.written_frames.load(Relaxed),
+            r.files_closed.load(Relaxed),
+            r.write_errors.load(Relaxed),
         );
     }
 }
