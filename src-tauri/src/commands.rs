@@ -319,6 +319,19 @@ pub fn chain_set_param(
         .map_err(fail)
 }
 
+// ----- editor windows -----
+
+/// Opens a plugin's native editor window, or brings it to the front.
+#[tauri::command]
+pub fn editor_open(engine: State<'_, EngineState>, id: u64) -> EngineStatus {
+    engine.lock().editor_open(id)
+}
+
+#[tauri::command]
+pub fn editor_close(engine: State<'_, EngineState>, id: u64) -> EngineStatus {
+    engine.lock().editor_close(id)
+}
+
 /// Prints a line from the UI on the shell's stderr, so errors in the web
 /// view show up in the terminal that launched the app.
 #[tauri::command]

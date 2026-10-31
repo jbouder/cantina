@@ -1,5 +1,6 @@
 //! What the shell remembers between launches.
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
@@ -34,6 +35,9 @@ pub struct Settings {
     pub audio: AudioSettings,
     /// Name of the project to open on launch: the one open at quit.
     pub last_project: Option<String>,
+    /// Where each plugin's editor window was last, by spec, as the
+    /// bottom-left corner in screen points.
+    pub editor_positions: HashMap<String, (f64, f64)>,
 }
 
 impl Settings {

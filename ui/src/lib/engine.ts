@@ -142,6 +142,9 @@ export interface PedalInfo {
   spec: string;
   name: string;
   params: ParamInfo[];
+  /** Whether the plugin can open its own editor window. */
+  hasEditor: boolean;
+  editorOpen: boolean;
 }
 
 export interface ParamInfo {
@@ -255,23 +258,44 @@ const MOCK_RATE = 48000;
 const MOCK_SCANNED_AT = Math.floor(Date.now() / 1000) - 600;
 
 function mockPedal(id: number, spec: string): PedalInfo {
-  return spec === "overdrive"
-    ? {
-        id,
-        spec,
-        name: "Overdrive",
-        params: [
-          { name: "Drive", unit: "dB", min: 0, max: 40, default: 20, value: 20 },
-          { name: "Tone", unit: "Hz", min: 500, max: 8000, default: 3000, value: 3000 },
-          { name: "Level", unit: "dB", min: -24, max: 6, default: -6, value: -6 },
-        ],
-      }
-    : {
-        id,
-        spec: "gain",
-        name: "Gain",
-        params: [{ name: "Gain", unit: "dB", min: -60, max: 24, default: 0, value: 0 }],
-      };
+  if (spec === "overdrive") {
+    return {
+      id,
+      spec,
+      name: "Overdrive",
+      params: [
+        { name: "Drive", unit: "dB", min: 0, max: 40, default: 20, value: 20 },
+        { name: "Tone", unit: "Hz", min: 500, max: 8000, default: 3000, value: 3000 },
+        { name: "Level", unit: "dB", min: -24, max: 6, default: -6, value: -6 },
+      ],
+      hasEditor: false,
+      editorOpen: false,
+    };
+  }
+  if (spec.startsWith("au:")) {
+    // Apple's AUDelay, as the shell describes it.
+    return {
+      id,
+      spec,
+      name: "AUDelay",
+      params: [
+        { name: "Dry/Wet Mix", unit: "%", min: 0, max: 100, default: 50, value: 35 },
+        { name: "Delay Time", unit: "s", min: 0, max: 2, default: 1, value: 0.375 },
+        { name: "Feedback", unit: "%", min: -100, max: 100, default: 50, value: 40 },
+        { name: "Lowpass Cutoff", unit: "Hz", min: 10, max: 22050, default: 15000, value: 6500 },
+      ],
+      hasEditor: true,
+      editorOpen: mockParams?.has("editor") ?? false,
+    };
+  }
+  return {
+    id,
+    spec: "gain",
+    name: "Gain",
+    params: [{ name: "Gain", unit: "dB", min: -60, max: 24, default: 0, value: 0 }],
+    hasEditor: false,
+    editorOpen: false,
+  };
 }
 
 function mockClip(id: number, name: string, startSeconds: number, seconds: number): ClipInfo {
@@ -321,7 +345,9 @@ const mock: EngineStatus = {
         name: "Guitar",
         armed: mockParams?.has("armed") ?? false,
         recording: mockParams?.has("recording") ?? false,
-        chain: [mockPedal(2, "gain"), mockPedal(3, "overdrive")],
+        chain: mockParams?.has("plugin")
+          ? [mockPedal(2, "gain"), mockPedal(3, "overdrive"), mockPedal(9, "au:aufx:dely:appl")]
+          : [mockPedal(2, "gain"), mockPedal(3, "overdrive")],
         clips: mockParams?.has("take")
           ? [mockClip(4, "Guitar 1", 0, 12.4), mockClip(5, "Guitar 2", 16, 6.1)]
           : [],
@@ -825,6 +851,29 @@ export async function chainAdd(track: number, spec: string, index?: number): Pro
   const chain = mockTrack(track).chain;
   chain.splice(index ?? chain.length, 0, mockPedal(mockNextId++, spec));
   return mockEdit();
+}
+
+function mockPedalById(id: number): PedalInfo | undefined {
+  for (const t of mock.project.tracks) {
+    const p = t.chain.find((p) => p.id === id);
+    if (p) return p;
+  }
+  return undefined;
+}
+
+/** Opens a plugin's native editor window, or brings it to the front. */
+export async function editorOpen(id: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("editor_open", { id });
+  const p = mockPedalById(id);
+  if (p) p.editorOpen = p.hasEditor;
+  return mockStatus();
+}
+
+export async function editorClose(id: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("editor_close", { id });
+  const p = mockPedalById(id);
+  if (p) p.editorOpen = false;
+  return mockStatus();
 }
 
 export async function chainRemove(id: number): Promise<EngineStatus> {
