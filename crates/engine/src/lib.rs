@@ -8,7 +8,8 @@
 //! macOS only, by design. See `PLAN.md` for why.
 
 pub mod device;
+pub mod latency;
 pub mod stream;
 
 pub use device::{DeviceId, DeviceInfo};
-pub use stream::{Stats, Stream, StreamConfig, StreamInfo};
+pub use stream::{BlockProcessor, Stats, Stream, StreamConfig, StreamInfo, MAX_BLOCK_FRAMES};

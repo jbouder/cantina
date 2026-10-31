@@ -44,9 +44,21 @@ clocks, so one block of input is held back and drift shows up in the
 counters. Turn the gain down before using the built-in microphone and
 speakers together, or it will feed back.
 
+## Measure round-trip latency
+
+Connect an output of your interface to an input with a cable, then:
+
+```sh
+cargo run --release -p cantina-engine --example measure_latency -- --in Scarlett --out Scarlett --buffer 64
+```
+
+It plays clicks, times their return and prints a row for
+[docs/latency.md](docs/latency.md).
+
 ## Layout
 
 ```
 crates/dsp      pure processing, no I/O, no allocation on the audio path
-crates/engine   CoreAudio devices and streams; later the graph runtime
+crates/engine   CoreAudio devices and streams, latency measurement; later the graph runtime
+docs/           design notes and measurements; the Astro site lands here
 ```
