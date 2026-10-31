@@ -4,7 +4,9 @@ import { Lcd } from "./components/Lcd";
 import { Led } from "./components/Led";
 import { Meter } from "./components/Meter";
 import { Notice } from "./components/Notice";
+import { PedalChain } from "./components/PedalChain";
 import { Settings } from "./components/Settings";
+import { Transport } from "./components/Transport";
 import { Window } from "./components/Window";
 import {
   dismissNotice,
@@ -19,11 +21,19 @@ import {
   SILENT,
 } from "./lib/engine";
 
+const IDLE: MeterFrame = {
+  input: SILENT,
+  output: SILENT,
+  position: 0,
+  playing: false,
+  recording: false,
+};
+
 export function App() {
   const [status, setStatus] = useState<EngineStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [meters, setMeters] = useState<MeterFrame>({ input: SILENT, output: SILENT });
+  const [frame, setFrame] = useState<MeterFrame>(IDLE);
   // In a browser `?settings` opens the sheet, so screenshots can show it.
   const [settingsOpen, setSettingsOpen] = useState(
     () => !inTauri && new URLSearchParams(window.location.search).has("settings"),
@@ -33,7 +43,7 @@ export function App() {
   useEffect(() => {
     engineStatus().then(setStatus, (e) => setError(String(e)));
     const stopStatus = onStatus(setStatus);
-    const stopMeters = onMeters(setMeters);
+    const stopMeters = onMeters(setFrame);
     return () => {
       stopStatus();
       stopMeters();
@@ -59,6 +69,10 @@ export function App() {
 
   const running = status?.running ?? false;
   const problem = error ?? status?.error ?? null;
+  // The transport flags in the frame are fresher than the last status push.
+  const track = status
+    ? { ...status.track, playing: frame.playing, recording: frame.recording }
+    : null;
 
   return (
     <Window
@@ -77,55 +91,69 @@ export function App() {
         </Button>
       }
     >
-      <main className="flex flex-1 flex-col items-center gap-4 p-6">
-        {status?.notice ? (
-          <div className="w-full max-w-xl">
-            <Notice message={status.notice} onDismiss={dismiss} />
-          </div>
-        ) : null}
+      <main className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto p-4">
+        {status?.notice ? <Notice message={status.notice} onDismiss={dismiss} /> : null}
+
         <section
           aria-labelledby="engine-title"
-          className="grid w-full max-w-xl flex-1 content-center gap-3"
+          className="grid gap-2 md:grid-cols-[auto_1fr_auto] md:items-center"
         >
-          <header className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
             <h2 id="engine-title" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
               Engine
             </h2>
             <Led on={running} label="Engine" />
-          </header>
-
-          <Lcd aria-live="polite">
-            {status === null
-              ? "..."
-              : running
-                ? `${status.inputName ?? "?"} → ${status.outputName ?? "?"} · ${status.sampleRate / 1000} kHz · ${status.bufferFrames} frames`
-                : "engine stopped"}
-          </Lcd>
-
-          <div className="grid gap-2">
-            <Meter label="In" level={meters.input} />
-            <Meter label="Out" level={meters.output} />
           </div>
-
+          <div className="grid gap-1">
+            <Lcd aria-live="polite" className="text-base">
+              {status === null
+                ? "..."
+                : running
+                  ? `${status.inputName ?? "?"} → ${status.outputName ?? "?"} · ${status.sampleRate / 1000} kHz · ${status.bufferFrames} frames`
+                  : "engine stopped"}
+            </Lcd>
+            <Meter label="In" level={frame.input} />
+            <Meter label="Out" level={frame.output} />
+          </div>
           <div className="flex items-center gap-2">
             <Button
               variant="transport"
               onClick={toggle}
               disabled={status === null || busy}
               aria-pressed={running}
-              className="flex-1"
             >
               {busy ? "…" : running ? "Stop engine" : "Start engine"}
             </Button>
             <Button onClick={() => setSettingsOpen(true)}>Devices…</Button>
           </div>
-
-          {problem ? (
-            <Lcd role="alert" error>
-              {problem}
-            </Lcd>
-          ) : null}
         </section>
+
+        {problem ? (
+          <Lcd role="alert" error>
+            {problem}
+          </Lcd>
+        ) : null}
+
+        {status && track ? (
+          <section aria-labelledby="track-title" className="grid gap-3">
+            <h2 id="track-title" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+              Track 1
+            </h2>
+            <Transport
+              track={track}
+              running={running}
+              position={frame.position}
+              onStatus={setStatus}
+              onError={setError}
+            />
+            <PedalChain
+              chain={status.chain}
+              kinds={status.pedalKinds}
+              onStatus={setStatus}
+              onError={setError}
+            />
+          </section>
+        ) : null}
       </main>
       {settingsOpen ? <Settings onClose={closeSettings} onStatusChange={setStatus} /> : null}
     </Window>

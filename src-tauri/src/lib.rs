@@ -29,6 +29,14 @@ pub fn run() {
             commands::audio_settings,
             commands::set_audio_settings,
             commands::subscribe_meters,
+            commands::track_arm,
+            commands::track_record,
+            commands::track_play,
+            commands::track_stop,
+            commands::chain_add,
+            commands::chain_remove,
+            commands::chain_move,
+            commands::chain_set_param,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Cantina shell")
