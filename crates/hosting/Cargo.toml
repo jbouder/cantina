@@ -1,0 +1,15 @@
+[package]
+name = "cantina-hosting"
+description = "Third-party plugin hosting for Cantina: Audio Units and CLAP as Processors"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow = "1.0.104"
+cantina-dsp.workspace = true
+objc2-audio-toolbox = "0.3"
+objc2-core-audio-types = "0.3"
+objc2-core-foundation = "0.3"

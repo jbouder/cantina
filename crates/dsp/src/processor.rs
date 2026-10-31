@@ -1,5 +1,6 @@
 //! The abstraction every pedal shares.
 
+use std::borrow::Cow;
 use std::fmt;
 
 /// Most channels a stock processor allocates state for. Plugins may have
@@ -23,7 +24,9 @@ pub enum Unit {
 /// mapping to a knob position is the UI's job.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParamInfo {
-    pub name: &'static str,
+    /// Borrowed for stock processors, owned for plugins that report theirs
+    /// at load time.
+    pub name: Cow<'static, str>,
     pub unit: Unit,
     pub min: f32,
     pub max: f32,
@@ -33,7 +36,7 @@ pub struct ParamInfo {
 impl ParamInfo {
     pub const fn new(name: &'static str, unit: Unit, min: f32, max: f32, default: f32) -> Self {
         Self {
-            name,
+            name: Cow::Borrowed(name),
             unit,
             min,
             max,

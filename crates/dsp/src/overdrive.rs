@@ -3,7 +3,7 @@ use crate::db_to_linear;
 use crate::processor::{Buffer, ParamId, ParamInfo, Processor, Unit, MAX_CHANNELS};
 use crate::smooth::Smoother;
 
-const PARAMS: [ParamInfo; 3] = [
+static PARAMS: [ParamInfo; 3] = [
     ParamInfo::new("Drive", Unit::Decibels, 0.0, 40.0, 20.0),
     ParamInfo::new("Tone", Unit::Hertz, 500.0, 8000.0, 3000.0),
     ParamInfo::new("Level", Unit::Decibels, -24.0, 6.0, -6.0),

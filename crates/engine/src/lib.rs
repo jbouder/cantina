@@ -10,6 +10,7 @@
 pub mod chain;
 pub mod device;
 pub mod latency;
+pub mod processors;
 pub mod stream;
 
 pub use chain::{ChainProcessor, ParamChange};
