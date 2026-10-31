@@ -14,16 +14,18 @@
 //! `<processor>.<param> <value>` to change one (for example `2.drive 30`
 //! or `2.1 30`), `s` for counters, `q` to quit. Processors and parameters
 //! are numbered from 1 as `list` shows them. With `--click BPM` a
-//! metronome is mixed in while the transport plays: `play`, `stop`,
-//! `loop BARS` and `pos` drive it.
+//! metronome is mixed in while the transport plays, and `--play FILE`
+//! streams a WAV file from the start of the timeline: `play`, `stop`,
+//! `loop BARS` and `pos` drive the transport.
 
 use std::io::{self, BufRead, Write};
+use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use cantina_dsp::{Unit, STOCK_NAMES};
 use cantina_engine::{
-    device, processors, Click, Controller, Endpoint, GraphConfig, LoopRange, NodeId, Runtime,
-    Stream, StreamConfig, TempoMap, TimeSignature, MAX_BLOCK_FRAMES,
+    device, processors, Click, Clip, Controller, Endpoint, GraphConfig, LoopRange, NodeId, Player,
+    PlayerHandle, Runtime, Stream, StreamConfig, TempoMap, TimeSignature, MAX_BLOCK_FRAMES,
 };
 use cantina_hosting::{au, clap};
 
@@ -39,6 +41,7 @@ struct Options {
     chain: Vec<String>,
     gain_db: f32,
     click_bpm: Option<f64>,
+    play: Option<String>,
 }
 
 fn parse_args() -> Result<Options> {
@@ -54,6 +57,7 @@ fn parse_args() -> Result<Options> {
         chain: vec!["gain".into(), "overdrive".into()],
         gain_db: 0.0,
         click_bpm: None,
+        play: None,
     };
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -84,16 +88,18 @@ fn parse_args() -> Result<Options> {
             }
             "--gain" | "-g" => opts.gain_db = value("--gain")?.parse()?,
             "--click" => opts.click_bpm = Some(value("--click")?.parse()?),
+            "--play" => opts.play = Some(value("--play")?),
             "--help" | "-h" => {
                 println!(
                     "passthrough [--list] [--list-au] [--list-clap] [--in NAME] [--out NAME] \
                      [--rate HZ] [--buffer FRAMES] [--channel N] [--chain a,b,c] [--gain DB] \
-                     [--click BPM]\n\n\
+                     [--click BPM] [--play FILE]\n\n\
                      Names match a prefix, case-insensitively. Channel is 1-based. --gain sets \
                      every gain processor's initial level. Chain items are stock processors ({}), \
                      au:<name or aufx:dely:appl>, or clap:<bundle name or path>[#plugin id].\n\
                      --click adds a metronome at BPM in 4/4 that plays while the transport \
-                     runs.\n\
+                     runs. --play streams a mono WAV at the stream rate from the start of the \
+                     timeline through the chain.\n\
                      Defaults: system devices, 48000 Hz, 128 frames, channel 1, chain \
                      gain,overdrive, 0 dB.",
                     STOCK_NAMES.join(", ")
@@ -295,6 +301,29 @@ fn main() -> Result<()> {
         channels: 1,
     })?;
     let nodes = build_chain(&mut controller, &opts.chain, opts.gain_db)?;
+    let mut player_handle = None;
+    if let Some(file) = &opts.play {
+        let (player, mut handle) = Player::new(opts.sample_rate, 1);
+        let info = cantina_engine::wav::info(Path::new(file))?;
+        handle.set_clips(vec![Clip {
+            path: PathBuf::from(file),
+            start: 0,
+            offset: 0,
+            length: info.frames,
+        }])?;
+        let player = controller.graph_mut().add(Box::new(player));
+        // The file joins the input at the head of the chain.
+        let first = nodes
+            .first()
+            .map_or(Endpoint::Output, |n| Endpoint::Node(*n));
+        controller.graph_mut().connect(player, first)?;
+        controller.commit()?;
+        println!(
+            "playing {file}: {} frames, {} channels, {} Hz",
+            info.frames, info.channels, info.sample_rate
+        );
+        player_handle = Some(handle);
+    }
     if let Some(bpm) = opts.click_bpm {
         let click = controller.graph_mut().add(Box::new(Click::default()));
         controller.graph_mut().connect(click, Endpoint::Output)?;
@@ -362,7 +391,9 @@ fn main() -> Result<()> {
         match (words.next(), words.next()) {
             (None, _) => {}
             (Some("q") | Some("quit"), _) => break,
-            (Some("s") | Some("stats"), _) => print_stats(&stream, &controller),
+            (Some("s") | Some("stats"), _) => {
+                print_stats(&stream, &controller, player_handle.as_ref())
+            }
             (Some("play"), _) => {
                 controller.transport_mut().play();
             }
@@ -412,12 +443,12 @@ fn main() -> Result<()> {
         }
         io::stdout().flush()?;
     }
-    print_stats(&stream, &controller);
+    print_stats(&stream, &controller, player_handle.as_ref());
     stream.close();
     Ok(())
 }
 
-fn print_stats(stream: &Stream, controller: &Controller) {
+fn print_stats(stream: &Stream, controller: &Controller, player: Option<&PlayerHandle>) {
     use std::sync::atomic::Ordering::Relaxed;
     let s = stream.stats();
     println!(
@@ -437,4 +468,16 @@ fn print_stats(stream: &Stream, controller: &Controller) {
         r.busy_nodes.load(Relaxed),
         r.params_dropped.load(Relaxed),
     );
+    if let Some(p) = player {
+        let p = p.stats();
+        println!(
+            "player chunks {}, ready frames {}, underrun frames {}, seeks {}, stale chunks {}, read errors {}",
+            p.chunks.load(Relaxed),
+            p.ready_frames.load(Relaxed),
+            p.underrun_frames.load(Relaxed),
+            p.seeks.load(Relaxed),
+            p.stale_chunks.load(Relaxed),
+            p.read_errors.load(Relaxed),
+        );
+    }
 }
