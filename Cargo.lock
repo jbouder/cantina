@@ -305,6 +305,8 @@ name = "cantina-dsp"
 version = "0.0.1"
 dependencies = [
  "hound",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

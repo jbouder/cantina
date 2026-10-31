@@ -12,6 +12,7 @@ pub mod click;
 pub mod delay;
 pub mod device;
 pub mod graph;
+pub mod kit;
 pub mod latency;
 pub mod meter;
 pub mod mute;
@@ -31,6 +32,7 @@ pub use device::{DeviceEvent, DeviceId, DeviceInfo, Watcher};
 pub use graph::{
     BlockContext, Endpoint, Graph, GraphConfig, GraphError, Node, NodeId, NodeInfo, ProcessorNode,
 };
+pub use kit::KitEntry;
 pub use meter::{Level, Meter, MeterHandle};
 pub use mute::Mute;
 pub use player::{Clip, Player, PlayerHandle, PlayerStats};
