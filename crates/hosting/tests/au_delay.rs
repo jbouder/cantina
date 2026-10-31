@@ -2,7 +2,7 @@
 //! like a Processor: parameters, latency, and audio that comes out delayed.
 
 use cantina_dsp::{Buffer, Processor};
-use cantina_hosting::au::{self, AudioUnitProcessor};
+use cantina_hosting::au::{self, AudioUnitHandle, AudioUnitProcessor};
 
 fn param_named(p: &dyn Processor, needle: &str) -> usize {
     p.params()
@@ -94,8 +94,59 @@ fn stereo_configuration_and_state_round_trip() {
     let time = param_named(&a, "delay time");
     a.set_param(time, 0.25);
     let blob = a.state();
+    assert!(blob.starts_with(b"bplist"), "state is the ClassInfo plist");
 
     let mut b = AudioUnitProcessor::new(info, 2).unwrap();
     b.set_state(&blob).unwrap();
     assert!((b.param(time) - 0.25).abs() < 1e-6);
+    assert!(b.set_state(b"not a plist").is_err());
+}
+
+#[test]
+fn the_handle_saves_state_and_sees_changes_while_the_processor_runs() {
+    let info = au::find("aufx:dely:appl").unwrap();
+    let mut processor = AudioUnitProcessor::new(info.clone(), 2).unwrap();
+    let time = param_named(&processor, "delay time");
+    let wet = param_named(&processor, "mix");
+    processor.set_param(time, 0.3);
+    let mut handle = processor.handle().expect("a plugin has a handle");
+    assert!(processor.handle().is_none(), "the handle is taken once");
+    processor.prepare(48_000.0, 256);
+
+    // The handle is the same instance: it sees what the processor set,
+    // reports nothing new until something changes, and sees the change
+    // the "editor" (here, the processor side) makes.
+    assert!(handle.take_changes().is_empty());
+    processor.set_param(wet, 42.0);
+    let changes = handle.take_changes();
+    assert_eq!(changes.len(), 1, "{changes:?}");
+    assert_eq!(changes[0].0, wet);
+    assert!((changes[0].1 - 42.0).abs() < 1e-5);
+    assert!(handle.take_changes().is_empty());
+    assert_eq!(handle.latency(), processor.latency());
+
+    // State through the handle, while the processor is prepared and
+    // rendering, restores into a fresh instance.
+    let mut signal = vec![0.0f32; 512];
+    let mut channels = [&mut signal[..]];
+    processor.process(&mut Buffer::new(&mut channels));
+    let blob = handle.state();
+    assert!(blob.starts_with(b"bplist"));
+    let mut fresh = AudioUnitProcessor::new(info, 2).unwrap();
+    let mut fresh_handle = fresh.handle().unwrap();
+    fresh_handle.set_state(&blob).unwrap();
+    assert!((fresh.param(time) - 0.3).abs() < 1e-6);
+    assert!((fresh.param(wet) - 42.0).abs() < 1e-5);
+    let au: &AudioUnitHandle = fresh_handle
+        .as_any()
+        .downcast_ref::<AudioUnitHandle>()
+        .expect("the handle is an AudioUnitHandle");
+    assert_eq!(au.name(), "AUDelay");
+    assert!((au.param(wet) - 42.0).abs() < 1e-5);
+
+    // Dropping the processor first leaves the handle usable; the
+    // instance goes when both are gone.
+    drop(processor);
+    assert!(!handle.state().is_empty());
+    drop(handle);
 }

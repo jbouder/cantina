@@ -1,4 +1,4 @@
-import { type DragEvent, useCallback, useRef, useState } from "react";
+import { type DragEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   chainAdd,
   chainMove,
@@ -132,8 +132,12 @@ function PedalCard({
   onError,
 }: CardProps) {
   // Knob values live here between status pushes, since set_param is
-  // not echoed back.
+  // not echoed back. A push does carry them, and may bring values a
+  // plugin changed on its own (its editor, a preset), so it wins.
   const [values, setValues] = useState(() => pedal.params.map((p) => p.value));
+  useEffect(() => {
+    setValues(pedal.params.map((p) => p.value));
+  }, [pedal.params]);
   const pending = useRef<Map<number, number>>(new Map());
   const scheduled = useRef(false);
 

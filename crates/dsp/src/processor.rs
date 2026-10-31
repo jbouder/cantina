@@ -1,5 +1,6 @@
 //! The abstraction every pedal shares.
 
+use std::any::Any;
 use std::borrow::Cow;
 use std::fmt;
 
@@ -128,8 +129,8 @@ impl<'a, 'b> Buffer<'a, 'b> {
 ///   is in a running graph. Graph edits move it between the two; nothing
 ///   touches it from both at once. Plugin wrappers rely on this: their
 ///   main-thread operations (`prepare`, `state`, `set_state`) are only
-///   valid outside a running graph. See `docs/spike.md` for the decision
-///   this leaves to M4.
+///   valid outside a running graph. What the UI thread needs from a
+///   plugin *while* it runs goes through its [`Handle`] instead.
 /// - **Clamping.** `set_param` clamps to the parameter's range and ignores
 ///   unknown ids rather than panicking.
 /// - **Failure is bypass.** A processor that cannot prepare or process
@@ -196,6 +197,44 @@ pub trait Processor: Send {
         }
         Ok(())
     }
+
+    /// The UI-thread side of this processor, for what the UI needs while
+    /// the processor itself is on the audio thread. Stock pedals have no
+    /// such side: everything about them is in their parameters, which
+    /// the engine already tracks. Plugins return one. Taken once, before
+    /// the processor goes into a graph.
+    fn handle(&mut self) -> Option<Box<dyn Handle>> {
+        None
+    }
+}
+
+/// The UI-thread side of a plugin whose audio side is in a running
+/// graph. Plugin APIs split a plugin into a main-thread half and an
+/// audio-thread half, and the host is expected to use both at once:
+/// saving state, reading parameters and showing an editor happen on the
+/// main thread while the audio thread processes. The handle is that main
+/// half, so the engine never has to pull a processor out of the graph to
+/// ask it something. Nothing here is called on the audio thread.
+pub trait Handle: Send {
+    /// Opaque state for the project file, as [`Processor::state`].
+    fn state(&mut self) -> Vec<u8>;
+
+    /// Restores state while the processor runs.
+    fn set_state(&mut self, state: &[u8]) -> Result<(), StateError>;
+
+    /// Samples of delay the processor adds now, which can change after
+    /// it was prepared.
+    fn latency(&self) -> usize;
+
+    /// Parameters the plugin changed on its own since the last call: an
+    /// editor, a preset loaded inside it. The engine records these as
+    /// edits so the generic UI and undo follow. Values set through
+    /// [`Processor::set_param`] are reported too when the plugin reports
+    /// them; the engine ignores the ones it already knows.
+    fn take_changes(&mut self) -> Vec<(ParamId, f32)>;
+
+    /// For the shell to reach a format's own features, such as its editor.
+    fn as_any(&mut self) -> &mut dyn Any;
 }
 
 /// An ordered list of processors run back to back, in place.

@@ -63,7 +63,8 @@ And one thing did not change, but should be decided before M4:
    audio-thread processor, or have the engine keep the main-thread half on
    the UI thread and talk to the audio half through queues. The second is
    closer to how the engine already moves parameters and is the
-   recommendation.
+   recommendation. *M4 took it: see "the handle" in
+   [hosting.md](hosting.md).*
 
 Other findings:
 
