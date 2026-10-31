@@ -3,8 +3,8 @@
 
 mod common;
 
-use cantina_dsp::{Buffer, Processor};
-use cantina_hosting::clap::{self, ClapProcessor};
+use cantina_dsp::{Buffer, Processor, Unit};
+use cantina_hosting::clap::{self, ClapHandle, ClapProcessor};
 use common::fixture_path;
 
 fn param_named(p: &dyn Processor, name: &str) -> usize {
@@ -81,4 +81,77 @@ fn parameter_changes_while_running_and_state_round_trip() {
     b.set_state(&blob).unwrap();
     assert!((b.param(gain) + 20.0).abs() < 1e-5);
     assert_eq!(b.param(delay), 0.0);
+}
+
+#[test]
+fn units_come_from_the_plugin_formatting_its_values() {
+    let plugin = ClapProcessor::load(&fixture_path(), None, 2).unwrap();
+    let gain = param_named(&plugin, "Gain");
+    let delay = param_named(&plugin, "Delay");
+    assert_eq!(plugin.params()[gain].unit, Unit::Decibels, "\"0.0 dB\"");
+    assert_eq!(
+        plugin.params()[delay].unit,
+        Unit::Generic,
+        "\"7 samples\" is no unit and the name says nothing"
+    );
+}
+
+#[test]
+fn the_handle_saves_state_while_active_and_hears_the_plugin_report_changes() {
+    let path = fixture_path();
+    let mut processor = ClapProcessor::load(&path, None, 2).unwrap();
+    let gain = param_named(&processor, "Gain");
+    let delay = param_named(&processor, "Delay");
+    let mut handle = processor.handle().expect("a plugin has a handle");
+    assert!(processor.handle().is_none(), "the handle is taken once");
+    processor.set_param(delay, 3.0);
+    processor.prepare(48_000.0, 64);
+    assert_eq!(processor.latency(), 3);
+    assert_eq!(handle.latency(), 3, "the handle reads it live");
+    assert!(handle.take_changes().is_empty());
+
+    // A change sent to the running plugin is echoed by the fixture as an
+    // output event, which the handle collects on the UI thread.
+    processor.set_param(gain, -12.0);
+    let mut left = vec![1.0f32; 64];
+    let mut right = vec![1.0f32; 64];
+    {
+        let mut channels = [&mut left[..], &mut right[..]];
+        processor.process(&mut Buffer::new(&mut channels));
+    }
+    let changes = handle.take_changes();
+    assert_eq!(changes, vec![(gain, -12.0)]);
+    assert!(handle.take_changes().is_empty());
+    let clap: &ClapHandle = handle
+        .as_any()
+        .downcast_ref::<ClapHandle>()
+        .expect("the handle is a ClapHandle");
+    assert_eq!(clap.param(gain), -12.0);
+    assert!(!clap.latency_changed());
+
+    // State through the handle while the plugin is active, into a fresh
+    // instance; the processor's own state agrees.
+    let blob = handle.state();
+    assert_eq!(blob.len(), 8);
+    assert_eq!(processor.state(), blob);
+    let mut fresh = ClapProcessor::load(&path, None, 2).unwrap();
+    let mut fresh_handle = fresh.handle().unwrap();
+    fresh_handle.set_state(&blob).unwrap();
+    assert_eq!(fresh.param(gain), 0.0, "the processor's cache is its own");
+    assert_eq!(
+        fresh_handle
+            .as_any()
+            .downcast_ref::<ClapHandle>()
+            .unwrap()
+            .param(gain),
+        -12.0
+    );
+    fresh.set_state(&blob).unwrap();
+    assert_eq!(fresh.param(gain), -12.0);
+    assert_eq!(fresh.param(delay), 3.0);
+    assert!(fresh_handle.set_state(&blob[..3]).is_err());
+
+    // The processor can go first; the handle keeps the instance alive.
+    drop(processor);
+    assert_eq!(handle.state(), blob);
 }

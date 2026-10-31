@@ -3,29 +3,44 @@
 //! # Threading
 //!
 //! CLAP splits a plugin into a main-thread half and an audio-thread half,
-//! and clack enforces that with types. Cantina's [`Processor`] is one
-//! object that moves wholesale between the UI thread and the audio thread,
-//! so this wrapper is `Send` on the promise that main-thread operations
-//! (`prepare`, `state`, `set_state`, parameter info) only run while the
-//! processor is not installed in a running graph. Parameter changes on the
-//! audio thread are delivered as CLAP events at the next `process`, which
-//! is the sanctioned real-time path.
+//! and clack enforces that with types. The audio half, clack's
+//! `PluginAudioProcessor`, lives in [`ClapProcessor`] and moves with it
+//! between the UI thread and the audio thread as the graph swaps. The
+//! main half, clack's `PluginInstance`, lives behind a mutex in
+//! [`ClapShared`], which the processor and its [`ClapHandle`] both hold.
+//! The processor locks it only in `prepare`, `reset` and `drop`, which run
+//! off the audio thread; the handle locks it for state, latency and
+//! parameter flushes. Nothing locks it on the audio thread.
+//!
+//! Parameter changes from the UI are delivered as CLAP events at the next
+//! `process`, which is the sanctioned real-time path. Changes the plugin
+//! makes on its own come back as output events from `process` and cross
+//! to the handle over a lock-free ring, or, while the plugin is inactive,
+//! through a main-thread flush when the plugin asks for one.
 
+use std::any::Any;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use anyhow::{anyhow, bail, Context, Result};
-use cantina_dsp::{Buffer, ParamId, ParamInfo, Processor, StateError, Unit};
+use cantina_dsp::{Buffer, Handle, ParamId, ParamInfo, Processor, StateError, Unit};
 use clack_extensions::audio_ports::{AudioPortInfoBuffer, PluginAudioPorts};
-use clack_extensions::latency::PluginLatency;
-use clack_extensions::params::{ParamInfoBuffer, PluginParams};
+use clack_extensions::latency::{HostLatency, HostLatencyImpl, PluginLatency};
+use clack_extensions::params::{
+    HostParams, HostParamsImplMainThread, HostParamsImplShared, ParamClearFlags, ParamInfoBuffer,
+    ParamRescanFlags, PluginParams,
+};
 use clack_extensions::state::PluginState;
 use clack_host::events::event_types::ParamValueEvent;
 use clack_host::prelude::*;
+use rtrb::{Consumer, Producer, RingBuffer};
 
 /// How many parameter changes can wait between two `process` calls.
 const PENDING_EVENTS: usize = 256;
+/// How many changes the plugin made can wait for the handle to collect.
+const CHANGE_QUEUE: usize = 256;
 
 /// Where macOS keeps CLAP bundles.
 pub fn default_search_paths() -> Vec<PathBuf> {
@@ -71,7 +86,7 @@ pub fn list_plugins(path: &Path) -> Result<Vec<PluginInfo>> {
 
 fn load_entry(path: &Path) -> Result<PluginEntry> {
     // SAFETY: loading a plugin library runs its code. That is the deal with
-    // in-process hosting; scanning out of process is M4.
+    // in-process hosting; the scanner does it in a child process first.
     unsafe { PluginEntry::load(path) }
         .map_err(|e| anyhow!("{e}"))
         .with_context(|| format!("loading CLAP bundle {}", path.display()))
@@ -106,6 +121,12 @@ pub struct Shared {
     pub restart_requested: AtomicBool,
     pub process_requested: AtomicBool,
     pub callback_requested: AtomicBool,
+    /// The plugin wants a parameter flush while inactive.
+    pub flush_requested: AtomicBool,
+    /// The plugin's parameter list changed.
+    pub rescan_requested: AtomicBool,
+    /// The plugin's latency changed and it should be re-activated.
+    pub latency_changed: AtomicBool,
 }
 
 impl SharedHandler<'_> for Shared {
@@ -122,21 +143,75 @@ impl SharedHandler<'_> for Shared {
     }
 }
 
+impl HostParamsImplShared for Shared {
+    fn request_flush(&self) {
+        self.flush_requested.store(true, Ordering::Relaxed);
+    }
+}
+
+/// The host's main-thread half: what the plugin tells us on our thread.
+pub struct MainThreadHost<'a> {
+    shared: &'a Shared,
+}
+
+impl<'a> MainThreadHost<'a> {
+    pub fn new(shared: &'a Shared) -> Self {
+        Self { shared }
+    }
+}
+
+impl<'a> MainThreadHandler<'a> for MainThreadHost<'a> {}
+
+impl HostParamsImplMainThread for MainThreadHost<'_> {
+    fn rescan(&self, _flags: ParamRescanFlags) {
+        self.shared.rescan_requested.store(true, Ordering::Relaxed);
+    }
+
+    fn clear(&self, _param_id: ClapId, _flags: ParamClearFlags) {}
+}
+
+impl HostLatencyImpl for MainThreadHost<'_> {
+    fn changed(&self) {
+        self.shared.latency_changed.store(true, Ordering::Relaxed);
+    }
+}
+
 /// The handler set for every plugin instance.
 pub struct CantinaHost;
 
 impl HostHandlers for CantinaHost {
     type Shared<'a> = Shared;
-    type MainThread<'a> = ();
+    type MainThread<'a> = MainThreadHost<'a>;
     type AudioProcessor<'a> = ();
+
+    fn declare_extensions(builder: &mut HostExtensions<Self>, _shared: &Self::Shared<'_>) {
+        builder.register::<HostParams>().register::<HostLatency>();
+    }
+}
+
+/// The main-thread half of a plugin, shared by its processor and its
+/// handle. See the module docs for who locks it when.
+pub struct ClapShared {
+    // Drop order matters: the instance before the entry.
+    instance: Mutex<PluginInstance<CantinaHost>>,
+    _entry: PluginEntry,
+}
+
+// The instance is only ever used under the lock, and never on the audio
+// thread, so one thread at a time holds it: CLAP's main-thread contract.
+unsafe impl Send for ClapShared {}
+unsafe impl Sync for ClapShared {}
+
+impl ClapShared {
+    fn lock(&self) -> MutexGuard<'_, PluginInstance<CantinaHost>> {
+        self.instance.lock().unwrap_or_else(|e| e.into_inner())
+    }
 }
 
 /// A CLAP plugin as a [`Processor`].
 pub struct ClapProcessor {
-    // Drop order matters: the processor and instance before the entry.
+    shared: Arc<ClapShared>,
     processor: Option<PluginAudioProcessor<CantinaHost>>,
-    instance: PluginInstance<CantinaHost>,
-    _entry: PluginEntry,
     info: PluginInfo,
     plugin_channels: usize,
     params: Vec<ParamInfo>,
@@ -153,11 +228,11 @@ pub struct ClapProcessor {
     steady_time: u64,
     latency_frames: usize,
     process_errors: u64,
+    /// Changes the plugin reported in its output events, for the handle.
+    changes: Producer<(ParamId, f32)>,
+    /// The handle's end of `changes`, until the handle is taken.
+    changes_out: Option<Consumer<(ParamId, f32)>>,
 }
-
-// See the module docs: main-thread operations only happen while the
-// processor is not in a running graph.
-unsafe impl Send for ClapProcessor {}
 
 impl ClapProcessor {
     /// Loads `path` and instantiates `plugin_id`, or the first plugin in the
@@ -189,7 +264,7 @@ impl ClapProcessor {
         let id = CString::new(info.id.clone())?;
         let mut instance = PluginInstance::<CantinaHost>::new(
             |_| Shared::default(),
-            |_| (),
+            |shared| MainThreadHost::new(shared),
             &entry,
             &id,
             &host_info,
@@ -199,11 +274,14 @@ impl ClapProcessor {
 
         let plugin_channels = main_port_channels(&mut instance).unwrap_or(2);
         let (params, param_ids, values) = read_params(&mut instance);
+        let (changes, changes_out) = RingBuffer::new(CHANGE_QUEUE);
 
         Ok(Self {
+            shared: Arc::new(ClapShared {
+                instance: Mutex::new(instance),
+                _entry: entry,
+            }),
             processor: None,
-            instance,
-            _entry: entry,
             info,
             plugin_channels,
             params,
@@ -220,6 +298,8 @@ impl ClapProcessor {
             steady_time: 0,
             latency_frames: 0,
             process_errors: 0,
+            changes,
+            changes_out: Some(changes_out),
         })
     }
 
@@ -240,7 +320,7 @@ impl ClapProcessor {
     fn deactivate(&mut self) {
         if let Some(processor) = self.processor.take() {
             let stopped = processor.into_stopped();
-            self.instance.deactivate(stopped);
+            self.shared.lock().deactivate(stopped);
         }
     }
 
@@ -251,8 +331,8 @@ impl ClapProcessor {
             min_frames_count: 1,
             max_frames_count: max_frames as u32,
         };
-        let processor = self
-            .instance
+        let mut instance = self.shared.lock();
+        let processor = instance
             .activate(|_, _| (), config)
             .map_err(|e| anyhow!("{e}"))
             .with_context(|| format!("activating {}", self.info.name))?;
@@ -261,12 +341,8 @@ impl ClapProcessor {
         self.scratch_out = vec![vec![0.0; max_frames]; self.plugin_channels];
         self.max_frames = max_frames;
         self.steady_time = 0;
-        self.latency_frames = self
-            .instance
-            .plugin_shared_handle()
-            .get_extension::<PluginLatency>()
-            .map(|ext| ext.get(&self.instance.plugin_handle()) as usize)
-            .unwrap_or(0);
+        self.latency_frames = latency_of(&mut instance);
+        instance.access_shared_handler(|s| s.latency_changed.store(false, Ordering::Relaxed));
         Ok(())
     }
 
@@ -276,12 +352,12 @@ impl ClapProcessor {
         if self.pending_count == 0 || self.processor.is_some() {
             return;
         }
-        if let Some(params) = self
-            .instance
+        let mut instance = self.shared.lock();
+        if let Some(params) = instance
             .plugin_shared_handle()
             .get_extension::<PluginParams>()
         {
-            if let Some(mut handle) = self.instance.inactive_plugin_handle() {
+            if let Some(mut handle) = instance.inactive_plugin_handle() {
                 let input = self.pending.as_input();
                 let mut output = self.output_events.as_output();
                 params.flush(&mut handle, &input, &mut output);
@@ -291,6 +367,33 @@ impl ClapProcessor {
         self.output_events.clear();
         self.pending_count = 0;
     }
+
+    /// Forwards the parameter changes in the output events to the handle.
+    /// Audio thread: no allocation; a full ring drops the oldest news.
+    fn collect_output_changes(&mut self) {
+        for event in &self.output_events {
+            let Some(change) = event.as_event::<ParamValueEvent>() else {
+                continue;
+            };
+            let Some(clap_id) = change.param_id() else {
+                continue;
+            };
+            let Some(id) = self.param_ids.iter().position(|p| *p == clap_id) else {
+                continue;
+            };
+            let value = change.value() as f32;
+            self.values[id] = value;
+            let _ = self.changes.push((id, value));
+        }
+    }
+}
+
+fn latency_of(instance: &mut PluginInstance<CantinaHost>) -> usize {
+    instance
+        .plugin_shared_handle()
+        .get_extension::<PluginLatency>()
+        .map(|ext| ext.get(&instance.plugin_handle()) as usize)
+        .unwrap_or(0)
 }
 
 fn main_port_channels(instance: &mut PluginInstance<CantinaHost>) -> Option<usize> {
@@ -318,12 +421,22 @@ fn read_params(
     let mut ids = Vec::with_capacity(count as usize);
     let mut values = Vec::with_capacity(count as usize);
     let mut buffer = ParamInfoBuffer::new();
+    let mut text = [0u8; 64];
     for index in 0..count {
         let Some(info) = params.get_info(&handle, index, &mut buffer) else {
             continue;
         };
         let name = String::from_utf8_lossy(info.name).into_owned();
-        let unit = guess_unit(&name);
+        // CLAP parameters carry no unit, but the plugin can format a
+        // value; the suffix it writes is the unit.
+        let formatted = params
+            .value_to_text(&handle, info.id, info.default_value, &mut text)
+            .ok()
+            .map(|t| String::from_utf8_lossy(t).into_owned());
+        let unit = formatted
+            .as_deref()
+            .and_then(unit_from_text)
+            .unwrap_or_else(|| guess_unit(&name));
         infos.push(ParamInfo {
             name: name.into(),
             unit,
@@ -342,7 +455,23 @@ fn read_params(
     (infos, ids, values)
 }
 
-/// CLAP parameters carry no unit; the name is the only hint.
+/// The unit a plugin's own formatting of a value ends with, if any.
+pub fn unit_from_text(text: &str) -> Option<Unit> {
+    let suffix = text
+        .trim_end()
+        .rsplit(|c: char| c.is_ascii_digit() || c == '.' || c == '-' || c == ' ')
+        .next()?
+        .trim();
+    match suffix.to_lowercase().as_str() {
+        "db" => Some(Unit::Decibels),
+        "hz" | "khz" => Some(Unit::Hertz),
+        "s" | "sec" | "ms" => Some(Unit::Seconds),
+        "%" => Some(Unit::Percent),
+        _ => None,
+    }
+}
+
+/// When the plugin cannot format a value, the name is the only hint.
 fn guess_unit(name: &str) -> Unit {
     let lower = name.to_lowercase();
     if lower.contains("gain") || lower.contains("level") || lower.ends_with("db") {
@@ -356,6 +485,51 @@ fn guess_unit(name: &str) -> Unit {
     } else {
         Unit::Generic
     }
+}
+
+/// Saves the plugin's state through the state extension, or the
+/// parameter values when it has none.
+fn save_state(instance: &mut PluginInstance<CantinaHost>, values: &[f32]) -> Vec<u8> {
+    let Some(state) = instance
+        .plugin_shared_handle()
+        .get_extension::<PluginState>()
+    else {
+        return values.iter().flat_map(|v| v.to_le_bytes()).collect();
+    };
+    let mut bytes = Vec::new();
+    let handle = instance.plugin_handle();
+    if state.save(&handle, &mut bytes).is_err() {
+        bytes.clear();
+    }
+    bytes
+}
+
+/// Restores state saved by [`save_state`]. Returns the plugin's values
+/// afterwards when it has a state extension, so the caller can refresh
+/// its cache.
+fn load_state(
+    instance: &mut PluginInstance<CantinaHost>,
+    bytes: &[u8],
+    param_count: usize,
+) -> Result<Option<Vec<f32>>, StateError> {
+    let shared = instance.plugin_shared_handle();
+    let Some(state) = shared.get_extension::<PluginState>() else {
+        let expected = param_count * 4;
+        if bytes.len() != expected {
+            return Err(StateError::WrongLength {
+                expected,
+                found: bytes.len(),
+            });
+        }
+        return Ok(None);
+    };
+    let handle = instance.plugin_handle();
+    let mut reader = bytes;
+    state
+        .load(&handle, &mut reader)
+        .map_err(|e| StateError::Invalid(e.to_string()))?;
+    let (_, _, values) = read_params(instance);
+    Ok(Some(values))
 }
 
 impl Drop for ClapProcessor {
@@ -452,8 +626,9 @@ impl Processor for ClapProcessor {
         );
         self.steady_time += frames as u64;
         self.pending.clear();
-        self.output_events.clear();
         self.pending_count = 0;
+        self.collect_output_changes();
+        self.output_events.clear();
         if result.is_err() {
             self.process_errors += 1;
             return;
@@ -464,50 +639,174 @@ impl Processor for ClapProcessor {
     }
 
     fn state(&mut self) -> Vec<u8> {
-        // Main thread only; see the module docs.
-        let Some(state) = self
-            .instance
-            .plugin_shared_handle()
-            .get_extension::<PluginState>()
-        else {
-            return (0..self.params.len())
-                .flat_map(|id| self.param(id).to_le_bytes())
-                .collect();
-        };
-        let mut bytes = Vec::new();
-        let handle = self.instance.plugin_handle();
-        if state.save(&handle, &mut bytes).is_err() {
-            bytes.clear();
-        }
-        bytes
+        // Off the audio thread; see the module docs.
+        save_state(&mut self.shared.lock(), &self.values)
     }
 
     fn set_state(&mut self, bytes: &[u8]) -> Result<(), StateError> {
-        let shared = self.instance.plugin_shared_handle();
-        let Some(state) = shared.get_extension::<PluginState>() else {
-            let expected = self.params.len() * 4;
-            if bytes.len() != expected {
-                return Err(StateError::WrongLength {
-                    expected,
-                    found: bytes.len(),
-                });
+        let refreshed = load_state(&mut self.shared.lock(), bytes, self.params.len())?;
+        match refreshed {
+            Some(values) if values.len() == self.values.len() => self.values = values,
+            Some(_) => {}
+            None => {
+                for (id, chunk) in bytes.chunks_exact(4).enumerate() {
+                    self.set_param(
+                        id,
+                        f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]),
+                    );
+                }
             }
-            for (id, chunk) in bytes.chunks_exact(4).enumerate() {
-                let value = f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
-                self.set_param(id, value);
-            }
-            return Ok(());
-        };
-        let handle = self.instance.plugin_handle();
-        let mut reader = bytes;
-        state
-            .load(&handle, &mut reader)
-            .map_err(|e| StateError::Invalid(e.to_string()))?;
-        // The plugin's values changed under us; refresh the cache.
-        let (_, _, values) = read_params(&mut self.instance);
-        if values.len() == self.values.len() {
-            self.values = values;
         }
         Ok(())
+    }
+
+    fn handle(&mut self) -> Option<Box<dyn Handle>> {
+        let changes = self.changes_out.take()?;
+        Some(Box::new(ClapHandle {
+            shared: Arc::clone(&self.shared),
+            info: self.info.clone(),
+            params: self.params.clone(),
+            param_ids: self.param_ids.clone(),
+            values: self.values.clone(),
+            changes,
+            flush_output: EventBuffer::with_capacity(PENDING_EVENTS),
+        }))
+    }
+}
+
+/// The UI-thread side of a [`ClapProcessor`]. See the module docs.
+pub struct ClapHandle {
+    shared: Arc<ClapShared>,
+    info: PluginInfo,
+    params: Vec<ParamInfo>,
+    param_ids: Vec<ClapId>,
+    /// Values as last seen here.
+    values: Vec<f32>,
+    changes: Consumer<(ParamId, f32)>,
+    flush_output: EventBuffer,
+}
+
+impl ClapHandle {
+    pub fn info(&self) -> &PluginInfo {
+        &self.info
+    }
+
+    pub fn params(&self) -> &[ParamInfo] {
+        &self.params
+    }
+
+    /// The last value seen here for a parameter.
+    pub fn param(&self, id: ParamId) -> f32 {
+        self.values.get(id).copied().unwrap_or(0.0)
+    }
+
+    /// The plugin's main-thread half, for the editor.
+    pub fn shared(&self) -> &Arc<ClapShared> {
+        &self.shared
+    }
+
+    /// Whether the plugin asked to be re-activated because its latency
+    /// changed. Cleared by the next `prepare`.
+    pub fn latency_changed(&self) -> bool {
+        self.shared
+            .lock()
+            .access_shared_handler(|s| s.latency_changed.load(Ordering::Relaxed))
+    }
+
+    /// Whether the plugin's parameter list changed under us.
+    pub fn rescan_requested(&self) -> bool {
+        self.shared
+            .lock()
+            .access_shared_handler(|s| s.rescan_requested.load(Ordering::Relaxed))
+    }
+
+    /// Runs a main-thread flush when the plugin asked for one and is
+    /// inactive, collecting what it reports.
+    fn flush_if_requested(&mut self, out: &mut Vec<(ParamId, f32)>) {
+        let mut instance = self.shared.lock();
+        let wanted =
+            instance.access_shared_handler(|s| s.flush_requested.swap(false, Ordering::Relaxed));
+        if !wanted || instance.is_active() {
+            return;
+        }
+        let Some(params) = instance
+            .plugin_shared_handle()
+            .get_extension::<PluginParams>()
+        else {
+            return;
+        };
+        let Some(mut handle) = instance.inactive_plugin_handle() else {
+            return;
+        };
+        let input = EventBuffer::new();
+        let mut output = self.flush_output.as_output();
+        params.flush(&mut handle, &input.as_input(), &mut output);
+        for event in &self.flush_output {
+            if let Some(change) = event.as_event::<ParamValueEvent>() {
+                if let Some(id) = change
+                    .param_id()
+                    .and_then(|c| self.param_ids.iter().position(|p| *p == c))
+                {
+                    out.push((id, change.value() as f32));
+                }
+            }
+        }
+        self.flush_output.clear();
+    }
+}
+
+impl Handle for ClapHandle {
+    fn state(&mut self) -> Vec<u8> {
+        save_state(&mut self.shared.lock(), &self.values)
+    }
+
+    fn set_state(&mut self, state: &[u8]) -> Result<(), StateError> {
+        let refreshed = load_state(&mut self.shared.lock(), state, self.params.len())?;
+        if let Some(values) = refreshed {
+            if values.len() == self.values.len() {
+                self.values = values;
+            }
+        }
+        Ok(())
+    }
+
+    fn latency(&self) -> usize {
+        latency_of(&mut self.shared.lock())
+    }
+
+    fn take_changes(&mut self) -> Vec<(ParamId, f32)> {
+        let mut changes = Vec::new();
+        while let Ok(change) = self.changes.pop() {
+            changes.push(change);
+        }
+        self.flush_if_requested(&mut changes);
+        for (id, value) in &changes {
+            if let Some(slot) = self.values.get_mut(*id) {
+                *slot = *value;
+            }
+        }
+        changes
+    }
+
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn units_come_from_formatted_values() {
+        assert_eq!(unit_from_text("-6.0 dB"), Some(Unit::Decibels));
+        assert_eq!(unit_from_text("440 Hz"), Some(Unit::Hertz));
+        assert_eq!(unit_from_text("1.2 kHz"), Some(Unit::Hertz));
+        assert_eq!(unit_from_text("12 ms"), Some(Unit::Seconds));
+        assert_eq!(unit_from_text("50%"), Some(Unit::Percent));
+        assert_eq!(unit_from_text("7 samples"), None);
+        assert_eq!(unit_from_text("Off"), None);
+        assert_eq!(guess_unit("Output Gain"), Unit::Decibels);
+        assert_eq!(guess_unit("Rate"), Unit::Generic);
     }
 }

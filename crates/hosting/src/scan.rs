@@ -40,7 +40,7 @@ use clack_host::plugin::PluginInstance;
 use serde::{Deserialize, Serialize};
 
 use crate::au::{self, ComponentId};
-use crate::clap::{self, CantinaHost, Shared};
+use crate::clap::{self, CantinaHost, MainThreadHost, Shared};
 
 /// The argument the shell's binary takes to run as the scanner child.
 pub const CHILD_FLAG: &str = "--scan-plugins";
@@ -439,7 +439,7 @@ fn examine_clap(path: &Path, source: &Source, report: &mut dyn FnMut(Found)) -> 
         let c_id = std::ffi::CString::new(id.clone())?;
         let mut instance = PluginInstance::<CantinaHost>::new(
             |_| Shared::default(),
-            |_| (),
+            |shared| MainThreadHost::new(shared),
             &entry,
             &c_id,
             &host_info,

@@ -1,7 +1,9 @@
 //! A deliberately small CLAP effect for exercising the host: stereo in and
 //! out, a `Gain` parameter in decibels, and a `Delay` parameter in samples
 //! that it both applies and reports as latency. Saved state is the two
-//! values as little-endian `f32`s.
+//! values as little-endian `f32`s. Every parameter change it is sent
+//! while processing is echoed back as an output event, the way a plugin
+//! tells its host about a change, so the host's change path is tested.
 //!
 //! The bundle carries a second plugin, [`CRASH_ID`], that aborts the
 //! process the moment a host instantiates it. It exists so the scanner's
@@ -214,6 +216,11 @@ impl<'a> PluginAudioProcessor<'a, Shared, MainThread<'a>> for Processor<'a> {
         events: Events,
     ) -> Result<ProcessStatus, PluginError> {
         self.shared.apply(events.input);
+        for event in events.input {
+            if let Some(e) = event.as_event::<ParamValueEvent>() {
+                let _ = events.output.try_push(e);
+            }
+        }
         let gain = 10f32.powf(self.shared.gain_db() / 20.0);
         let delay = self.shared.delay();
 
