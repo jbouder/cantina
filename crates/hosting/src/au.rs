@@ -4,26 +4,36 @@
 //! render callback that copies from a scratch buffer, and pulls output with
 //! `AudioUnitRender`. Everything the audio thread touches is allocated in
 //! `prepare`.
+//!
+//! The instance is shared with an [`AudioUnitHandle`], the UI-thread
+//! side: state as the unit's `ClassInfo` property list, the live latency,
+//! and parameter changes the unit made on its own. AUv2 property and
+//! parameter calls are safe from another thread while the unit renders,
+//! which is how every host saves and shows an editor during playback.
+//! The instance is disposed when both sides are gone.
 
+use std::any::Any;
 use std::borrow::Cow;
 use std::ffi::{c_void, CStr};
 use std::mem::{size_of, MaybeUninit};
-use std::ptr::{null_mut, NonNull};
+use std::ptr::{null, null_mut, NonNull};
 use std::slice;
+use std::sync::Arc;
 
 use anyhow::{anyhow, bail, Context, Result};
-use cantina_dsp::{Buffer, ParamId, ParamInfo, Processor, Unit};
+use cantina_dsp::{Buffer, Handle, ParamId, ParamInfo, Processor, StateError, Unit};
 use objc2_audio_toolbox::{
-    kAudioUnitManufacturer_Apple, kAudioUnitProperty_CocoaUI, kAudioUnitProperty_ElementCount,
-    kAudioUnitProperty_Latency, kAudioUnitProperty_MaximumFramesPerSlice,
-    kAudioUnitProperty_ParameterInfo, kAudioUnitProperty_ParameterList,
-    kAudioUnitProperty_SetRenderCallback, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Global,
-    kAudioUnitScope_Input, kAudioUnitScope_Output, kAudioUnitType_Effect,
-    kAudioUnitType_MusicEffect, AURenderCallbackStruct, AudioComponent, AudioComponentCopyName,
+    kAUParameterListener_AnyParameter, kAudioUnitManufacturer_Apple, kAudioUnitProperty_ClassInfo,
+    kAudioUnitProperty_CocoaUI, kAudioUnitProperty_ElementCount, kAudioUnitProperty_Latency,
+    kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitProperty_ParameterInfo,
+    kAudioUnitProperty_ParameterList, kAudioUnitProperty_SetRenderCallback,
+    kAudioUnitProperty_StreamFormat, kAudioUnitScope_Global, kAudioUnitScope_Input,
+    kAudioUnitScope_Output, kAudioUnitType_Effect, kAudioUnitType_MusicEffect,
+    AUParameterListenerNotify, AURenderCallbackStruct, AudioComponent, AudioComponentCopyName,
     AudioComponentDescription, AudioComponentFindNext, AudioComponentGetDescription,
     AudioComponentGetVersion, AudioComponentInstanceDispose, AudioComponentInstanceNew, AudioUnit,
     AudioUnitGetParameter, AudioUnitGetProperty, AudioUnitGetPropertyInfo, AudioUnitInitialize,
-    AudioUnitParameterID, AudioUnitParameterInfo, AudioUnitParameterOptions,
+    AudioUnitParameter, AudioUnitParameterID, AudioUnitParameterInfo, AudioUnitParameterOptions,
     AudioUnitParameterUnit, AudioUnitRender, AudioUnitRenderActionFlags, AudioUnitScope,
     AudioUnitSetParameter, AudioUnitSetProperty, AudioUnitUninitialize,
 };
@@ -32,7 +42,10 @@ use objc2_core_audio_types::{
     kAudioFormatLinearPCM, AudioBuffer, AudioBufferList, AudioStreamBasicDescription,
     AudioTimeStamp, AudioTimeStampFlags,
 };
-use objc2_core_foundation::{CFRetained, CFString};
+use objc2_core_foundation::{
+    CFData, CFPropertyList, CFPropertyListCreateData, CFPropertyListCreateWithData,
+    CFPropertyListFormat, CFRetained, CFString,
+};
 
 /// Most channels the wrapper will route. Plugins with wider layouts are
 /// configured narrower.
@@ -284,6 +297,220 @@ fn describe(component: AudioComponent) -> Option<ComponentInfo> {
     })
 }
 
+/// Owns the instance; disposed when the processor and its handle are
+/// both gone.
+pub struct UnitOwner(AudioUnit);
+
+// Property and parameter calls on an AUv2 instance are safe from any
+// thread, and `AudioUnitRender` is only ever called by the thread that
+// owns the processor.
+unsafe impl Send for UnitOwner {}
+unsafe impl Sync for UnitOwner {}
+
+impl UnitOwner {
+    pub fn raw(&self) -> AudioUnit {
+        self.0
+    }
+}
+
+impl Drop for UnitOwner {
+    fn drop(&mut self) {
+        unsafe { AudioComponentInstanceDispose(self.0) };
+    }
+}
+
+/// The unit's state as its `ClassInfo` property list, serialized as a
+/// binary plist. This is what every host saves: it holds the parameters
+/// and whatever else the unit keeps.
+fn class_info(unit: AudioUnit) -> Result<Vec<u8>> {
+    let mut plist: *const CFPropertyList = null();
+    let mut size = size_of::<*const CFPropertyList>() as u32;
+    check(
+        unsafe {
+            AudioUnitGetProperty(
+                unit,
+                kAudioUnitProperty_ClassInfo,
+                kAudioUnitScope_Global,
+                0,
+                NonNull::from(&mut plist).cast(),
+                NonNull::from(&mut size),
+            )
+        },
+        "reading the state",
+    )?;
+    let Some(plist) = NonNull::new(plist as *mut CFPropertyList) else {
+        bail!("the unit returned no state");
+    };
+    // The property hands out a reference we own.
+    let plist = unsafe { CFRetained::from_raw(plist) };
+    let data = unsafe {
+        CFPropertyListCreateData(
+            None,
+            Some(&plist),
+            CFPropertyListFormat::BinaryFormat_v1_0,
+            0,
+            null_mut(),
+        )
+    }
+    .context("encoding the state as a property list")?;
+    Ok(data.to_vec())
+}
+
+/// Restores state saved by [`class_info`] and tells any listener, such
+/// as an editor view, that every parameter may have changed.
+fn set_class_info(unit: AudioUnit, bytes: &[u8]) -> Result<()> {
+    let data = CFData::from_bytes(bytes);
+    let plist =
+        unsafe { CFPropertyListCreateWithData(None, Some(&data), 0, null_mut(), null_mut()) }
+            .context("the state is not a property list")?;
+    let pointer: *const CFPropertyList = CFRetained::as_ptr(&plist).as_ptr();
+    check(
+        unsafe {
+            AudioUnitSetProperty(
+                unit,
+                kAudioUnitProperty_ClassInfo,
+                kAudioUnitScope_Global,
+                0,
+                &pointer as *const *const CFPropertyList as *const c_void,
+                size_of::<*const CFPropertyList>() as u32,
+            )
+        },
+        "restoring the state",
+    )?;
+    let mut all = AudioUnitParameter {
+        mAudioUnit: unit,
+        mParameterID: kAUParameterListener_AnyParameter,
+        mScope: kAudioUnitScope_Global,
+        mElement: 0,
+    };
+    unsafe { AUParameterListenerNotify(null_mut(), null_mut(), NonNull::from(&mut all)) };
+    Ok(())
+}
+
+fn param_value(unit: AudioUnit, id: AudioUnitParameterID) -> f32 {
+    let mut value = 0.0f32;
+    let status = unsafe {
+        AudioUnitGetParameter(
+            unit,
+            id,
+            kAudioUnitScope_Global,
+            0,
+            NonNull::from(&mut value),
+        )
+    };
+    if status == 0 {
+        value
+    } else {
+        0.0
+    }
+}
+
+/// The unit's latency in frames at its current output rate, or zero
+/// when it does not say.
+fn latency_frames(unit: AudioUnit) -> usize {
+    let mut seconds = 0.0f64;
+    let mut size = size_of::<f64>() as u32;
+    let status = unsafe {
+        AudioUnitGetProperty(
+            unit,
+            kAudioUnitProperty_Latency,
+            kAudioUnitScope_Global,
+            0,
+            NonNull::from(&mut seconds).cast(),
+            NonNull::from(&mut size),
+        )
+    };
+    if status != 0 {
+        return 0;
+    }
+    let mut format = MaybeUninit::<AudioStreamBasicDescription>::uninit();
+    let mut size = size_of::<AudioStreamBasicDescription>() as u32;
+    let status = unsafe {
+        AudioUnitGetProperty(
+            unit,
+            kAudioUnitProperty_StreamFormat,
+            kAudioUnitScope_Output,
+            0,
+            NonNull::new(format.as_mut_ptr()).unwrap().cast(),
+            NonNull::from(&mut size),
+        )
+    };
+    let sample_rate = if status == 0 {
+        unsafe { format.assume_init() }.mSampleRate
+    } else {
+        0.0
+    };
+    (seconds * sample_rate).round().max(0.0) as usize
+}
+
+/// The UI-thread side of an [`AudioUnitProcessor`]. See the module docs.
+pub struct AudioUnitHandle {
+    unit: Arc<UnitOwner>,
+    info: ComponentInfo,
+    display_name: String,
+    params: Vec<ParamInfo>,
+    param_ids: Vec<AudioUnitParameterID>,
+    /// Values as of the last `take_changes`, so changes made by an
+    /// editor or a preset show up as a difference.
+    last: Vec<f32>,
+}
+
+impl AudioUnitHandle {
+    pub fn info(&self) -> &ComponentInfo {
+        &self.info
+    }
+
+    pub fn name(&self) -> &str {
+        &self.display_name
+    }
+
+    /// The raw instance, for an editor view.
+    pub fn unit(&self) -> AudioUnit {
+        self.unit.raw()
+    }
+
+    /// Current value of a parameter, as the unit reports it.
+    pub fn param(&self, id: ParamId) -> f32 {
+        self.param_ids
+            .get(id)
+            .map_or(0.0, |&au_id| param_value(self.unit.raw(), au_id))
+    }
+
+    pub fn params(&self) -> &[ParamInfo] {
+        &self.params
+    }
+}
+
+impl Handle for AudioUnitHandle {
+    fn state(&mut self) -> Vec<u8> {
+        class_info(self.unit.raw()).unwrap_or_default()
+    }
+
+    fn set_state(&mut self, state: &[u8]) -> Result<(), StateError> {
+        set_class_info(self.unit.raw(), state).map_err(|e| StateError::Invalid(format!("{e:#}")))
+    }
+
+    fn latency(&self) -> usize {
+        latency_frames(self.unit.raw())
+    }
+
+    fn take_changes(&mut self) -> Vec<(ParamId, f32)> {
+        let mut changes = Vec::new();
+        for (id, &au_id) in self.param_ids.iter().enumerate() {
+            let value = param_value(self.unit.raw(), au_id);
+            if value != self.last[id] {
+                self.last[id] = value;
+                changes.push((id, value));
+            }
+        }
+        changes
+    }
+
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
 /// Where the render callback reads input from during one `process` call.
 /// Lives in a `Box` so its address is stable for the callback's ref-con.
 struct InputSource {
@@ -294,6 +521,7 @@ struct InputSource {
 
 /// An Audio Unit effect as a [`Processor`].
 pub struct AudioUnitProcessor {
+    owner: Arc<UnitOwner>,
     unit: AudioUnit,
     info: ComponentInfo,
     display_name: String,
@@ -312,10 +540,11 @@ pub struct AudioUnitProcessor {
     sample_time: f64,
     latency_frames: usize,
     render_errors: u64,
+    handle_taken: bool,
 }
 
-// The instance is only ever touched by the thread that currently owns the
-// processor: the main thread in `prepare`, the audio thread in `process`.
+// The instance is only ever rendered by the thread that currently owns
+// the processor; see `UnitOwner` for the rest.
 unsafe impl Send for AudioUnitProcessor {}
 
 impl AudioUnitProcessor {
@@ -342,6 +571,7 @@ impl AudioUnitProcessor {
             .unwrap_or_else(|| info.name.clone());
 
         let mut processor = Self {
+            owner: Arc::new(UnitOwner(unit)),
             unit,
             info,
             display_name,
@@ -362,6 +592,7 @@ impl AudioUnitProcessor {
             sample_time: 0.0,
             latency_frames: 0,
             render_errors: 0,
+            handle_taken: false,
         };
         processor.read_params()?;
         Ok(processor)
@@ -535,10 +766,7 @@ impl AudioUnitProcessor {
         check(unsafe { AudioUnitInitialize(self.unit) }, "initialising")?;
         self.initialized = true;
 
-        let latency_seconds: f64 = self
-            .get_property(kAudioUnitProperty_Latency, kAudioUnitScope_Global, 0)
-            .unwrap_or(0.0);
-        self.latency_frames = (latency_seconds * sample_rate).round() as usize;
+        self.latency_frames = latency_frames(self.unit);
         self.sample_rate = sample_rate;
         self.max_frames = max_frames;
         self.scratch_in = vec![vec![0.0; max_frames]; self.channels];
@@ -552,12 +780,10 @@ impl AudioUnitProcessor {
 
 impl Drop for AudioUnitProcessor {
     fn drop(&mut self) {
-        unsafe {
-            if self.initialized {
-                AudioUnitUninitialize(self.unit);
-            }
-            AudioComponentInstanceDispose(self.unit);
+        if self.initialized {
+            unsafe { AudioUnitUninitialize(self.unit) };
         }
+        // The owner disposes of the instance once the handle is gone too.
     }
 }
 
@@ -571,24 +797,9 @@ impl Processor for AudioUnitProcessor {
     }
 
     fn param(&self, id: ParamId) -> f32 {
-        let Some(&au_id) = self.param_ids.get(id) else {
-            return 0.0;
-        };
-        let mut value = 0.0f32;
-        let status = unsafe {
-            AudioUnitGetParameter(
-                self.unit,
-                au_id,
-                kAudioUnitScope_Global,
-                0,
-                NonNull::from(&mut value),
-            )
-        };
-        if status == 0 {
-            value
-        } else {
-            0.0
-        }
+        self.param_ids
+            .get(id)
+            .map_or(0.0, |&au_id| param_value(self.unit, au_id))
     }
 
     fn set_param(&mut self, id: ParamId, value: f32) {
@@ -686,6 +897,30 @@ impl Processor for AudioUnitProcessor {
         for ch in 0..present {
             buffer.channel_mut(ch)[..frames].copy_from_slice(&self.scratch_out[ch][..frames]);
         }
+    }
+
+    fn state(&mut self) -> Vec<u8> {
+        class_info(self.unit).unwrap_or_default()
+    }
+
+    fn set_state(&mut self, state: &[u8]) -> Result<(), StateError> {
+        set_class_info(self.unit, state).map_err(|e| StateError::Invalid(format!("{e:#}")))
+    }
+
+    fn handle(&mut self) -> Option<Box<dyn Handle>> {
+        if self.handle_taken {
+            return None;
+        }
+        self.handle_taken = true;
+        let last = (0..self.params.len()).map(|id| self.param(id)).collect();
+        Some(Box::new(AudioUnitHandle {
+            unit: Arc::clone(&self.owner),
+            info: self.info.clone(),
+            display_name: self.display_name.clone(),
+            params: self.params.clone(),
+            param_ids: self.param_ids.clone(),
+            last,
+        }))
     }
 }
 

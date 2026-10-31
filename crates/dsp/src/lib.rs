@@ -24,7 +24,9 @@ mod smooth;
 pub use biquad::Biquad;
 pub use gain::Gain;
 pub use overdrive::Overdrive;
-pub use processor::{Buffer, Chain, ParamId, ParamInfo, Processor, StateError, Unit, MAX_CHANNELS};
+pub use processor::{
+    Buffer, Chain, Handle, ParamId, ParamInfo, Processor, StateError, Unit, MAX_CHANNELS,
+};
 pub use render::Renderer;
 pub use smooth::Smoother;
 

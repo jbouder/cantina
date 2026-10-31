@@ -24,7 +24,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, bail, Context, Result};
-use cantina_dsp::{ParamInfo, Unit, STOCK_NAMES};
+use cantina_dsp::{Handle, ParamInfo, Unit, STOCK_NAMES};
 use cantina_engine::strip::{GAIN, MUTE, PAN};
 use cantina_engine::{
     device, processors, wav, Controller, DeviceEvent, DeviceId, Endpoint, GraphConfig, Meter,
@@ -34,7 +34,7 @@ use cantina_engine::{
 use cantina_hosting::scan::{self, PluginList, Scanner};
 use cantina_project::{
     Clip, ClipId, Command, History, Journal, JournalEntry, Pedal, PedalId, Project,
-    Strip as StripModel, Tempo, Track, TrackId,
+    Strip as StripModel, Tempo, Track, TrackId, PLUGINS_DIR,
 };
 use serde::Serialize;
 use tauri::ipc::{Channel, InvokeResponseBody};
@@ -212,6 +212,9 @@ struct Subscriber {
 /// Frames per second the meter pump sends.
 const METER_RATE: u32 = 60;
 
+/// The pump polls plugin handles for changes every this many frames.
+const PLUGIN_POLL_FRAMES: u32 = 6;
+
 /// The graph runs in stereo so strips can pan; the mono input is copied
 /// to both channels on the way in.
 const CHANNELS: usize = 2;
@@ -276,7 +279,7 @@ struct LiveTrack {
     mute: NodeId,
     /// Where live input and playback meet before the pedals.
     bus: NodeId,
-    pedals: Vec<(PedalId, NodeId)>,
+    pedals: Vec<LivePedal>,
     player_node: NodeId,
     player: PlayerHandle,
     recorder_node: NodeId,
@@ -286,6 +289,14 @@ struct LiveTrack {
     /// Post-fader, a tap off the strip.
     meter: NodeId,
     levels: MeterHandle,
+}
+
+/// A pedal's node, and for a plugin the UI-thread side of it, which the
+/// shell keeps while the processor runs on the audio thread.
+struct LivePedal {
+    id: PedalId,
+    node: NodeId,
+    handle: Option<Box<dyn Handle>>,
 }
 
 impl LiveTrack {
@@ -299,9 +310,13 @@ impl LiveTrack {
             self.meter,
         ]
         .into_iter()
-        .chain(self.pedals.iter().map(|(_, n)| *n))
+        .chain(self.pedals.iter().map(|p| p.node))
     }
 }
+
+/// Plugin state by pedal, with the spec it was saved from so a stale file
+/// never lands in a different plugin.
+type PluginStates = HashMap<PedalId, (String, Vec<u8>)>;
 
 /// The meters the pump reads, in frame order: input, master, then one
 /// per track in the project's order. Replaced whole on each sync.
@@ -352,18 +367,29 @@ impl Live {
         self.tracks
             .iter()
             .flat_map(|t| t.pedals.iter())
-            .find(|(p, _)| *p == id)
-            .map(|(_, n)| *n)
+            .find(|p| p.id == id)
+            .map(|p| p.node)
             .with_context(|| format!("pedal {id} is not in the graph"))
+    }
+
+    fn pedals_mut(&mut self) -> impl Iterator<Item = &mut LivePedal> {
+        self.tracks.iter_mut().flat_map(|t| t.pedals.iter_mut())
     }
 
     /// Brings the graph in line with the project: tracks and pedals are
     /// created, dropped and reordered to match, each player gets its
     /// track's clips, every gate follows its track's arm state, and the
     /// result is wired and committed. Nodes that survive keep their
-    /// state. Clips that cannot load are reported but do not stop the
-    /// rest.
-    fn sync(&mut self, project: &Project, catalog: &mut Catalog, audio_dir: &Path) -> Result<()> {
+    /// state; a plugin created here gets its saved state from `states`
+    /// before the project's parameter values go on top. Clips that
+    /// cannot load are reported but do not stop the rest.
+    fn sync(
+        &mut self,
+        project: &Project,
+        catalog: &mut Catalog,
+        audio_dir: &Path,
+        states: &PluginStates,
+    ) -> Result<()> {
         let sample_rate = self.stream.info().sample_rate;
         let mut problems = Vec::new();
 
@@ -390,11 +416,11 @@ impl Live {
             let graph = self.controller.graph_mut();
             // Pedals that left this chain.
             let mut removed = Vec::new();
-            live.pedals.retain(|(id, node)| {
-                if track.pedal(*id).is_some() {
+            live.pedals.retain(|p| {
+                if track.pedal(p.id).is_some() {
                     true
                 } else {
-                    removed.push(*node);
+                    removed.push(p.node);
                     false
                 }
             });
@@ -404,18 +430,33 @@ impl Live {
             // Pedals in the chain's order, creating the new ones.
             let mut pedals = Vec::with_capacity(track.chain.len());
             for pedal in &track.chain {
-                let node = match live.pedals.iter().find(|(id, _)| *id == pedal.id) {
-                    Some((_, node)) => *node,
+                let live_pedal = match live.pedals.iter().position(|p| p.id == pedal.id) {
+                    Some(i) => live.pedals.remove(i),
                     None => {
                         let mut processor = processors::create(&pedal.spec, CHANNELS)?;
                         catalog.learn(&pedal.spec, processor.as_ref());
+                        if let Some((spec, state)) = states.get(&pedal.id) {
+                            if *spec == pedal.spec {
+                                if let Err(e) = processor.set_state(state) {
+                                    problems.push(format!(
+                                        "{}: saved state not restored: {e}",
+                                        processor.name()
+                                    ));
+                                }
+                            }
+                        }
                         for (param, value) in pedal.values.iter().enumerate() {
                             processor.set_param(param, *value);
                         }
-                        graph.add_processor(processor)
+                        let handle = processor.handle();
+                        LivePedal {
+                            id: pedal.id,
+                            node: graph.add_processor(processor),
+                            handle,
+                        }
                     }
                 };
-                pedals.push((pedal.id, node));
+                pedals.push(live_pedal);
             }
             live.pedals = pedals;
             self.controller
@@ -510,9 +551,9 @@ impl Live {
             graph.connect(track.mute, track.recorder_node)?;
             graph.connect(track.player_node, track.bus)?;
             let mut previous = track.bus;
-            for (_, node) in &track.pedals {
-                graph.connect(previous, *node)?;
-                previous = *node;
+            for pedal in &track.pedals {
+                graph.connect(previous, pedal.node)?;
+                previous = pedal.node;
             }
             graph.connect(previous, track.strip)?;
             graph.connect(track.strip, track.meter)?;
@@ -600,6 +641,10 @@ pub struct Engine {
     /// Journal entries newer than the saved file, until recovered or
     /// discarded.
     recovery: Option<Vec<JournalEntry>>,
+    /// Plugin state by pedal: what `plugins/` held when the project was
+    /// opened, refreshed from the live plugins on save and whenever the
+    /// stream closes, so a rebuild hands each plugin back its state.
+    plugin_states: PluginStates,
     catalog: Catalog,
     recording: Vec<Recording>,
     last_error: Option<String>,
@@ -676,6 +721,7 @@ impl Engine {
             history: History::new(),
             journal,
             recovery: None,
+            plugin_states: PluginStates::new(),
             catalog: Catalog::default(),
             recording: Vec::new(),
             last_error,
@@ -691,6 +737,7 @@ impl Engine {
         engine.adopt_sample_rate();
         engine.remember_project();
         engine.read_journal();
+        engine.plugin_states = read_plugin_states(&engine.project_dir);
         // For measuring the UI's cost of the frame stream without audio:
         // a pump of synthetic levels with no stream behind it.
         if std::env::var_os("CANTINA_SYNTHETIC_METERS").is_some() {
@@ -709,6 +756,7 @@ impl Engine {
         })
         .expect("a one-channel graph is valid");
         spawn_meter_pump(
+            self.app.clone(),
             Arc::clone(&self.meter_subscribers),
             Arc::new(Mutex::new(vec![input, output])),
             controller.transport().clock(),
@@ -1018,7 +1066,94 @@ impl Engine {
             return Ok(());
         };
         let audio_dir = cantina_project::audio_dir(&self.project_dir);
-        live.sync(&self.project, &mut self.catalog, &audio_dir)
+        live.sync(
+            &self.project,
+            &mut self.catalog,
+            &audio_dir,
+            &self.plugin_states,
+        )
+    }
+
+    // ----- plugin state -----
+
+    /// Reads every running plugin's state into `plugin_states`.
+    fn capture_plugin_states(&mut self) {
+        let Some(live) = &mut self.live else {
+            return;
+        };
+        for pedal in live.pedals_mut() {
+            let Some(handle) = pedal.handle.as_mut() else {
+                continue;
+            };
+            let Some((_, p)) = self.project.pedal(pedal.id) else {
+                continue;
+            };
+            let state = handle.state();
+            if !state.is_empty() {
+                self.plugin_states.insert(pedal.id, (p.spec.clone(), state));
+            }
+        }
+    }
+
+    /// Writes `plugins/<pedal id>.state` for every pedal in the project
+    /// that has state. Files for pedals that are gone stay, so undoing a
+    /// removal finds the state again.
+    fn write_plugin_states(&self) -> Result<()> {
+        let dir = self.project_dir.join(PLUGINS_DIR);
+        for track in &self.project.tracks {
+            for pedal in &track.chain {
+                let Some((spec, state)) = self.plugin_states.get(&pedal.id) else {
+                    continue;
+                };
+                if *spec != pedal.spec {
+                    continue;
+                }
+                std::fs::create_dir_all(&dir)
+                    .with_context(|| format!("creating {}", dir.display()))?;
+                let path = state_path(&dir, pedal.id);
+                std::fs::write(&path, encode_state(spec, state))
+                    .with_context(|| format!("writing {}", path.display()))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Takes the parameter changes the plugins made on their own (an
+    /// editor, a preset) and records them as edits, so the generic UI
+    /// and undo follow. Called from the meter pump a few times a second.
+    pub fn poll_plugins(&mut self) {
+        let Some(live) = &mut self.live else {
+            return;
+        };
+        let mut commands = Vec::new();
+        for pedal in live.pedals_mut() {
+            let Some(handle) = pedal.handle.as_mut() else {
+                continue;
+            };
+            for (param, value) in handle.take_changes() {
+                let known = self
+                    .project
+                    .pedal(pedal.id)
+                    .and_then(|(_, p)| p.values.get(param).copied());
+                if known.is_some_and(|k| (k - value).abs() <= f32::EPSILON * k.abs().max(1.0)) {
+                    continue;
+                }
+                commands.push(Command::SetParam {
+                    pedal: pedal.id,
+                    param,
+                    value,
+                });
+            }
+        }
+        if commands.is_empty() {
+            return;
+        }
+        for command in commands {
+            if let Err(e) = self.apply_quietly(command) {
+                self.last_error = Some(format!("{e:#}"));
+            }
+        }
+        self.publish();
     }
 
     /// The projects in the projects folder, by name.
@@ -1042,9 +1177,11 @@ impl Engine {
         Ok(self.publish())
     }
 
-    /// Writes `project.json` and clears the journal: everything in it
-    /// is in the file now.
+    /// Writes `project.json`, every plugin's state into `plugins/`, and
+    /// clears the journal: everything in it is in the file now.
     pub fn project_save(&mut self) -> Result<EngineStatus> {
+        self.capture_plugin_states();
+        self.write_plugin_states()?;
         cantina_project::save(&self.project, &self.project_dir)?;
         self.journal.clear()?;
         self.recovery = None;
@@ -1062,6 +1199,7 @@ impl Engine {
         }
         self.project = project;
         self.journal = Journal::in_dir(&dir);
+        self.plugin_states = read_plugin_states(&dir);
         self.project_dir = dir;
         self.dirty = false;
         self.history.clear();
@@ -1647,6 +1785,8 @@ impl Engine {
     }
 
     fn close(&mut self) {
+        // Plugins are recreated by the next sync; keep what they hold.
+        self.capture_plugin_states();
         if let Some(mut live) = self.live.take() {
             live.pump_stop.store(true, Ordering::Relaxed);
             // A recording in progress ends with the stream; the writer
@@ -1743,6 +1883,7 @@ impl Engine {
             output_levels.clone(),
         ]));
         spawn_meter_pump(
+            self.app.clone(),
             Arc::clone(&self.meter_subscribers),
             Arc::clone(&meters),
             controller.transport().clock(),
@@ -1847,6 +1988,56 @@ fn finish_take(live: &mut Live, take: &Recording, audio_dir: &Path) -> Result<u6
     Ok(info.frames)
 }
 
+/// `plugins/<id>.state`.
+fn state_path(plugins_dir: &Path, id: PedalId) -> PathBuf {
+    plugins_dir.join(format!("{id}.state"))
+}
+
+const STATE_MAGIC: &[u8; 4] = b"CNTS";
+
+/// A state file: magic, the spec it belongs to, then the plugin's bytes.
+fn encode_state(spec: &str, state: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(8 + spec.len() + state.len());
+    out.extend_from_slice(STATE_MAGIC);
+    out.extend_from_slice(&(spec.len() as u32).to_le_bytes());
+    out.extend_from_slice(spec.as_bytes());
+    out.extend_from_slice(state);
+    out
+}
+
+fn decode_state(bytes: &[u8]) -> Option<(String, Vec<u8>)> {
+    let rest = bytes.strip_prefix(STATE_MAGIC)?;
+    let (len, rest) = rest.split_at_checked(4)?;
+    let len = u32::from_le_bytes([len[0], len[1], len[2], len[3]]) as usize;
+    let (spec, state) = rest.split_at_checked(len)?;
+    Some((String::from_utf8(spec.to_vec()).ok()?, state.to_vec()))
+}
+
+/// Every readable state file in a project's `plugins/`.
+fn read_plugin_states(project_dir: &Path) -> PluginStates {
+    let mut states = PluginStates::new();
+    let Ok(entries) = std::fs::read_dir(project_dir.join(PLUGINS_DIR)) else {
+        return states;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().is_none_or(|e| e != "state") {
+            continue;
+        }
+        let Some(id) = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .and_then(|s| s.parse::<u64>().ok())
+        else {
+            continue;
+        };
+        if let Some(decoded) = std::fs::read(&path).ok().and_then(|b| decode_state(&b)) {
+            states.insert(PedalId(id), decoded);
+        }
+    }
+    states
+}
+
 /// Receives hardware events until the watcher is dropped.
 fn spawn_watcher_thread(app: AppHandle, rx: mpsc::Receiver<DeviceEvent>) {
     thread::Builder::new()
@@ -1869,8 +2060,10 @@ fn spawn_watcher_thread(app: AppHandle, rx: mpsc::Receiver<DeviceEvent>) {
 /// Sends frames to every subscriber at display rate until stopped. A
 /// subscriber that still holds the last frame is skipped and the frame
 /// counted as dropped; a subscriber whose channel fails is removed.
+/// Every few frames it also has the engine poll its plugins.
 #[allow(clippy::too_many_arguments)]
 fn spawn_meter_pump(
+    app: AppHandle,
     subscribers: Arc<Mutex<Vec<Subscriber>>>,
     meters: Meters,
     clock: cantina_engine::TransportClock,
@@ -1911,8 +2104,15 @@ fn spawn_meter_pump(
                 });
             };
             let mut levels = Vec::new();
+            let mut frames = 0u32;
             while !stop.load(Ordering::Relaxed) {
                 thread::sleep(period);
+                frames = frames.wrapping_add(1);
+                if frames % PLUGIN_POLL_FRAMES == 0 {
+                    if let Some(engine) = app.try_state::<EngineState>() {
+                        engine.lock().poll_plugins();
+                    }
+                }
                 levels.clear();
                 for handle in meters.lock().unwrap_or_else(|e| e.into_inner()).iter() {
                     // One pair per meter: the louder of its channels.
@@ -1940,6 +2140,28 @@ fn spawn_meter_pump(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn state_files_round_trip_and_reject_junk() {
+        let bytes = encode_state("au:aufx:dely:appl", b"bplist00...");
+        assert_eq!(
+            decode_state(&bytes),
+            Some(("au:aufx:dely:appl".to_string(), b"bplist00...".to_vec()))
+        );
+        assert!(decode_state(b"nope").is_none());
+        assert!(decode_state(&bytes[..6]).is_none());
+
+        let dir = std::env::temp_dir().join(format!("cantina-states-{}", std::process::id()));
+        let plugins = dir.join(PLUGINS_DIR);
+        std::fs::create_dir_all(&plugins).unwrap();
+        std::fs::write(state_path(&plugins, PedalId(7)), &bytes).unwrap();
+        std::fs::write(plugins.join("junk.state"), b"CNTS").unwrap();
+        std::fs::write(plugins.join("8.state"), b"not a state").unwrap();
+        let states = read_plugin_states(&dir);
+        assert_eq!(states.len(), 1);
+        assert_eq!(states[&PedalId(7)].0, "au:aufx:dely:appl");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 
     #[test]
     fn take_names_count_up_and_sanitize() {

@@ -7,7 +7,7 @@ Song.cantina/
   project.json    tracks, clips, chains, tempo, mixer; written by Save only
   journal.jsonl   every edit since the last save, one per line
   audio/          recorded and imported WAV files, never modified
-  plugins/        third-party plugin state blobs (M4)
+  plugins/        third-party plugin state, one <pedal id>.state per plugin
   pedals/         user pedal definitions used by this project (M7)
 ```
 
@@ -52,7 +52,8 @@ serialized in camelCase:
 - **Pedals** hold a spec the engine builds a processor from (a stock name,
   `au:…` or `clap:…`) and the value of each parameter in the order the
   processor lists them. Names, units and ranges come from the processor,
-  not the file.
+  not the file. A third-party plugin's own state is saved next to the
+  file as `plugins/<pedal id>.state`; see [hosting.md](hosting.md).
 - **Strips** (`strip` on a track, `master` on the project) hold
   `gainDb`, `pan`, `mute` and `solo`. The format went to version 2 when
   they arrived; a version 1 file gets strips at unity.
