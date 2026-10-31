@@ -40,16 +40,43 @@ findings in [docs/spike.md](docs/spike.md), hosting in
 [docs/skins.md](docs/skins.md), the frame format in
 [docs/frames.md](docs/frames.md).
 
-## Build
+## Start the app
 
-macOS only. Install Rust with [rustup](https://rustup.rs) and Node 22,
-then:
+macOS only. You need Rust (install with [rustup](https://rustup.rs),
+which puts `cargo` in `~/.cargo/bin`; make sure that is on your `PATH`)
+and Node 22. Then, from the repository root:
 
 ```sh
-npm install
-npm run tauri dev      # the app, with the UI hot-reloading
-npm run tauri build    # target/release/bundle/macos/Cantina.app and a DMG
+npm install            # once
+npm run tauri dev      # builds the shell, starts Vite and opens the window
 ```
+
+The first build compiles the Rust workspace and takes a few minutes;
+after that a launch is seconds. The UI hot-reloads when files under
+`ui/` change, and the shell rebuilds and relaunches when Rust files
+change. Stop it with `Ctrl-C` in that terminal.
+
+On first launch:
+
+- **Start engine** opens the audio devices. macOS asks for microphone
+  permission the first time; grant it or there is no input. Pick devices,
+  sample rate and buffer size under **Devices…**; they are remembered in
+  `~/Library/Application Support/com.jbouder.cantina/settings.json`.
+- A project called `Untitled` is created in `~/Music/Cantina/` with one
+  track carrying the stock gain and overdrive, so playing makes a sound
+  as soon as a track is armed.
+- **Plugins…** on a track opens the plugin browser; the first time, it
+  scans the installed Audio Units and CLAP bundles in a separate process
+  and caches the list next to the settings file.
+
+For a release build, which embeds the UI and needs no Vite:
+
+```sh
+npm run tauri build    # target/release/bundle/macos/Cantina.app
+open target/release/bundle/macos/Cantina.app
+```
+
+## Build and test
 
 The engine alone, without the shell:
 
