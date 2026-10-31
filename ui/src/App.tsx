@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
-import { type EngineStatus, engineStart, engineStatus, engineStop } from "./lib/engine";
+import { Button } from "./components/Button";
+import { Lcd } from "./components/Lcd";
+import { Led } from "./components/Led";
+import { Settings } from "./components/Settings";
+import { Window } from "./components/Window";
+import { type EngineStatus, engineStart, engineStatus, engineStop, inTauri } from "./lib/engine";
 
 export function App() {
   const [status, setStatus] = useState<EngineStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // In a browser `?settings` opens the sheet, so screenshots can show it.
+  const [settingsOpen, setSettingsOpen] = useState(
+    () => !inTauri && new URLSearchParams(window.location.search).has("settings"),
+  );
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
   useEffect(() => {
     engineStatus().then(setStatus, (e) => setError(String(e)));
@@ -24,53 +34,60 @@ export function App() {
   }, [status, busy]);
 
   const running = status?.running ?? false;
+  const problem = error ?? status?.error ?? null;
 
   return (
-    <main className="flex h-full items-center justify-center p-6">
-      <section
-        aria-labelledby="engine-title"
-        className="w-full max-w-md rounded-window bg-frame p-4 shadow-window"
-      >
-        <header className="mb-4 flex items-center justify-between">
-          <h1
-            id="engine-title"
-            className="font-lcd text-lg uppercase tracking-[0.18em] text-title-text"
+    <Window
+      title="Cantina"
+      controls={
+        <Button
+          aria-label="Settings"
+          aria-haspopup="dialog"
+          aria-expanded={settingsOpen}
+          onClick={() => setSettingsOpen(true)}
+          className="px-2"
+        >
+          <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
+            <path d="M8 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm6.6 2-1.5-.3a5.3 5.3 0 0 0-.5-1.2l.9-1.3-1.7-1.7-1.3.9a5.3 5.3 0 0 0-1.2-.5L9 1.4H7l-.3 1.5a5.3 5.3 0 0 0-1.2.5l-1.3-.9-1.7 1.7.9 1.3a5.3 5.3 0 0 0-.5 1.2L1.4 7v2l1.5.3c.1.4.3.8.5 1.2l-.9 1.3 1.7 1.7 1.3-.9c.4.2.8.4 1.2.5L7 14.6h2l.3-1.5c.4-.1.8-.3 1.2-.5l1.3.9 1.7-1.7-.9-1.3c.2-.4.4-.8.5-1.2l1.5-.3V7z" />
+          </svg>
+        </Button>
+      }
+    >
+      <main className="flex flex-1 items-center justify-center p-6">
+        <section aria-labelledby="engine-title" className="grid w-full max-w-md gap-3">
+          <header className="flex items-center justify-between">
+            <h2 id="engine-title" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+              Engine
+            </h2>
+            <Led on={running} label="Engine" />
+          </header>
+
+          <Lcd aria-live="polite">
+            {status === null
+              ? "..."
+              : running
+                ? `${status.inputName ?? "?"} → ${status.outputName ?? "?"} · ${status.sampleRate} Hz · ${status.bufferFrames} frames`
+                : "engine stopped"}
+          </Lcd>
+
+          <Button
+            variant="transport"
+            onClick={toggle}
+            disabled={status === null || busy}
+            aria-pressed={running}
+            className="w-full"
           >
-            Cantina
-          </h1>
-          <span
-            aria-hidden="true"
-            className={`size-3 rounded-full ${running ? "bg-led-on" : "bg-led-off"}`}
-          />
-        </header>
+            {busy ? "…" : running ? "Stop engine" : "Start engine"}
+          </Button>
 
-        <output
-          aria-live="polite"
-          className="mb-4 block rounded-control bg-lcd-bg px-3 py-2 font-lcd text-lcd-fg text-xl"
-        >
-          {status === null
-            ? "..."
-            : running
-              ? `${status.inputName ?? "?"} → ${status.outputName ?? "?"} · ${status.sampleRate} Hz · ${status.bufferFrames} frames`
-              : "engine stopped"}
-        </output>
-
-        <button
-          type="button"
-          onClick={toggle}
-          disabled={status === null || busy}
-          aria-pressed={running}
-          className="min-h-11 w-full rounded-control bg-silver px-4 font-semibold text-glyph hover:bg-silver-hi active:bg-silver-lo disabled:opacity-50"
-        >
-          {busy ? "…" : running ? "Stop engine" : "Start engine"}
-        </button>
-
-        {error || status?.error ? (
-          <p role="alert" className="mt-3 font-lcd text-lcd-error">
-            {error ?? status?.error}
-          </p>
-        ) : null}
-      </section>
-    </main>
+          {problem ? (
+            <Lcd role="alert" error>
+              {problem}
+            </Lcd>
+          ) : null}
+        </section>
+      </main>
+      {settingsOpen ? <Settings onClose={closeSettings} /> : null}
+    </Window>
   );
 }

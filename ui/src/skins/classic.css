@@ -1,0 +1,117 @@
+/*
+ * The skin token contract. Every value a component can draw with is
+ * defined here for the Classic skin, which is also the fallback when no
+ * `data-skin` is set. Other skins override any subset of these under
+ * their own `:root[data-skin='…']` block; see docs/skins.md for the
+ * recipe. This file and its siblings in ui/src/skins/ are the only place
+ * a literal color may appear (scripts/check-colors.mjs enforces it).
+ *
+ * Classic recreates the gunmetal 2000s media-player look: a bevelled
+ * frame, silver transport buttons and a green LCD.
+ */
+:root,
+:root[data-skin="classic"] {
+  /* Frame: the window chrome around everything. */
+  --frame-hi: #75758f;
+  --frame: #3a3a4e;
+  --frame-mid: #2e2e3e;
+  --frame-lo: #1c1c26;
+  --frame-edge: #08080c;
+
+  /* Title bar. */
+  --titlebar-hi: #2a2a38;
+  --titlebar-lo: #20202c;
+  --title-on: #c9b25e;
+  --title-on-lo: #6b5a22;
+  --title-text: #e8e8f0;
+
+  /* Displays: LCD readouts, meters' backplates, lists. */
+  --lcd-bg: #000;
+  --lcd-fg: #00e600;
+  --lcd-dim: #0b3a0b;
+  --lcd-error: #ffb35c;
+  --lcd-glow: color-mix(in srgb, var(--lcd-fg) 50%, transparent);
+  --list-bg: #000;
+  --list-fg: #00e600;
+  --select: #0000c6;
+
+  /* Transport buttons: the silver keys, with a dark glyph on them. */
+  --silver-hi: #f0f0f5;
+  --silver: #c4c4ce;
+  --silver-lo: #8a8a99;
+  --glyph: #1e1e28;
+
+  /* Panel buttons: the smaller keys in the frame's own material. */
+  --pbtn-hi: #4e4e66;
+  --pbtn: #36364a;
+  --pbtn-lo: #2a2a3a;
+  --pbtn-bevel-hi: #6e6e88;
+  --pbtn-bevel-lo: #18181f;
+  --pbtn-ink: var(--ink);
+
+  /* Text on the frame. */
+  --ink: #d6d6e0;
+  --ink-dim: #9696a8;
+
+  /* Indicator lights. */
+  --led-on: #3cff3c;
+  --led-off: #1d3a1d;
+  --led-rec: #ff3c3c;
+
+  /* Meters: the level gradient and the empty track behind it. */
+  --vol-lo: #1fa31f;
+  --vol-mid: #d8d81f;
+  --vol-hi: #e0301f;
+  --track: #101018;
+
+  /* Sheets: settings and pickers that open over the frame. */
+  --sheet-bg: #0c0c14;
+  --scrim: rgb(0 0 0 / 0.55);
+
+  /* Focus ring and the stage behind the window. */
+  --focus: #9be7ff;
+  --stage: #000;
+
+  /* Materials: how the tokens above are composed into surfaces. */
+  --window-radius: 2px;
+  --window-bg: linear-gradient(180deg, var(--frame) 0%, var(--frame-mid) 100%);
+  --window-shadow:
+    inset 1px 1px 0 var(--frame-hi), inset -1px -1px 0 var(--frame-lo), 0 0 0 1px var(--frame-edge),
+    0 14px 40px rgb(0 0 0 / 0.65);
+  --titlebar-bg: linear-gradient(180deg, var(--titlebar-hi), var(--titlebar-lo));
+  --titlebar-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12);
+  --titlebar-border: 1px solid var(--frame-edge);
+  --titlebar-grip: repeating-linear-gradient(
+    180deg,
+    var(--title-on) 0 1px,
+    var(--title-on-lo) 1px 2px,
+    transparent 2px 3px
+  );
+  --control-radius: 2px;
+  --button-bg: linear-gradient(180deg, var(--silver-hi), var(--silver) 40%, var(--silver-lo));
+  --button-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #55556a, 0 0 0 1px var(--frame-edge);
+  --button-hover-bg: linear-gradient(180deg, #fff, #d4d4de 40%, #9a9aaa);
+  --button-active-bg: linear-gradient(180deg, var(--silver-lo), var(--silver) 70%);
+  --button-active-shadow: inset 1px 1px 0 #55556a, 0 0 0 1px var(--frame-edge);
+  --pbutton-bg: linear-gradient(180deg, var(--pbtn-hi), var(--pbtn) 60%, var(--pbtn-lo));
+  --pbutton-shadow:
+    inset 1px 1px 0 var(--pbtn-bevel-hi), inset -1px -1px 0 var(--pbtn-bevel-lo),
+    0 0 0 1px var(--frame-edge);
+  --lcd-radius: 0px;
+  --lcd-border: 1px solid var(--frame-edge);
+  --lcd-shadow:
+    inset 1px 1px 0 var(--frame-lo), inset -1px -1px 0 var(--frame-hi),
+    inset 2px 2px 4px rgb(0 0 0 / 0.9);
+  --lcd-text-shadow: 0 0 6px var(--lcd-glow);
+  --title-text-shadow: 0 1px 0 #000;
+
+  /* Type. */
+  --font-lcd: "VT323", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-ui: Tahoma, Verdana, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Beat phase, 0 to 1, driven by the tempo map from M8. Skins may pulse
+   * on it; it stays 0 when reduced motion is on. */
+  --beat: 0;
+
+  color-scheme: dark;
+}
