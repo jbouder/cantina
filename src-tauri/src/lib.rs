@@ -9,6 +9,7 @@
 
 mod commands;
 mod engine;
+mod frame;
 mod settings;
 
 use engine::EngineState;
@@ -21,6 +22,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::ui_log,
             commands::engine_status,
             commands::engine_start,
             commands::engine_stop,
@@ -29,6 +31,8 @@ pub fn run() {
             commands::audio_settings,
             commands::set_audio_settings,
             commands::subscribe_meters,
+            commands::meter_ack,
+            commands::frames_dropped,
             commands::track_arm,
             commands::track_record,
             commands::track_play,

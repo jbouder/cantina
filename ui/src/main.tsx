@@ -1,9 +1,11 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "./App";
+import { reportErrorsToShell } from "./lib/report";
 import { applySkin, loadSkin } from "./skins";
 import "./styles.css";
 
+reportErrorsToShell();
 // Before the first paint, so the saved skin never flashes through Classic.
 applySkin(loadSkin());
 

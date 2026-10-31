@@ -1,10 +1,10 @@
 //! Tauri commands: the UI's view of the engine. Each one locks the engine
 //! for one call and returns the status the UI should show.
 
-use tauri::ipc::Channel;
+use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::State;
 
-use crate::engine::{DeviceEntry, EngineState, EngineStatus, MeterFrame};
+use crate::engine::{DeviceEntry, EngineState, EngineStatus};
 use crate::settings::AudioSettings;
 
 #[tauri::command]
@@ -42,9 +42,22 @@ pub fn set_audio_settings(engine: State<'_, EngineState>, settings: AudioSetting
     engine.lock().set_audio_settings(settings)
 }
 
+/// Opens the binary frame stream (see `frame.rs` and `docs/frames.md`).
 #[tauri::command]
-pub fn subscribe_meters(engine: State<'_, EngineState>, channel: Channel<MeterFrame>) {
+pub fn subscribe_meters(engine: State<'_, EngineState>, channel: Channel<InvokeResponseBody>) {
     engine.lock().subscribe_meters(channel)
+}
+
+/// The UI took the last frame; called from its animation frame.
+#[tauri::command]
+pub fn meter_ack(engine: State<'_, EngineState>) {
+    engine.lock().meter_ack()
+}
+
+/// Frames skipped so far because the UI had not taken the previous one.
+#[tauri::command]
+pub fn frames_dropped(engine: State<'_, EngineState>) -> u32 {
+    engine.lock().frames_dropped()
 }
 
 fn fail(e: anyhow::Error) -> String {
@@ -105,4 +118,11 @@ pub fn chain_set_param(
         .lock()
         .chain_set_param(id, param, value)
         .map_err(fail)
+}
+
+/// Prints a line from the UI on the shell's stderr, so errors in the web
+/// view show up in the terminal that launched the app.
+#[tauri::command]
+pub fn ui_log(level: String, message: String) {
+    eprintln!("[ui {level}] {message}");
 }

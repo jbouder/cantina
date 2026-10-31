@@ -21,6 +21,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm test
       # The shell embeds ui/dist at compile time, so the UI builds first.
       - run: npm run build
       - uses: dtolnay/rust-toolchain@stable
