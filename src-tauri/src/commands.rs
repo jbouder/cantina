@@ -3,7 +3,7 @@
 //! show.
 
 use cantina_project::Tempo;
-use tauri::ipc::{Channel, InvokeResponseBody};
+use tauri::ipc::{Channel, InvokeResponseBody, Response};
 use tauri::State;
 
 use crate::engine::{DeviceEntry, EngineState, EngineStatus};
@@ -138,6 +138,50 @@ pub fn track_arm(
 #[tauri::command]
 pub fn clip_remove(engine: State<'_, EngineState>, id: u64) -> Result<EngineStatus, String> {
     engine.lock().clip_remove(id).map_err(fail)
+}
+
+#[tauri::command]
+pub fn clip_move(
+    engine: State<'_, EngineState>,
+    id: u64,
+    track: u64,
+    start: u64,
+) -> Result<EngineStatus, String> {
+    engine.lock().clip_move(id, track, start).map_err(fail)
+}
+
+#[tauri::command]
+pub fn clip_trim(
+    engine: State<'_, EngineState>,
+    id: u64,
+    start: u64,
+    offset: u64,
+    length: u64,
+) -> Result<EngineStatus, String> {
+    engine
+        .lock()
+        .clip_trim(id, start, offset, length)
+        .map_err(fail)
+}
+
+#[tauri::command]
+pub fn clip_split(
+    engine: State<'_, EngineState>,
+    id: u64,
+    at: u64,
+) -> Result<EngineStatus, String> {
+    engine.lock().clip_split(id, at).map_err(fail)
+}
+
+/// A file in `audio/` as little-endian mono f32 samples, for the UI's
+/// peak cache. Binary, not JSON: a take can be tens of megabytes.
+#[tauri::command]
+pub fn audio_samples(engine: State<'_, EngineState>, file: String) -> Result<Response, String> {
+    engine
+        .lock()
+        .audio_samples(&file)
+        .map(Response::new)
+        .map_err(fail)
 }
 
 // ----- the transport -----

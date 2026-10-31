@@ -49,6 +49,8 @@
   --color-scrim: var(--scrim);
   --color-focus: var(--focus);
   --color-stage: var(--stage);
+  --color-tl-lane: var(--tl-lane);
+  --color-tl-grid: var(--tl-grid);
   --font-lcd: var(--font-lcd);
   --font-ui: var(--font-ui);
   --radius-window: var(--window-radius);

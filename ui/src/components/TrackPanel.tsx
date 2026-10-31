@@ -1,10 +1,9 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import {
   clipRemove,
   clock,
   type EngineStatus,
   type TrackStatus,
-  trackAdd,
   trackArm,
   trackMove,
   trackRemove,
@@ -15,41 +14,6 @@ import { Led } from "./Led";
 import { PedalChain } from "./PedalChain";
 
 type Props = {
-  tracks: TrackStatus[];
-  sampleRate: number;
-  kinds: string[];
-  onStatus: (status: EngineStatus) => void;
-  onError: (message: string) => void;
-};
-
-/** The project's tracks in order, each with its arm switch, chain and clips. */
-export function TrackList({ tracks, sampleRate, kinds, onStatus, onError }: Props) {
-  const run = (action: Promise<EngineStatus>) => action.then(onStatus, (e) => onError(String(e)));
-  return (
-    <div className="grid gap-3">
-      <ol className="m-0 grid list-none gap-3 p-0">
-        {tracks.map((track, index) => (
-          <li key={track.id}>
-            <TrackCard
-              track={track}
-              index={index}
-              count={tracks.length}
-              sampleRate={sampleRate}
-              kinds={kinds}
-              onStatus={onStatus}
-              onError={onError}
-            />
-          </li>
-        ))}
-      </ol>
-      <div>
-        <Button onClick={() => run(trackAdd())}>Add track</Button>
-      </div>
-    </div>
-  );
-}
-
-type CardProps = {
   track: TrackStatus;
   index: number;
   count: number;
@@ -59,11 +23,21 @@ type CardProps = {
   onError: (message: string) => void;
 };
 
-function TrackCard({ track, index, count, sampleRate, kinds, onStatus, onError }: CardProps) {
+/**
+ * The selected track: arm, rename, move and remove it, its pedal chain,
+ * and its clips as a list (the timeline draws them; this is the list a
+ * screen reader or the keyboard gets).
+ */
+export function TrackPanel({ track, index, count, sampleRate, kinds, onStatus, onError }: Props) {
   const run = (action: Promise<EngineStatus>) => action.then(onStatus, (e) => onError(String(e)));
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(track.name);
   const headingId = `track-${track.id}-title`;
+
+  useEffect(() => {
+    setName(track.name);
+    setEditing(false);
+  }, [track.name]);
 
   const rename = (e: FormEvent) => {
     e.preventDefault();

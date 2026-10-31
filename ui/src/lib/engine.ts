@@ -453,6 +453,93 @@ export async function clipRemove(id: number): Promise<EngineStatus> {
   return mockEdit();
 }
 
+function mockClipAt(id: number): { track: TrackStatus; clip: ClipInfo; index: number } {
+  for (const track of mock.project.tracks) {
+    const index = track.clips.findIndex((c) => c.id === id);
+    const clip = track.clips[index];
+    if (clip) return { track, clip, index };
+  }
+  throw new Error(`no clip ${id}`);
+}
+
+/** Puts a clip at `start` on `track`, which may be another track. */
+export async function clipMove(id: number, track: number, start: number): Promise<EngineStatus> {
+  start = Math.round(start);
+  if (inTauri) return invoke<EngineStatus>("clip_move", { id, track, start });
+  const found = mockClipAt(id);
+  found.track.clips.splice(found.index, 1);
+  const dest = mockTrack(track);
+  dest.clips.push({ ...found.clip, start });
+  dest.clips.sort((a, b) => a.start - b.start);
+  return mockEdit();
+}
+
+/** Sets a clip's start, offset into its file and length. */
+export async function clipTrim(
+  id: number,
+  start: number,
+  offset: number,
+  length: number,
+): Promise<EngineStatus> {
+  start = Math.round(start);
+  offset = Math.round(offset);
+  length = Math.round(length);
+  if (inTauri) return invoke<EngineStatus>("clip_trim", { id, start, offset, length });
+  const found = mockClipAt(id);
+  Object.assign(found.clip, { start, offset, length });
+  found.track.clips.sort((a, b) => a.start - b.start);
+  return mockEdit();
+}
+
+/** Cuts a clip at a timeline sample; the right part becomes a new clip. */
+export async function clipSplit(id: number, at: number): Promise<EngineStatus> {
+  at = Math.round(at);
+  if (inTauri) return invoke<EngineStatus>("clip_split", { id, at });
+  const { track, clip, index } = mockClipAt(id);
+  if (at <= clip.start || at >= clip.start + clip.length) {
+    throw new Error(`sample ${at} is not inside clip ${id}`);
+  }
+  const left = at - clip.start;
+  track.clips.splice(index + 1, 0, {
+    ...clip,
+    id: mockNextId++,
+    start: at,
+    offset: clip.offset + left,
+    length: clip.length - left,
+  });
+  clip.length = left;
+  return mockEdit();
+}
+
+/**
+ * A file in `audio/` as mono f32 samples, for the peak cache. The
+ * stand-in synthesizes a plucked tone per file name so clips show a
+ * waveform in a browser.
+ */
+export async function audioSamples(file: string): Promise<Float32Array> {
+  if (inTauri) {
+    const bytes = await invoke<ArrayBuffer>("audio_samples", { file });
+    return new Float32Array(bytes);
+  }
+  let frames = MOCK_RATE;
+  for (const t of mock.project.tracks) {
+    for (const c of t.clips) {
+      if (c.file === file) frames = Math.max(frames, c.offset + c.length);
+    }
+  }
+  const out = new Float32Array(frames);
+  let seed = 0;
+  for (const ch of file) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+  const hz = 82 + (seed % 7) * 18;
+  for (let i = 0; i < frames; i++) {
+    const t = i / MOCK_RATE;
+    const pluck = Math.exp(-((t * 2.5) % 2.5) * 1.6);
+    out[i] =
+      pluck * 0.8 * (Math.sin(2 * Math.PI * hz * t) + 0.4 * Math.sin(2 * Math.PI * hz * 2.01 * t));
+  }
+  return out;
+}
+
 // ----- the transport -----
 
 export async function transportPlay(): Promise<EngineStatus> {
