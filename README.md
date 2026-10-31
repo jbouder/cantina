@@ -93,7 +93,7 @@ It plays clicks, times their return and prints a row for
 
 ```
 crates/dsp      pure processing: the Processor trait, Chain, stock Gain and Overdrive
-crates/engine   CoreAudio devices and streams, graph runtime, transport, WAV streaming
+crates/engine   CoreAudio devices, streams and hardware watcher; graph runtime, meters, transport, WAV streaming
 crates/hosting  Audio Units and CLAP plugins as Processors
 crates/clap-fixture  a tiny CLAP plugin the hosting tests load
 src-tauri/      the Tauri 2 shell: owns the engine handle, exposes commands to the UI

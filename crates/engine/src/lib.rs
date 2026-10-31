@@ -12,6 +12,7 @@ pub mod click;
 pub mod device;
 pub mod graph;
 pub mod latency;
+pub mod meter;
 pub mod player;
 pub mod processors;
 pub mod recorder;
@@ -22,10 +23,11 @@ pub mod transport;
 pub mod wav;
 
 pub use click::Click;
-pub use device::{DeviceId, DeviceInfo};
+pub use device::{DeviceEvent, DeviceId, DeviceInfo, Watcher};
 pub use graph::{
     BlockContext, Endpoint, Graph, GraphConfig, GraphError, Node, NodeId, NodeInfo, ProcessorNode,
 };
+pub use meter::{Level, Meter, MeterHandle};
 pub use player::{Clip, Player, PlayerHandle, PlayerStats};
 pub use recorder::{Recorder, RecorderHandle, RecorderStats};
 pub use runtime::{CommitError, Controller, ParamChange, Runtime, RuntimeStats};

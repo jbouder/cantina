@@ -3,21 +3,28 @@
 //! Nothing here runs on the audio thread. These calls may block briefly
 //! while the HAL talks to a driver.
 
+use std::ffi::c_void;
 use std::mem::{size_of, MaybeUninit};
 use std::ptr::{null, NonNull};
+use std::sync::mpsc::Sender;
 
 use anyhow::{anyhow, bail, Context, Result};
 use coreaudio::audio_unit::macos_helpers;
 use objc2_core_audio::{
-    kAudioDevicePropertyBufferFrameSize, kAudioDevicePropertyBufferFrameSizeRange,
-    kAudioDevicePropertyLatency, kAudioDevicePropertyNominalSampleRate,
-    kAudioDevicePropertySafetyOffset, kAudioDevicePropertyStreamConfiguration,
+    kAudioDevicePropertyAvailableNominalSampleRates, kAudioDevicePropertyBufferFrameSize,
+    kAudioDevicePropertyBufferFrameSizeRange, kAudioDevicePropertyDeviceIsAlive,
+    kAudioDevicePropertyDeviceUID, kAudioDevicePropertyLatency,
+    kAudioDevicePropertyNominalSampleRate, kAudioDevicePropertySafetyOffset,
+    kAudioDevicePropertyStreamConfiguration, kAudioHardwarePropertyDefaultInputDevice,
+    kAudioHardwarePropertyDefaultOutputDevice, kAudioHardwarePropertyDevices,
     kAudioObjectPropertyElementMain, kAudioObjectPropertyScopeGlobal,
-    kAudioObjectPropertyScopeInput, kAudioObjectPropertyScopeOutput, AudioObjectGetPropertyData,
-    AudioObjectGetPropertyDataSize, AudioObjectID, AudioObjectPropertyAddress,
-    AudioObjectPropertyScope, AudioObjectSetPropertyData,
+    kAudioObjectPropertyScopeInput, kAudioObjectPropertyScopeOutput, kAudioObjectSystemObject,
+    AudioObjectAddPropertyListener, AudioObjectGetPropertyData, AudioObjectGetPropertyDataSize,
+    AudioObjectID, AudioObjectPropertyAddress, AudioObjectPropertyScope,
+    AudioObjectRemovePropertyListener, AudioObjectSetPropertyData,
 };
 use objc2_core_audio_types::{AudioBufferList, AudioValueRange};
+use objc2_core_foundation::{CFRetained, CFString};
 
 /// A CoreAudio device identifier. Stable for the life of the device
 /// connection, not across unplug and replug.
@@ -27,6 +34,8 @@ pub type DeviceId = AudioObjectID;
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeviceInfo {
     pub id: DeviceId,
+    /// Stable across launches and replugs, unlike the id. What to persist.
+    pub uid: String,
     pub name: String,
     pub input_channels: u32,
     pub output_channels: u32,
@@ -45,6 +54,7 @@ pub fn list() -> Result<Vec<DeviceInfo>> {
 pub fn info(id: DeviceId) -> Result<DeviceInfo> {
     Ok(DeviceInfo {
         id,
+        uid: uid(id)?,
         name: name(id)?,
         input_channels: channel_count(id, true)?,
         output_channels: channel_count(id, false)?,
@@ -80,6 +90,98 @@ pub fn find_by_name(query: &str) -> Result<Option<DeviceId>> {
 /// The device's display name.
 pub fn name(id: DeviceId) -> Result<String> {
     macos_helpers::get_device_name(id).with_context(|| format!("reading name of device {id}"))
+}
+
+/// The device's unique identifier, stable across launches and replugs.
+pub fn uid(id: DeviceId) -> Result<String> {
+    let ptr: *const CFString = get(
+        id,
+        kAudioDevicePropertyDeviceUID,
+        kAudioObjectPropertyScopeGlobal,
+    )?;
+    let ptr = NonNull::new(ptr as *mut CFString).context("device UID was null")?;
+    // The property hands back a +1 retained string that is ours to release.
+    let uid = unsafe { CFRetained::from_raw(ptr) };
+    Ok(uid.to_string())
+}
+
+/// Finds a device by the UID a previous launch saved. `None` when it is
+/// not connected now.
+pub fn find_by_uid(wanted: &str) -> Result<Option<DeviceId>> {
+    for id in macos_helpers::get_audio_device_ids().context("listing audio devices")? {
+        if uid(id).is_ok_and(|u| u == wanted) {
+            return Ok(Some(id));
+        }
+    }
+    Ok(None)
+}
+
+/// True while the device is connected and usable.
+pub fn is_alive(id: DeviceId) -> bool {
+    get::<u32>(
+        id,
+        kAudioDevicePropertyDeviceIsAlive,
+        kAudioObjectPropertyScopeGlobal,
+    )
+    .is_ok_and(|alive| alive != 0)
+}
+
+/// Sample rates the user can pick for this device, ascending. Devices
+/// report ranges; the common studio rates inside them are returned, plus
+/// any exact rate the device names that is not in the common list.
+pub fn available_sample_rates(id: DeviceId) -> Result<Vec<f64>> {
+    const COMMON: [f64; 8] = [
+        44_100.0, 48_000.0, 88_200.0, 96_000.0, 176_400.0, 192_000.0, 352_800.0, 384_000.0,
+    ];
+    let address = address(
+        kAudioDevicePropertyAvailableNominalSampleRates,
+        kAudioObjectPropertyScopeGlobal,
+    );
+    let mut size = 0u32;
+    let status = unsafe {
+        AudioObjectGetPropertyDataSize(
+            id,
+            NonNull::from(&address),
+            0,
+            null(),
+            NonNull::from(&mut size),
+        )
+    };
+    check(status, "reading sample rate list size")?;
+    let count = size as usize / size_of::<AudioValueRange>();
+    let mut ranges = vec![
+        AudioValueRange {
+            mMinimum: 0.0,
+            mMaximum: 0.0
+        };
+        count
+    ];
+    if count > 0 {
+        let status = unsafe {
+            AudioObjectGetPropertyData(
+                id,
+                NonNull::from(&address),
+                0,
+                null(),
+                NonNull::from(&mut size),
+                NonNull::new(ranges.as_mut_ptr()).unwrap().cast(),
+            )
+        };
+        check(status, "reading sample rate list")?;
+    }
+    let mut rates: Vec<f64> = Vec::new();
+    for range in &ranges {
+        for rate in COMMON {
+            if rate >= range.mMinimum && rate <= range.mMaximum && !rates.contains(&rate) {
+                rates.push(rate);
+            }
+        }
+        if range.mMinimum == range.mMaximum && !rates.contains(&range.mMinimum) {
+            rates.push(range.mMinimum);
+        }
+    }
+    rates.sort_by(|a, b| a.total_cmp(b));
+    Ok(rates)
 }
 
 /// Number of input or output channels across all of the device's streams.
@@ -260,4 +362,121 @@ fn fourcc(status: i32) -> String {
     } else {
         "not a four-char code".to_string()
     }
+}
+
+/// Something changed in the audio hardware while a stream was running.
+#[derive(Debug, Clone, PartialEq)]
+pub enum DeviceEvent {
+    /// A device was plugged in or removed.
+    DevicesChanged,
+    DefaultInputChanged,
+    DefaultOutputChanged,
+    /// The device's nominal sample rate is now this.
+    SampleRateChanged(DeviceId, f64),
+    /// The device is no longer alive.
+    DeviceGone(DeviceId),
+}
+
+/// Listens for hardware changes and sends them to a channel.
+///
+/// The HAL calls back on its own notification thread; the callback only
+/// reads a property and pushes to the channel, so it is safe anywhere.
+/// Dropping the watcher removes every listener.
+pub struct Watcher {
+    /// Boxed so the pointer handed to CoreAudio stays put.
+    inner: Box<Inner>,
+    registered: Vec<(AudioObjectID, AudioObjectPropertyAddress)>,
+}
+
+struct Inner {
+    sender: Sender<DeviceEvent>,
+}
+
+impl Watcher {
+    /// Watches the device list and the system defaults, plus the sample
+    /// rate and liveness of each device in `devices`.
+    pub fn new(sender: Sender<DeviceEvent>, devices: &[DeviceId]) -> Result<Watcher> {
+        let mut watcher = Watcher {
+            inner: Box::new(Inner { sender }),
+            registered: Vec::new(),
+        };
+        let system = kAudioObjectSystemObject as AudioObjectID;
+        for selector in [
+            kAudioHardwarePropertyDevices,
+            kAudioHardwarePropertyDefaultInputDevice,
+            kAudioHardwarePropertyDefaultOutputDevice,
+        ] {
+            watcher.listen(system, selector)?;
+        }
+        let mut seen = Vec::new();
+        for &device in devices {
+            if seen.contains(&device) {
+                continue;
+            }
+            seen.push(device);
+            watcher.listen(device, kAudioDevicePropertyNominalSampleRate)?;
+            watcher.listen(device, kAudioDevicePropertyDeviceIsAlive)?;
+        }
+        Ok(watcher)
+    }
+
+    fn listen(&mut self, object: AudioObjectID, selector: u32) -> Result<()> {
+        let address = address(selector, kAudioObjectPropertyScopeGlobal);
+        let client = &*self.inner as *const Inner as *mut c_void;
+        let status = unsafe {
+            AudioObjectAddPropertyListener(object, NonNull::from(&address), Some(on_change), client)
+        };
+        check(status, "adding a property listener")?;
+        self.registered.push((object, address));
+        Ok(())
+    }
+}
+
+impl Drop for Watcher {
+    fn drop(&mut self) {
+        let client = &*self.inner as *const Inner as *mut c_void;
+        for (object, address) in self.registered.drain(..) {
+            unsafe {
+                AudioObjectRemovePropertyListener(
+                    object,
+                    NonNull::from(&address),
+                    Some(on_change),
+                    client,
+                );
+            }
+        }
+    }
+}
+
+unsafe extern "C-unwind" fn on_change(
+    object: AudioObjectID,
+    count: u32,
+    addresses: NonNull<AudioObjectPropertyAddress>,
+    client: *mut c_void,
+) -> i32 {
+    let inner = &*(client as *const Inner);
+    let addresses = std::slice::from_raw_parts(addresses.as_ptr(), count as usize);
+    for address in addresses {
+        let event = match address.mSelector {
+            s if s == kAudioHardwarePropertyDevices => DeviceEvent::DevicesChanged,
+            s if s == kAudioHardwarePropertyDefaultInputDevice => DeviceEvent::DefaultInputChanged,
+            s if s == kAudioHardwarePropertyDefaultOutputDevice => {
+                DeviceEvent::DefaultOutputChanged
+            }
+            s if s == kAudioDevicePropertyNominalSampleRate => match nominal_sample_rate(object) {
+                Ok(rate) => DeviceEvent::SampleRateChanged(object, rate),
+                Err(_) => continue,
+            },
+            s if s == kAudioDevicePropertyDeviceIsAlive => {
+                if is_alive(object) {
+                    continue;
+                }
+                DeviceEvent::DeviceGone(object)
+            }
+            _ => continue,
+        };
+        // A closed receiver means nobody cares any more.
+        let _ = inner.sender.send(event);
+    }
+    0
 }

@@ -2,14 +2,28 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "./components/Button";
 import { Lcd } from "./components/Lcd";
 import { Led } from "./components/Led";
+import { Meter } from "./components/Meter";
+import { Notice } from "./components/Notice";
 import { Settings } from "./components/Settings";
 import { Window } from "./components/Window";
-import { type EngineStatus, engineStart, engineStatus, engineStop, inTauri } from "./lib/engine";
+import {
+  dismissNotice,
+  type EngineStatus,
+  engineStart,
+  engineStatus,
+  engineStop,
+  inTauri,
+  type MeterFrame,
+  onMeters,
+  onStatus,
+  SILENT,
+} from "./lib/engine";
 
 export function App() {
   const [status, setStatus] = useState<EngineStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [meters, setMeters] = useState<MeterFrame>({ input: SILENT, output: SILENT });
   // In a browser `?settings` opens the sheet, so screenshots can show it.
   const [settingsOpen, setSettingsOpen] = useState(
     () => !inTauri && new URLSearchParams(window.location.search).has("settings"),
@@ -18,6 +32,12 @@ export function App() {
 
   useEffect(() => {
     engineStatus().then(setStatus, (e) => setError(String(e)));
+    const stopStatus = onStatus(setStatus);
+    const stopMeters = onMeters(setMeters);
+    return () => {
+      stopStatus();
+      stopMeters();
+    };
   }, []);
 
   const toggle = useCallback(async () => {
@@ -32,6 +52,10 @@ export function App() {
       setBusy(false);
     }
   }, [status, busy]);
+
+  const dismiss = useCallback(() => {
+    dismissNotice().then(setStatus, (e) => setError(String(e)));
+  }, []);
 
   const running = status?.running ?? false;
   const problem = error ?? status?.error ?? null;
@@ -53,8 +77,16 @@ export function App() {
         </Button>
       }
     >
-      <main className="flex flex-1 items-center justify-center p-6">
-        <section aria-labelledby="engine-title" className="grid w-full max-w-md gap-3">
+      <main className="flex flex-1 flex-col items-center gap-4 p-6">
+        {status?.notice ? (
+          <div className="w-full max-w-xl">
+            <Notice message={status.notice} onDismiss={dismiss} />
+          </div>
+        ) : null}
+        <section
+          aria-labelledby="engine-title"
+          className="grid w-full max-w-xl flex-1 content-center gap-3"
+        >
           <header className="flex items-center justify-between">
             <h2 id="engine-title" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
               Engine
@@ -66,19 +98,27 @@ export function App() {
             {status === null
               ? "..."
               : running
-                ? `${status.inputName ?? "?"} → ${status.outputName ?? "?"} · ${status.sampleRate} Hz · ${status.bufferFrames} frames`
+                ? `${status.inputName ?? "?"} → ${status.outputName ?? "?"} · ${status.sampleRate / 1000} kHz · ${status.bufferFrames} frames`
                 : "engine stopped"}
           </Lcd>
 
-          <Button
-            variant="transport"
-            onClick={toggle}
-            disabled={status === null || busy}
-            aria-pressed={running}
-            className="w-full"
-          >
-            {busy ? "…" : running ? "Stop engine" : "Start engine"}
-          </Button>
+          <div className="grid gap-2">
+            <Meter label="In" level={meters.input} />
+            <Meter label="Out" level={meters.output} />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="transport"
+              onClick={toggle}
+              disabled={status === null || busy}
+              aria-pressed={running}
+              className="flex-1"
+            >
+              {busy ? "…" : running ? "Stop engine" : "Start engine"}
+            </Button>
+            <Button onClick={() => setSettingsOpen(true)}>Devices…</Button>
+          </div>
 
           {problem ? (
             <Lcd role="alert" error>
@@ -87,7 +127,7 @@ export function App() {
           ) : null}
         </section>
       </main>
-      {settingsOpen ? <Settings onClose={closeSettings} /> : null}
+      {settingsOpen ? <Settings onClose={closeSettings} onStatusChange={setStatus} /> : null}
     </Window>
   );
 }

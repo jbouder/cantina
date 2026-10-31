@@ -3,22 +3,32 @@
 //!
 //! The engine never reaches the web view directly. It lives in managed
 //! state behind a mutex, and every command locks it for the duration of
-//! one call. Continuous data (meters, later analysis) will travel the
-//! other way over channels.
+//! one call. Continuous data (meters, later analysis) travels the other
+//! way over channels, and status changes the engine makes on its own are
+//! pushed as events.
 
 mod commands;
 mod engine;
+mod settings;
 
 use engine::EngineState;
 use tauri::{Manager, RunEvent};
 
 pub fn run() {
     tauri::Builder::default()
-        .manage(EngineState::default())
+        .setup(|app| {
+            app.manage(EngineState::new(app.handle().clone()));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::engine_status,
             commands::engine_start,
             commands::engine_stop,
+            commands::dismiss_notice,
+            commands::list_devices,
+            commands::audio_settings,
+            commands::set_audio_settings,
+            commands::subscribe_meters,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Cantina shell")
