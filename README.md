@@ -21,12 +21,26 @@ needs an audio interface. Spike findings in [docs/spike.md](docs/spike.md).
 
 ## Build
 
-macOS only. Install Rust with [rustup](https://rustup.rs), then:
+macOS only. Install Rust with [rustup](https://rustup.rs) and Node 22,
+then:
+
+```sh
+npm install
+npm run tauri dev      # the app, with the UI hot-reloading
+npm run tauri build    # target/release/bundle/macos/Cantina.app and a DMG
+```
+
+The engine alone, without the shell:
 
 ```sh
 cargo build --workspace
 cargo test --workspace
 ```
+
+The UI is checked with Biome and TypeScript; `npm run check` runs both,
+`npm run format` fixes what Biome can. `npm run dev` serves the UI in a
+browser against a stand-in engine, which is enough for layout and skin work
+and is what `scripts/screenshot.sh` captures for pull requests.
 
 The DSP tests include golden-file renders in `crates/dsp/tests/golden/`:
 every stock processor over generated fixtures, compared sample by sample.
@@ -79,8 +93,11 @@ It plays clicks, times their return and prints a row for
 
 ```
 crates/dsp      pure processing: the Processor trait, Chain, stock Gain and Overdrive
-crates/engine   CoreAudio devices and streams, latency measurement; later the graph runtime
+crates/engine   CoreAudio devices and streams, graph runtime, transport, WAV streaming
 crates/hosting  Audio Units and CLAP plugins as Processors
 crates/clap-fixture  a tiny CLAP plugin the hosting tests load
-docs/           design notes and measurements; the Astro site lands here
+src-tauri/      the Tauri 2 shell: owns the engine handle, exposes commands to the UI
+ui/             the React and TypeScript app, styled with Tailwind v4 through skin tokens
+scripts/        developer tools, such as the PR screenshot capture
+docs/           design notes, measurements and screenshots; the Astro site lands here
 ```

@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+/*
+ * Skin tokens. Every color, radius, shadow, material and typeface a
+ * component uses comes from a custom property defined per skin under
+ * `:root[data-skin]`; components never carry a literal color. This is the
+ * same mechanism as music-visualizer's skin.css, and the six player skins
+ * port onto it. "classic" is the base skin and the fallback.
+ */
+:root,
+:root[data-skin="classic"] {
+  --frame-hi: #75758f;
+  --frame: #3a3a4e;
+  --frame-mid: #2e2e3e;
+  --frame-lo: #1c1c26;
+  --frame-edge: #08080c;
+  --title-text: #e8e8f0;
+  --lcd-bg: #000;
+  --lcd-fg: #00e600;
+  --lcd-dim: #0b3a0b;
+  --lcd-error: #ffb35c;
+  --silver-hi: #f0f0f5;
+  --silver: #c4c4ce;
+  --silver-lo: #8a8a99;
+  --glyph: #1e1e28;
+  --ink: #d6d6e0;
+  --ink-dim: #9696a8;
+  --led-on: #3cff3c;
+  --led-off: #1d3a1d;
+  --led-rec: #ff3c3c;
+  --focus: #9be7ff;
+  --stage: #000;
+  --lcd-glow: color-mix(in srgb, var(--lcd-fg) 50%, transparent);
+  --font-lcd: "VT323", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-ui: Tahoma, Verdana, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius-window: 2px;
+  --radius-control: 2px;
+  --shadow-window:
+    inset 1px 1px 0 var(--frame-hi), inset -1px -1px 0 var(--frame-lo), 0 0 0 1px var(--frame-edge),
+    0 14px 40px rgb(0 0 0 / 0.65);
+  color-scheme: dark;
+}
+
+/*
+ * Tailwind reads its theme from the skin tokens. The default palette is
+ * cleared so `bg-red-500` and friends do not exist: a utility can only name
+ * a token, which is how the "no literal colors" rule holds at build time.
+ */
+@theme inline {
+  --color-*: initial;
+  --color-frame-hi: var(--frame-hi);
+  --color-frame: var(--frame);
+  --color-frame-mid: var(--frame-mid);
+  --color-frame-lo: var(--frame-lo);
+  --color-frame-edge: var(--frame-edge);
+  --color-title-text: var(--title-text);
+  --color-lcd-bg: var(--lcd-bg);
+  --color-lcd-fg: var(--lcd-fg);
+  --color-lcd-dim: var(--lcd-dim);
+  --color-lcd-error: var(--lcd-error);
+  --color-silver-hi: var(--silver-hi);
+  --color-silver: var(--silver);
+  --color-silver-lo: var(--silver-lo);
+  --color-glyph: var(--glyph);
+  --color-ink: var(--ink);
+  --color-ink-dim: var(--ink-dim);
+  --color-led-on: var(--led-on);
+  --color-led-off: var(--led-off);
+  --color-led-rec: var(--led-rec);
+  --color-focus: var(--focus);
+  --color-stage: var(--stage);
+  --font-lcd: var(--font-lcd);
+  --font-ui: var(--font-ui);
+  --radius-window: var(--radius-window);
+  --radius-control: var(--radius-control);
+  --shadow-window: var(--shadow-window);
+}
+
+/*
+ * Base styles live in Tailwind's base layer so utilities on a component
+ * always win over them; unlayered rules would beat every utility.
+ */
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    background: var(--stage);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  button,
+  input,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+}
