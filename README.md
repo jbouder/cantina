@@ -12,7 +12,17 @@ progress.
 
 ## Status
 
-M4 Hosting done. Third-party plugins are in: a scanner that examines
+M5 Drums done. Beats are in: a drum kit format (pads with velocity
+layers, choke groups, gain and pan) and a sample-accurate polyphonic
+sampler; a step sequencer that computes every block's hits from the
+tempo map, so patterns follow tempo changes and loops; a drum grid with
+click-to-toggle, drag-for-velocity and full keyboard access, with
+swing, resolution and length; patterns as clips on the timeline, kept
+in ticks so they stay on their bars, with a step preview and the same
+move, trim and split as audio clips; and three stock kits (acoustic,
+tight rock, electronic) built from public-domain samples with every
+source credited. Drums in [docs/drums.md](docs/drums.md). M4 Hosting
+came before. Third-party plugins are in: a scanner that examines
 Audio Units and CLAP bundles in a child process, so a plugin that
 crashes on load is listed as failed instead of taking the app down, with
 a cache that only rescans what changed; Audio Units and CLAP plugins as
@@ -22,8 +32,7 @@ view for units without one; and latency compensation that delays every
 track's playback to the slowest chain while live monitoring is never
 delayed, with recorded takes placed back where they were played. The
 threading decision the spike left open is settled: the engine keeps a
-plugin's main-thread half on the UI thread as a handle. M3 built the
-project model: a `.cantina` directory with `project.json` and immutable
+plugin's main-thread half on the UI thread as a handle. M3 built the project model: a `.cantina` directory with `project.json` and immutable
 audio, every edit a command with an inverse, a canvas timeline with
 peak caches, a mixer, undo and redo, and autosave with recovery. M2
 built the shell: a Tauri 2 app with a device picker that survives

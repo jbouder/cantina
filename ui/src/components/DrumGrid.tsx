@@ -22,6 +22,7 @@ import {
   type AuditionStatus,
   type EngineStatus,
   type KitInfo,
+  kitsRescan,
   type PatternInfo,
   patternAdd,
   patternAudition,
@@ -272,6 +273,9 @@ export function DrumGrid({
             </option>
           ))}
         </Select>
+        <Button onClick={() => run(kitsRescan())} title="Look for kits installed since launch">
+          Rescan
+        </Button>
         <Select
           id={`${id}-pattern`}
           label="Pattern"
