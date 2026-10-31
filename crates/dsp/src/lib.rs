@@ -18,12 +18,14 @@ mod biquad;
 mod gain;
 mod overdrive;
 mod processor;
+mod render;
 mod smooth;
 
 pub use biquad::Biquad;
 pub use gain::Gain;
 pub use overdrive::Overdrive;
 pub use processor::{Buffer, Chain, ParamId, ParamInfo, Processor, StateError, Unit, MAX_CHANNELS};
+pub use render::Renderer;
 pub use smooth::Smoother;
 
 /// Converts decibels to a linear amplitude multiplier.
