@@ -25,6 +25,8 @@ use std::sync::{Arc, Mutex};
 use cantina_dsp::{Buffer, ParamId, ParamInfo, Processor, MAX_CHANNELS};
 
 use crate::runtime::RuntimeStats;
+use crate::tempo::TempoMap;
+use crate::transport::LoopRange;
 
 /// Identifies a node for the life of its graph. Never reused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -60,13 +62,22 @@ impl fmt::Display for Endpoint {
     }
 }
 
-/// What the audio thread knows about the block it is processing. The
-/// transport fields arrive with the transport.
+/// What the audio thread knows about the block it is processing.
+///
+/// The runtime cuts a block at the loop wrap, so within one context the
+/// timeline position is contiguous: frame `i` is at `position + i`.
 #[derive(Debug, Clone, Copy)]
-pub struct BlockContext {
+pub struct BlockContext<'a> {
     pub sample_rate: f64,
     /// Frames in this block.
     pub frames: usize,
+    /// Whether the transport is rolling. The position holds while stopped.
+    pub playing: bool,
+    /// Timeline sample of the first frame.
+    pub position: u64,
+    /// The active loop, if any.
+    pub loop_range: Option<LoopRange>,
+    pub tempo: &'a TempoMap,
 }
 
 /// Something that runs in the graph. Stock and hosted pedals are wrapped
@@ -719,12 +730,21 @@ mod tests {
         Box::new(Gain::new(db))
     }
 
+    fn ctx(frames: usize, tempo: &TempoMap) -> BlockContext<'_> {
+        BlockContext {
+            sample_rate: 48_000.0,
+            frames,
+            playing: false,
+            position: 0,
+            loop_range: None,
+            tempo,
+        }
+    }
+
     fn run(schedule: &mut Schedule, input: &[f32]) -> Vec<f32> {
         let mut output = vec![0.0; input.len()];
-        let ctx = BlockContext {
-            sample_rate: 48_000.0,
-            frames: input.len(),
-        };
+        let tempo = TempoMap::default();
+        let ctx = ctx(input.len(), &tempo);
         let stats = RuntimeStats::default();
         schedule.process(&ctx, &[input], &mut [&mut output[..]], &stats);
         output
@@ -841,12 +861,9 @@ mod tests {
         let mut s = g.compile().unwrap();
         let (left, right) = ([1.0f32; 4], [0.5f32; 4]);
         let (mut out_l, mut out_r) = ([0.0f32; 4], [0.0f32; 4]);
-        let ctx = BlockContext {
-            sample_rate: 48_000.0,
-            frames: 4,
-        };
+        let tempo = TempoMap::default();
         s.process(
-            &ctx,
+            &ctx(4, &tempo),
             &[&left, &right],
             &mut [&mut out_l, &mut out_r],
             &RuntimeStats::default(),

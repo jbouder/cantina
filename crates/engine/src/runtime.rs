@@ -13,6 +13,11 @@
 //!   the block runs. Smoothing is the node's job, so a step from the UI
 //!   never clicks.
 //!
+//! The runtime also owns the [`Transport`]; its handle lives on the
+//! controller and its commands land at the same block boundary. A block is
+//! cut into segments at the loop wrap, each processed with its own
+//! [`BlockContext`], so loops are sample-accurate.
+//!
 //! Nothing in [`Runtime::run`] allocates, locks, blocks or performs I/O.
 
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -25,6 +30,8 @@ use crate::graph::{
     AudioThreadGuard, BlockContext, Graph, GraphConfig, GraphError, NodeId, ParamRoute, Schedule,
 };
 use crate::stream::BlockProcessor;
+use crate::tempo::TempoMap;
+use crate::transport::{Transport, TransportHandle};
 
 /// A parameter change addressed to one node.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -53,9 +60,9 @@ pub struct RuntimeStats {
     pub busy_nodes: AtomicU64,
     /// Parameter changes for nodes not in the running schedule.
     pub params_dropped: AtomicU64,
-    /// Retired schedules the UI thread never collected, leaked rather than
-    /// freed on the audio thread.
-    pub leaked_schedules: AtomicU64,
+    /// Retired schedules and tempo maps the UI thread never collected,
+    /// leaked rather than freed on the audio thread.
+    pub leaked: AtomicU64,
 }
 
 impl RuntimeStats {
@@ -95,6 +102,7 @@ impl From<GraphError> for CommitError {
 /// Anything retired by the audio thread that must be freed elsewhere.
 enum Garbage {
     Schedule(Box<Schedule>),
+    TempoMap(Box<TempoMap>),
 }
 
 /// The audio-thread half. Implements [`BlockProcessor`] for a mono
@@ -106,6 +114,7 @@ pub struct Runtime {
     incoming: Consumer<Box<Schedule>>,
     retired: Producer<Garbage>,
     params: Consumer<ParamChange>,
+    transport: Transport,
     stats: Arc<RuntimeStats>,
     /// Scratch for the mono stream adapter.
     scratch: Vec<f32>,
@@ -117,17 +126,20 @@ pub struct Controller {
     schedules: Producer<Box<Schedule>>,
     retired: Consumer<Garbage>,
     params: Producer<ParamChange>,
+    transport: TransportHandle,
     stats: Arc<RuntimeStats>,
 }
 
 impl Runtime {
     /// Creates a runtime and its controller. The controller's graph starts
-    /// empty, which plays silence until a schedule is committed.
+    /// empty, which plays silence until a schedule is committed, and the
+    /// transport starts stopped at zero with a default tempo map.
     pub fn new(config: GraphConfig) -> Result<(Runtime, Controller), GraphError> {
         let graph = Graph::new(config)?;
         let (schedules, incoming) = RingBuffer::new(SCHEDULE_QUEUE);
         let (retired_in, retired_out) = RingBuffer::new(GARBAGE_QUEUE);
         let (params_in, params_out) = RingBuffer::new(PARAM_QUEUE);
+        let (transport, transport_handle) = Transport::new(TempoMap::default());
         let stats = Arc::new(RuntimeStats::default());
         let runtime = Runtime {
             config,
@@ -135,6 +147,7 @@ impl Runtime {
             incoming,
             retired: retired_in,
             params: params_out,
+            transport,
             stats: Arc::clone(&stats),
             scratch: vec![0.0; config.channels * config.max_block_frames],
         };
@@ -143,6 +156,7 @@ impl Runtime {
             schedules,
             retired: retired_out,
             params: params_in,
+            transport: transport_handle,
             stats,
         };
         Ok((runtime, controller))
@@ -164,23 +178,48 @@ impl Runtime {
         self.stats.blocks.fetch_add(1, Ordering::Relaxed);
         self.swap_in_latest();
         self.apply_params();
+        let (retired, stats) = (&mut self.retired, &self.stats);
+        self.transport
+            .apply_commands(|map| retire(retired, stats, Garbage::TempoMap(map)));
 
         let frames = outputs
             .first()
             .map_or(0, |o| o.len())
             .min(self.config.max_block_frames);
-        let ctx = BlockContext {
-            sample_rate: self.config.sample_rate,
-            frames,
-        };
-        match self.active.as_mut() {
-            Some(schedule) => schedule.process(&ctx, inputs, outputs, &self.stats),
-            None => {
-                for output in outputs.iter_mut() {
-                    output[..frames].fill(0.0);
+        let channels = self.config.channels.min(outputs.len());
+        let mut offset = 0;
+        while offset < frames {
+            let segment = self.transport.next_segment(frames - offset);
+            let end = offset + segment.frames;
+            let ctx = BlockContext {
+                sample_rate: self.config.sample_rate,
+                frames: segment.frames,
+                playing: segment.playing,
+                position: segment.position,
+                loop_range: self.transport.loop_range(),
+                tempo: self.transport.tempo_map(),
+            };
+            let mut ins: [&[f32]; MAX_CHANNELS] = [&[]; MAX_CHANNELS];
+            for (lane, input) in ins.iter_mut().zip(inputs.iter()) {
+                *lane = &input[offset..end];
+            }
+            let mut outs: [&mut [f32]; MAX_CHANNELS] = std::array::from_fn(|_| &mut [][..]);
+            for (lane, output) in outs.iter_mut().zip(outputs.iter_mut()) {
+                *lane = &mut output[offset..end];
+            }
+            match self.active.as_mut() {
+                Some(schedule) => {
+                    schedule.process(&ctx, &ins[..channels], &mut outs[..channels], &self.stats)
+                }
+                None => {
+                    for output in outs.iter_mut() {
+                        output.fill(0.0);
+                    }
                 }
             }
+            offset = end;
         }
+        self.transport.publish();
     }
 
     /// Takes the newest queued schedule, retiring the current one and
@@ -195,13 +234,7 @@ impl Runtime {
     }
 
     fn retire(&mut self, schedule: Box<Schedule>) {
-        if let Err(rtrb::PushError::Full(garbage)) = self.retired.push(Garbage::Schedule(schedule))
-        {
-            // The UI thread stopped collecting. Freeing here would break
-            // the real-time rules, so leak it and say so.
-            std::mem::forget(garbage);
-            self.stats.leaked_schedules.fetch_add(1, Ordering::Relaxed);
-        }
+        retire(&mut self.retired, &self.stats, Garbage::Schedule(schedule));
     }
 
     fn apply_params(&mut self) {
@@ -214,6 +247,15 @@ impl Runtime {
                 self.stats.params_dropped.fetch_add(1, Ordering::Relaxed);
             }
         }
+    }
+}
+
+/// Hands garbage to the UI thread, or leaks it when the UI thread has
+/// stopped collecting: freeing it here would break the real-time rules.
+fn retire(queue: &mut Producer<Garbage>, stats: &RuntimeStats, garbage: Garbage) {
+    if let Err(rtrb::PushError::Full(garbage)) = queue.push(garbage) {
+        std::mem::forget(garbage);
+        stats.leaked.fetch_add(1, Ordering::Relaxed);
     }
 }
 
@@ -254,6 +296,15 @@ impl Controller {
         &self.stats
     }
 
+    /// The transport: play, stop, locate, loop and the tempo map.
+    pub fn transport(&self) -> &TransportHandle {
+        &self.transport
+    }
+
+    pub fn transport_mut(&mut self) -> &mut TransportHandle {
+        &mut self.transport
+    }
+
     /// Compiles the graph and hands it to the audio thread, which swaps it
     /// in at its next block. Collects retired schedules first.
     pub fn commit(&mut self) -> Result<(), CommitError> {
@@ -286,17 +337,16 @@ impl Controller {
     }
 
     /// Drops everything the audio thread has retired. Returns how many
-    /// schedules were freed. Call from the UI thread now and then; `commit`
-    /// does it too.
+    /// schedules and tempo maps were freed. Call from the UI thread now and
+    /// then; `commit` does it too.
     pub fn collect(&mut self) -> usize {
         let mut freed = 0;
         while let Ok(garbage) = self.retired.pop() {
             match garbage {
-                Garbage::Schedule(schedule) => {
-                    drop(schedule);
-                    freed += 1;
-                }
+                Garbage::Schedule(schedule) => drop(schedule),
+                Garbage::TempoMap(map) => drop(map),
             }
+            freed += 1;
         }
         freed
     }
@@ -311,7 +361,9 @@ impl Controller {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::Node;
+    use crate::graph::{Endpoint, Node};
+    use crate::tempo::MusicalPosition;
+    use crate::transport::LoopRange;
     use cantina_dsp::{stock, Buffer, Gain, Overdrive};
     use std::sync::atomic::AtomicBool;
     use std::sync::Mutex;
@@ -531,7 +583,7 @@ mod tests {
             .expect("node was dropped by collect");
         assert_eq!(freed_on, thread::current().id());
         assert_ne!(freed_on, audio_thread);
-        assert_eq!(stats.leaked_schedules.load(Ordering::Relaxed), 0);
+        assert_eq!(stats.leaked.load(Ordering::Relaxed), 0);
     }
 
     #[test]
@@ -559,6 +611,70 @@ mod tests {
         runtime.run(&[&[1.0; 4], &[0.0; 4]], &mut [&mut left, &mut right]);
         assert!(left.iter().all(|v| (v - 0.5).abs() < 1e-4));
         assert!(right.iter().all(|v| *v == 0.0));
+    }
+
+    #[test]
+    fn click_follows_transport_and_loops_sample_accurately() {
+        let (mut runtime, mut controller) = Runtime::new(config(1)).unwrap();
+        let click = controller
+            .graph_mut()
+            .add(Box::new(crate::click::Click::default()));
+        controller
+            .graph_mut()
+            .connect(click, Endpoint::Output)
+            .unwrap();
+        controller.commit().unwrap();
+
+        // Stopped: silence, position holds.
+        let silent = render(&mut runtime, &vec![0.0; BLOCK * 10], |_| {});
+        assert!(silent.iter().all(|v| *v == 0.0));
+        assert_eq!(controller.transport().position(), 0);
+
+        // Loop over the first beat and a half at 120 bpm: 36 000 samples.
+        // The click at the loop start recurs every 36 000 samples, the
+        // second beat's click at 24 000 into each pass.
+        controller.transport_mut().set_loop(Some(LoopRange {
+            start: 0,
+            end: 36_000,
+        }));
+        controller.transport_mut().play();
+        let out = render(&mut runtime, &vec![0.0; 36_000 * 3], |_| {});
+        let loud = |i: usize| out[i].abs() > 1e-4;
+        for pass in 0..3 {
+            let base = pass * 36_000;
+            assert!(loud(base), "downbeat at {base}");
+            if pass > 0 {
+                assert!(!loud(base - 1), "silence before {base}");
+            }
+            assert!(loud(base + 24_000), "beat two at {}", base + 24_000);
+            assert!(!loud(base + 24_000 - 1));
+            assert!(!loud(base + 35_000), "rang out before the wrap");
+        }
+        assert!(controller.transport().is_playing());
+        assert_eq!(
+            controller.transport().position(),
+            0,
+            "back at the loop start"
+        );
+        assert_eq!(
+            controller.transport().musical_position(SR),
+            MusicalPosition::new(0, 0, 0)
+        );
+
+        // A new tempo map takes effect and the old one comes back here.
+        let mut faster = TempoMap::default();
+        faster.set_tempo(0, 240.0);
+        controller.transport_mut().set_tempo_map(faster);
+        controller.transport_mut().set_loop(None);
+        controller.transport_mut().locate(0);
+        let out = render(&mut runtime, &vec![0.0; 24_000], |_| {});
+        assert!(
+            loud(0) && out[12_000].abs() > 1e-4,
+            "beats every 12 000 at 240 bpm"
+        );
+        assert!(out[12_000 - 1].abs() <= 1e-4);
+        assert_eq!(controller.collect(), 1, "the old tempo map was retired");
+        assert_eq!(controller.stats().leaked.load(Ordering::Relaxed), 0);
     }
 
     #[test]
