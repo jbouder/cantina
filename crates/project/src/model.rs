@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 /// The format version this crate writes. The loader upgrades older files;
 /// see `file.rs` for the migrations.
-pub const FORMAT_VERSION: u32 = 3;
+pub const FORMAT_VERSION: u32 = 4;
 
 /// Ticks per quarter note in pattern and pattern clip positions. The
 /// same as the engine's tempo map, so a tick here is a tick there.
@@ -57,6 +57,33 @@ id_type!(
     /// Identifies a drum pattern.
     PatternId
 );
+id_type!(
+    /// Identifies a pattern clip on a drum track.
+    PatternClipId
+);
+
+/// A pattern placed on a drum track. Positions are in ticks, so the
+/// clip follows the tempo: change the tempo and it stays on its bars.
+/// The pattern loops inside the clip; `offset` ticks into the pattern
+/// play first, so trimming the front keeps the beats where they were.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PatternClip {
+    pub id: PatternClipId,
+    pub pattern: PatternId,
+    /// Timeline tick the clip starts at.
+    pub start: u64,
+    /// Ticks into the pattern it starts from.
+    pub offset: u64,
+    /// Ticks long.
+    pub length: u64,
+}
+
+impl PatternClip {
+    pub fn end(&self) -> u64 {
+        self.start + self.length
+    }
+}
 
 /// A step sequencer pattern: a grid of pads against steps, with a
 /// velocity per cell. Patterns belong to the project and refer to pads
@@ -277,6 +304,9 @@ pub struct Track {
     pub chain: Vec<Pedal>,
     #[serde(default)]
     pub clips: Vec<Clip>,
+    /// Patterns on the timeline, for a drum track.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pattern_clips: Vec<PatternClip>,
     #[serde(default)]
     pub strip: Strip,
 }
@@ -290,6 +320,7 @@ impl Track {
             kit: None,
             chain: Vec::new(),
             clips: Vec::new(),
+            pattern_clips: Vec::new(),
             strip: Strip::default(),
         }
     }
@@ -312,6 +343,10 @@ impl Track {
 
     pub fn pedal(&self, id: PedalId) -> Option<&Pedal> {
         self.chain.iter().find(|p| p.id == id)
+    }
+
+    pub fn pattern_clip(&self, id: PatternClipId) -> Option<&PatternClip> {
+        self.pattern_clips.iter().find(|c| c.id == id)
     }
 }
 
@@ -388,6 +423,20 @@ impl Project {
         self.patterns.iter_mut().find(|p| p.id == id)
     }
 
+    /// The track holding a pattern clip, and the clip.
+    pub fn pattern_clip(&self, id: PatternClipId) -> Option<(&Track, &PatternClip)> {
+        self.tracks
+            .iter()
+            .find_map(|t| t.pattern_clip(id).map(|c| (t, c)))
+    }
+
+    /// True when a pattern is on the timeline somewhere.
+    pub fn pattern_in_use(&self, id: PatternId) -> bool {
+        self.tracks
+            .iter()
+            .any(|t| t.pattern_clips.iter().any(|c| c.pattern == id))
+    }
+
     /// Every id in use, across tracks, clips, pedals and patterns.
     pub fn ids(&self) -> impl Iterator<Item = Id> + '_ {
         self.tracks
@@ -396,6 +445,7 @@ impl Project {
                 std::iter::once(t.id.0)
                     .chain(t.clips.iter().map(|c| c.id.0))
                     .chain(t.chain.iter().map(|p| p.id.0))
+                    .chain(t.pattern_clips.iter().map(|c| c.id.0))
             })
             .chain(self.patterns.iter().map(|p| p.id.0))
     }
@@ -460,6 +510,23 @@ impl Project {
                     "track {} has a kit id that is not a plain name",
                     track.id
                 ));
+            }
+            for clip in &track.pattern_clips {
+                if clip.length == 0 {
+                    return Err(format!("pattern clip {} has no length", clip.id));
+                }
+                if self.pattern(clip.pattern).is_none() {
+                    return Err(format!(
+                        "pattern clip {} refers to pattern {}, which does not exist",
+                        clip.id, clip.pattern
+                    ));
+                }
+                if !track.is_drums() {
+                    return Err(format!(
+                        "track {} is an audio track but has pattern clips",
+                        track.id
+                    ));
+                }
             }
         }
         for pattern in &self.patterns {
@@ -537,6 +604,27 @@ mod tests {
         p.tracks.push(Track::drums(TrackId(9), "Drums", "acoustic"));
         assert!(p.tracks[1].is_drums());
         assert_eq!(p.validate(), Ok(()));
+        p.tracks[1].pattern_clips.push(PatternClip {
+            id: PatternClipId(10),
+            pattern: PatternId(5),
+            start: 0,
+            offset: 0,
+            length: 3840,
+        });
+        assert_eq!(p.validate(), Ok(()));
+        assert!(p.pattern_in_use(PatternId(5)));
+        assert!(!p.pattern_in_use(PatternId(99)));
+        assert_eq!(p.pattern_clip(PatternClipId(10)).unwrap().0.id, TrackId(9));
+        assert_eq!(p.fresh_id(), 11);
+        let mut bad = p.clone();
+        bad.tracks[1].pattern_clips[0].length = 0;
+        assert!(bad.validate().unwrap_err().contains("no length"));
+        let mut bad = p.clone();
+        bad.tracks[1].pattern_clips[0].pattern = PatternId(99);
+        assert!(bad.validate().unwrap_err().contains("does not exist"));
+        let mut bad = p.clone();
+        bad.tracks[1].kit = None;
+        assert!(bad.validate().unwrap_err().contains("audio track"));
         p.tracks[1].kit = Some("../x".into());
         assert!(p.validate().unwrap_err().contains("kit id"));
     }
@@ -572,11 +660,15 @@ mod tests {
         assert_eq!(json["sampleRate"], 48_000.0);
         assert_eq!(json["tracks"][0]["clips"][0]["start"], 0);
         let minimal: Project =
-            serde_json::from_str(r#"{"version":3,"name":"x","sampleRate":44100}"#).unwrap();
+            serde_json::from_str(r#"{"version":4,"name":"x","sampleRate":44100}"#).unwrap();
         assert_eq!(minimal.tempo, Tempo::default());
         assert!(minimal.tracks.is_empty());
         assert!(minimal.patterns.is_empty());
         assert_eq!(minimal.master, Strip::default());
         assert!(!json["tracks"][0].as_object().unwrap().contains_key("kit"));
+        assert!(!json["tracks"][0]
+            .as_object()
+            .unwrap()
+            .contains_key("patternClips"));
     }
 }

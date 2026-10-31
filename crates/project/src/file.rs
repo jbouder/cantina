@@ -212,6 +212,9 @@ fn migrate(from: u32, mut value: Value) -> Value {
             }
             value
         }
+        // 3 -> 4: patterns on the timeline. A drum track gains
+        // `patternClips`, empty in a version 3 file.
+        3 => value,
         _ => value,
     }
 }
@@ -308,14 +311,14 @@ mod tests {
             "{no_version}"
         );
 
-        let shape = load_str(r#"{"version":3,"name":"x","sampleRate":"fast"}"#, path).unwrap_err();
+        let shape = load_str(r#"{"version":4,"name":"x","sampleRate":"fast"}"#, path).unwrap_err();
         assert!(matches!(shape, LoadError::Shape { .. }), "{shape}");
         assert!(shape
             .to_string()
             .contains("does not match the project format"));
 
         let invalid = load_str(
-            r#"{"version":3,"name":"x","sampleRate":48000,"tracks":[{"id":1,"name":"a"},{"id":1,"name":"b"}]}"#,
+            r#"{"version":4,"name":"x","sampleRate":48000,"tracks":[{"id":1,"name":"a"},{"id":1,"name":"b"}]}"#,
             path,
         )
         .unwrap_err();
@@ -397,6 +400,20 @@ mod tests {
             json["tracks"][0].get("kit").is_none(),
             "audio tracks carry no kit"
         );
+        assert!(project.tracks[1].pattern_clips.is_empty());
+    }
+
+    #[test]
+    fn a_version_4_file_has_pattern_clips() {
+        let text = fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/v4.json"),
+        )
+        .unwrap();
+        let project = load_str(&text, Path::new("v4/project.json")).unwrap();
+        let clips = &project.tracks[1].pattern_clips;
+        assert_eq!(clips.len(), 2);
+        assert_eq!(clips[1].offset, 960);
+        assert!(project.pattern_in_use(crate::model::PatternId(7)));
     }
 
     #[test]

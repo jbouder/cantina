@@ -414,6 +414,66 @@ pub fn pattern_set_swing(
     engine.lock().pattern_set_swing(id, swing).map_err(fail)
 }
 
+/// Puts a pattern on a drum track at `start` ticks, for `length` ticks
+/// or one pass of the pattern.
+#[tauri::command]
+pub fn pattern_clip_add(
+    engine: State<'_, EngineState>,
+    track: u64,
+    pattern: u64,
+    start: u64,
+    length: Option<u64>,
+) -> Result<EngineStatus, String> {
+    engine
+        .lock()
+        .pattern_clip_add(track, pattern, start, length)
+        .map_err(fail)
+}
+
+#[tauri::command]
+pub fn pattern_clip_remove(
+    engine: State<'_, EngineState>,
+    id: u64,
+) -> Result<EngineStatus, String> {
+    engine.lock().pattern_clip_remove(id).map_err(fail)
+}
+
+#[tauri::command]
+pub fn pattern_clip_move(
+    engine: State<'_, EngineState>,
+    id: u64,
+    track: u64,
+    start: u64,
+) -> Result<EngineStatus, String> {
+    engine
+        .lock()
+        .pattern_clip_move(id, track, start)
+        .map_err(fail)
+}
+
+#[tauri::command]
+pub fn pattern_clip_trim(
+    engine: State<'_, EngineState>,
+    id: u64,
+    start: u64,
+    offset: u64,
+    length: u64,
+) -> Result<EngineStatus, String> {
+    engine
+        .lock()
+        .pattern_clip_trim(id, start, offset, length)
+        .map_err(fail)
+}
+
+#[tauri::command]
+pub fn pattern_clip_split(
+    engine: State<'_, EngineState>,
+    id: u64,
+    at: u64,
+) -> Result<EngineStatus, String> {
+    engine.lock().pattern_clip_split(id, at).map_err(fail)
+}
+
 /// Loops a pattern on a drum track while the transport plays; both
 /// `null` stops.
 #[tauri::command]

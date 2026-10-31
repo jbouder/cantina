@@ -37,8 +37,9 @@ use cantina_engine::{
 use cantina_hosting::scan::{self, PluginList, Scanner};
 use cantina_hosting::{AudioUnitHandle, ClapHandle, Editor};
 use cantina_project::{
-    Clip, ClipId, Command, History, Journal, JournalEntry, Pattern, PatternId, PatternRow, Pedal,
-    PedalId, Project, Strip as StripModel, Tempo, Track, TrackId, PLUGINS_DIR,
+    Clip, ClipId, Command, History, Journal, JournalEntry, Pattern, PatternClip, PatternClipId,
+    PatternId, PatternRow, Pedal, PedalId, Project, Strip as StripModel, Tempo, Track, TrackId,
+    PLUGINS_DIR,
 };
 use objc2::MainThreadMarker;
 use serde::Serialize;
@@ -195,6 +196,8 @@ pub struct TrackStatus {
     /// The pedal chain in order.
     pub chain: Vec<PedalInfo>,
     pub clips: Vec<ClipInfo>,
+    /// Patterns on the timeline, for a drum track. Positions in ticks.
+    pub pattern_clips: Vec<PatternClipInfo>,
     pub strip: StripModel,
     /// Frames the chain delays the signal by.
     pub latency_frames: usize,
@@ -228,6 +231,18 @@ pub struct ClipInfo {
     pub id: u64,
     pub name: String,
     pub file: String,
+    pub start: u64,
+    pub offset: u64,
+    pub length: u64,
+}
+
+/// A pattern clip, as the UI sees it. Positions are in ticks. Mirrors
+/// `PatternClipInfo` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PatternClipInfo {
+    pub id: u64,
+    pub pattern: u64,
     pub start: u64,
     pub offset: u64,
     pub length: u64,
@@ -869,22 +884,40 @@ impl Live {
     }
 }
 
-/// What a drum track plays: the pattern being auditioned on it, looping
-/// from the start. (Pattern clips on the timeline join this in M5's
-/// next step.)
+/// What a drum track plays: its pattern clips, or, while a pattern is
+/// auditioned on it, that pattern alone looping from the start.
 fn score_for(
     track: &Track,
     project: &Project,
     kit: &LoadedKit,
     audition: Option<(TrackId, PatternId)>,
 ) -> Score {
-    let mut score = Score::new();
     if let Some((t, id)) = audition {
         if t == track.id {
-            if let Some(pattern) = project.pattern(id) {
-                score.push(Placement::forever(pattern_data(pattern, kit)));
-            }
+            return project
+                .pattern(id)
+                .map(|p| vec![Placement::forever(pattern_data(p, kit))])
+                .unwrap_or_default();
         }
+    }
+    // One PatternData per pattern, shared by every clip of it. A clip
+    // whose pattern is gone (which validation refuses) plays nothing.
+    let mut data: HashMap<PatternId, Arc<PatternData>> = HashMap::new();
+    let mut score = Score::with_capacity(track.pattern_clips.len());
+    for clip in &track.pattern_clips {
+        let Some(pattern) = project.pattern(clip.pattern) else {
+            continue;
+        };
+        let pattern = data
+            .entry(clip.pattern)
+            .or_insert_with(|| pattern_data(pattern, kit))
+            .clone();
+        score.push(Placement {
+            pattern,
+            start: clip.start,
+            offset: clip.offset,
+            length: clip.length,
+        });
     }
     score
 }
@@ -1395,6 +1428,17 @@ impl Engine {
                             length: c.length,
                         })
                         .collect(),
+                    pattern_clips: t
+                        .pattern_clips
+                        .iter()
+                        .map(|c| PatternClipInfo {
+                            id: c.id.0,
+                            pattern: c.pattern.0,
+                            start: c.start,
+                            offset: c.offset,
+                            length: c.length,
+                        })
+                        .collect(),
                     strip: t.strip.clone(),
                     latency_frames: t.chain.iter().map(|p| self.pedal_latency(p.id)).sum(),
                 })
@@ -1627,7 +1671,12 @@ impl Engine {
             | Command::SetPatternLength { .. }
             | Command::SetPatternResolution { .. }
             | Command::SetPatternSwing { .. }
-            | Command::ReplacePattern { .. } => {
+            | Command::ReplacePattern { .. }
+            | Command::InsertPatternClip { .. }
+            | Command::RemovePatternClip { .. }
+            | Command::MovePatternClip { .. }
+            | Command::TrimPatternClip { .. }
+            | Command::SplitPatternClip { .. } => {
                 self.check_audition();
                 self.refresh_scores()
             }
@@ -1797,6 +1846,73 @@ impl Engine {
         self.apply_quietly(Command::SetPatternSwing {
             id: PatternId(id),
             swing: swing.clamp(0.0, 1.0),
+        })
+    }
+
+    // ----- pattern clips -----
+
+    /// Puts a pattern on a drum track at `start` ticks, for `length`
+    /// ticks or one pass of the pattern.
+    pub fn pattern_clip_add(
+        &mut self,
+        track: u64,
+        pattern: u64,
+        start: u64,
+        length: Option<u64>,
+    ) -> Result<EngineStatus> {
+        let p = self
+            .project
+            .pattern(PatternId(pattern))
+            .with_context(|| format!("no pattern {pattern}"))?;
+        let length = length.unwrap_or_else(|| p.ticks());
+        let clip = PatternClip {
+            id: PatternClipId(self.project.fresh_id()),
+            pattern: PatternId(pattern),
+            start,
+            offset: 0,
+            length,
+        };
+        self.apply(Command::InsertPatternClip {
+            track: TrackId(track),
+            clip,
+        })
+    }
+
+    pub fn pattern_clip_remove(&mut self, id: u64) -> Result<EngineStatus> {
+        self.apply(Command::RemovePatternClip {
+            id: PatternClipId(id),
+        })
+    }
+
+    pub fn pattern_clip_move(&mut self, id: u64, track: u64, start: u64) -> Result<EngineStatus> {
+        self.apply(Command::MovePatternClip {
+            id: PatternClipId(id),
+            track: TrackId(track),
+            start,
+        })
+    }
+
+    pub fn pattern_clip_trim(
+        &mut self,
+        id: u64,
+        start: u64,
+        offset: u64,
+        length: u64,
+    ) -> Result<EngineStatus> {
+        self.apply(Command::TrimPatternClip {
+            id: PatternClipId(id),
+            start,
+            offset,
+            length,
+        })
+    }
+
+    pub fn pattern_clip_split(&mut self, id: u64, at: u64) -> Result<EngineStatus> {
+        let new_id = PatternClipId(self.project.fresh_id());
+        self.apply(Command::SplitPatternClip {
+            id: PatternClipId(id),
+            at,
+            new_id,
         })
     }
 
@@ -2850,6 +2966,11 @@ fn is_light(command: &Command) -> bool {
             | Command::SetPatternResolution { .. }
             | Command::SetPatternSwing { .. }
             | Command::ReplacePattern { .. }
+            | Command::InsertPatternClip { .. }
+            | Command::RemovePatternClip { .. }
+            | Command::MovePatternClip { .. }
+            | Command::TrimPatternClip { .. }
+            | Command::SplitPatternClip { .. }
     )
 }
 
