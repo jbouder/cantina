@@ -73,9 +73,9 @@ export function Meter({ label, level }: Props) {
         </span>
       </span>
       <span
-        className={`text-right font-lcd text-lg ${clipping ? "text-lcd-error" : "text-lcd-fg"}`}
+        className={`surface-lcd px-1 text-right font-lcd text-base leading-tight tabular-nums ${clipping ? "text-lcd-error" : ""}`}
       >
-        {readout}
+        <span className="lcd-text">{readout}</span>
       </span>
     </div>
   );

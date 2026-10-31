@@ -43,9 +43,11 @@ for query in "${queries[@]}"; do
     file="$file-$(echo "$query" | sed 's/[^A-Za-z0-9]/-/g; s/^skin-//')"
   fi
   file="$file.png"
+  # The compositor flag makes animation frames run under virtual time,
+  # which the meters need: frames are drawn from requestAnimationFrame.
   "$chrome" --headless=new --disable-gpu --hide-scrollbars \
     --window-size=1100,720 --force-device-scale-factor=2 \
-    --virtual-time-budget=2000 \
+    --run-all-compositor-stages-before-draw --virtual-time-budget=2000 \
     --screenshot="$file" "http://localhost:$port/?$query" >/dev/null 2>&1
   echo "$file"
 done

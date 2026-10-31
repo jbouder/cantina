@@ -5,6 +5,10 @@ import { inTauri } from "../lib/engine";
 export const SKINS = [
   { id: "classic", name: "Classic" },
   { id: "midnight", name: "Midnight" },
+  { id: "metal", name: "Brushed metal" },
+  { id: "hifi", name: "Hi-fi" },
+  { id: "neon", name: "Neon" },
+  { id: "toxic", name: "Toxic" },
 ] as const;
 
 export type SkinId = (typeof SKINS)[number]["id"];

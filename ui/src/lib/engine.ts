@@ -369,7 +369,10 @@ function deliver() {
   const buffer = latest;
   latest = null;
   if (inTauri) invoke("meter_ack");
-  if (!buffer) return;
+  if (buffer) publish(buffer);
+}
+
+function publish(buffer: ArrayBuffer) {
   let frame: ReturnType<typeof decodeFrame>;
   try {
     frame = decodeFrame(buffer);
@@ -389,6 +392,7 @@ function deliver() {
   for (const l of meterListeners) l(out);
 }
 
+/** A frame from the shell: shown on the next animation frame, then acknowledged. */
 function receive(buffer: ArrayBuffer) {
   latest = buffer;
   if (!scheduled) {
@@ -421,7 +425,9 @@ function openMeterChannel() {
           0.3 + 0.15 * Math.sin(t * 2.1 + 0.4),
         ]
       : [0, 0, 0, 0];
-    receive(
+    // No shell to acknowledge, and headless captures never reach an
+    // animation frame, so the stand-in publishes directly.
+    publish(
       encodeFrame({
         sequence: sequence++,
         dropped: 0,

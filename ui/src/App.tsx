@@ -91,7 +91,7 @@ export function App() {
         </Button>
       }
     >
-      <main className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto p-4">
+      <main className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto p-window">
         {status?.notice ? <Notice message={status.notice} onDismiss={dismiss} /> : null}
 
         <section

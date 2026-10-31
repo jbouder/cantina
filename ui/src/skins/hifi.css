@@ -1,0 +1,94 @@
+/*
+ * Hi-fi: walnut cheeks around a champagne panel, piano-key transport and
+ * a vacuum fluorescent display. Ported from music-visualizer.
+ */
+:root[data-skin="hifi"] {
+  --frame-hi: #b0784a;
+  --frame: #6b3f22;
+  --frame-mid: #5a3419;
+  --frame-lo: #2e1a0c;
+  --frame-edge: #140a03;
+  --face: #c4b79c;
+  --titlebar-hi: #3a2414;
+  --titlebar-lo: #24160a;
+  --title-on: #e6c27a;
+  --title-on-lo: #7a5420;
+  --title-text: #3a2a14;
+  --lcd-bg: #010d0c;
+  --lcd-fg: #4ff0d0;
+  --lcd-dim: #0b2e2a;
+  --list-bg: #010d0c;
+  --list-fg: #4ff0d0;
+  --select: #136a5e;
+  --silver-hi: #f6f1e6;
+  --silver: #d8cfbd;
+  --silver-lo: #9c917c;
+  --glyph: #2a1d10;
+  --ink: #2a1d10;
+  --ink-dim: #4e3f28;
+  --led-on: #ff9a3c;
+  --led-off: #3a2210;
+  --pbtn-hi: #e9e2d2;
+  --pbtn: #cfc5b0;
+  --pbtn-lo: #b0a48a;
+  --pbtn-bevel-hi: #fffaf0;
+  --pbtn-bevel-lo: #6a5e48;
+  --pbtn-ink: #2a1d10;
+  --sheet-bg: #e9dfc8;
+  --sheet-ink: #2a1d10;
+  --vol-lo: #1ea890;
+  --vol-mid: #4ff0d0;
+  --vol-hi: #ff9a3c;
+  --track: #120a04;
+  --focus: #7a2e00;
+  color-scheme: light;
+
+  /* Wood cheeks at the sides of a brushed champagne panel. */
+  --wood:
+    repeating-linear-gradient(
+      178deg,
+      rgb(255 220 170 / 0.06) 0 2px,
+      transparent 2px 6px,
+      rgb(0 0 0 / 0.12) 6px 7px,
+      transparent 7px 11px
+    ),
+    linear-gradient(90deg, #5a3016, #8a5228 45%, #5a3016);
+  --window-radius: 6px;
+  --window-bg:
+    var(--wood) left / 18px 100% no-repeat, var(--wood) right / 18px 100% no-repeat,
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.05) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #d9cbb0, #a8987a);
+  --window-padding: 26px;
+  --panel-bg:
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.05) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #d9cbb0, #a8987a);
+  --panel-radius: 4px;
+  --titlebar-bg: transparent;
+  --titlebar-border: 1px solid rgb(0 0 0 / 0.25);
+  --titlebar-shadow: 0 1px 0 rgb(255 255 255 / 0.35);
+  --titlebar-margin: 0 18px;
+  --titlebar-grip: repeating-linear-gradient(180deg, #6a5530 0 1px, transparent 1px 3px);
+  --title-text-shadow: 0 1px 0 rgb(255 255 255 / 0.5);
+
+  /* Piano keys: tall, ivory, and they travel when pressed. */
+  --control-radius: 3px;
+  --button-radius: 0 0 6px 6px;
+  --button-bg: linear-gradient(180deg, #fffaf0 0%, #ece3d0 70%, #cfc3a8 100%);
+  --button-shadow:
+    inset -1px 0 0 rgb(0 0 0 / 0.18), inset 0 -4px 0 #b8ab8e, 0 0 0 1px #6a5e48,
+    0 3px 4px rgb(0 0 0 / 0.35);
+  --button-hover-bg: linear-gradient(180deg, #fff, #f3ebdb 70%, #d8ccb2 100%);
+  --button-active-bg: linear-gradient(180deg, #f0e8d6, #ddd2ba);
+  --button-active-shadow: inset 0 -1px 0 #b8ab8e, 0 0 0 1px #6a5e48;
+  --button-active-ink: #c4600a;
+  --button-active-transform: translateY(3px);
+  --fader-track-shadow: inset 0 1px 2px rgb(0 0 0 / 0.8), 0 1px 0 rgb(255 255 255 / 0.5);
+
+  /* VFD: a glowing display behind a fine grid. */
+  --lcd-radius: 3px;
+  --lcd-border: 1px solid #140a03;
+  --lcd-overlay:
+    repeating-linear-gradient(0deg, rgb(0 0 0 / 0.35) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.25) 0 1px, transparent 1px 3px);
+  --lcd-text-shadow: 0 0 8px color-mix(in srgb, var(--lcd-fg) 70%, transparent);
+}

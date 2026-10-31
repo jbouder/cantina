@@ -1,0 +1,94 @@
+/*
+ * Neon: angled panel cuts, outline buttons and an edge that pulses with
+ * the beat. Ported from music-visualizer. The pulse reads `--beat`,
+ * which M8 drives from the tempo map and which reduced motion pins to 0.
+ */
+:root[data-skin="neon"] {
+  --frame-hi: #ff4fd8;
+  --frame: #0c0614;
+  --frame-mid: #08040e;
+  --frame-lo: #04020a;
+  --frame-edge: #ff2fb0;
+  --face: #0c0614;
+  --titlebar-hi: #12081e;
+  --titlebar-lo: #0a0412;
+  --title-on: #ff4fd8;
+  --title-on-lo: #3a0a4a;
+  --title-text: #ffe0fa;
+  --lcd-bg: #04020a;
+  --lcd-fg: #3cf0ff;
+  --lcd-dim: #10243a;
+  --list-bg: #04020a;
+  --list-fg: #3cf0ff;
+  --select: #6a0a8a;
+  /* The transport keys are outlines, so their face is the frame. */
+  --silver-hi: #1a0c26;
+  --silver: #0c0614;
+  --silver-lo: #04020a;
+  --glyph: #ff6fe0;
+  --ink: #ffd8f6;
+  --ink-dim: #b08ac0;
+  --led-on: #ff4fd8;
+  --led-off: #3a0a3a;
+  --pbtn-hi: #1e0e2c;
+  --pbtn: #160a22;
+  --pbtn-lo: #10061a;
+  --pbtn-bevel-hi: #ff4fd8;
+  --pbtn-bevel-lo: #04020a;
+  --pbtn-ink: #ffd8f6;
+  --sheet-bg: #07030d;
+  --vol-lo: #ff2fb0;
+  --vol-mid: #b04fff;
+  --vol-hi: #3cf0ff;
+  --track: #10061a;
+  --focus: #3cf0ff;
+
+  /* Cut corners, a thin magenta edge, and a glow on the wrapper that
+   * grows with the beat. */
+  --window-radius: 0;
+  --window-clip: polygon(
+    18px 0,
+    100% 0,
+    100% calc(100% - 18px),
+    calc(100% - 18px) 100%,
+    0 100%,
+    0 18px
+  );
+  --window-bg:
+    linear-gradient(
+      135deg,
+      rgb(255 47 176 / 0.12),
+      transparent 30%,
+      transparent 70%,
+      rgb(60 240 255 / 0.1)
+    ),
+    #0a0512;
+  --window-shadow: 0 0 0 1px #ff2fb0, inset 0 0 18px rgb(255 47 176 / 0.12);
+  --window-filter: drop-shadow(0 0 calc(3px + var(--beat) * 9px) #ff2fb0)
+    drop-shadow(0 0 1px #ff8ae6);
+  --panel-shadow: 0 0 0 1px #ff2fb0, 0 0 8px rgb(255 47 176 / 0.35);
+  --titlebar-bg: transparent;
+  --titlebar-shadow: none;
+  --titlebar-border: 1px solid #ff2fb0;
+  --titlebar-grip: linear-gradient(90deg, #3cf0ff, #ff2fb0);
+  --grip-height: 2px;
+  --grip-opacity: 1;
+  --title-text-shadow: 0 0 8px #ff4fd8;
+
+  /* Outline buttons that fill when pressed. */
+  --control-radius: 2px;
+  --button-bg: transparent;
+  --button-shadow: inset 0 0 0 1px #ff4fd8, 0 0 6px rgb(255 79 216 / 0.35);
+  --button-hover-bg: transparent;
+  --button-hover-shadow: inset 0 0 0 1px #ff8ae6, 0 0 12px rgb(255 79 216 / 0.7);
+  --button-active-bg: #ff2fb0;
+  --button-active-shadow: 0 0 14px rgb(255 47 176 / 0.9);
+  --button-active-ink: #0a0512;
+  --pbutton-bg: transparent;
+  --pbutton-shadow: inset 0 0 0 1px #ff4fd8, 0 0 6px rgb(255 79 216 / 0.35);
+  --fader-track-shadow: inset 0 0 0 1px #6a0a8a, 0 0 4px rgb(255 47 176 / 0.4);
+
+  /* Displays edged in cyan. */
+  --lcd-border: 1px solid #3cf0ff;
+  --lcd-shadow: inset 0 0 12px rgb(60 240 255 / 0.18), 0 0 6px rgb(60 240 255 / 0.35);
+}

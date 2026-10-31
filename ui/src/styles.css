@@ -2,6 +2,10 @@
 @import "@fontsource/vt323/400.css";
 @import "./skins/classic.css";
 @import "./skins/midnight.css";
+@import "./skins/metal.css";
+@import "./skins/hifi.css";
+@import "./skins/neon.css";
+@import "./skins/toxic.css";
 
 /*
  * Tailwind reads its theme from the skin tokens. The default palette is
@@ -41,6 +45,7 @@
   --color-vol-hi: var(--vol-hi);
   --color-track: var(--track);
   --color-sheet-bg: var(--sheet-bg);
+  --color-sheet-ink: var(--sheet-ink);
   --color-scrim: var(--scrim);
   --color-focus: var(--focus);
   --color-stage: var(--stage);
@@ -49,6 +54,7 @@
   --radius-window: var(--window-radius);
   --radius-control: var(--control-radius);
   --radius-lcd: var(--lcd-radius);
+  --spacing-window: var(--window-padding);
 }
 
 /*
@@ -59,29 +65,57 @@
   background: var(--window-bg);
   box-shadow: var(--window-shadow);
   border-radius: var(--window-radius);
+  clip-path: var(--window-clip);
+}
+
+/* Goes on the window's wrapper: a glow a clip-path would cut off. */
+@utility window-glow {
+  filter: var(--window-filter);
+}
+
+/* A panel inside the window: a pedal card, a sheet. */
+@utility surface-panel {
+  background: var(--panel-bg);
+  box-shadow: var(--panel-shadow);
+  border-radius: var(--panel-radius);
 }
 
 @utility surface-titlebar {
   background: var(--titlebar-bg);
   box-shadow: var(--titlebar-shadow);
   border-bottom: var(--titlebar-border);
+  border-radius: var(--titlebar-radius);
+  margin: var(--titlebar-margin);
+  overflow: hidden;
 }
 
 @utility titlebar-grip {
   flex: 1 1 0;
   min-width: 12px;
-  height: 9px;
+  height: var(--grip-height);
+  align-self: stretch;
+  max-height: var(--grip-height);
+  margin: auto 0;
   background: var(--titlebar-grip);
-  opacity: 0.9;
+  opacity: var(--grip-opacity);
 }
 
+/* The display material. Text inside goes in `lcd-text`. */
 @utility surface-lcd {
-  background: var(--lcd-bg);
+  background: var(--lcd-overlay), var(--lcd-bg);
   color: var(--lcd-fg);
   border: var(--lcd-border);
   border-radius: var(--lcd-radius);
   box-shadow: var(--lcd-shadow);
   text-shadow: var(--lcd-text-shadow);
+}
+
+/* Display text: a skin can turn it into a dot matrix with a mask. */
+@utility lcd-text {
+  -webkit-mask-image: var(--lcd-mask);
+  mask-image: var(--lcd-mask);
+  -webkit-mask-size: 2px 2px;
+  mask-size: 2px 2px;
 }
 
 /* The filled part of a level meter, clipped to the level by the component. */
@@ -94,15 +128,18 @@
   color: var(--glyph);
   background: var(--button-bg);
   box-shadow: var(--button-shadow);
-  border-radius: var(--control-radius);
+  border-radius: var(--button-radius);
   &:hover:not(:disabled) {
     background: var(--button-hover-bg);
+    box-shadow: var(--button-hover-shadow);
   }
   &:active:not(:disabled),
   &[aria-pressed="true"],
   &[aria-checked="true"] {
+    color: var(--button-active-ink);
     background: var(--button-active-bg);
     box-shadow: var(--button-active-shadow);
+    transform: var(--button-active-transform);
   }
   &:disabled {
     opacity: 0.5;
@@ -115,7 +152,7 @@
   color: var(--pbtn-ink);
   background: var(--pbutton-bg);
   box-shadow: var(--pbutton-shadow);
-  border-radius: var(--control-radius);
+  border-radius: var(--pbutton-radius);
   &:hover:not(:disabled) {
     filter: brightness(1.12);
   }
@@ -152,7 +189,7 @@
     width: 18px;
     height: 28px;
     margin-top: -11px;
-    border-radius: var(--control-radius);
+    border-radius: var(--button-radius);
     background: var(--button-bg);
     box-shadow: var(--button-shadow);
   }
@@ -166,8 +203,11 @@
   font-family: var(--font-lcd);
   color: var(--title-text);
   text-shadow: var(--title-text-shadow);
-  letter-spacing: 0.18em;
+  letter-spacing: var(--title-tracking);
   text-transform: uppercase;
+  background: var(--title-bg);
+  padding: var(--title-padding);
+  border-radius: var(--title-radius);
 }
 
 /*

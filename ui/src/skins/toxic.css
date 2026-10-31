@@ -1,0 +1,98 @@
+/*
+ * Toxic: a bulbous lime plastic shell, gel pill buttons and a
+ * hazard-stripe title bar. Ported from music-visualizer.
+ */
+:root[data-skin="toxic"] {
+  --frame-hi: #e8ff7a;
+  --frame: #8fd400;
+  --frame-mid: #6fb000;
+  --frame-lo: #3e6a00;
+  --frame-edge: #1a2c00;
+  --face: #8fd400;
+  --titlebar-hi: #b6f020;
+  --titlebar-lo: #86c800;
+  --title-on: #1a2c00;
+  --title-on-lo: #c8f040;
+  --title-text: #fff23a;
+  --lcd-bg: #0a0a00;
+  --lcd-fg: #fff23a;
+  --lcd-dim: #3a3600;
+  --list-bg: #0a0a00;
+  --list-fg: #fff23a;
+  --select: #4a6a00;
+  --silver-hi: #f6ff8a;
+  --silver: #c8f040;
+  --silver-lo: #9ad400;
+  --glyph: #142200;
+  --ink: #142200;
+  --ink-dim: #1f3300;
+  --led-on: #fff23a;
+  --led-off: #3a3600;
+  --led-rec: #ff3c3c;
+  --pbtn-hi: #f6ff8a;
+  --pbtn: #c8f040;
+  --pbtn-lo: #9ad400;
+  --pbtn-bevel-hi: #fff;
+  --pbtn-bevel-lo: #2e4a00;
+  --pbtn-ink: #142200;
+  --sheet-bg: #b6f020;
+  --sheet-ink: #142200;
+  --vol-lo: #6fd400;
+  --vol-mid: #fff23a;
+  --vol-hi: #ff6a00;
+  --track: #0a0a00;
+  --focus: #8a1a00;
+  color-scheme: light;
+
+  /* A bulbous shell with a highlight along the top. */
+  --window-radius: 30px 30px 24px 24px;
+  --window-bg:
+    radial-gradient(130% 70% at 50% 0%, rgb(255 255 255 / 0.45), transparent 55%),
+    radial-gradient(90% 60% at 50% 110%, rgb(0 60 0 / 0.35), transparent 70%),
+    linear-gradient(180deg, #b6f020, #6fb000);
+  --window-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.6), inset 0 -6px 12px rgb(30 60 0 / 0.35), 0 0 0 2px #2e4a00,
+    0 16px 36px rgb(0 0 0 / 0.55);
+  --panel-radius: 18px;
+  --panel-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.6), inset 0 -4px 8px rgb(30 60 0 / 0.35), 0 0 0 2px #2e4a00;
+
+  /* The hazard-stripe title bar, with the title on a black pill. */
+  --titlebar-bg: #111;
+  --titlebar-shadow: inset 0 1px 3px rgb(0 0 0 / 0.8);
+  --titlebar-border: 0;
+  --titlebar-radius: 999px;
+  --titlebar-margin: 6px 16px 0;
+  --titlebar-grip: repeating-linear-gradient(-45deg, #ffd400 0 8px, #111 8px 16px);
+  --grip-height: 100%;
+  --grip-opacity: 1;
+  --title-text-shadow: none;
+  --title-bg: #111;
+  --title-padding: 2px 10px;
+  --title-radius: 999px;
+
+  /* Gel pills. */
+  --control-radius: 14px;
+  --button-radius: 999px;
+  --button-bg:
+    radial-gradient(ellipse at 50% 18%, rgb(255 255 255 / 0.95), transparent 52%),
+    linear-gradient(180deg, #f6ff8a, #9ad400);
+  --button-shadow:
+    inset 0 -3px 5px rgb(40 80 0 / 0.45), 0 0 0 2px #2e4a00, 0 3px 4px rgb(0 0 0 / 0.3);
+  --button-hover-bg:
+    radial-gradient(ellipse at 50% 18%, rgb(255 255 255 / 0.95), transparent 52%),
+    linear-gradient(180deg, #fbffa8, #b0e81a);
+  --button-active-bg:
+    radial-gradient(ellipse at 50% 80%, rgb(255 255 255 / 0.5), transparent 55%),
+    linear-gradient(180deg, #7fb800, #c8f040);
+  --button-active-shadow: inset 0 3px 5px rgb(20 40 0 / 0.55), 0 0 0 2px #2e4a00;
+  --pbutton-radius: 999px;
+  --pbutton-bg: var(--button-bg);
+  --pbutton-shadow: var(--button-shadow);
+  --fader-track-shadow: inset 0 1px 2px rgb(0 0 0 / 0.8), 0 0 0 2px #2e4a00;
+
+  /* Displays with a thick dark bezel. */
+  --lcd-radius: 14px;
+  --lcd-border: 2px solid #2e4a00;
+  --lcd-shadow: inset 0 2px 4px rgb(0 0 0 / 0.8);
+}

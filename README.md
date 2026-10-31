@@ -12,12 +12,20 @@ progress.
 
 ## Status
 
-M1 Engine done. The engine runs a graph of processors that is edited on the
-UI thread and swapped in on a block boundary, with parameters smoothed on
-the audio thread; a transport with a tempo map, loop and metronome click;
-WAV playback and recording streamed on their own threads; and an offline
-renderer with golden-file tests for the DSP. M0's latency measurement still
-needs an audio interface. Spike findings in [docs/spike.md](docs/spike.md).
+M2 Shell done. The Tauri 2 app wraps the engine: a device picker with
+sample rate and buffer size that survives relaunches and rebuilds the
+stream when an interface vanishes or changes rate; input and output
+meters over a binary frame channel; one track that arms, records a take
+and plays it back through a pedal chain you can reorder while audio runs;
+and the six visualizer skins (Classic, Midnight, Brushed metal, Hi-fi,
+Neon, Toxic) on a token system where no component names a color. Before
+that, M1 built the engine: a graph of processors edited on the UI thread
+and swapped in on a block boundary, a transport with tempo map, loop and
+click, WAV playback and recording on their own threads, and golden-file
+tests for the DSP. M0's latency measurement still needs an audio
+interface. Spike findings in [docs/spike.md](docs/spike.md), the skin
+system in [docs/skins.md](docs/skins.md), the frame format in
+[docs/frames.md](docs/frames.md).
 
 ## Build
 
@@ -97,7 +105,7 @@ crates/engine   CoreAudio devices, streams and hardware watcher; graph runtime, 
 crates/hosting  Audio Units and CLAP plugins as Processors
 crates/clap-fixture  a tiny CLAP plugin the hosting tests load
 src-tauri/      the Tauri 2 shell: owns the engine handle, exposes commands to the UI
-ui/             the React and TypeScript app, styled with Tailwind v4 through skin tokens
+ui/             the React and TypeScript app; Tailwind v4 reads the six skins' tokens
 scripts/        developer tools, such as the PR screenshot capture
 docs/           design notes, measurements and screenshots; the Astro site lands here
 ```
