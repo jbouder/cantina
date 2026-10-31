@@ -7,9 +7,11 @@
 //!
 //! macOS only, by design. See `PLAN.md` for why.
 
+pub mod chain;
 pub mod device;
 pub mod latency;
 pub mod stream;
 
+pub use chain::{ChainProcessor, ParamChange};
 pub use device::{DeviceId, DeviceInfo};
 pub use stream::{BlockProcessor, Stats, Stream, StreamConfig, StreamInfo, MAX_BLOCK_FRAMES};

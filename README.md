@@ -35,8 +35,10 @@ cargo run -p cantina-engine --example passthrough -- --in Scarlett --out Scarlet
 ```
 
 The first run asks for microphone permission; macOS blocks the stream until
-you answer. While it runs, type a gain in dB and press return, `s` for the
-callback and dropout counters, `q` to quit.
+you answer. The default chain is a gain into an overdrive; `--chain` picks
+another, for example `--chain gain,overdrive,gain`. While it runs, type
+`list` to see processors and parameters, `2.drive 30` to change one, `s`
+for the callback and dropout counters, `q` to quit.
 
 Using the same device for input and output runs one duplex audio unit with
 no buffering between the callbacks. Two different devices run on separate
@@ -58,7 +60,7 @@ It plays clicks, times their return and prints a row for
 ## Layout
 
 ```
-crates/dsp      pure processing, no I/O, no allocation on the audio path
+crates/dsp      pure processing: the Processor trait, Chain, stock Gain and Overdrive
 crates/engine   CoreAudio devices and streams, latency measurement; later the graph runtime
 docs/           design notes and measurements; the Astro site lands here
 ```
