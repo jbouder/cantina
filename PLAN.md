@@ -18,6 +18,7 @@ where the band plays.
 | Browser version | Not a goal | The DSP core stays I/O-free and would compile to WebAssembly, but nothing is built or tested for it. |
 | Third-party plugins | Audio Units first, CLAP second, VST3 deferred | AU covers nearly every commercial Mac plugin. CLAP is MIT licensed with a pure Rust host library and is the escape hatch for people who want to write a pedal in code. VST3's SDK is GPLv3 or proprietary and forces the project license. |
 | User-made pedals | Visual node graph over DSP primitives, saved as JSON | Real-time safe by construction, shareable, no compiler. Power users write a CLAP plugin instead, so no Faust tier. |
+| Skins | Port the six player skins from `music-visualizer` (Classic, Midnight, Brushed metal, Hi-fi, Neon, Toxic) and build the whole UI on their token system | They already exist and define the look. Every component styles through semantic tokens on `data-skin`, so skins change shape, material and displays, not just color. Shared with the visualizer in a package once the scenes are. |
 | Visualizer | Extract the scenes from `music-visualizer` into a shared package | 23 WebGL 2 and Canvas 2D scenes plus 395 MilkDrop presets already exist. Cantina adds exact beat and bar positions from the tempo map. |
 | Processor threading | One `Processor` object that moves between the UI thread and the audio thread with the graph swap; the engine will own a main-thread handle per processor from M1 | CLAP splits plugins into a main-thread half and an audio-thread half and the M0 spike found the single-object trait cannot express that. Keeping the main half on the UI thread and talking to the audio half through queues matches how parameters already travel. See `docs/spike.md`. |
 | Plugin process model | In-process on the audio thread | What every mainstream DAW except Bitwig does. Scanning runs in a child process so a crashing plugin cannot take the app down at startup. Sandboxing is a later project. |
@@ -165,6 +166,7 @@ cantina/
   ui/                     React app
   packages/
     scenes/               visualizer scenes, extracted from music-visualizer
+    skins/                the six player skins, shared with music-visualizer
   docs/                   Astro docs site, published to Cloudflare
   PLAN.md
 ```
@@ -209,6 +211,7 @@ Findings in `docs/spike.md`.
 ### M2 Shell
 
 - Tauri app, React scaffold, Tailwind, Biome.
+- Skin system on semantic tokens, and the six visualizer skins ported.
 - Device picker, sample rate and buffer size, input and output meters.
 - One track: arm, record, play, with a reorderable pedal chain.
 - Binary channel for meters.
@@ -257,6 +260,7 @@ Findings in `docs/spike.md`.
 - Extract the scenes package from `music-visualizer` with the frame contract.
 - Butterchurn adapter.
 - Beat-locked scene behaviors from the tempo map.
+- Beat-driven skin effects, and skins shared with the visualizer.
 - Performance mode: full-screen stage, pedalboard overlay, scene switching.
 
 ### M9 Ship
