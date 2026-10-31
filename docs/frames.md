@@ -32,9 +32,12 @@ so the UI views the body as `Float32Array`s directly on the buffer.
 | 48 + 8M | 4·S | f32 | spectrum magnitudes, log-spaced bins |
 | 48 + 8M + 4S | 4·W | f32 | recent waveform samples |
 
-Meter 0 is the track input and meter 1 the chain output. A decoder that
-knows only the meters reads `M` and ignores the rest; a newer frame with
-more sections is still readable because the header length is fixed.
+Meter 0 is the input, meter 1 the master (post-fader), and meters 2
+onward one per track in the project's track order, post-fader; a stereo
+meter reports the louder of its two channels. `M` changes when tracks are
+added or removed. A decoder that knows only the meters reads `M` and
+ignores the rest; a newer frame with more sections is still readable
+because the header length is fixed.
 
 ## Rate and dropping
 

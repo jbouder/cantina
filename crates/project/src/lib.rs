@@ -14,4 +14,6 @@ pub use file::{
     audio_dir, create_layout, dir_for, list, load, load_str, save, LoadError, SaveError, AUDIO_DIR,
     EXTENSION, PEDALS_DIR, PLUGINS_DIR, PROJECT_FILE,
 };
-pub use model::{Clip, ClipId, Id, Pedal, PedalId, Project, Tempo, Track, TrackId, FORMAT_VERSION};
+pub use model::{
+    Clip, ClipId, Id, Pedal, PedalId, Project, Strip, Tempo, Track, TrackId, FORMAT_VERSION,
+};

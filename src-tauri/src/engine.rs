@@ -25,12 +25,15 @@ use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, bail, Context, Result};
 use cantina_dsp::{ParamInfo, Unit, STOCK_NAMES};
+use cantina_engine::strip::{GAIN, MUTE, PAN};
 use cantina_engine::{
     device, processors, wav, Controller, DeviceEvent, DeviceId, Endpoint, GraphConfig, Meter,
     MeterHandle, Mute, NodeId, Player, PlayerHandle, Recorder, RecorderHandle, Runtime, Stream,
-    StreamConfig, TempoMap, TimeSignature, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
+    StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
 };
-use cantina_project::{Clip, ClipId, Command, Pedal, PedalId, Project, Tempo, Track, TrackId};
+use cantina_project::{
+    Clip, ClipId, Command, Pedal, PedalId, Project, Strip as StripModel, Tempo, Track, TrackId,
+};
 use serde::Serialize;
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, Manager};
@@ -85,6 +88,8 @@ pub struct ProjectStatus {
     pub sample_rate: f64,
     pub tempo: Tempo,
     pub tracks: Vec<TrackStatus>,
+    /// The master strip; pan and solo are unused on it.
+    pub master: StripModel,
 }
 
 /// A track, as the UI sees it. Mirrors `TrackStatus` in the UI.
@@ -100,6 +105,7 @@ pub struct TrackStatus {
     /// The pedal chain in order.
     pub chain: Vec<PedalInfo>,
     pub clips: Vec<ClipInfo>,
+    pub strip: StripModel,
 }
 
 /// A clip, as the UI sees it. Positions are in samples at the project's
@@ -174,6 +180,10 @@ struct Subscriber {
 /// Frames per second the meter pump sends.
 const METER_RATE: u32 = 60;
 
+/// The graph runs in stereo so strips can pan; the mono input is copied
+/// to both channels on the way in.
+const CHANNELS: usize = 2;
+
 /// The managed-state wrapper. `Stream` and `Controller` are `Send` but not
 /// `Sync`, so the mutex is what lets Tauri share them between commands.
 pub struct EngineState(Mutex<Engine>);
@@ -224,9 +234,9 @@ impl PedalKind {
 /// The nodes one track owns while the stream is open:
 ///
 /// ```text
-/// input -> mute -> bus -> pedals... -> (master)
-///            |      ^
-///       recorder  player
+/// input -> mute -> bus -> pedals... -> strip -> (master)
+///            |      ^                    |
+///       recorder  player               meter
 /// ```
 struct LiveTrack {
     id: TrackId,
@@ -239,15 +249,31 @@ struct LiveTrack {
     player: PlayerHandle,
     recorder_node: NodeId,
     recorder: RecorderHandle,
+    /// Gain, pan and mute after the pedals.
+    strip: NodeId,
+    /// Post-fader, a tap off the strip.
+    meter: NodeId,
+    levels: MeterHandle,
 }
 
 impl LiveTrack {
     fn nodes(&self) -> impl Iterator<Item = NodeId> + '_ {
-        [self.mute, self.bus, self.player_node, self.recorder_node]
-            .into_iter()
-            .chain(self.pedals.iter().map(|(_, n)| *n))
+        [
+            self.mute,
+            self.bus,
+            self.player_node,
+            self.recorder_node,
+            self.strip,
+            self.meter,
+        ]
+        .into_iter()
+        .chain(self.pedals.iter().map(|(_, n)| *n))
     }
 }
+
+/// The meters the pump reads, in frame order: input, master, then one
+/// per track in the project's order. Replaced whole on each sync.
+type Meters = Arc<Mutex<Vec<MeterHandle>>>;
 
 /// What is running while the stream is open.
 struct Live {
@@ -255,10 +281,13 @@ struct Live {
     controller: Controller,
     /// In the project's track order.
     tracks: Vec<LiveTrack>,
-    /// Where the tracks sum before the output.
+    /// The master strip: where the tracks sum before the output.
     master: NodeId,
     input_meter: NodeId,
     output_meter: NodeId,
+    input_levels: MeterHandle,
+    output_levels: MeterHandle,
+    meters: Meters,
     input: DeviceId,
     output: DeviceId,
     input_name: String,
@@ -346,7 +375,7 @@ impl Live {
                 let node = match live.pedals.iter().find(|(id, _)| *id == pedal.id) {
                     Some((_, node)) => *node,
                     None => {
-                        let mut processor = processors::create(&pedal.spec, 1)?;
+                        let mut processor = processors::create(&pedal.spec, CHANNELS)?;
                         catalog.learn(&pedal.spec, processor.as_ref());
                         for (param, value) in pedal.values.iter().enumerate() {
                             processor.set_param(param, *value);
@@ -368,8 +397,12 @@ impl Live {
             ordered.push(live);
         }
         self.tracks = ordered;
+        self.apply_strips(project);
         self.wire()?;
         self.controller.collect();
+        let mut meters = vec![self.input_levels.clone(), self.output_levels.clone()];
+        meters.extend(self.tracks.iter().map(|t| t.levels.clone()));
+        *self.meters.lock().unwrap_or_else(|e| e.into_inner()) = meters;
         if problems.is_empty() {
             Ok(())
         } else {
@@ -381,10 +414,15 @@ impl Live {
         let graph = controller.graph_mut();
         let mute = graph.add(Box::new(Mute::new(track.armed)));
         let bus = graph.add_processor(cantina_dsp::stock("gain").expect("gain is stock"));
-        let (player, player_handle) = Player::new(sample_rate, 1);
+        let (player, player_handle) = Player::new(sample_rate, CHANNELS);
         let player_node = graph.add(Box::new(player));
+        // Takes are mono: the input is one channel.
         let (recorder, recorder_handle) = Recorder::new(sample_rate, 1);
         let recorder_node = graph.add(Box::new(recorder));
+        let s = &track.strip;
+        let strip = graph.add(Box::new(Strip::new(s.gain_db, s.pan, s.mute)));
+        let (meter, levels) = Meter::new();
+        let meter = graph.add(Box::new(meter));
         LiveTrack {
             id: track.id,
             mute,
@@ -394,15 +432,40 @@ impl Live {
             player: player_handle,
             recorder_node,
             recorder: recorder_handle,
+            strip,
+            meter,
+            levels,
         }
+    }
+
+    /// Sends every strip its gain, pan and effective mute. A solo
+    /// anywhere mutes every track that is not soloed; solos add up.
+    fn apply_strips(&mut self, project: &Project) {
+        let any_solo = project.tracks.iter().any(|t| t.strip.solo);
+        for track in &project.tracks {
+            let Some(live) = self.tracks.iter().find(|t| t.id == track.id) else {
+                continue;
+            };
+            let s = &track.strip;
+            let muted = s.mute || (any_solo && !s.solo);
+            let node = live.strip;
+            self.controller.set_param(node, GAIN, s.gain_db);
+            self.controller.set_param(node, PAN, s.pan);
+            self.controller
+                .set_param(node, MUTE, if muted { 1.0 } else { 0.0 });
+        }
+        let m = &project.master;
+        self.controller.set_param(self.master, GAIN, m.gain_db);
+        self.controller
+            .set_param(self.master, MUTE, if m.mute { 1.0 } else { 0.0 });
     }
 
     /// Connects everything for the current tracks and commits:
     ///
     /// ```text
-    /// input -> mute -> bus -> pedals... -> master -> output
-    ///            |      ^                     |
-    ///       recorder  player             output meter
+    /// input -> mute -> bus -> pedals... -> strip -> master -> output
+    ///            |      ^                    |         |
+    ///       recorder  player               meter   output meter
     /// input -> input meter
     /// ```
     fn wire(&mut self) -> Result<()> {
@@ -419,7 +482,9 @@ impl Live {
                 graph.connect(previous, *node)?;
                 previous = *node;
             }
-            graph.connect(previous, self.master)?;
+            graph.connect(previous, track.strip)?;
+            graph.connect(track.strip, track.meter)?;
+            graph.connect(track.strip, self.master)?;
         }
         graph.connect(self.master, self.output_meter)?;
         graph.connect(self.master, Endpoint::Output)?;
@@ -583,8 +648,7 @@ impl Engine {
         .expect("a one-channel graph is valid");
         spawn_meter_pump(
             Arc::clone(&self.meter_subscribers),
-            input,
-            output,
+            Arc::new(Mutex::new(vec![input, output])),
             controller.transport().clock(),
             48_000.0,
             Arc::clone(&self.transport_state),
@@ -653,8 +717,10 @@ impl Engine {
                             length: c.length,
                         })
                         .collect(),
+                    strip: t.strip.clone(),
                 })
                 .collect(),
+            master: p.master.clone(),
         }
     }
 
@@ -699,6 +765,13 @@ impl Engine {
                 if let Command::SetTempo { tempo } = command {
                     live.transport().set_tempo_map(tempo_map(tempo));
                 }
+                Ok(())
+            }
+            Command::SetGain { .. }
+            | Command::SetPan { .. }
+            | Command::SetMute { .. }
+            | Command::SetSolo { .. } => {
+                live.apply_strips(&self.project);
                 Ok(())
             }
             Command::Batch { commands } if commands.iter().all(is_light) => {
@@ -1031,6 +1104,50 @@ impl Engine {
         self.apply(Command::SetTempo { tempo })
     }
 
+    // ----- the mixer -----
+
+    /// Sets a track's gain, or the master's with no track. Not
+    /// published: fader drags are frequent and the UI shows what it sent.
+    pub fn strip_gain(&mut self, track: Option<u64>, db: f32) -> Result<()> {
+        let command = Command::SetGain {
+            track: track.map(TrackId),
+            db: db.clamp(-60.0, 12.0),
+        };
+        self.apply_quietly(command)
+    }
+
+    pub fn strip_pan(&mut self, track: u64, pan: f32) -> Result<()> {
+        let command = Command::SetPan {
+            track: TrackId(track),
+            pan: pan.clamp(-1.0, 1.0),
+        };
+        self.apply_quietly(command)
+    }
+
+    pub fn strip_mute(&mut self, track: Option<u64>, on: bool) -> Result<EngineStatus> {
+        self.apply(Command::SetMute {
+            track: track.map(TrackId),
+            on,
+        })
+    }
+
+    pub fn strip_solo(&mut self, track: u64, on: bool) -> Result<EngineStatus> {
+        self.apply(Command::SetSolo {
+            track: TrackId(track),
+            on,
+        })
+    }
+
+    /// Applies a command without pushing a status: for continuous
+    /// controls the UI already shows the value it sent.
+    fn apply_quietly(&mut self, command: Command) -> Result<()> {
+        command
+            .apply(&mut self.project)
+            .map_err(|e| anyhow!("{e}"))?;
+        self.dirty = true;
+        self.react(&command)
+    }
+
     // ----- the chain -----
 
     /// Adds a pedal at the end of a track's chain, or at `index`.
@@ -1080,16 +1197,11 @@ impl Engine {
             .get(param)
             .with_context(|| format!("{} has no parameter {param}", kind.name))?;
         let value = info.clamp(value);
-        let command = Command::SetParam {
+        self.apply_quietly(Command::SetParam {
             pedal: id,
             param,
             value,
-        };
-        command
-            .apply(&mut self.project)
-            .map_err(|e| anyhow!("{e}"))?;
-        self.dirty = true;
-        self.react(&command)
+        })
     }
 
     pub fn audio_settings(&self) -> AudioSettings {
@@ -1354,13 +1466,14 @@ impl Engine {
         let (runtime, mut controller) = Runtime::new(GraphConfig {
             sample_rate,
             max_block_frames: MAX_BLOCK_FRAMES,
-            channels: 1,
+            channels: CHANNELS,
         })?;
         controller
             .transport_mut()
             .set_tempo_map(tempo_map(&self.project.tempo));
         let graph = controller.graph_mut();
-        let master = graph.add_processor(cantina_dsp::stock("gain").expect("gain is stock"));
+        let m = &self.project.master;
+        let master = graph.add(Box::new(Strip::new(m.gain_db, 0.0, m.mute)));
         let (input_meter, input_levels) = Meter::new();
         let (output_meter, output_levels) = Meter::new();
         let input_meter = graph.add(Box::new(input_meter));
@@ -1382,10 +1495,13 @@ impl Engine {
         let watcher = Watcher::new(tx, &[input, output])?;
         spawn_watcher_thread(self.app.clone(), rx);
         let pump_stop = Arc::new(AtomicBool::new(false));
+        let meters: Meters = Arc::new(Mutex::new(vec![
+            input_levels.clone(),
+            output_levels.clone(),
+        ]));
         spawn_meter_pump(
             Arc::clone(&self.meter_subscribers),
-            input_levels,
-            output_levels,
+            Arc::clone(&meters),
             controller.transport().clock(),
             sample_rate,
             Arc::clone(&self.transport_state),
@@ -1400,6 +1516,9 @@ impl Engine {
             master,
             input_meter,
             output_meter,
+            input_levels,
+            output_levels,
+            meters,
             input,
             output,
             input_name: device::name(input)?,
@@ -1434,6 +1553,10 @@ fn is_light(command: &Command) -> bool {
             | Command::ArmTrack { .. }
             | Command::RenameTrack { .. }
             | Command::SetTempo { .. }
+            | Command::SetGain { .. }
+            | Command::SetPan { .. }
+            | Command::SetMute { .. }
+            | Command::SetSolo { .. }
     )
 }
 
@@ -1506,8 +1629,7 @@ fn spawn_watcher_thread(app: AppHandle, rx: mpsc::Receiver<DeviceEvent>) {
 #[allow(clippy::too_many_arguments)]
 fn spawn_meter_pump(
     subscribers: Arc<Mutex<Vec<Subscriber>>>,
-    input: MeterHandle,
-    output: MeterHandle,
+    meters: Meters,
     clock: cantina_engine::TransportClock,
     sample_rate: f64,
     state: Arc<TransportState>,
@@ -1520,7 +1642,7 @@ fn spawn_meter_pump(
             let period = Duration::from_secs(1) / METER_RATE;
             let mut sequence = 0u32;
             let mut bytes = Vec::new();
-            let mut send = |meters: [f32; 4], playing: bool, recording: bool| {
+            let mut send = |meters: &[f32], playing: bool, recording: bool| {
                 let frame = Frame {
                     sequence,
                     dropped: dropped.load(Ordering::Relaxed),
@@ -1528,7 +1650,7 @@ fn spawn_meter_pump(
                     playing,
                     recording,
                     beat: None,
-                    meters: &meters,
+                    meters,
                     spectrum: &[],
                     waveform: &[],
                 };
@@ -1545,11 +1667,18 @@ fn spawn_meter_pump(
                         .is_ok()
                 });
             };
+            let mut levels = Vec::new();
             while !stop.load(Ordering::Relaxed) {
                 thread::sleep(period);
-                let (i, o) = (input.take(0), output.take(0));
+                levels.clear();
+                for handle in meters.lock().unwrap_or_else(|e| e.into_inner()).iter() {
+                    // One pair per meter: the louder of its channels.
+                    let (l, r) = (handle.take(0), handle.take(1));
+                    levels.push(l.peak.max(r.peak));
+                    levels.push(l.rms.max(r.rms));
+                }
                 send(
-                    [i.peak, i.rms, o.peak, o.rms],
+                    &levels,
                     clock.is_playing(),
                     state.recording.load(Ordering::Relaxed),
                 );
@@ -1557,7 +1686,10 @@ fn spawn_meter_pump(
             // Leave the meters at rest, even if that frame has to wait for
             // the UI's acknowledgement of the previous one.
             thread::sleep(period);
-            send([0.0; 4], false, false);
+            for v in levels.iter_mut() {
+                *v = 0.0;
+            }
+            send(&levels, false, false);
         })
         .expect("spawning the meter pump thread");
 }
