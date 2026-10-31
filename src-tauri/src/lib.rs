@@ -1,5 +1,5 @@
-//! The Cantina shell: a Tauri 2 app that owns the engine handle and
-//! exposes it to the React UI as commands.
+//! The Cantina shell: a Tauri 2 app that owns the engine handle and the
+//! open project, and exposes both to the React UI as commands.
 //!
 //! The engine never reaches the web view directly. It lives in managed
 //! state behind a mutex, and every command locks it for the duration of
@@ -10,6 +10,7 @@
 mod commands;
 mod engine;
 mod frame;
+mod project;
 mod settings;
 
 use engine::EngineState;
@@ -33,10 +34,21 @@ pub fn run() {
             commands::subscribe_meters,
             commands::meter_ack,
             commands::frames_dropped,
+            commands::project_list,
+            commands::project_new,
+            commands::project_open,
+            commands::project_save,
+            commands::tempo_set,
+            commands::track_add,
+            commands::track_remove,
+            commands::track_rename,
+            commands::track_move,
             commands::track_arm,
-            commands::track_record,
-            commands::track_play,
-            commands::track_stop,
+            commands::clip_remove,
+            commands::transport_play,
+            commands::transport_record,
+            commands::transport_stop,
+            commands::transport_locate,
             commands::chain_add,
             commands::chain_remove,
             commands::chain_move,

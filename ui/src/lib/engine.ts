@@ -16,29 +16,57 @@ export interface EngineStatus {
   /** What the engine did on its own, such as falling back to another device. */
   notice: string | null;
   noticeSeq: number;
-  track: TrackStatus;
-  /** The pedal chain in order. */
-  chain: PedalInfo[];
+  transport: TransportStatus;
+  project: ProjectStatus;
   /** Specs `chainAdd` accepts. */
   pedalKinds: string[];
 }
 
-/** The one track. Mirrors `TrackStatus` in src-tauri. */
+export interface TransportStatus {
+  playing: boolean;
+  /** True while any track is recording. */
+  recording: boolean;
+}
+
+/** The open project. Mirrors `ProjectStatus` in src-tauri. */
+export interface ProjectStatus {
+  name: string;
+  dir: string;
+  /** True when there are edits since the last save. */
+  dirty: boolean;
+  sampleRate: number;
+  tempo: Tempo;
+  tracks: TrackStatus[];
+}
+
+export interface Tempo {
+  bpm: number;
+  numerator: number;
+  denominator: number;
+}
+
+/** A track. Mirrors `TrackStatus` in src-tauri. */
 export interface TrackStatus {
-  /** Armed tracks monitor their input and can record. */
+  id: number;
+  name: string;
+  /** Armed tracks monitor their input and record when the transport records. */
   armed: boolean;
   recording: boolean;
-  playing: boolean;
-  take: TakeInfo | null;
+  chain: PedalInfo[];
+  clips: ClipInfo[];
 }
 
-export interface TakeInfo {
-  path: string;
+/** A clip. Positions are in samples at the project's rate. */
+export interface ClipInfo {
+  id: number;
   name: string;
-  seconds: number;
+  file: string;
+  start: number;
+  offset: number;
+  length: number;
 }
 
-/** A pedal in the chain. Mirrors `PedalInfo` in src-tauri. */
+/** A pedal in a chain. Mirrors `PedalInfo` in src-tauri. */
 export interface PedalInfo {
   /** Stable for the pedal's life. */
   id: number;
@@ -103,7 +131,8 @@ export const SILENT: Level = { peak: 0, rms: 0 };
  * In a browser (`npm run dev` without the shell) there is no engine, so the
  * UI talks to this stand-in instead. It keeps `vite dev` useful for layout
  * and skin work and is what the PR screenshots are taken from. `?running`
- * starts it with the stream open.
+ * starts it with the stream open; `?armed`, `?take`, `?playing` and
+ * `?recording` set up the project and transport.
  */
 const mockDevices: AudioDevice[] = [
   {
@@ -149,6 +178,7 @@ const mockSettings: AudioSettings = {
 };
 
 const mockParams = inTauri ? null : new URLSearchParams(window.location.search);
+const MOCK_RATE = 48000;
 
 function mockPedal(id: number, spec: string): PedalInfo {
   return spec === "overdrive"
@@ -170,12 +200,24 @@ function mockPedal(id: number, spec: string): PedalInfo {
       };
 }
 
-let mockNextPedal = 3;
+function mockClip(id: number, name: string, startSeconds: number, seconds: number): ClipInfo {
+  return {
+    id,
+    name,
+    file: `${name.replace(/\s+/g, "-")}.wav`,
+    start: Math.round(startSeconds * MOCK_RATE),
+    offset: 0,
+    length: Math.round(seconds * MOCK_RATE),
+  };
+}
+
+let mockNextId = 20;
 const mockTransport = { position: 0, playing: false, recording: false };
+const mockProjects = ["Untitled", "Blues in A", "Riff ideas"];
 
 const mock: EngineStatus = {
   running: mockParams?.has("running") ?? false,
-  sampleRate: 48000,
+  sampleRate: MOCK_RATE,
   bufferFrames: 128,
   inputUid: null,
   outputUid: null,
@@ -186,19 +228,41 @@ const mock: EngineStatus = {
     ? "Scarlett 2i2 USB was disconnected; the saved input device is not connected; using MacBook Pro Microphone"
     : null,
   noticeSeq: mockParams?.has("notice") ? 1 : 0,
-  track: {
-    armed: mockParams?.has("armed") ?? false,
-    recording: mockParams?.has("recording") ?? false,
+  transport: {
     playing: mockParams?.has("playing") ?? false,
-    take: mockParams?.has("take")
-      ? { path: "/takes/take-1761912000.wav", name: "take-1761912000", seconds: 12.4 }
-      : null,
+    recording: mockParams?.has("recording") ?? false,
   },
-  chain: [mockPedal(1, "gain"), mockPedal(2, "overdrive")],
+  project: {
+    name: mockParams?.get("project") ?? "Untitled",
+    dir: "/Users/you/Music/Cantina/Untitled.cantina",
+    dirty: mockParams?.has("dirty") ?? false,
+    sampleRate: MOCK_RATE,
+    tempo: { bpm: 120, numerator: 4, denominator: 4 },
+    tracks: [
+      {
+        id: 1,
+        name: "Guitar",
+        armed: mockParams?.has("armed") ?? false,
+        recording: mockParams?.has("recording") ?? false,
+        chain: [mockPedal(2, "gain"), mockPedal(3, "overdrive")],
+        clips: mockParams?.has("take")
+          ? [mockClip(4, "Guitar 1", 0, 12.4), mockClip(5, "Guitar 2", 16, 6.1)]
+          : [],
+      },
+      {
+        id: 6,
+        name: "Bass",
+        armed: false,
+        recording: false,
+        chain: [mockPedal(7, "gain")],
+        clips: mockParams?.has("take") ? [mockClip(8, "Bass 1", 2, 20)] : [],
+      },
+    ],
+  },
   pedalKinds: ["gain", "overdrive"],
 };
-mockTransport.playing = mock.track.playing || mock.track.recording;
-mockTransport.recording = mock.track.recording;
+mockTransport.playing = mock.transport.playing || mock.transport.recording;
+mockTransport.recording = mock.transport.recording;
 
 function mockDevice(uid: string | null, input: boolean): AudioDevice | undefined {
   return uid
@@ -211,8 +275,16 @@ function mockStatus(): EngineStatus {
   const o = mockDevice(mockSettings.outputUid, false);
   return {
     ...mock,
-    track: { ...mock.track, playing: mockTransport.playing, recording: mockTransport.recording },
-    chain: mock.chain.map((p) => ({ ...p, params: p.params.map((q) => ({ ...q })) })),
+    transport: { playing: mockTransport.playing, recording: mockTransport.recording },
+    project: {
+      ...mock.project,
+      tracks: mock.project.tracks.map((t) => ({
+        ...t,
+        recording: mockTransport.recording && t.armed,
+        chain: t.chain.map((p) => ({ ...p, params: p.params.map((q) => ({ ...q })) })),
+        clips: t.clips.map((c) => ({ ...c })),
+      })),
+    },
     sampleRate: mockSettings.sampleRate,
     bufferFrames: mockSettings.bufferFrames,
     inputUid: mockSettings.inputUid,
@@ -220,6 +292,17 @@ function mockStatus(): EngineStatus {
     inputName: mock.running ? (i?.name ?? null) : null,
     outputName: mock.running ? (o?.name ?? null) : null,
   };
+}
+
+function mockTrack(id: number): TrackStatus {
+  const track = mock.project.tracks.find((t) => t.id === id);
+  if (!track) throw new Error(`no track ${id}`);
+  return track;
+}
+
+function mockEdit(): EngineStatus {
+  mock.project.dirty = true;
+  return mockStatus();
 }
 
 const statusListeners = new Set<(s: EngineStatus) => void>();
@@ -267,67 +350,181 @@ export async function setAudioSettings(settings: AudioSettings): Promise<EngineS
   return mockStatus();
 }
 
-export async function trackArm(armed: boolean): Promise<EngineStatus> {
-  if (inTauri) return invoke<EngineStatus>("track_arm", { armed });
-  mock.track.armed = armed;
+// ----- the project -----
+
+/** Names of the projects in the projects folder. */
+export async function projectList(): Promise<string[]> {
+  return inTauri ? invoke<string[]>("project_list") : [...mockProjects];
+}
+
+export async function projectNew(name: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("project_new", { name });
+  if (!name.trim()) throw new Error("a project needs a name");
+  if (mockProjects.includes(name)) throw new Error(`there is already a project called ${name}`);
+  mockProjects.push(name);
+  mock.project = {
+    ...mock.project,
+    name,
+    dir: `/Users/you/Music/Cantina/${name}.cantina`,
+    dirty: false,
+    tracks: [
+      {
+        id: 1,
+        name: "Track 1",
+        armed: false,
+        recording: false,
+        chain: [mockPedal(2, "gain"), mockPedal(3, "overdrive")],
+        clips: [],
+      },
+    ],
+  };
   return mockStatus();
 }
 
-export async function trackRecord(): Promise<EngineStatus> {
-  if (inTauri) return invoke<EngineStatus>("track_record");
-  if (!mock.track.armed) throw new Error("arm the track before recording");
-  mockTransport.position = 0;
+export async function projectOpen(name: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("project_open", { name });
+  mock.project = {
+    ...mock.project,
+    name,
+    dir: `/Users/you/Music/Cantina/${name}.cantina`,
+    dirty: false,
+  };
+  return mockStatus();
+}
+
+export async function projectSave(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("project_save");
+  mock.project.dirty = false;
+  return mockStatus();
+}
+
+export async function tempoSet(tempo: Tempo): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("tempo_set", { tempo });
+  mock.project.tempo = tempo;
+  return mockEdit();
+}
+
+// ----- tracks and clips -----
+
+export async function trackAdd(name?: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("track_add", { name: name ?? null });
+  mock.project.tracks.push({
+    id: mockNextId++,
+    name: name ?? `Track ${mock.project.tracks.length + 1}`,
+    armed: false,
+    recording: false,
+    chain: [],
+    clips: [],
+  });
+  return mockEdit();
+}
+
+export async function trackRemove(id: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("track_remove", { id });
+  mock.project.tracks = mock.project.tracks.filter((t) => t.id !== id);
+  return mockEdit();
+}
+
+export async function trackRename(id: number, name: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("track_rename", { id, name });
+  if (!name.trim()) throw new Error("a track needs a name");
+  mockTrack(id).name = name.trim();
+  return mockEdit();
+}
+
+export async function trackMove(id: number, to: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("track_move", { id, to });
+  const tracks = mock.project.tracks;
+  const from = tracks.findIndex((t) => t.id === id);
+  const [track] = tracks.splice(from, 1);
+  if (track) tracks.splice(Math.min(to, tracks.length), 0, track);
+  return mockEdit();
+}
+
+export async function trackArm(id: number, armed: boolean): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("track_arm", { id, armed });
+  mockTrack(id).armed = armed;
+  return mockEdit();
+}
+
+export async function clipRemove(id: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("clip_remove", { id });
+  for (const t of mock.project.tracks) t.clips = t.clips.filter((c) => c.id !== id);
+  return mockEdit();
+}
+
+// ----- the transport -----
+
+export async function transportPlay(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("transport_play");
+  mockTransport.playing = true;
+  return mockStatus();
+}
+
+export async function transportRecord(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("transport_record");
+  if (!mock.project.tracks.some((t) => t.armed)) throw new Error("arm a track before recording");
   mockTransport.playing = true;
   mockTransport.recording = true;
   return mockStatus();
 }
 
-export async function trackPlay(): Promise<EngineStatus> {
-  if (inTauri) return invoke<EngineStatus>("track_play");
-  mockTransport.position = 0;
-  mockTransport.playing = true;
-  return mockStatus();
-}
-
-export async function trackStop(): Promise<EngineStatus> {
-  if (inTauri) return invoke<EngineStatus>("track_stop");
+export async function transportStop(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("transport_stop");
   if (mockTransport.recording) {
-    mock.track.take = {
-      path: "/takes/take-mock.wav",
-      name: "take-mock",
-      seconds: mockTransport.position,
-    };
+    for (const t of mock.project.tracks) {
+      if (!t.armed) continue;
+      const n = t.clips.length + 1;
+      t.clips.push(mockClip(mockNextId++, `${t.name} ${n}`, 0, mockTransport.position));
+    }
+    mock.project.dirty = true;
   }
   mockTransport.playing = false;
   mockTransport.recording = false;
   return mockStatus();
 }
 
-export async function chainAdd(spec: string, index?: number): Promise<EngineStatus> {
-  if (inTauri) return invoke<EngineStatus>("chain_add", { spec, index: index ?? null });
-  mock.chain.splice(index ?? mock.chain.length, 0, mockPedal(mockNextPedal++, spec));
+/** Moves the playhead to a sample. */
+export async function transportLocate(sample: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("transport_locate", { sample: Math.round(sample) });
+  mockTransport.position = sample / MOCK_RATE;
   return mockStatus();
+}
+
+// ----- the chain -----
+
+export async function chainAdd(track: number, spec: string, index?: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("chain_add", { track, spec, index: index ?? null });
+  const chain = mockTrack(track).chain;
+  chain.splice(index ?? chain.length, 0, mockPedal(mockNextId++, spec));
+  return mockEdit();
 }
 
 export async function chainRemove(id: number): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("chain_remove", { id });
-  mock.chain = mock.chain.filter((p) => p.id !== id);
-  return mockStatus();
+  for (const t of mock.project.tracks) t.chain = t.chain.filter((p) => p.id !== id);
+  return mockEdit();
 }
 
 export async function chainMove(id: number, to: number): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("chain_move", { id, to });
-  const from = mock.chain.findIndex((p) => p.id === id);
-  const [pedal] = mock.chain.splice(from, 1);
-  if (pedal) mock.chain.splice(Math.min(to, mock.chain.length), 0, pedal);
-  return mockStatus();
+  for (const t of mock.project.tracks) {
+    const from = t.chain.findIndex((p) => p.id === id);
+    if (from < 0) continue;
+    const [pedal] = t.chain.splice(from, 1);
+    if (pedal) t.chain.splice(Math.min(to, t.chain.length), 0, pedal);
+  }
+  return mockEdit();
 }
 
 /** Sets a knob. Not echoed back as a status: the UI already shows the value. */
 export async function chainSetParam(id: number, param: number, value: number): Promise<void> {
   if (inTauri) return invoke("chain_set_param", { id, param, value });
-  const p = mock.chain.find((p) => p.id === id)?.params[param];
-  if (p) p.value = value;
+  for (const t of mock.project.tracks) {
+    const p = t.chain.find((p) => p.id === id)?.params[param];
+    if (p) p.value = value;
+  }
+  mock.project.dirty = true;
 }
 
 /**
@@ -414,6 +611,7 @@ function openMeterChannel() {
   // the way the shell encodes it so the decoder is exercised too.
   let t = 0;
   let sequence = 0;
+  if (mockParams?.has("position")) mockTransport.position = Number(mockParams.get("position"));
   window.setInterval(() => {
     t += 1 / 60;
     if (mockTransport.playing) mockTransport.position += 1 / 60;
@@ -431,7 +629,7 @@ function openMeterChannel() {
       encodeFrame({
         sequence: sequence++,
         dropped: 0,
-        position: mockParams?.has("take") && !mockTransport.playing ? 0 : mockTransport.position,
+        position: mockTransport.position,
         playing: mockTransport.playing,
         recording: mockTransport.recording,
         beat: null,
@@ -450,4 +648,11 @@ export function onMeters(listener: (frame: MeterFrame) => void): () => void {
 /** Linear amplitude to decibels, floored so silence reads finite. */
 export function toDb(linear: number): number {
   return 20 * Math.log10(Math.max(linear, 1e-5));
+}
+
+/** Seconds as `mm:ss.s`. */
+export function clock(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds - m * 60;
+  return `${String(m).padStart(2, "0")}:${s.toFixed(1).padStart(4, "0")}`;
 }

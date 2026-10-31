@@ -29,9 +29,11 @@ impl Default for AudioSettings {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, rename_all = "camelCase")]
 pub struct Settings {
     pub audio: AudioSettings,
+    /// Name of the project to open on launch: the one open at quit.
+    pub last_project: Option<String>,
 }
 
 impl Settings {

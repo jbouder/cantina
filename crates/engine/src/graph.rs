@@ -374,6 +374,11 @@ impl Graph {
         self.edges.len() != before
     }
 
+    /// Removes every edge. The nodes stay, prepared and with their state.
+    pub fn clear_edges(&mut self) {
+        self.edges.clear();
+    }
+
     /// Connects `nodes` in series between the input and the output,
     /// clearing any existing edges first. An empty list wires the input
     /// straight to the output.

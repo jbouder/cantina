@@ -1,11 +1,17 @@
-//! Tauri commands: the UI's view of the engine. Each one locks the engine
-//! for one call and returns the status the UI should show.
+//! Tauri commands: the UI's view of the engine and the project. Each one
+//! locks the engine for one call and returns the status the UI should
+//! show.
 
+use cantina_project::Tempo;
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::State;
 
 use crate::engine::{DeviceEntry, EngineState, EngineStatus};
 use crate::settings::AudioSettings;
+
+fn fail(e: anyhow::Error) -> String {
+    format!("{e:#}")
+}
 
 #[tauri::command]
 pub fn engine_status(engine: State<'_, EngineState>) -> EngineStatus {
@@ -29,7 +35,7 @@ pub fn dismiss_notice(engine: State<'_, EngineState>) -> EngineStatus {
 
 #[tauri::command]
 pub fn list_devices(engine: State<'_, EngineState>) -> Result<Vec<DeviceEntry>, String> {
-    engine.lock().list_devices().map_err(|e| format!("{e:#}"))
+    engine.lock().list_devices().map_err(fail)
 }
 
 #[tauri::command]
@@ -60,48 +66,126 @@ pub fn frames_dropped(engine: State<'_, EngineState>) -> u32 {
     engine.lock().frames_dropped()
 }
 
-fn fail(e: anyhow::Error) -> String {
-    format!("{e:#}")
+// ----- the project -----
+
+#[tauri::command]
+pub fn project_list(engine: State<'_, EngineState>) -> Result<Vec<String>, String> {
+    engine.lock().project_list().map_err(fail)
 }
 
 #[tauri::command]
-pub fn track_arm(engine: State<'_, EngineState>, armed: bool) -> EngineStatus {
-    engine.lock().track_arm(armed)
+pub fn project_new(engine: State<'_, EngineState>, name: String) -> Result<EngineStatus, String> {
+    engine.lock().project_new(&name).map_err(fail)
 }
 
 #[tauri::command]
-pub fn track_record(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
-    engine.lock().track_record().map_err(fail)
+pub fn project_open(engine: State<'_, EngineState>, name: String) -> Result<EngineStatus, String> {
+    engine.lock().project_open(&name).map_err(fail)
 }
 
 #[tauri::command]
-pub fn track_play(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
-    engine.lock().track_play().map_err(fail)
+pub fn project_save(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().project_save().map_err(fail)
 }
 
 #[tauri::command]
-pub fn track_stop(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
-    engine.lock().track_stop().map_err(fail)
+pub fn tempo_set(engine: State<'_, EngineState>, tempo: Tempo) -> Result<EngineStatus, String> {
+    engine.lock().tempo_set(tempo).map_err(fail)
 }
+
+// ----- tracks and clips -----
+
+#[tauri::command]
+pub fn track_add(
+    engine: State<'_, EngineState>,
+    name: Option<String>,
+) -> Result<EngineStatus, String> {
+    engine.lock().track_add(name).map_err(fail)
+}
+
+#[tauri::command]
+pub fn track_remove(engine: State<'_, EngineState>, id: u64) -> Result<EngineStatus, String> {
+    engine.lock().track_remove(id).map_err(fail)
+}
+
+#[tauri::command]
+pub fn track_rename(
+    engine: State<'_, EngineState>,
+    id: u64,
+    name: String,
+) -> Result<EngineStatus, String> {
+    engine.lock().track_rename(id, name).map_err(fail)
+}
+
+#[tauri::command]
+pub fn track_move(
+    engine: State<'_, EngineState>,
+    id: u64,
+    to: usize,
+) -> Result<EngineStatus, String> {
+    engine.lock().track_move(id, to).map_err(fail)
+}
+
+#[tauri::command]
+pub fn track_arm(
+    engine: State<'_, EngineState>,
+    id: u64,
+    armed: bool,
+) -> Result<EngineStatus, String> {
+    engine.lock().track_arm(id, armed).map_err(fail)
+}
+
+#[tauri::command]
+pub fn clip_remove(engine: State<'_, EngineState>, id: u64) -> Result<EngineStatus, String> {
+    engine.lock().clip_remove(id).map_err(fail)
+}
+
+// ----- the transport -----
+
+#[tauri::command]
+pub fn transport_play(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().transport_play().map_err(fail)
+}
+
+#[tauri::command]
+pub fn transport_record(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().transport_record().map_err(fail)
+}
+
+#[tauri::command]
+pub fn transport_stop(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().transport_stop().map_err(fail)
+}
+
+#[tauri::command]
+pub fn transport_locate(
+    engine: State<'_, EngineState>,
+    sample: u64,
+) -> Result<EngineStatus, String> {
+    engine.lock().transport_locate(sample).map_err(fail)
+}
+
+// ----- the chain -----
 
 #[tauri::command]
 pub fn chain_add(
     engine: State<'_, EngineState>,
+    track: u64,
     spec: String,
     index: Option<usize>,
 ) -> Result<EngineStatus, String> {
-    engine.lock().chain_add(&spec, index).map_err(fail)
+    engine.lock().chain_add(track, &spec, index).map_err(fail)
 }
 
 #[tauri::command]
-pub fn chain_remove(engine: State<'_, EngineState>, id: u32) -> Result<EngineStatus, String> {
+pub fn chain_remove(engine: State<'_, EngineState>, id: u64) -> Result<EngineStatus, String> {
     engine.lock().chain_remove(id).map_err(fail)
 }
 
 #[tauri::command]
 pub fn chain_move(
     engine: State<'_, EngineState>,
-    id: u32,
+    id: u64,
     to: usize,
 ) -> Result<EngineStatus, String> {
     engine.lock().chain_move(id, to).map_err(fail)
@@ -110,7 +194,7 @@ pub fn chain_move(
 #[tauri::command]
 pub fn chain_set_param(
     engine: State<'_, EngineState>,
-    id: u32,
+    id: u64,
     param: usize,
     value: f32,
 ) -> Result<(), String> {

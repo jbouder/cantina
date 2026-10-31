@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "name": "Fixture",
+  "sampleRate": 48000.0,
+  "tempo": { "bpm": 110.0, "numerator": 4, "denominator": 4 },
+  "tracks": [
+    {
+      "id": 1,
+      "name": "Guitar",
+      "armed": true,
+      "chain": [
+        { "id": 2, "spec": "gain", "values": [-3.0] },
+        { "id": 3, "spec": "overdrive", "values": [20.0, 3000.0, -6.0] }
+      ],
+      "clips": [
+        { "id": 4, "name": "Guitar 1", "file": "Guitar-1.wav", "start": 0, "offset": 0, "length": 96000 },
+        { "id": 5, "name": "Guitar 2", "file": "Guitar-2.wav", "start": 192000, "offset": 4800, "length": 48000 }
+      ]
+    },
+    { "id": 6, "name": "Bass", "armed": false, "chain": [], "clips": [] }
+  ]
+}

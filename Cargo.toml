@@ -5,6 +5,7 @@ members = [
     "crates/engine",
     "crates/hosting",
     "crates/clap-fixture",
+    "crates/project",
     "src-tauri",
 ]
 
@@ -19,6 +20,7 @@ rust-version = "1.85"
 cantina-dsp = { path = "crates/dsp" }
 cantina-engine = { path = "crates/engine" }
 cantina-hosting = { path = "crates/hosting" }
+cantina-project = { path = "crates/project" }
 
 [profile.release]
 debug = 1
