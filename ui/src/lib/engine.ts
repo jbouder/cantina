@@ -22,7 +22,66 @@ export interface EngineStatus {
   pedalKinds: string[];
   plugins: PluginsStatus;
   latency: LatencyStatus;
+  /** The drum kits installed, for a drum track to pick from. */
+  kits: KitInfo[];
+  /** The pattern looping on a drum track for editing, if any. Not part of the project. */
+  audition: AuditionStatus | null;
 }
+
+/** An installed kit. Mirrors `KitInfo` in src-tauri. */
+export interface KitInfo {
+  id: string;
+  name: string;
+}
+
+/** A pattern looping on a drum track. Mirrors `AuditionStatus` in src-tauri. */
+export interface AuditionStatus {
+  track: number;
+  pattern: number;
+}
+
+/** A drum track's kit with the pads the grid shows rows for. Mirrors `KitStatus` in src-tauri. */
+export interface KitStatus {
+  id: string;
+  name: string;
+  pads: PadInfo[];
+  /** True when no installed kit has this id; the track plays silence. */
+  missing: boolean;
+}
+
+export interface PadInfo {
+  id: string;
+  name: string;
+}
+
+/** A step sequencer pattern. Mirrors `PatternInfo` in src-tauri. */
+export interface PatternInfo {
+  id: number;
+  name: string;
+  /** Steps per quarter note: 2, 4, 8, or 3 and 6 for triplets. */
+  stepsPerBeat: number;
+  /** Steps in the pattern, which loops after the last. */
+  length: number;
+  /** 0 straight; 1 delays every second step by a third of a step. */
+  swing: number;
+  /** One row per pad that has hits; `steps` holds `length` velocities. */
+  rows: PatternRow[];
+}
+
+export interface PatternRow {
+  pad: string;
+  steps: number[];
+}
+
+/** Steps per beat a pattern may use, with their labels. */
+export const RESOLUTIONS: { stepsPerBeat: number; label: string }[] = [
+  { stepsPerBeat: 1, label: "1/4" },
+  { stepsPerBeat: 2, label: "1/8" },
+  { stepsPerBeat: 3, label: "1/8T" },
+  { stepsPerBeat: 4, label: "1/16" },
+  { stepsPerBeat: 6, label: "1/16T" },
+  { stepsPerBeat: 8, label: "1/32" },
+];
 
 /** Where the time goes. Mirrors `LatencyStatus` in src-tauri. */
 export interface LatencyStatus {
@@ -99,6 +158,8 @@ export interface ProjectStatus {
   sampleRate: number;
   tempo: Tempo;
   tracks: TrackStatus[];
+  /** Drum patterns, shared by every drum track. */
+  patterns: PatternInfo[];
   /** The master strip; pan and solo are unused on it. */
   master: Strip;
 }
@@ -133,6 +194,8 @@ export interface TrackStatus {
   /** Armed tracks monitor their input and record when the transport records. */
   armed: boolean;
   recording: boolean;
+  /** The kit of a drum track; an audio track has none. */
+  kit: KitStatus | null;
   chain: PedalInfo[];
   clips: ClipInfo[];
   strip: Strip;
@@ -336,6 +399,52 @@ let mockNextId = 20;
 const mockTransport = { position: 0, playing: false, recording: false };
 const mockProjects = ["Untitled", "Blues in A", "Riff ideas"];
 
+const mockKits: KitInfo[] = [
+  { id: "acoustic", name: "Acoustic" },
+  { id: "rock", name: "Tight rock" },
+  { id: "electronic", name: "Electronic" },
+];
+
+const mockPads: PadInfo[] = [
+  { id: "kick", name: "Kick" },
+  { id: "snare", name: "Snare" },
+  { id: "hh-closed", name: "Closed hat" },
+  { id: "hh-open", name: "Open hat" },
+  { id: "tom-lo", name: "Low tom" },
+  { id: "tom-hi", name: "High tom" },
+  { id: "crash", name: "Crash" },
+  { id: "ride", name: "Ride" },
+];
+
+function mockKitStatus(id: string): KitStatus {
+  const kit = mockKits.find((k) => k.id === id);
+  return { id, name: kit?.name ?? id, pads: kit ? mockPads : [], missing: !kit };
+}
+
+/** A sixteen-step rock beat with a swung hat. */
+function mockPattern(id: number, name: string): PatternInfo {
+  const row = (pad: string, hits: Record<number, number>) => ({
+    pad,
+    steps: Array.from({ length: 16 }, (_, i) => hits[i] ?? 0),
+  });
+  return {
+    id,
+    name,
+    stepsPerBeat: 4,
+    length: 16,
+    swing: 0.25,
+    rows: [
+      row("hh-closed", { 0: 0.8, 2: 0.5, 4: 0.8, 6: 0.5, 8: 0.8, 10: 0.5, 12: 0.8 }),
+      row("hh-open", { 14: 0.7 }),
+      row("kick", { 0: 1, 7: 0.6, 8: 0.9, 10: 0.5 }),
+      row("snare", { 4: 1, 12: 1, 15: 0.3 }),
+    ],
+  };
+}
+
+/** The stand-in's drum track, with `?drums`. */
+const MOCK_DRUMS = 10;
+
 const mock: EngineStatus = {
   running: mockParams?.has("running") ?? false,
   sampleRate: MOCK_RATE,
@@ -368,6 +477,7 @@ const mock: EngineStatus = {
         name: "Guitar",
         armed: mockParams?.has("armed") ?? false,
         recording: mockParams?.has("recording") ?? false,
+        kit: null,
         chain: mockParams?.has("plugin")
           ? [mockPedal(2, "gain"), mockPedal(3, "overdrive"), mockPedal(9, "au:aufx:dely:appl")]
           : [mockPedal(2, "gain"), mockPedal(3, "overdrive")],
@@ -382,12 +492,31 @@ const mock: EngineStatus = {
         name: "Bass",
         armed: false,
         recording: false,
+        kit: null,
         chain: [mockPedal(7, "gain")],
         clips: mockParams?.has("take") ? [mockClip(8, "Bass 1", 2, 20)] : [],
         strip: { gainDb: 0, pan: 0.1, mute: mockParams?.has("mute") ?? false, solo: false },
         latencyFrames: 0,
       },
+      ...(mockParams?.has("drums")
+        ? [
+            {
+              id: MOCK_DRUMS,
+              name: "Drums",
+              armed: false,
+              recording: false,
+              kit: mockKitStatus(mockParams.get("kit") ?? "acoustic"),
+              chain: [],
+              clips: [],
+              strip: { gainDb: -2, pan: 0, mute: false, solo: false },
+              latencyFrames: 0,
+            },
+          ]
+        : []),
     ],
+    patterns: mockParams?.has("drums")
+      ? [mockPattern(11, "Verse"), { ...mockPattern(12, "Chorus"), swing: 0 }]
+      : [],
     master: { gainDb: -1, pan: 0, mute: false, solo: false },
   },
   pedalKinds: ["gain", "overdrive"],
@@ -404,6 +533,8 @@ const mock: EngineStatus = {
     warnMs: 20,
     warn: mockParams?.has("latency") ?? false,
   },
+  kits: mockKits,
+  audition: mockParams?.has("audition") ? { track: MOCK_DRUMS, pattern: 11 } : null,
 };
 mockTransport.playing = mock.transport.playing || mock.transport.recording;
 mockTransport.recording = mock.transport.recording;
@@ -425,12 +556,18 @@ function mockStatus(): EngineStatus {
       tracks: mock.project.tracks.map((t) => ({
         ...t,
         recording: mockTransport.recording && t.armed,
+        kit: t.kit ? { ...t.kit, pads: t.kit.pads.map((p) => ({ ...p })) } : null,
         chain: t.chain.map((p) => ({ ...p, params: p.params.map((q) => ({ ...q })) })),
         clips: t.clips.map((c) => ({ ...c })),
         strip: { ...t.strip },
       })),
+      patterns: mock.project.patterns.map((p) => ({
+        ...p,
+        rows: p.rows.map((r) => ({ pad: r.pad, steps: [...r.steps] })),
+      })),
       master: { ...mock.project.master },
     },
+    audition: mock.audition ? { ...mock.audition } : null,
     sampleRate: mockSettings.sampleRate,
     bufferFrames: mockSettings.bufferFrames,
     inputUid: mockSettings.inputUid,
@@ -611,12 +748,14 @@ export async function projectNew(name: string): Promise<EngineStatus> {
         name: "Track 1",
         armed: false,
         recording: false,
+        kit: null,
         chain: [mockPedal(2, "gain"), mockPedal(3, "overdrive")],
         clips: [],
         strip: { ...UNITY },
         latencyFrames: 0,
       },
     ],
+    patterns: [],
     master: { ...UNITY },
   };
   return mockStatus();
@@ -725,12 +864,138 @@ export async function trackAdd(name?: string): Promise<EngineStatus> {
     name: name ?? `Track ${mock.project.tracks.length + 1}`,
     armed: false,
     recording: false,
+    kit: null,
     chain: [],
     clips: [],
     strip: { ...UNITY },
     latencyFrames: 0,
   });
   return mockEdit();
+}
+
+/** Adds a drum track playing `kit`, or the first installed kit. */
+export async function trackAddDrums(kit?: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("track_add_drums", { kit: kit ?? null });
+  const id = kit ?? mockKits[0]?.id ?? "acoustic";
+  const drums = mock.project.tracks.filter((t) => t.kit).length;
+  mock.project.tracks.push({
+    id: mockNextId++,
+    name: drums === 0 ? "Drums" : `Drums ${drums + 1}`,
+    armed: false,
+    recording: false,
+    kit: mockKitStatus(id),
+    chain: [],
+    clips: [],
+    strip: { ...UNITY },
+    latencyFrames: 0,
+  });
+  return mockEdit("add track");
+}
+
+export async function trackSetKit(id: number, kit: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("track_set_kit", { id, kit });
+  mockTrack(id).kit = mockKitStatus(kit);
+  return mockEdit("change kit");
+}
+
+/** Looks for installed kits again. */
+export async function kitsRescan(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("kits_rescan");
+  return mockStatus();
+}
+
+// ----- patterns -----
+
+function mockPatternById(id: number): PatternInfo {
+  const p = mock.project.patterns.find((p) => p.id === id);
+  if (!p) throw new Error(`no pattern ${id}`);
+  return p;
+}
+
+export async function patternAdd(name?: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pattern_add", { name: name ?? null });
+  mock.project.patterns.push({
+    id: mockNextId++,
+    name: name ?? `Pattern ${mock.project.patterns.length + 1}`,
+    stepsPerBeat: 4,
+    length: 16,
+    swing: 0,
+    rows: [],
+  });
+  return mockEdit("add pattern");
+}
+
+export async function patternRemove(id: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pattern_remove", { id });
+  mock.project.patterns = mock.project.patterns.filter((p) => p.id !== id);
+  if (mock.audition?.pattern === id) mock.audition = null;
+  return mockEdit("remove pattern");
+}
+
+export async function patternRename(id: number, name: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pattern_rename", { id, name });
+  if (!name.trim()) throw new Error("a pattern needs a name");
+  mockPatternById(id).name = name.trim();
+  return mockEdit("rename pattern");
+}
+
+/** Sets one cell: a velocity from 0 (clear) to 1. */
+export async function patternSetStep(
+  id: number,
+  pad: string,
+  step: number,
+  velocity: number,
+): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pattern_set_step", { id, pad, step, velocity });
+  const p = mockPatternById(id);
+  let row = p.rows.find((r) => r.pad === pad);
+  if (!row) {
+    if (velocity <= 0) return mockStatus();
+    row = { pad, steps: new Array(p.length).fill(0) };
+    p.rows.push(row);
+    p.rows.sort((a, b) => a.pad.localeCompare(b.pad));
+  }
+  row.steps[step] = velocity;
+  if (row.steps.every((v) => v === 0)) p.rows = p.rows.filter((r) => r !== row);
+  return mockEdit(velocity > 0 ? "set step" : "clear step");
+}
+
+export async function patternSetLength(id: number, length: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pattern_set_length", { id, length });
+  const p = mockPatternById(id);
+  p.length = length;
+  for (const r of p.rows) {
+    r.steps = Array.from({ length }, (_, i) => r.steps[i] ?? 0);
+  }
+  p.rows = p.rows.filter((r) => r.steps.some((v) => v > 0));
+  return mockEdit("change pattern length");
+}
+
+/** Steps per beat: 1, 2, 3, 4, 6 or 8. */
+export async function patternSetResolution(
+  id: number,
+  stepsPerBeat: number,
+): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pattern_set_resolution", { id, stepsPerBeat });
+  mockPatternById(id).stepsPerBeat = stepsPerBeat;
+  return mockEdit("change step resolution");
+}
+
+/** Swing from 0 to 1. Not echoed. */
+export async function patternSetSwing(id: number, swing: number): Promise<void> {
+  if (inTauri) return invoke("pattern_set_swing", { id, swing });
+  mockPatternById(id).swing = swing;
+  mock.project.dirty = true;
+}
+
+/** Loops a pattern on a drum track while the transport plays; `null` stops. */
+export async function patternAudition(
+  track: number | null,
+  pattern: number | null,
+): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pattern_audition", { track, pattern });
+  mock.audition = track !== null && pattern !== null ? { track, pattern } : null;
+  return mockStatus();
 }
 
 export async function trackRemove(id: number): Promise<EngineStatus> {

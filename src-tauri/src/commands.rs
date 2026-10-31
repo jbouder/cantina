@@ -319,6 +319,112 @@ pub fn chain_set_param(
         .map_err(fail)
 }
 
+// ----- drums -----
+
+/// Adds a drum track playing `kit`, or the first installed kit.
+#[tauri::command]
+pub fn track_add_drums(
+    engine: State<'_, EngineState>,
+    kit: Option<String>,
+) -> Result<EngineStatus, String> {
+    engine.lock().track_add_drums(kit).map_err(fail)
+}
+
+#[tauri::command]
+pub fn track_set_kit(
+    engine: State<'_, EngineState>,
+    id: u64,
+    kit: String,
+) -> Result<EngineStatus, String> {
+    engine.lock().track_set_kit(id, kit).map_err(fail)
+}
+
+/// Looks for installed kits again.
+#[tauri::command]
+pub fn kits_rescan(engine: State<'_, EngineState>) -> EngineStatus {
+    engine.lock().kits_rescan()
+}
+
+#[tauri::command]
+pub fn pattern_add(
+    engine: State<'_, EngineState>,
+    name: Option<String>,
+) -> Result<EngineStatus, String> {
+    engine.lock().pattern_add(name).map_err(fail)
+}
+
+#[tauri::command]
+pub fn pattern_remove(engine: State<'_, EngineState>, id: u64) -> Result<EngineStatus, String> {
+    engine.lock().pattern_remove(id).map_err(fail)
+}
+
+#[tauri::command]
+pub fn pattern_rename(
+    engine: State<'_, EngineState>,
+    id: u64,
+    name: String,
+) -> Result<EngineStatus, String> {
+    engine.lock().pattern_rename(id, name).map_err(fail)
+}
+
+/// Sets one cell: a velocity from 0 (clear) to 1.
+#[tauri::command]
+pub fn pattern_set_step(
+    engine: State<'_, EngineState>,
+    id: u64,
+    pad: String,
+    step: usize,
+    velocity: f32,
+) -> Result<EngineStatus, String> {
+    engine
+        .lock()
+        .pattern_set_step(id, pad, step, velocity)
+        .map_err(fail)
+}
+
+#[tauri::command]
+pub fn pattern_set_length(
+    engine: State<'_, EngineState>,
+    id: u64,
+    length: u16,
+) -> Result<EngineStatus, String> {
+    engine.lock().pattern_set_length(id, length).map_err(fail)
+}
+
+/// Steps per beat: 1, 2, 3, 4, 6 or 8.
+#[tauri::command]
+pub fn pattern_set_resolution(
+    engine: State<'_, EngineState>,
+    id: u64,
+    steps_per_beat: u8,
+) -> Result<EngineStatus, String> {
+    engine
+        .lock()
+        .pattern_set_resolution(id, steps_per_beat)
+        .map_err(fail)
+}
+
+/// Swing from 0 to 1. Not echoed.
+#[tauri::command]
+pub fn pattern_set_swing(
+    engine: State<'_, EngineState>,
+    id: u64,
+    swing: f32,
+) -> Result<(), String> {
+    engine.lock().pattern_set_swing(id, swing).map_err(fail)
+}
+
+/// Loops a pattern on a drum track while the transport plays; both
+/// `null` stops.
+#[tauri::command]
+pub fn pattern_audition(
+    engine: State<'_, EngineState>,
+    track: Option<u64>,
+    pattern: Option<u64>,
+) -> Result<EngineStatus, String> {
+    engine.lock().pattern_audition(track, pattern).map_err(fail)
+}
+
 /// Sets the compensation above which the UI warns, in milliseconds.
 #[tauri::command]
 pub fn latency_warning_set(engine: State<'_, EngineState>, ms: f32) -> EngineStatus {

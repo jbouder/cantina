@@ -11,7 +11,14 @@ use serde::{Deserialize, Serialize};
 
 /// The format version this crate writes. The loader upgrades older files;
 /// see `file.rs` for the migrations.
-pub const FORMAT_VERSION: u32 = 2;
+pub const FORMAT_VERSION: u32 = 3;
+
+/// Ticks per quarter note in pattern and pattern clip positions. The
+/// same as the engine's tempo map, so a tick here is a tick there.
+pub const PPQ: u32 = 960;
+
+/// Most steps a pattern may have.
+pub const MAX_PATTERN_STEPS: usize = 128;
 
 /// Every object in a project has an id that is unique across tracks,
 /// clips and pedals and is never reused while the object exists.
@@ -46,6 +53,133 @@ id_type!(
     /// Identifies a pedal in a track's chain.
     PedalId
 );
+id_type!(
+    /// Identifies a drum pattern.
+    PatternId
+);
+
+/// A step sequencer pattern: a grid of pads against steps, with a
+/// velocity per cell. Patterns belong to the project and refer to pads
+/// by the ids the kit format uses (`kick`, `snare`, `hh-closed`…), so a
+/// pattern plays on any drum track whose kit has those pads.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Pattern {
+    pub id: PatternId,
+    pub name: String,
+    /// Steps per quarter note: 2 for eighths, 4 for sixteenths, 8 for
+    /// thirty-seconds; 3 and 6 for triplets.
+    pub steps_per_beat: u8,
+    /// Steps in the pattern, which loops after the last.
+    pub length: u16,
+    /// 0 is straight; 1 delays every second step by a third of a step,
+    /// a triplet feel.
+    pub swing: f32,
+    /// One row per pad that has hits.
+    #[serde(default)]
+    pub rows: Vec<PatternRow>,
+}
+
+/// One pad's steps. `steps` holds exactly the pattern's length of
+/// velocities from 0 (no hit) to 1.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PatternRow {
+    pub pad: String,
+    pub steps: Vec<f32>,
+}
+
+impl Pattern {
+    /// An empty pattern of one bar of sixteenths in 4/4.
+    pub fn new(id: PatternId, name: impl Into<String>) -> Self {
+        Self {
+            id,
+            name: name.into(),
+            steps_per_beat: 4,
+            length: 16,
+            swing: 0.0,
+            rows: Vec::new(),
+        }
+    }
+
+    /// Ticks per step.
+    pub fn step_ticks(&self) -> u64 {
+        PPQ as u64 / self.steps_per_beat.max(1) as u64
+    }
+
+    /// Ticks in one pass of the pattern.
+    pub fn ticks(&self) -> u64 {
+        self.step_ticks() * self.length.max(1) as u64
+    }
+
+    pub fn row(&self, pad: &str) -> Option<&PatternRow> {
+        self.rows.iter().find(|r| r.pad == pad)
+    }
+
+    /// The velocity at a cell; 0 for a pad with no row.
+    pub fn velocity(&self, pad: &str, step: usize) -> f32 {
+        self.row(pad)
+            .and_then(|r| r.steps.get(step))
+            .copied()
+            .unwrap_or(0.0)
+    }
+
+    fn validate(&self) -> Result<(), String> {
+        if self.name.is_empty() {
+            return Err(format!("pattern {} has no name", self.id));
+        }
+        if !matches!(self.steps_per_beat, 1 | 2 | 3 | 4 | 6 | 8) {
+            return Err(format!(
+                "pattern {} has {} steps per beat; 1, 2, 3, 4, 6 or 8 are allowed",
+                self.id, self.steps_per_beat
+            ));
+        }
+        if self.length == 0 || self.length as usize > MAX_PATTERN_STEPS {
+            return Err(format!(
+                "pattern {} has {} steps; 1 to {MAX_PATTERN_STEPS} are allowed",
+                self.id, self.length
+            ));
+        }
+        if !self.swing.is_finite() || !(0.0..=1.0).contains(&self.swing) {
+            return Err(format!(
+                "pattern {} has a swing of {}, outside 0 to 1",
+                self.id, self.swing
+            ));
+        }
+        let mut pads = std::collections::HashSet::new();
+        for row in &self.rows {
+            if row.pad.is_empty() {
+                return Err(format!("pattern {} has a row with no pad", self.id));
+            }
+            if !pads.insert(row.pad.as_str()) {
+                return Err(format!(
+                    "pattern {} has two rows for pad {:?}",
+                    self.id, row.pad
+                ));
+            }
+            if row.steps.len() != self.length as usize {
+                return Err(format!(
+                    "pattern {} row {:?} has {} steps, the pattern {}",
+                    self.id,
+                    row.pad,
+                    row.steps.len(),
+                    self.length
+                ));
+            }
+            if row
+                .steps
+                .iter()
+                .any(|v| !v.is_finite() || !(0.0..=1.0).contains(v))
+            {
+                return Err(format!(
+                    "pattern {} row {:?} has a velocity outside 0 to 1",
+                    self.id, row.pad
+                ));
+            }
+        }
+        Ok(())
+    }
+}
 
 /// Tempo and time signature. One of each for the whole timeline for now;
 /// the engine's tempo map can hold changes, and when the UI can edit
@@ -134,6 +268,11 @@ pub struct Track {
     /// records.
     #[serde(default)]
     pub armed: bool,
+    /// The drum kit, by id, for a drum track. An audio track has none.
+    /// A drum track plays patterns through its kit instead of audio
+    /// from its input and clips.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kit: Option<String>,
     #[serde(default)]
     pub chain: Vec<Pedal>,
     #[serde(default)]
@@ -148,10 +287,23 @@ impl Track {
             id,
             name: name.into(),
             armed: false,
+            kit: None,
             chain: Vec::new(),
             clips: Vec::new(),
             strip: Strip::default(),
         }
+    }
+
+    /// A drum track playing `kit`.
+    pub fn drums(id: TrackId, name: impl Into<String>, kit: impl Into<String>) -> Self {
+        Self {
+            kit: Some(kit.into()),
+            ..Self::new(id, name)
+        }
+    }
+
+    pub fn is_drums(&self) -> bool {
+        self.kit.is_some()
     }
 
     pub fn clip(&self, id: ClipId) -> Option<&Clip> {
@@ -177,6 +329,9 @@ pub struct Project {
     pub tempo: Tempo,
     #[serde(default)]
     pub tracks: Vec<Track>,
+    /// Drum patterns, shared by every drum track.
+    #[serde(default)]
+    pub patterns: Vec<Pattern>,
     /// The master strip: gain and mute on the sum of the tracks.
     #[serde(default)]
     pub master: Strip,
@@ -197,6 +352,7 @@ impl Project {
             sample_rate,
             tempo: Tempo::default(),
             tracks: Vec::new(),
+            patterns: Vec::new(),
             master: Strip::default(),
             revision: 0,
         }
@@ -224,13 +380,24 @@ impl Project {
         self.tracks.iter().find_map(|t| t.pedal(id).map(|p| (t, p)))
     }
 
-    /// Every id in use, across tracks, clips and pedals.
+    pub fn pattern(&self, id: PatternId) -> Option<&Pattern> {
+        self.patterns.iter().find(|p| p.id == id)
+    }
+
+    pub fn pattern_mut(&mut self, id: PatternId) -> Option<&mut Pattern> {
+        self.patterns.iter_mut().find(|p| p.id == id)
+    }
+
+    /// Every id in use, across tracks, clips, pedals and patterns.
     pub fn ids(&self) -> impl Iterator<Item = Id> + '_ {
-        self.tracks.iter().flat_map(|t| {
-            std::iter::once(t.id.0)
-                .chain(t.clips.iter().map(|c| c.id.0))
-                .chain(t.chain.iter().map(|p| p.id.0))
-        })
+        self.tracks
+            .iter()
+            .flat_map(|t| {
+                std::iter::once(t.id.0)
+                    .chain(t.clips.iter().map(|c| c.id.0))
+                    .chain(t.chain.iter().map(|p| p.id.0))
+            })
+            .chain(self.patterns.iter().map(|p| p.id.0))
     }
 
     /// An id no object in the project has. Ids are not reused while an
@@ -241,7 +408,8 @@ impl Project {
     }
 
     /// Checks the invariants a file must satisfy: unique ids, clips with
-    /// a length, finite parameter values and a usable tempo.
+    /// a length, finite parameter values, well-formed patterns and a
+    /// usable tempo.
     pub fn validate(&self) -> Result<(), String> {
         if !(self.sample_rate.is_finite() && self.sample_rate > 0.0) {
             return Err(format!("sample rate {} is not usable", self.sample_rate));
@@ -283,6 +451,19 @@ impl Project {
                     ));
                 }
             }
+            if track
+                .kit
+                .as_deref()
+                .is_some_and(|k| k.is_empty() || k.contains(['/', '\\']))
+            {
+                return Err(format!(
+                    "track {} has a kit id that is not a plain name",
+                    track.id
+                ));
+            }
+        }
+        for pattern in &self.patterns {
+            pattern.validate()?;
         }
         Ok(())
     }
@@ -314,9 +495,50 @@ mod tests {
 
     #[test]
     fn fresh_ids_skip_every_object() {
-        let p = project();
+        let mut p = project();
         assert_eq!(p.fresh_id(), 4);
         assert_eq!(Project::new("Empty", 48_000.0).fresh_id(), 1);
+        p.patterns.push(Pattern::new(PatternId(7), "Beat"));
+        assert_eq!(p.fresh_id(), 8, "patterns share the id space");
+    }
+
+    #[test]
+    fn patterns_are_validated() {
+        let mut p = project();
+        let mut pattern = Pattern::new(PatternId(5), "Beat");
+        assert_eq!(pattern.step_ticks(), 240);
+        assert_eq!(pattern.ticks(), 3840);
+        pattern.rows.push(PatternRow {
+            pad: "kick".into(),
+            steps: vec![0.0; 16],
+        });
+        pattern.rows[0].steps[4] = 0.8;
+        assert_eq!(pattern.velocity("kick", 4), 0.8);
+        assert_eq!(pattern.velocity("kick", 5), 0.0);
+        assert_eq!(pattern.velocity("snare", 4), 0.0);
+        p.patterns.push(pattern);
+        assert_eq!(p.validate(), Ok(()));
+        let check = |edit: fn(&mut Pattern), expected: &str| {
+            let mut p = p.clone();
+            edit(&mut p.patterns[0]);
+            let err = p.validate().unwrap_err();
+            assert!(err.contains(expected), "{err}");
+        };
+        check(|q| q.name.clear(), "no name");
+        check(|q| q.steps_per_beat = 5, "steps per beat");
+        check(|q| q.length = 0, "1 to 128");
+        check(|q| q.swing = 1.5, "swing");
+        check(
+            |q| q.rows[0].steps.pop().map(drop).unwrap_or(()),
+            "15 steps, the pattern 16",
+        );
+        check(|q| q.rows[0].steps[0] = 2.0, "outside 0 to 1");
+        check(|q| q.rows.push(q.rows[0].clone()), "two rows");
+        p.tracks.push(Track::drums(TrackId(9), "Drums", "acoustic"));
+        assert!(p.tracks[1].is_drums());
+        assert_eq!(p.validate(), Ok(()));
+        p.tracks[1].kit = Some("../x".into());
+        assert!(p.validate().unwrap_err().contains("kit id"));
     }
 
     #[test]
@@ -350,9 +572,11 @@ mod tests {
         assert_eq!(json["sampleRate"], 48_000.0);
         assert_eq!(json["tracks"][0]["clips"][0]["start"], 0);
         let minimal: Project =
-            serde_json::from_str(r#"{"version":2,"name":"x","sampleRate":44100}"#).unwrap();
+            serde_json::from_str(r#"{"version":3,"name":"x","sampleRate":44100}"#).unwrap();
         assert_eq!(minimal.tempo, Tempo::default());
         assert!(minimal.tracks.is_empty());
+        assert!(minimal.patterns.is_empty());
         assert_eq!(minimal.master, Strip::default());
+        assert!(!json["tracks"][0].as_object().unwrap().contains_key("kit"));
     }
 }

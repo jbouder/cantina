@@ -54,7 +54,10 @@ export function App() {
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const closeProjects = useCallback(() => setProjectsOpen(false), []);
   const closePlugins = useCallback(() => setPluginsOpen(false), []);
-  const [selectedTrack, setSelectedTrack] = useState<number | null>(null);
+  // In a browser `?drums` adds a drum track to the stand-in and selects it.
+  const [selectedTrack, setSelectedTrack] = useState<number | null>(() =>
+    params?.has("drums") ? 10 : null,
+  );
 
   // In a browser `?scroll=<px>` scrolls the page, so screenshots can
   // show what is below the fold.
@@ -206,6 +209,7 @@ export function App() {
               tracks={status.project.tracks}
               running={running}
               position={frame.position}
+              auditioning={status.audition !== null}
               onStatus={setStatus}
               onError={setError}
             />
@@ -217,6 +221,7 @@ export function App() {
               playing={transport.playing}
               running={running}
               selectedTrack={selected?.id ?? null}
+              hasKits={status.kits.length > 0}
               onSelectTrack={setSelectedTrack}
               onStatus={setStatus}
               onError={setError}
@@ -237,6 +242,12 @@ export function App() {
                 count={status.project.tracks.length}
                 sampleRate={status.project.sampleRate}
                 kinds={status.pedalKinds}
+                patterns={status.project.patterns}
+                kits={status.kits}
+                audition={status.audition}
+                tempo={status.project.tempo}
+                position={frame.position}
+                playing={transport.playing}
                 onBrowsePlugins={() => setPluginsOpen(true)}
                 onStatus={setStatus}
                 onError={setError}

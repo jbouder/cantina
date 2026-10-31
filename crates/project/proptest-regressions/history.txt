@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc b5eae7e09e6d07cb5a57db3dd70dc8e6392868ce3ac4f875287d5a987c2cd2c2 # shrinks to ops = [Batch([AddClip(0, 0, 26630)]), Batch([Batch([Split(0, 1000)])]), Batch([RemoveClip(1), Batch([Split(0, 1000)])])]

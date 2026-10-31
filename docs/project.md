@@ -60,12 +60,16 @@ serialized in camelCase:
 - **`sampleRate`** is the rate every file in `audio/` is at. Opening a
   project switches the engine to that rate; changing the device rate is
   only allowed while the project has no audio.
+- **Drum tracks** carry a `kit` id and **`patterns`** on the project
+  hold the step grids; see [drums.md](drums.md). The format went to
+  version 3 with them.
 
 ## Commands
 
 Every edit is a `Command` (`crates/project/src/command.rs`): insert, remove,
 rename, move and arm tracks; insert, remove, move, trim and split clips;
-insert, remove and move pedals; set a parameter; set the tempo; and
+insert, remove and move pedals; set a parameter; set the tempo; set a
+drum track's kit; insert, remove, rename and edit patterns; and
 `Batch`, several as one edit. `Command::apply` changes the project and
 returns the inverse command, so undo is "apply the inverse" and redo is
 "apply the original". A command either applies completely or leaves the
@@ -129,7 +133,8 @@ Every fixture under `crates/project/tests/fixtures/` is loaded by the
 tests and must come out at the current version; when the format changes,
 the old shape stays there as a fixture and a migration step is added.
 Version 1 to 2 added the strips: `v1.json` has none and must load with
-every strip at unity.
+every strip at unity. Version 2 to 3 added drum tracks and patterns:
+`v2.json` must load with no patterns and every track an audio track.
 
 Saves write `project.json.tmp` and rename it over `project.json`, so a
 crash mid-save leaves the previous file whole.
