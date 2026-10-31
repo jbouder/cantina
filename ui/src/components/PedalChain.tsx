@@ -12,6 +12,8 @@ import { Fader } from "./Fader";
 import { Select } from "./Select";
 
 type Props = {
+  /** The track whose chain this is. */
+  track: number;
   chain: PedalInfo[];
   kinds: string[];
   onStatus: (status: EngineStatus) => void;
@@ -26,7 +28,7 @@ function titleCase(spec: string) {
  * The pedals in order, each with its knobs. Reorder by dragging a card
  * or with the arrow keys on its grip; add from the picker at the end.
  */
-export function PedalChain({ chain, kinds, onStatus, onError }: Props) {
+export function PedalChain({ track, chain, kinds, onStatus, onError }: Props) {
   const [dragging, setDragging] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
   const [kind, setKind] = useState(kinds[0] ?? "gain");
@@ -83,7 +85,7 @@ export function PedalChain({ chain, kinds, onStatus, onError }: Props) {
       </ol>
       <div className="flex items-end gap-2">
         <Select
-          id="pedal-kind"
+          id={`pedal-kind-${track}`}
           label="Add a pedal"
           value={kind}
           onChange={(e) => setKind(e.target.value)}
@@ -94,7 +96,7 @@ export function PedalChain({ chain, kinds, onStatus, onError }: Props) {
             </option>
           ))}
         </Select>
-        <Button onClick={() => run(chainAdd(kind))}>Add</Button>
+        <Button onClick={() => run(chainAdd(track, kind))}>Add</Button>
       </div>
     </div>
   );

@@ -12,19 +12,23 @@ progress.
 
 ## Status
 
-M2 Shell done. The Tauri 2 app wraps the engine: a device picker with
-sample rate and buffer size that survives relaunches and rebuilds the
-stream when an interface vanishes or changes rate; input and output
-meters over a binary frame channel; one track that arms, records a take
-and plays it back through a pedal chain you can reorder while audio runs;
-and the six visualizer skins (Classic, Midnight, Brushed metal, Hi-fi,
-Neon, Toxic) on a token system where no component names a color. Before
-that, M1 built the engine: a graph of processors edited on the UI thread
-and swapped in on a block boundary, a transport with tempo map, loop and
-click, WAV playback and recording on their own threads, and golden-file
-tests for the DSP. M0's latency measurement still needs an audio
-interface. Spike findings in [docs/spike.md](docs/spike.md), the skin
-system in [docs/skins.md](docs/skins.md), the frame format in
+M3 Multitrack in progress. The project model landed: a `.cantina`
+directory with `project.json` and immutable audio, every edit a command
+with an inverse, a versioned loader, and a shell that builds the engine
+graph from any number of tracks, records takes into the project and
+places them as clips. Before that, M2 built the shell: a Tauri 2 app with
+a device picker that survives relaunches and rebuilds the stream when an
+interface vanishes or changes rate, input and output meters over a binary
+frame channel, a pedal chain you can reorder while audio runs, and the
+six visualizer skins (Classic, Midnight, Brushed metal, Hi-fi, Neon,
+Toxic) on a token system where no component names a color. M1 built the
+engine: a graph of processors edited on the UI thread and swapped in on
+a block boundary, a transport with tempo map, loop and click, WAV
+playback and recording on their own threads, and golden-file tests for
+the DSP. M0's latency measurement still needs an audio interface. Spike
+findings in [docs/spike.md](docs/spike.md), the project format in
+[docs/project.md](docs/project.md), the skin system in
+[docs/skins.md](docs/skins.md), the frame format in
 [docs/frames.md](docs/frames.md).
 
 ## Build
@@ -103,8 +107,9 @@ It plays clicks, times their return and prints a row for
 crates/dsp      pure processing: the Processor trait, Chain, stock Gain and Overdrive
 crates/engine   CoreAudio devices, streams and hardware watcher; graph runtime, meters, transport, WAV streaming
 crates/hosting  Audio Units and CLAP plugins as Processors
+crates/project  the project model, commands with inverses, the .cantina file format
 crates/clap-fixture  a tiny CLAP plugin the hosting tests load
-src-tauri/      the Tauri 2 shell: owns the engine handle, exposes commands to the UI
+src-tauri/      the Tauri 2 shell: owns the engine and the open project, exposes commands to the UI
 ui/             the React and TypeScript app; Tailwind v4 reads the six skins' tokens
 scripts/        developer tools, such as the PR screenshot capture
 docs/           design notes, measurements and screenshots; the Astro site lands here

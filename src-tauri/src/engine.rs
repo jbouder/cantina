@@ -1,34 +1,42 @@
-//! The shell's handle on the audio engine.
+//! The shell's handle on the audio engine and the open project.
 //!
 //! One [`Engine`] lives in Tauri managed state as [`EngineState`]. It owns
-//! the stream, the graph controller, the chain and the meters, and
-//! everything the UI can do to the engine goes through methods here,
-//! called from `commands.rs` while the mutex is held.
+//! the project, the stream, the graph controller and the meters, and
+//! everything the UI can do goes through methods here, called from
+//! `commands.rs` while the mutex is held.
+//!
+//! The project is the source of truth. Every edit is a
+//! [`Command`] applied to it, after which the live graph is brought in
+//! line: parameter changes go over the audio thread's queue, anything
+//! structural rebuilds the wiring and commits a new schedule.
 //!
 //! Two helper threads exist while a stream is open: one receives
 //! hardware change events from the engine's [`Watcher`] and asks the
 //! engine to rebuild when its devices go away or change rate, and one
 //! pumps meter levels to the UI at display rate.
 
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use cantina_dsp::{ParamInfo, Unit, STOCK_NAMES};
 use cantina_engine::{
-    device, processors, wav, Clip, Controller, DeviceEvent, DeviceId, Endpoint, GraphConfig, Meter,
+    device, processors, wav, Controller, DeviceEvent, DeviceId, Endpoint, GraphConfig, Meter,
     MeterHandle, Mute, NodeId, Player, PlayerHandle, Recorder, RecorderHandle, Runtime, Stream,
-    StreamConfig, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
+    StreamConfig, TempoMap, TimeSignature, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
 };
+use cantina_project::{Clip, ClipId, Command, Pedal, PedalId, Project, Tempo, Track, TrackId};
 use serde::Serialize;
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::frame::Frame;
+use crate::project::Projects;
 use crate::settings::{AudioSettings, Settings};
 
 /// Event name for status pushes to the UI.
@@ -52,39 +60,67 @@ pub struct EngineStatus {
     /// device. `notice_seq` increments with each new one.
     pub notice: Option<String>,
     pub notice_seq: u32,
-    pub track: TrackStatus,
-    /// The pedal chain in order.
-    pub chain: Vec<PedalInfo>,
+    pub transport: TransportStatus,
+    pub project: ProjectStatus,
     /// Specs `chain_add` accepts.
     pub pedal_kinds: Vec<String>,
 }
 
-/// The one track, as the UI sees it. Mirrors `TrackStatus` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransportStatus {
+    pub playing: bool,
+    /// True while any track is recording.
+    pub recording: bool,
+}
+
+/// The open project, as the UI sees it. Mirrors `ProjectStatus` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectStatus {
+    pub name: String,
+    pub dir: String,
+    /// True when there are edits since the last save.
+    pub dirty: bool,
+    pub sample_rate: f64,
+    pub tempo: Tempo,
+    pub tracks: Vec<TrackStatus>,
+}
+
+/// A track, as the UI sees it. Mirrors `TrackStatus` in the UI.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackStatus {
-    /// Armed tracks monitor their input and can record.
+    pub id: u64,
+    pub name: String,
+    /// Armed tracks monitor their input and record when the transport
+    /// records.
     pub armed: bool,
     pub recording: bool,
-    pub playing: bool,
-    /// The last take, ready to play.
-    pub take: Option<TakeInfo>,
+    /// The pedal chain in order.
+    pub chain: Vec<PedalInfo>,
+    pub clips: Vec<ClipInfo>,
 }
 
+/// A clip, as the UI sees it. Positions are in samples at the project's
+/// rate. Mirrors `ClipInfo` in the UI.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TakeInfo {
-    pub path: String,
+pub struct ClipInfo {
+    pub id: u64,
     pub name: String,
-    pub seconds: f64,
+    pub file: String,
+    pub start: u64,
+    pub offset: u64,
+    pub length: u64,
 }
 
-/// A pedal in the chain. Mirrors `PedalInfo` in the UI.
+/// A pedal in a chain. Mirrors `PedalInfo` in the UI.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PedalInfo {
     /// Stable for the pedal's life, across stream rebuilds.
-    pub id: u32,
+    pub id: u64,
     pub spec: String,
     pub name: String,
     pub params: Vec<ParamOut>,
@@ -154,77 +190,73 @@ impl EngineState {
     }
 }
 
-/// A pedal in the chain, as the engine rebuilds it: its spec for
-/// `processors::create`, what it reported about itself, and the last
-/// value of each parameter.
+/// What a pedal spec builds: learned by building one once, then cached,
+/// so the status can describe a chain without touching the graph.
 #[derive(Debug, Clone)]
-struct ChainItem {
-    id: u32,
-    spec: String,
-    name: String,
-    params: Vec<ParamInfo>,
-    values: Vec<f32>,
+pub struct PedalKind {
+    pub name: String,
+    pub params: Vec<ParamInfo>,
 }
 
-impl ChainItem {
-    /// Builds the processor once to learn its name and parameters.
-    fn new(id: u32, spec: &str) -> Result<Self> {
-        let processor = processors::create(spec, 1)?;
-        let params = processor.params().to_vec();
-        let values = params.iter().map(|p| p.default).collect();
-        Ok(Self {
-            id,
-            spec: spec.to_string(),
-            name: processor.name().to_string(),
-            params,
-            values,
-        })
-    }
-
-    fn info(&self) -> PedalInfo {
+impl PedalKind {
+    fn info(&self, pedal: &Pedal) -> PedalInfo {
         PedalInfo {
-            id: self.id,
-            spec: self.spec.clone(),
+            id: pedal.id.0,
+            spec: pedal.spec.clone(),
             name: self.name.clone(),
             params: self
                 .params
                 .iter()
-                .zip(&self.values)
-                .map(|(p, v)| ParamOut {
+                .enumerate()
+                .map(|(i, p)| ParamOut {
                     name: p.name.to_string(),
                     unit: unit_label(p.unit),
                     min: p.min,
                     max: p.max,
                     default: p.default,
-                    value: *v,
+                    value: pedal.values.get(i).copied().unwrap_or(p.default),
                 })
                 .collect(),
         }
     }
 }
 
-/// The last recorded take.
-#[derive(Debug, Clone)]
-struct Take {
-    path: PathBuf,
-    frames: u64,
-    sample_rate: f64,
+/// The nodes one track owns while the stream is open:
+///
+/// ```text
+/// input -> mute -> bus -> pedals... -> (master)
+///            |      ^
+///       recorder  player
+/// ```
+struct LiveTrack {
+    id: TrackId,
+    /// The monitor gate: input passes when the track is armed.
+    mute: NodeId,
+    /// Where live input and playback meet before the pedals.
+    bus: NodeId,
+    pedals: Vec<(PedalId, NodeId)>,
+    player_node: NodeId,
+    player: PlayerHandle,
+    recorder_node: NodeId,
+    recorder: RecorderHandle,
+}
+
+impl LiveTrack {
+    fn nodes(&self) -> impl Iterator<Item = NodeId> + '_ {
+        [self.mute, self.bus, self.player_node, self.recorder_node]
+            .into_iter()
+            .chain(self.pedals.iter().map(|(_, n)| *n))
+    }
 }
 
 /// What is running while the stream is open.
 struct Live {
     stream: Stream,
     controller: Controller,
-    /// Pedal nodes, in the order of `Engine::chain`.
-    pedal_nodes: Vec<NodeId>,
-    /// The monitor gate: input passes when the track is armed.
-    mute: NodeId,
-    /// Where live input and playback meet before the pedals.
-    bus: NodeId,
-    player_node: NodeId,
-    player: PlayerHandle,
-    recorder_node: NodeId,
-    recorder: RecorderHandle,
+    /// In the project's track order.
+    tracks: Vec<LiveTrack>,
+    /// Where the tracks sum before the output.
+    master: NodeId,
     input_meter: NodeId,
     output_meter: NodeId,
     input: DeviceId,
@@ -234,39 +266,226 @@ struct Live {
     /// Dropping it removes the hardware listeners and ends their thread.
     _watcher: Watcher,
     pump_stop: Arc<AtomicBool>,
-    /// Set while a recording runs; cleared by `track_stop`.
-    recording: Option<PathBuf>,
 }
 
 impl Live {
-    /// Connects everything for the current pedal order and commits:
+    fn transport(&mut self) -> &mut TransportHandle {
+        self.controller.transport_mut()
+    }
+
+    fn track(&self, id: TrackId) -> Result<&LiveTrack> {
+        self.tracks
+            .iter()
+            .find(|t| t.id == id)
+            .with_context(|| format!("track {id} is not in the graph"))
+    }
+
+    fn track_mut(&mut self, id: TrackId) -> Result<&mut LiveTrack> {
+        self.tracks
+            .iter_mut()
+            .find(|t| t.id == id)
+            .with_context(|| format!("track {id} is not in the graph"))
+    }
+
+    fn pedal_node(&self, id: PedalId) -> Result<NodeId> {
+        self.tracks
+            .iter()
+            .flat_map(|t| t.pedals.iter())
+            .find(|(p, _)| *p == id)
+            .map(|(_, n)| *n)
+            .with_context(|| format!("pedal {id} is not in the graph"))
+    }
+
+    /// Brings the graph in line with the project: tracks and pedals are
+    /// created, dropped and reordered to match, each player gets its
+    /// track's clips, every gate follows its track's arm state, and the
+    /// result is wired and committed. Nodes that survive keep their
+    /// state. Clips that cannot load are reported but do not stop the
+    /// rest.
+    fn sync(&mut self, project: &Project, catalog: &mut Catalog, audio_dir: &Path) -> Result<()> {
+        let sample_rate = self.stream.info().sample_rate;
+        let mut problems = Vec::new();
+
+        // Tracks that went away, with every node they held.
+        let mut gone = Vec::new();
+        self.tracks.retain(|t| {
+            if project.track(t.id).is_some() {
+                true
+            } else {
+                gone.extend(t.nodes());
+                false
+            }
+        });
+        for node in gone {
+            self.controller.graph_mut().remove(node)?;
+        }
+
+        let mut ordered = Vec::with_capacity(project.tracks.len());
+        for track in &project.tracks {
+            let mut live = match self.tracks.iter().position(|t| t.id == track.id) {
+                Some(i) => self.tracks.remove(i),
+                None => Self::create_track(&mut self.controller, track, sample_rate),
+            };
+            let graph = self.controller.graph_mut();
+            // Pedals that left this chain.
+            let mut removed = Vec::new();
+            live.pedals.retain(|(id, node)| {
+                if track.pedal(*id).is_some() {
+                    true
+                } else {
+                    removed.push(*node);
+                    false
+                }
+            });
+            for node in removed {
+                graph.remove(node)?;
+            }
+            // Pedals in the chain's order, creating the new ones.
+            let mut pedals = Vec::with_capacity(track.chain.len());
+            for pedal in &track.chain {
+                let node = match live.pedals.iter().find(|(id, _)| *id == pedal.id) {
+                    Some((_, node)) => *node,
+                    None => {
+                        let mut processor = processors::create(&pedal.spec, 1)?;
+                        catalog.learn(&pedal.spec, processor.as_ref());
+                        for (param, value) in pedal.values.iter().enumerate() {
+                            processor.set_param(param, *value);
+                        }
+                        graph.add_processor(processor)
+                    }
+                };
+                pedals.push((pedal.id, node));
+            }
+            live.pedals = pedals;
+            self.controller
+                .set_param(live.mute, 0, if track.armed { 1.0 } else { 0.0 });
+            let clips = engine_clips(track, audio_dir);
+            if live.player.clips() != clips.as_slice() {
+                if let Err(e) = live.player.set_clips(clips) {
+                    problems.push(format!("{}: {e:#}", track.name));
+                }
+            }
+            ordered.push(live);
+        }
+        self.tracks = ordered;
+        self.wire()?;
+        self.controller.collect();
+        if problems.is_empty() {
+            Ok(())
+        } else {
+            bail!("{}", problems.join("; "))
+        }
+    }
+
+    fn create_track(controller: &mut Controller, track: &Track, sample_rate: f64) -> LiveTrack {
+        let graph = controller.graph_mut();
+        let mute = graph.add(Box::new(Mute::new(track.armed)));
+        let bus = graph.add_processor(cantina_dsp::stock("gain").expect("gain is stock"));
+        let (player, player_handle) = Player::new(sample_rate, 1);
+        let player_node = graph.add(Box::new(player));
+        let (recorder, recorder_handle) = Recorder::new(sample_rate, 1);
+        let recorder_node = graph.add(Box::new(recorder));
+        LiveTrack {
+            id: track.id,
+            mute,
+            bus,
+            pedals: Vec::new(),
+            player_node,
+            player: player_handle,
+            recorder_node,
+            recorder: recorder_handle,
+        }
+    }
+
+    /// Connects everything for the current tracks and commits:
     ///
     /// ```text
-    /// input -> mute -> bus -> pedals... -> output
-    ///            |      ^                    |
-    ///       recorder  player           output meter
+    /// input -> mute -> bus -> pedals... -> master -> output
+    ///            |      ^                     |
+    ///       recorder  player             output meter
     /// input -> input meter
     /// ```
     fn wire(&mut self) -> Result<()> {
         let graph = self.controller.graph_mut();
-        let mut chain = vec![self.mute, self.bus];
-        chain.extend(&self.pedal_nodes);
-        graph.set_chain(&chain)?;
+        graph.clear_edges();
         graph.connect(Endpoint::Input, self.input_meter)?;
-        graph.connect(self.mute, self.recorder_node)?;
-        graph.connect(self.player_node, self.bus)?;
-        let last = *chain.last().expect("the chain holds at least the bus");
-        graph.connect(last, self.output_meter)?;
+        for track in &self.tracks {
+            graph.connect(Endpoint::Input, track.mute)?;
+            graph.connect(track.mute, track.bus)?;
+            graph.connect(track.mute, track.recorder_node)?;
+            graph.connect(track.player_node, track.bus)?;
+            let mut previous = track.bus;
+            for (_, node) in &track.pedals {
+                graph.connect(previous, *node)?;
+                previous = *node;
+            }
+            graph.connect(previous, self.master)?;
+        }
+        graph.connect(self.master, self.output_meter)?;
+        graph.connect(self.master, Endpoint::Output)?;
         self.controller.commit()?;
         Ok(())
     }
+}
 
-    fn transport(&mut self) -> &mut TransportHandle {
-        self.controller.transport_mut()
+/// The project's clips for one track as the player wants them.
+fn engine_clips(track: &Track, audio_dir: &Path) -> Vec<cantina_engine::Clip> {
+    track
+        .clips
+        .iter()
+        .map(|c| cantina_engine::Clip {
+            path: audio_dir.join(&c.file),
+            start: c.start,
+            offset: c.offset,
+            length: c.length,
+        })
+        .collect()
+}
+
+/// Pedal kinds by spec.
+#[derive(Default)]
+pub struct Catalog(HashMap<String, PedalKind>);
+
+impl Catalog {
+    fn learn(&mut self, spec: &str, processor: &dyn cantina_dsp::Processor) {
+        self.0.entry(spec.to_string()).or_insert_with(|| PedalKind {
+            name: processor.name().to_string(),
+            params: processor.params().to_vec(),
+        });
+    }
+
+    /// What `spec` builds, building one to find out the first time.
+    fn get(&mut self, spec: &str) -> Result<&PedalKind> {
+        if !self.0.contains_key(spec) {
+            let processor = processors::create(spec, 1)?;
+            self.learn(spec, processor.as_ref());
+        }
+        Ok(&self.0[spec])
+    }
+
+    fn describe(&self, pedal: &Pedal) -> PedalInfo {
+        match self.0.get(&pedal.spec) {
+            Some(kind) => kind.info(pedal),
+            None => PedalInfo {
+                id: pedal.id.0,
+                spec: pedal.spec.clone(),
+                name: pedal.spec.clone(),
+                params: Vec::new(),
+            },
+        }
     }
 }
 
-/// How long `track_stop` waits for the writer to finalize the take.
+/// A take being written.
+struct Recording {
+    track: TrackId,
+    file: String,
+    name: String,
+    /// Timeline sample it started at.
+    from: u64,
+}
+
+/// How long `transport_stop` waits for a writer to finalize its take.
 const TAKE_CLOSE_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// The engine as the shell drives it.
@@ -275,11 +494,12 @@ pub struct Engine {
     live: Option<Live>,
     settings: Settings,
     settings_path: Option<PathBuf>,
-    chain: Vec<ChainItem>,
-    next_pedal_id: u32,
-    armed: bool,
-    take: Option<Take>,
-    takes_dir: Option<PathBuf>,
+    projects: Projects,
+    project: Project,
+    project_dir: PathBuf,
+    dirty: bool,
+    catalog: Catalog,
+    recording: Vec<Recording>,
     last_error: Option<String>,
     notice: Option<String>,
     notice_seq: u32,
@@ -295,9 +515,6 @@ pub struct Engine {
 struct TransportState {
     recording: AtomicBool,
 }
-
-/// The M0 stock pedals, so the first launch makes a sound.
-const DEFAULT_CHAIN: &[&str] = &["gain", "overdrive"];
 
 impl Engine {
     fn new(app: AppHandle) -> Self {
@@ -315,26 +532,29 @@ impl Engine {
             }
             None => Settings::default(),
         };
-        let takes_dir = app.path().app_data_dir().ok().map(|dir| dir.join("takes"));
-        let mut next_pedal_id = 1;
-        let chain = DEFAULT_CHAIN
-            .iter()
-            .filter_map(|spec| {
-                let item = ChainItem::new(next_pedal_id, spec).ok()?;
-                next_pedal_id += 1;
-                Some(item)
-            })
-            .collect();
-        let engine = Self {
+        let projects = Projects::locate(&app);
+        let (project, project_dir) = match projects
+            .open_last_or_untitled(settings.last_project.as_deref(), settings.audio.sample_rate)
+        {
+            Ok(opened) => opened,
+            Err(e) => {
+                last_error = Some(format!("{e:#}"));
+                let project = Projects::untitled(settings.audio.sample_rate);
+                let dir = projects.dir_for(&project.name);
+                (project, dir)
+            }
+        };
+        let mut engine = Self {
             app,
             live: None,
             settings,
             settings_path,
-            chain,
-            next_pedal_id,
-            armed: false,
-            take: None,
-            takes_dir,
+            projects,
+            project,
+            project_dir,
+            dirty: false,
+            catalog: Catalog::default(),
+            recording: Vec::new(),
             last_error,
             notice: None,
             notice_seq: 0,
@@ -342,6 +562,8 @@ impl Engine {
             transport_state: Arc::new(TransportState::default()),
             frames_dropped: Arc::new(AtomicU32::new(0)),
         };
+        engine.adopt_sample_rate();
+        engine.remember_project();
         // For measuring the UI's cost of the frame stream without audio:
         // a pump of synthetic levels with no stream behind it.
         if std::env::var_os("CANTINA_SYNTHETIC_METERS").is_some() {
@@ -390,196 +612,412 @@ impl Engine {
             error: self.last_error.clone(),
             notice: self.notice.clone(),
             notice_seq: self.notice_seq,
-            track: TrackStatus {
-                armed: self.armed,
-                recording: self.live.as_ref().is_some_and(|l| l.recording.is_some()),
+            transport: TransportStatus {
                 playing: self
                     .live
                     .as_ref()
                     .is_some_and(|l| l.controller.transport().is_playing()),
-                take: self.take.as_ref().map(|t| TakeInfo {
-                    path: t.path.display().to_string(),
-                    name: t
-                        .path
-                        .file_stem()
-                        .map(|n| n.to_string_lossy().into_owned())
-                        .unwrap_or_default(),
-                    seconds: t.frames as f64 / t.sample_rate,
-                }),
+                recording: !self.recording.is_empty(),
             },
-            chain: self.chain.iter().map(ChainItem::info).collect(),
+            project: self.project_status(),
             pedal_kinds: STOCK_NAMES.iter().map(|s| s.to_string()).collect(),
         }
     }
 
-    // ----- the track -----
-
-    /// Arms or disarms the track. Armed, the input is monitored through
-    /// the chain and recording is possible.
-    pub fn track_arm(&mut self, armed: bool) -> EngineStatus {
-        self.armed = armed;
-        if let Some(live) = &mut self.live {
-            live.controller
-                .set_param(live.mute, 0, if armed { 1.0 } else { 0.0 });
+    fn project_status(&self) -> ProjectStatus {
+        let p = &self.project;
+        ProjectStatus {
+            name: p.name.clone(),
+            dir: self.project_dir.display().to_string(),
+            dirty: self.dirty,
+            sample_rate: p.sample_rate,
+            tempo: p.tempo.clone(),
+            tracks: p
+                .tracks
+                .iter()
+                .map(|t| TrackStatus {
+                    id: t.id.0,
+                    name: t.name.clone(),
+                    armed: t.armed,
+                    recording: self.recording.iter().any(|r| r.track == t.id),
+                    chain: t.chain.iter().map(|p| self.catalog.describe(p)).collect(),
+                    clips: t
+                        .clips
+                        .iter()
+                        .map(|c| ClipInfo {
+                            id: c.id.0,
+                            name: c.name.clone(),
+                            file: c.file.clone(),
+                            start: c.start,
+                            offset: c.offset,
+                            length: c.length,
+                        })
+                        .collect(),
+                })
+                .collect(),
         }
-        self.publish()
     }
 
-    /// Starts a new take from the top of the timeline. Needs an armed
-    /// track and a running engine.
-    pub fn track_record(&mut self) -> Result<EngineStatus> {
-        if !self.armed {
-            bail!("arm the track before recording");
+    // ----- the project -----
+
+    /// Applies an edit to the project and brings the graph in line.
+    pub fn apply(&mut self, command: Command) -> Result<EngineStatus> {
+        command
+            .apply(&mut self.project)
+            .map_err(|e| anyhow!("{e}"))?;
+        self.dirty = true;
+        self.react(&command)?;
+        Ok(self.publish())
+    }
+
+    /// Makes the live graph follow a command that was just applied.
+    /// Parameter and arm changes go over the queue; everything else
+    /// resyncs the structure.
+    fn react(&mut self, command: &Command) -> Result<()> {
+        let Some(live) = &mut self.live else {
+            return Ok(());
+        };
+        match command {
+            Command::SetParam {
+                pedal,
+                param,
+                value,
+            } => {
+                let node = live.pedal_node(*pedal)?;
+                if !live.controller.set_param(node, *param, *value) {
+                    bail!("the audio thread is not taking parameter changes");
+                }
+                Ok(())
+            }
+            Command::ArmTrack { id, armed } => {
+                let mute = live.track(*id)?.mute;
+                live.controller
+                    .set_param(mute, 0, if *armed { 1.0 } else { 0.0 });
+                Ok(())
+            }
+            Command::RenameTrack { .. } | Command::SetTempo { .. } => {
+                if let Command::SetTempo { tempo } = command {
+                    live.transport().set_tempo_map(tempo_map(tempo));
+                }
+                Ok(())
+            }
+            Command::Batch { commands } if commands.iter().all(is_light) => {
+                for c in commands {
+                    self.react(c)?;
+                }
+                Ok(())
+            }
+            _ => self.sync(),
         }
-        let dir = self.takes_dir.clone().context("no place to keep takes")?;
+    }
+
+    /// Rebuilds the graph's structure from the project.
+    fn sync(&mut self) -> Result<()> {
+        let Some(live) = &mut self.live else {
+            return Ok(());
+        };
+        let audio_dir = cantina_project::audio_dir(&self.project_dir);
+        live.sync(&self.project, &mut self.catalog, &audio_dir)
+    }
+
+    /// The projects in the projects folder, by name.
+    pub fn project_list(&self) -> Result<Vec<String>> {
+        self.projects.list()
+    }
+
+    /// Creates a project with one track and the default chain, saves it
+    /// and opens it.
+    pub fn project_new(&mut self, name: &str) -> Result<EngineStatus> {
+        let (project, dir) = self
+            .projects
+            .create(name, self.settings.audio.sample_rate)?;
+        self.switch_to(project, dir)?;
+        Ok(self.publish())
+    }
+
+    pub fn project_open(&mut self, name: &str) -> Result<EngineStatus> {
+        let (project, dir) = self.projects.open(name)?;
+        self.switch_to(project, dir)?;
+        Ok(self.publish())
+    }
+
+    pub fn project_save(&mut self) -> Result<EngineStatus> {
+        cantina_project::save(&self.project, &self.project_dir)?;
+        self.dirty = false;
+        Ok(self.publish())
+    }
+
+    fn switch_to(&mut self, project: Project, dir: PathBuf) -> Result<()> {
+        if !self.recording.is_empty() {
+            self.transport_stop()?;
+        }
+        if let Some(live) = &mut self.live {
+            live.transport().stop();
+            live.transport().locate(0);
+        }
+        self.project = project;
+        self.project_dir = dir;
+        self.dirty = false;
+        self.remember_project();
+        if self.adopt_sample_rate() {
+            self.rebuild(None);
+            Ok(())
+        } else {
+            if let Some(live) = &mut self.live {
+                live.transport()
+                    .set_tempo_map(tempo_map(&self.project.tempo));
+            }
+            self.sync()
+        }
+    }
+
+    /// The project's audio is at one rate, so the engine runs at that
+    /// rate. Returns true when the settings changed.
+    fn adopt_sample_rate(&mut self) -> bool {
+        if self.settings.audio.sample_rate == self.project.sample_rate {
+            return false;
+        }
+        self.settings.audio.sample_rate = self.project.sample_rate;
+        self.persist();
+        true
+    }
+
+    fn remember_project(&mut self) {
+        if self.settings.last_project.as_deref() != Some(self.project.name.as_str()) {
+            self.settings.last_project = Some(self.project.name.clone());
+            self.persist();
+        }
+    }
+
+    // ----- tracks -----
+
+    pub fn track_add(&mut self, name: Option<String>) -> Result<EngineStatus> {
+        let id = TrackId(self.project.fresh_id());
+        let name = name.unwrap_or_else(|| format!("Track {}", self.project.tracks.len() + 1));
+        let track = Track::new(id, name);
+        self.apply(Command::InsertTrack {
+            index: usize::MAX,
+            track,
+        })
+    }
+
+    pub fn track_remove(&mut self, id: u64) -> Result<EngineStatus> {
+        let id = TrackId(id);
+        if self.recording.iter().any(|r| r.track == id) {
+            bail!("stop recording before removing the track");
+        }
+        self.apply(Command::RemoveTrack { id })
+    }
+
+    pub fn track_rename(&mut self, id: u64, name: String) -> Result<EngineStatus> {
+        let name = name.trim().to_string();
+        if name.is_empty() {
+            bail!("a track needs a name");
+        }
+        self.apply(Command::RenameTrack {
+            id: TrackId(id),
+            name,
+        })
+    }
+
+    pub fn track_move(&mut self, id: u64, to: usize) -> Result<EngineStatus> {
+        self.apply(Command::MoveTrack {
+            id: TrackId(id),
+            to,
+        })
+    }
+
+    /// Arms or disarms a track. Armed, its input is monitored through
+    /// the chain and it records when the transport records.
+    pub fn track_arm(&mut self, id: u64, armed: bool) -> Result<EngineStatus> {
+        self.apply(Command::ArmTrack {
+            id: TrackId(id),
+            armed,
+        })
+    }
+
+    // ----- clips -----
+
+    pub fn clip_remove(&mut self, id: u64) -> Result<EngineStatus> {
+        self.apply(Command::RemoveClip { id: ClipId(id) })
+    }
+
+    // ----- the transport -----
+
+    /// Rolls from the current position.
+    pub fn transport_play(&mut self) -> Result<EngineStatus> {
+        let Some(live) = &mut self.live else {
+            bail!("start the engine before playing");
+        };
+        live.transport().play();
+        Ok(self.publish())
+    }
+
+    /// Starts a take on every armed track from the current position and
+    /// rolls. Takes are written to `audio/` and become clips on stop.
+    pub fn transport_record(&mut self) -> Result<EngineStatus> {
+        let armed: Vec<(TrackId, String)> = self
+            .project
+            .tracks
+            .iter()
+            .filter(|t| t.armed)
+            .map(|t| (t.id, t.name.clone()))
+            .collect();
+        if armed.is_empty() {
+            bail!("arm a track before recording");
+        }
+        let audio_dir = cantina_project::audio_dir(&self.project_dir);
+        cantina_project::create_layout(&self.project_dir)?;
         let Some(live) = &mut self.live else {
             bail!("start the engine before recording");
         };
-        if live.recording.is_some() {
+        if !self.recording.is_empty() {
             return Ok(self.status());
         }
-        std::fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-        let path = dir.join(format!("take-{stamp}.wav"));
-        // The previous take stays audible under the new one would be a
-        // surprise on a one-track studio, so playback is cleared.
-        live.player.set_clips(Vec::new())?;
-        live.transport().locate(0);
-        live.recorder.start(path.clone(), 0)?;
+        let from = live.transport().position();
+        for (track, track_name) in armed {
+            let (file, name) = take_name(&audio_dir, &track_name);
+            live.track_mut(track)?
+                .recorder
+                .start(audio_dir.join(&file), from)?;
+            self.recording.push(Recording {
+                track,
+                file,
+                name,
+                from,
+            });
+        }
         live.transport().play();
-        live.recording = Some(path);
         self.transport_state
             .recording
             .store(true, Ordering::Relaxed);
         Ok(self.publish())
     }
 
-    /// Plays the last take from the top.
-    pub fn track_play(&mut self) -> Result<EngineStatus> {
+    /// Stops the transport, and any recording with it: each take is
+    /// finalized and placed on its track as a clip.
+    pub fn transport_stop(&mut self) -> Result<EngineStatus> {
         let Some(live) = &mut self.live else {
-            bail!("start the engine before playing");
-        };
-        if live.recording.is_some() {
-            return Ok(self.status());
-        }
-        live.transport().locate(0);
-        live.transport().play();
-        Ok(self.publish())
-    }
-
-    /// Stops the transport, and a recording with it: the file is
-    /// finalized and becomes the take ready for playback.
-    pub fn track_stop(&mut self) -> Result<EngineStatus> {
-        let Some(live) = &mut self.live else {
+            self.recording.clear();
             return Ok(self.status());
         };
         live.transport().stop();
-        if let Some(path) = live.recording.take() {
-            self.transport_state
-                .recording
-                .store(false, Ordering::Relaxed);
-            let closed_before = live.recorder.stats().files_closed.load(Ordering::Relaxed);
-            live.recorder.stop()?;
-            let deadline = Instant::now() + TAKE_CLOSE_TIMEOUT;
-            while live.recorder.stats().files_closed.load(Ordering::Relaxed) == closed_before {
-                if Instant::now() > deadline {
-                    bail!("the take did not finish writing in time");
+        if self.recording.is_empty() {
+            return Ok(self.publish());
+        }
+        self.transport_state
+            .recording
+            .store(false, Ordering::Relaxed);
+        let recordings = std::mem::take(&mut self.recording);
+        let audio_dir = cantina_project::audio_dir(&self.project_dir);
+        let mut commands = Vec::new();
+        let mut problems = Vec::new();
+        for take in recordings {
+            match finish_take(live, &take, &audio_dir) {
+                Ok(frames) if frames > 0 => {
+                    let id = ClipId(self.project.fresh_id() + commands.len() as u64);
+                    commands.push(Command::InsertClip {
+                        track: take.track,
+                        clip: Clip {
+                            id,
+                            name: take.name.clone(),
+                            file: take.file.clone(),
+                            start: take.from,
+                            offset: 0,
+                            length: frames,
+                        },
+                    });
                 }
-                thread::sleep(Duration::from_millis(10));
+                Ok(_) => {}
+                Err(e) => problems.push(format!("{}: {e:#}", take.name)),
             }
-            let info = wav::info(&path)?;
-            let take = Take {
-                path: path.clone(),
-                frames: info.frames,
-                sample_rate: live.stream.info().sample_rate,
+        }
+        if !commands.is_empty() {
+            let command = if commands.len() == 1 {
+                commands.remove(0)
+            } else {
+                Command::Batch { commands }
             };
-            live.player.set_clips(vec![Clip {
-                path,
-                start: 0,
-                offset: 0,
-                length: info.frames,
-            }])?;
-            self.take = Some(take);
+            self.apply(command)?;
+        }
+        if !problems.is_empty() {
+            bail!("{}", problems.join("; "));
         }
         Ok(self.publish())
+    }
+
+    /// Moves the playhead. Allowed while rolling.
+    pub fn transport_locate(&mut self, sample: u64) -> Result<EngineStatus> {
+        let Some(live) = &mut self.live else {
+            bail!("start the engine first");
+        };
+        live.transport().locate(sample);
+        Ok(self.publish())
+    }
+
+    pub fn tempo_set(&mut self, tempo: Tempo) -> Result<EngineStatus> {
+        self.apply(Command::SetTempo { tempo })
     }
 
     // ----- the chain -----
 
-    /// Adds a pedal at the end of the chain, or at `index`.
-    pub fn chain_add(&mut self, spec: &str, index: Option<usize>) -> Result<EngineStatus> {
-        let item = ChainItem::new(self.next_pedal_id, spec)?;
-        self.next_pedal_id += 1;
-        let index = index.unwrap_or(self.chain.len()).min(self.chain.len());
-        if let Some(live) = &mut self.live {
-            let mut processor = processors::create(&item.spec, 1)?;
-            for (param, value) in item.values.iter().enumerate() {
-                processor.set_param(param, *value);
-            }
-            let node = live.controller.graph_mut().add_processor(processor);
-            live.pedal_nodes.insert(index, node);
-            live.wire()?;
-        }
-        self.chain.insert(index, item);
-        Ok(self.publish())
+    /// Adds a pedal at the end of a track's chain, or at `index`.
+    pub fn chain_add(
+        &mut self,
+        track: u64,
+        spec: &str,
+        index: Option<usize>,
+    ) -> Result<EngineStatus> {
+        let kind = self.catalog.get(spec)?;
+        let pedal = Pedal {
+            id: PedalId(self.project.fresh_id()),
+            spec: spec.to_string(),
+            values: kind.params.iter().map(|p| p.default).collect(),
+        };
+        self.apply(Command::InsertPedal {
+            track: TrackId(track),
+            index: index.unwrap_or(usize::MAX),
+            pedal,
+        })
     }
 
-    pub fn chain_remove(&mut self, id: u32) -> Result<EngineStatus> {
-        let index = self.pedal_index(id)?;
-        if let Some(live) = &mut self.live {
-            let node = live.pedal_nodes.remove(index);
-            live.controller.graph_mut().remove(node)?;
-            live.wire()?;
-            live.controller.collect();
-        }
-        self.chain.remove(index);
-        Ok(self.publish())
+    pub fn chain_remove(&mut self, id: u64) -> Result<EngineStatus> {
+        self.apply(Command::RemovePedal { id: PedalId(id) })
     }
 
-    /// Moves a pedal to position `to` in the chain.
-    pub fn chain_move(&mut self, id: u32, to: usize) -> Result<EngineStatus> {
-        let from = self.pedal_index(id)?;
-        let to = to.min(self.chain.len() - 1);
-        if from != to {
-            if let Some(live) = &mut self.live {
-                let node = live.pedal_nodes.remove(from);
-                live.pedal_nodes.insert(to, node);
-                live.wire()?;
-            }
-            let item = self.chain.remove(from);
-            self.chain.insert(to, item);
-        }
-        Ok(self.publish())
+    /// Moves a pedal to position `to` in its chain.
+    pub fn chain_move(&mut self, id: u64, to: usize) -> Result<EngineStatus> {
+        self.apply(Command::MovePedal {
+            id: PedalId(id),
+            to,
+        })
     }
 
     /// Sets a pedal parameter. Not published: knob drags are frequent and
     /// the UI already shows the value it sent.
-    pub fn chain_set_param(&mut self, id: u32, param: usize, value: f32) -> Result<()> {
-        let index = self.pedal_index(id)?;
-        let item = &mut self.chain[index];
-        let info = item
+    pub fn chain_set_param(&mut self, id: u64, param: usize, value: f32) -> Result<()> {
+        let id = PedalId(id);
+        let (_, pedal) = self
+            .project
+            .pedal(id)
+            .with_context(|| format!("no pedal {id}"))?;
+        let spec = pedal.spec.clone();
+        let kind = self.catalog.get(&spec)?;
+        let info = kind
             .params
             .get(param)
-            .with_context(|| format!("{} has no parameter {param}", item.name))?;
+            .with_context(|| format!("{} has no parameter {param}", kind.name))?;
         let value = info.clamp(value);
-        item.values[param] = value;
-        if let Some(live) = &mut self.live {
-            let node = live.pedal_nodes[index];
-            if !live.controller.set_param(node, param, value) {
-                bail!("the audio thread is not taking parameter changes");
-            }
-        }
-        Ok(())
-    }
-
-    fn pedal_index(&self, id: u32) -> Result<usize> {
-        self.chain
-            .iter()
-            .position(|p| p.id == id)
-            .with_context(|| format!("no pedal {id} in the chain"))
+        let command = Command::SetParam {
+            pedal: id,
+            param,
+            value,
+        };
+        command
+            .apply(&mut self.project)
+            .map_err(|e| anyhow!("{e}"))?;
+        self.dirty = true;
+        self.react(&command)
     }
 
     pub fn audio_settings(&self) -> AudioSettings {
@@ -614,8 +1052,22 @@ impl Engine {
     }
 
     /// Saves new audio settings and, if the stream is open, rebuilds it
-    /// to match.
-    pub fn set_audio_settings(&mut self, audio: AudioSettings) -> EngineStatus {
+    /// to match. The sample rate is the project's: audio already in it
+    /// is at that rate.
+    pub fn set_audio_settings(&mut self, mut audio: AudioSettings) -> EngineStatus {
+        if audio.sample_rate != self.project.sample_rate {
+            if self.project.tracks.iter().any(|t| !t.clips.is_empty()) {
+                self.notice = Some(format!(
+                    "{} has audio at {} Hz, so the engine stays at that rate",
+                    self.project.name, self.project.sample_rate
+                ));
+                self.notice_seq = self.notice_seq.wrapping_add(1);
+                audio.sample_rate = self.project.sample_rate;
+            } else {
+                self.project.sample_rate = audio.sample_rate;
+                self.dirty = true;
+            }
+        }
         self.settings.audio = audio;
         self.persist();
         if self.live.is_some() {
@@ -721,15 +1173,21 @@ impl Engine {
             }
         };
         if let Some(rate) = new_rate {
-            self.settings.audio.sample_rate = rate;
-            self.persist();
+            // A project with audio stays at its rate, which the rebuild
+            // puts the device back to. One without follows the device.
+            if self.project.tracks.iter().all(|t| t.clips.is_empty()) {
+                self.project.sample_rate = rate;
+                self.dirty = true;
+                self.settings.audio.sample_rate = rate;
+                self.persist();
+            }
         }
         self.rebuild(Some(why));
     }
 
-    /// Closes any open stream and opens one for the current settings,
-    /// keeping the chain and its parameter values. `why` is the start of
-    /// the notice shown to the user when the engine did this on its own.
+    /// Closes any open stream and opens one for the current settings and
+    /// project. `why` is the start of the notice shown to the user when
+    /// the engine did this on its own.
     fn rebuild(&mut self, why: Option<String>) {
         self.close();
         match self.open() {
@@ -746,6 +1204,9 @@ impl Engine {
                     self.notice_seq = self.notice_seq.wrapping_add(1);
                 }
                 self.live = Some(live);
+                if let Err(e) = self.sync() {
+                    self.last_error = Some(format!("{e:#}"));
+                }
             }
             Err(e) => {
                 self.last_error = Some(format!("{e:#}"));
@@ -763,12 +1224,15 @@ impl Engine {
             live.pump_stop.store(true, Ordering::Relaxed);
             // A recording in progress ends with the stream; the writer
             // finalizes the file when the node goes away. It is not
-            // promoted to the take, since it was cut short.
-            if live.recording.take().is_some() {
+            // placed on the track, since it was cut short.
+            if !self.recording.is_empty() {
+                self.recording.clear();
                 self.transport_state
                     .recording
                     .store(false, Ordering::Relaxed);
-                let _ = live.recorder.stop();
+                for track in &mut live.tracks {
+                    let _ = track.recorder.stop();
+                }
             }
             live.stream.close();
             live.controller.collect();
@@ -801,7 +1265,9 @@ impl Engine {
         }
     }
 
-    /// Opens a stream for the settings. Returns it and any fallback notice.
+    /// Opens a stream for the settings with an empty graph; `sync` then
+    /// builds the project into it. Returns the stream and any fallback
+    /// notice.
     fn open(&self) -> Result<(Live, Option<String>)> {
         let audio = &self.settings.audio;
         let (input, in_note) = Self::resolve(&audio.input_uid, device::default_input(), "input")?;
@@ -818,37 +1284,15 @@ impl Engine {
             max_block_frames: MAX_BLOCK_FRAMES,
             channels: 1,
         })?;
+        controller
+            .transport_mut()
+            .set_tempo_map(tempo_map(&self.project.tempo));
         let graph = controller.graph_mut();
-        let mut pedal_nodes = Vec::with_capacity(self.chain.len());
-        for item in &self.chain {
-            let mut processor = processors::create(&item.spec, 1)?;
-            for (param, value) in item.values.iter().enumerate() {
-                processor.set_param(param, *value);
-            }
-            pedal_nodes.push(graph.add_processor(processor));
-        }
-        let mute = graph.add(Box::new(Mute::new(self.armed)));
-        let bus = graph.add_processor(cantina_dsp::stock("gain").expect("gain is stock"));
-        let (player, mut player_handle) = Player::new(sample_rate, 1);
-        let player_node = graph.add(Box::new(player));
-        let (recorder, recorder_handle) = Recorder::new(sample_rate, 1);
-        let recorder_node = graph.add(Box::new(recorder));
+        let master = graph.add_processor(cantina_dsp::stock("gain").expect("gain is stock"));
         let (input_meter, input_levels) = Meter::new();
         let (output_meter, output_levels) = Meter::new();
         let input_meter = graph.add(Box::new(input_meter));
         let output_meter = graph.add(Box::new(output_meter));
-        // A take recorded at another rate cannot play here; it is kept on
-        // disk and reported, but not loaded.
-        if let Some(take) = &self.take {
-            if take.sample_rate == sample_rate {
-                player_handle.set_clips(vec![Clip {
-                    path: take.path.clone(),
-                    start: 0,
-                    offset: 0,
-                    length: take.frames,
-                }])?;
-            }
-        }
 
         let stream = Stream::open(
             StreamConfig {
@@ -877,16 +1321,11 @@ impl Engine {
             Arc::clone(&pump_stop),
         );
 
-        let mut live = Live {
+        let live = Live {
             stream,
             controller,
-            pedal_nodes,
-            mute,
-            bus,
-            player_node,
-            player: player_handle,
-            recorder_node,
-            recorder: recorder_handle,
+            tracks: Vec::new(),
+            master,
             input_meter,
             output_meter,
             input,
@@ -895,9 +1334,7 @@ impl Engine {
             output_name: device::name(output)?,
             _watcher: watcher,
             pump_stop,
-            recording: None,
         };
-        live.wire()?;
         Ok((live, fallback))
     }
 
@@ -915,6 +1352,61 @@ impl Engine {
         let _ = self.app.emit(STATUS_EVENT, &status);
         status
     }
+}
+
+/// Commands the graph follows without a structural resync.
+fn is_light(command: &Command) -> bool {
+    matches!(
+        command,
+        Command::SetParam { .. }
+            | Command::ArmTrack { .. }
+            | Command::RenameTrack { .. }
+            | Command::SetTempo { .. }
+    )
+}
+
+fn tempo_map(tempo: &Tempo) -> TempoMap {
+    TempoMap::new(
+        tempo.bpm,
+        TimeSignature::new(tempo.numerator, tempo.denominator),
+    )
+}
+
+/// A file name in `audio/` that is not taken, and the clip name to go
+/// with it: `Guitar-3.wav` and `Guitar 3`.
+fn take_name(audio_dir: &Path, track_name: &str) -> (String, String) {
+    let stem: String = track_name
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c } else { '-' })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string();
+    let stem = if stem.is_empty() { "take".into() } else { stem };
+    let mut n = 1;
+    loop {
+        let file = format!("{stem}-{n}.wav");
+        if !audio_dir.join(&file).exists() {
+            return (file, format!("{track_name} {n}"));
+        }
+        n += 1;
+    }
+}
+
+/// Stops a track's recorder, waits for the writer to finalize the file
+/// and returns its length in frames.
+fn finish_take(live: &mut Live, take: &Recording, audio_dir: &Path) -> Result<u64> {
+    let track = live.track_mut(take.track)?;
+    let closed_before = track.recorder.stats().files_closed.load(Ordering::Relaxed);
+    track.recorder.stop()?;
+    let deadline = Instant::now() + TAKE_CLOSE_TIMEOUT;
+    while track.recorder.stats().files_closed.load(Ordering::Relaxed) == closed_before {
+        if Instant::now() > deadline {
+            bail!("the take did not finish writing in time");
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    let info = wav::info(&audio_dir.join(&take.file))?;
+    Ok(info.frames)
 }
 
 /// Receives hardware events until the watcher is dropped.
@@ -996,4 +1488,29 @@ fn spawn_meter_pump(
             send([0.0; 4], false, false);
         })
         .expect("spawning the meter pump thread");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn take_names_count_up_and_sanitize() {
+        let dir = std::env::temp_dir().join(format!("cantina-takes-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        assert_eq!(
+            take_name(&dir, "Guitar / lead"),
+            ("Guitar---lead-1.wav".into(), "Guitar / lead 1".into())
+        );
+        std::fs::write(dir.join("Bass-1.wav"), b"").unwrap();
+        assert_eq!(
+            take_name(&dir, "Bass"),
+            ("Bass-2.wav".into(), "Bass 2".into())
+        );
+        assert_eq!(
+            take_name(&dir, "***"),
+            ("take-1.wav".into(), "*** 1".into())
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 }

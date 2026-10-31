@@ -4,8 +4,10 @@ import { Lcd } from "./components/Lcd";
 import { Led } from "./components/Led";
 import { Meter } from "./components/Meter";
 import { Notice } from "./components/Notice";
-import { PedalChain } from "./components/PedalChain";
+import { ProjectBar } from "./components/ProjectBar";
+import { Projects } from "./components/Projects";
 import { Settings } from "./components/Settings";
+import { TrackList } from "./components/TrackList";
 import { Transport } from "./components/Transport";
 import { Window } from "./components/Window";
 import {
@@ -29,16 +31,19 @@ const IDLE: MeterFrame = {
   recording: false,
 };
 
+const params = inTauri ? null : new URLSearchParams(window.location.search);
+
 export function App() {
   const [status, setStatus] = useState<EngineStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [frame, setFrame] = useState<MeterFrame>(IDLE);
-  // In a browser `?settings` opens the sheet, so screenshots can show it.
-  const [settingsOpen, setSettingsOpen] = useState(
-    () => !inTauri && new URLSearchParams(window.location.search).has("settings"),
-  );
+  // In a browser `?settings` and `?projects` open the sheets, so
+  // screenshots can show them.
+  const [settingsOpen, setSettingsOpen] = useState(() => params?.has("settings") ?? false);
+  const [projectsOpen, setProjectsOpen] = useState(() => params?.has("projects") ?? false);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  const closeProjects = useCallback(() => setProjectsOpen(false), []);
 
   useEffect(() => {
     engineStatus().then(setStatus, (e) => setError(String(e)));
@@ -70,8 +75,8 @@ export function App() {
   const running = status?.running ?? false;
   const problem = error ?? status?.error ?? null;
   // The transport flags in the frame are fresher than the last status push.
-  const track = status
-    ? { ...status.track, playing: frame.playing, recording: frame.recording }
+  const transport = status
+    ? { ...status.transport, playing: frame.playing, recording: frame.recording }
     : null;
 
   return (
@@ -134,20 +139,28 @@ export function App() {
           </Lcd>
         ) : null}
 
-        {status && track ? (
-          <section aria-labelledby="track-title" className="grid gap-3">
-            <h2 id="track-title" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
-              Track 1
+        {status && transport ? (
+          <section aria-labelledby="project-title" className="grid gap-3">
+            <h2 id="project-title" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+              Project
             </h2>
+            <ProjectBar
+              project={status.project}
+              onOpenProjects={() => setProjectsOpen(true)}
+              onStatus={setStatus}
+              onError={setError}
+            />
             <Transport
-              track={track}
+              transport={transport}
+              tracks={status.project.tracks}
               running={running}
               position={frame.position}
               onStatus={setStatus}
               onError={setError}
             />
-            <PedalChain
-              chain={status.chain}
+            <TrackList
+              tracks={status.project.tracks}
+              sampleRate={status.project.sampleRate}
               kinds={status.pedalKinds}
               onStatus={setStatus}
               onError={setError}
@@ -156,6 +169,14 @@ export function App() {
         ) : null}
       </main>
       {settingsOpen ? <Settings onClose={closeSettings} onStatusChange={setStatus} /> : null}
+      {projectsOpen && status ? (
+        <Projects
+          current={status.project.name}
+          dirty={status.project.dirty}
+          onClose={closeProjects}
+          onStatus={setStatus}
+        />
+      ) : null}
     </Window>
   );
 }
