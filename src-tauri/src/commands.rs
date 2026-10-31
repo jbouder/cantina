@@ -319,6 +319,12 @@ pub fn chain_set_param(
         .map_err(fail)
 }
 
+/// Sets the compensation above which the UI warns, in milliseconds.
+#[tauri::command]
+pub fn latency_warning_set(engine: State<'_, EngineState>, ms: f32) -> EngineStatus {
+    engine.lock().latency_warning_set(ms)
+}
+
 // ----- editor windows -----
 
 /// Opens a plugin's native editor window, or brings it to the front.

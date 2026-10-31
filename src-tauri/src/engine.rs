@@ -29,9 +29,10 @@ use anyhow::{anyhow, bail, Context, Result};
 use cantina_dsp::{Handle, ParamInfo, Unit, STOCK_NAMES};
 use cantina_engine::strip::{GAIN, MUTE, PAN};
 use cantina_engine::{
-    device, processors, wav, Controller, DeviceEvent, DeviceId, Endpoint, GraphConfig, Meter,
-    MeterHandle, Mute, NodeId, Player, PlayerHandle, Recorder, RecorderHandle, Runtime, Stream,
-    StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
+    device, plan, processors, wav, Controller, Delay, DeviceEvent, DeviceId, Endpoint, GraphConfig,
+    Meter, MeterHandle, Mute, NodeId, Player, PlayerHandle, Recorder, RecorderHandle, Runtime,
+    Stream, StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle, Watcher,
+    MAX_BLOCK_FRAMES,
 };
 use cantina_hosting::scan::{self, PluginList, Scanner};
 use cantina_hosting::{AudioUnitHandle, ClapHandle, Editor};
@@ -74,6 +75,22 @@ pub struct EngineStatus {
     /// Specs `chain_add` accepts.
     pub pedal_kinds: Vec<String>,
     pub plugins: PluginsStatus,
+    pub latency: LatencyStatus,
+}
+
+/// Where the time goes. Mirrors `LatencyStatus` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LatencyStatus {
+    /// The largest chain latency, which every other track is delayed to
+    /// match: how late playback is against the timeline.
+    pub compensation_frames: usize,
+    /// What CoreAudio reports for the open devices, each way.
+    pub input_frames: u32,
+    pub output_frames: u32,
+    /// Compensation above this many milliseconds is flagged.
+    pub warn_ms: f32,
+    pub warn: bool,
 }
 
 /// What the plugin scanner has found, in brief; `plugin_list` has the
@@ -142,6 +159,8 @@ pub struct TrackStatus {
     pub chain: Vec<PedalInfo>,
     pub clips: Vec<ClipInfo>,
     pub strip: StripModel,
+    /// Frames the chain delays the signal by.
+    pub latency_frames: usize,
 }
 
 /// A clip, as the UI sees it. Positions are in samples at the project's
@@ -169,6 +188,8 @@ pub struct PedalInfo {
     /// Whether the plugin can open its own editor window.
     pub has_editor: bool,
     pub editor_open: bool,
+    /// Frames of delay this pedal adds.
+    pub latency_frames: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -226,6 +247,13 @@ const PLUGIN_POLL_FRAMES: u32 = 6;
 /// to both channels on the way in.
 const CHANNELS: usize = 2;
 
+/// The most latency compensation a track's delay can hold.
+const MAX_COMPENSATION_SECONDS: usize = 2;
+
+/// Compensation above this is flagged in the UI unless the settings say
+/// otherwise.
+pub const DEFAULT_LATENCY_WARN_MS: f32 = 20.0;
+
 /// The managed-state wrapper. `Stream` and `Controller` are `Send` but not
 /// `Sync`, so the mutex is what lets Tauri share them between commands.
 pub struct EngineState(Mutex<Engine>);
@@ -271,6 +299,7 @@ impl PedalKind {
                 .collect(),
             has_editor: false,
             editor_open: false,
+            latency_frames: 0,
         }
     }
 }
@@ -296,7 +325,7 @@ impl<T> MainThreadCell<T> {
 /// ```text
 /// input -> mute -> bus -> pedals... -> strip -> (master)
 ///            |      ^                    |
-///       recorder  player               meter
+///       recorder  delay <- player      meter
 /// ```
 struct LiveTrack {
     id: TrackId,
@@ -307,6 +336,9 @@ struct LiveTrack {
     pedals: Vec<LivePedal>,
     player_node: NodeId,
     player: PlayerHandle,
+    /// Latency compensation on the playback branch only, so live input
+    /// is never delayed to match another track.
+    delay: NodeId,
     recorder_node: NodeId,
     recorder: RecorderHandle,
     /// Gain, pan and mute after the pedals.
@@ -322,14 +354,22 @@ struct LivePedal {
     id: PedalId,
     node: NodeId,
     handle: Option<Box<dyn Handle>>,
+    /// Latency as last reported, in frames.
+    latency: usize,
 }
 
 impl LiveTrack {
+    /// Frames the chain delays the signal by.
+    fn latency(&self) -> usize {
+        self.pedals.iter().map(|p| p.latency).sum()
+    }
+
     fn nodes(&self) -> impl Iterator<Item = NodeId> + '_ {
         [
             self.mute,
             self.bus,
             self.player_node,
+            self.delay,
             self.recorder_node,
             self.strip,
             self.meter,
@@ -355,6 +395,9 @@ struct Live {
     tracks: Vec<LiveTrack>,
     /// The master strip: where the tracks sum before the output.
     master: NodeId,
+    /// The largest chain latency, which playback on every track is
+    /// delayed to match.
+    compensation: usize,
     input_meter: NodeId,
     output_meter: NodeId,
     input_levels: MeterHandle,
@@ -477,10 +520,13 @@ impl Live {
                             processor.set_param(param, *value);
                         }
                         let handle = processor.handle();
+                        let node = graph.add_processor(processor);
+                        let latency = graph.node(node).map_or(0, |n| n.latency);
                         LivePedal {
                             id: pedal.id,
-                            node: graph.add_processor(processor),
+                            node,
                             handle,
+                            latency,
                         }
                     }
                 };
@@ -499,6 +545,7 @@ impl Live {
         }
         self.tracks = ordered;
         self.apply_strips(project);
+        self.apply_compensation();
         self.wire()?;
         self.controller.collect();
         let mut meters = vec![self.input_levels.clone(), self.output_levels.clone()];
@@ -517,6 +564,9 @@ impl Live {
         let bus = graph.add_processor(cantina_dsp::stock("gain").expect("gain is stock"));
         let (player, player_handle) = Player::new(sample_rate, CHANNELS);
         let player_node = graph.add(Box::new(player));
+        let delay = graph.add(Box::new(Delay::new(
+            MAX_COMPENSATION_SECONDS * sample_rate as usize,
+        )));
         // Takes are mono: the input is one channel.
         let (recorder, recorder_handle) = Recorder::new(sample_rate, 1);
         let recorder_node = graph.add(Box::new(recorder));
@@ -531,12 +581,43 @@ impl Live {
             pedals: Vec::new(),
             player_node,
             player: player_handle,
+            delay,
             recorder_node,
             recorder: recorder_handle,
             strip,
             meter,
             levels,
         }
+    }
+
+    /// Delays every track's playback to the slowest chain. Live input
+    /// joins after the delay, so monitoring is never compensated.
+    fn apply_compensation(&mut self) {
+        let latencies: Vec<usize> = self.tracks.iter().map(|t| t.latency()).collect();
+        let (max, delays) = plan(&latencies);
+        self.compensation = max;
+        for (track, delay) in self.tracks.iter().zip(delays) {
+            self.controller.set_param(track.delay, 0, delay as f32);
+        }
+    }
+
+    /// Asks every plugin what its latency is now; when one changed, the
+    /// compensation follows. Returns whether anything changed.
+    fn refresh_latencies(&mut self) -> bool {
+        let mut changed = false;
+        for pedal in self.pedals_mut() {
+            if let Some(handle) = pedal.handle.as_ref() {
+                let now = handle.latency();
+                if now != pedal.latency {
+                    pedal.latency = now;
+                    changed = true;
+                }
+            }
+        }
+        if changed {
+            self.apply_compensation();
+        }
+        changed
     }
 
     /// Sends every strip its gain, pan and effective mute. A solo
@@ -566,7 +647,7 @@ impl Live {
     /// ```text
     /// input -> mute -> bus -> pedals... -> strip -> master -> output
     ///            |      ^                    |         |
-    ///       recorder  player               meter   output meter
+    ///       recorder  delay <- player      meter   output meter
     /// input -> input meter
     /// ```
     fn wire(&mut self) -> Result<()> {
@@ -577,7 +658,8 @@ impl Live {
             graph.connect(Endpoint::Input, track.mute)?;
             graph.connect(track.mute, track.bus)?;
             graph.connect(track.mute, track.recorder_node)?;
-            graph.connect(track.player_node, track.bus)?;
+            graph.connect(track.player_node, track.delay)?;
+            graph.connect(track.delay, track.bus)?;
             let mut previous = track.bus;
             for pedal in &track.pedals {
                 graph.connect(previous, pedal.node)?;
@@ -639,6 +721,7 @@ impl Catalog {
                 params: Vec::new(),
                 has_editor: false,
                 editor_open: false,
+                latency_frames: 0,
             },
         }
     }
@@ -651,6 +734,10 @@ struct Recording {
     name: String,
     /// Timeline sample it started at.
     from: u64,
+    /// Frames the take is moved earlier when placed: what the player
+    /// heard was that late (compensation plus the output latency), and
+    /// what they played arrived the input latency after that.
+    correction: u64,
 }
 
 /// How long `transport_stop` waits for a writer to finalize its take.
@@ -837,7 +924,39 @@ impl Engine {
                 failed: self.plugins.failed.len(),
                 scanned_at: self.plugins.scanned_at,
             },
+            latency: self.latency_status(),
         }
+    }
+
+    fn latency_status(&self) -> LatencyStatus {
+        let (compensation_frames, input_frames, output_frames, sample_rate) = match &self.live {
+            Some(l) => {
+                let info = l.stream.info();
+                (
+                    l.compensation,
+                    info.input_latency_frames,
+                    info.output_latency_frames,
+                    info.sample_rate,
+                )
+            }
+            None => (0, 0, 0, self.settings.audio.sample_rate),
+        };
+        let warn_ms = self.settings.latency_warn_ms;
+        let ms = compensation_frames as f64 * 1000.0 / sample_rate;
+        LatencyStatus {
+            compensation_frames,
+            input_frames,
+            output_frames,
+            warn_ms,
+            warn: ms > warn_ms as f64,
+        }
+    }
+
+    /// Sets the compensation above which the UI warns, in milliseconds.
+    pub fn latency_warning_set(&mut self, ms: f32) -> EngineStatus {
+        self.settings.latency_warn_ms = ms.max(0.0);
+        self.persist();
+        self.publish()
     }
 
     // ----- plugins -----
@@ -939,6 +1058,7 @@ impl Engine {
                                     .is_some_and(|h| h.has_editor())
                             });
                             info.editor_open = self.open_editors.contains(&p.id);
+                            info.latency_frames = self.pedal_latency(p.id);
                             info
                         })
                         .collect(),
@@ -955,10 +1075,23 @@ impl Engine {
                         })
                         .collect(),
                     strip: t.strip.clone(),
+                    latency_frames: t.chain.iter().map(|p| self.pedal_latency(p.id)).sum(),
                 })
                 .collect(),
             master: p.master.clone(),
         }
+    }
+
+    fn pedal_latency(&self, id: PedalId) -> usize {
+        self.live
+            .as_ref()
+            .and_then(|l| {
+                l.tracks
+                    .iter()
+                    .flat_map(|t| t.pedals.iter())
+                    .find(|p| p.id == id)
+            })
+            .map_or(0, |p| p.latency)
     }
 
     // ----- the project -----
@@ -1327,7 +1460,8 @@ impl Engine {
                 });
             }
         }
-        if commands.is_empty() {
+        let latency_changed = live.refresh_latencies();
+        if commands.is_empty() && !latency_changed {
             return;
         }
         for command in commands {
@@ -1575,6 +1709,10 @@ impl Engine {
             return Ok(self.status());
         }
         let from = live.transport().position();
+        let info = live.stream.info();
+        let correction = live.compensation as u64
+            + info.input_latency_frames as u64
+            + info.output_latency_frames as u64;
         for (track, track_name) in armed {
             let (file, name) = take_name(&audio_dir, &track_name);
             live.track_mut(track)?
@@ -1585,6 +1723,7 @@ impl Engine {
                 file,
                 name,
                 from,
+                correction,
             });
         }
         live.transport().play();
@@ -1615,6 +1754,11 @@ impl Engine {
         for take in recordings {
             match finish_take(live, &take, &audio_dir) {
                 Ok(frames) if frames > 0 => {
+                    let Some((start, offset, length)) =
+                        place_take(take.from, frames, take.correction)
+                    else {
+                        continue;
+                    };
                     let id = ClipId(self.project.fresh_id() + commands.len() as u64);
                     commands.push(Command::InsertClip {
                         track: take.track,
@@ -1622,9 +1766,9 @@ impl Engine {
                             id,
                             name: take.name.clone(),
                             file: take.file.clone(),
-                            start: take.from,
-                            offset: 0,
-                            length: frames,
+                            start,
+                            offset,
+                            length,
                         },
                     });
                 }
@@ -2081,6 +2225,7 @@ impl Engine {
             controller,
             tracks: Vec::new(),
             master,
+            compensation: 0,
             input_meter,
             output_meter,
             input_levels,
@@ -2169,6 +2314,21 @@ fn finish_take(live: &mut Live, take: &Recording, audio_dir: &Path) -> Result<u6
     }
     let info = wav::info(&audio_dir.join(&take.file))?;
     Ok(info.frames)
+}
+
+/// Where a take goes on the timeline: `correction` frames earlier than
+/// the position it was recorded from. A take that would start before
+/// zero is trimmed at the front instead; one entirely before zero is
+/// dropped.
+fn place_take(from: u64, frames: u64, correction: u64) -> Option<(u64, u64, u64)> {
+    if from >= correction {
+        return Some((from - correction, 0, frames));
+    }
+    let cut = correction - from;
+    if cut >= frames {
+        return None;
+    }
+    Some((0, cut, frames - cut))
 }
 
 /// `plugins/<id>.state`.
@@ -2323,6 +2483,14 @@ fn spawn_meter_pump(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn takes_move_earlier_by_the_correction() {
+        assert_eq!(place_take(1000, 500, 0), Some((1000, 0, 500)));
+        assert_eq!(place_take(1000, 500, 300), Some((700, 0, 500)));
+        assert_eq!(place_take(100, 500, 300), Some((0, 200, 300)));
+        assert_eq!(place_take(0, 300, 300), None);
+    }
 
     #[test]
     fn state_files_round_trip_and_reject_junk() {

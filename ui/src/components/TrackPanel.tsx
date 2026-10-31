@@ -140,6 +140,7 @@ export function TrackPanel({
       <PedalChain
         track={track.id}
         chain={track.chain}
+        sampleRate={sampleRate}
         kinds={kinds}
         onBrowsePlugins={onBrowsePlugins}
         onStatus={onStatus}

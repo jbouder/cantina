@@ -9,6 +9,7 @@
 //! macOS only, by design. See `PLAN.md` for why.
 
 pub mod click;
+pub mod delay;
 pub mod device;
 pub mod graph;
 pub mod latency;
@@ -25,6 +26,7 @@ pub mod transport;
 pub mod wav;
 
 pub use click::Click;
+pub use delay::{plan, Delay};
 pub use device::{DeviceEvent, DeviceId, DeviceInfo, Watcher};
 pub use graph::{
     BlockContext, Endpoint, Graph, GraphConfig, GraphError, Node, NodeId, NodeInfo, ProcessorNode,

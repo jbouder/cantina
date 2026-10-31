@@ -21,6 +21,19 @@ export interface EngineStatus {
   /** Specs `chainAdd` accepts. */
   pedalKinds: string[];
   plugins: PluginsStatus;
+  latency: LatencyStatus;
+}
+
+/** Where the time goes. Mirrors `LatencyStatus` in src-tauri. */
+export interface LatencyStatus {
+  /** The largest chain latency; every other track's playback is delayed to match. */
+  compensationFrames: number;
+  /** What CoreAudio reports for the open devices, each way. */
+  inputFrames: number;
+  outputFrames: number;
+  /** Compensation above this many milliseconds is flagged. */
+  warnMs: number;
+  warn: boolean;
 }
 
 /** The scanner in brief; `pluginList` has the list. Mirrors `PluginsStatus` in src-tauri. */
@@ -123,6 +136,8 @@ export interface TrackStatus {
   chain: PedalInfo[];
   clips: ClipInfo[];
   strip: Strip;
+  /** Frames the chain delays the signal by. */
+  latencyFrames: number;
 }
 
 /** A clip. Positions are in samples at the project's rate. */
@@ -145,6 +160,8 @@ export interface PedalInfo {
   /** Whether the plugin can open its own editor window. */
   hasEditor: boolean;
   editorOpen: boolean;
+  /** Frames of delay this pedal adds. */
+  latencyFrames: number;
 }
 
 export interface ParamInfo {
@@ -270,6 +287,7 @@ function mockPedal(id: number, spec: string): PedalInfo {
       ],
       hasEditor: false,
       editorOpen: false,
+      latencyFrames: 0,
     };
   }
   if (spec.startsWith("au:")) {
@@ -286,6 +304,7 @@ function mockPedal(id: number, spec: string): PedalInfo {
       ],
       hasEditor: true,
       editorOpen: mockParams?.has("editor") ?? false,
+      latencyFrames: mockParams?.has("latency") ? MOCK_LATENCY : 0,
     };
   }
   return {
@@ -295,8 +314,12 @@ function mockPedal(id: number, spec: string): PedalInfo {
     params: [{ name: "Gain", unit: "dB", min: -60, max: 24, default: 0, value: 0 }],
     hasEditor: false,
     editorOpen: false,
+    latencyFrames: 0,
   };
 }
+
+/** The stand-in plugin's latency with `?latency`: 32 ms, above the default warning. */
+const MOCK_LATENCY = 1536;
 
 function mockClip(id: number, name: string, startSeconds: number, seconds: number): ClipInfo {
   return {
@@ -352,6 +375,7 @@ const mock: EngineStatus = {
           ? [mockClip(4, "Guitar 1", 0, 12.4), mockClip(5, "Guitar 2", 16, 6.1)]
           : [],
         strip: { gainDb: -3, pan: -0.25, mute: false, solo: mockParams?.has("solo") ?? false },
+        latencyFrames: mockParams?.has("latency") ? MOCK_LATENCY : 0,
       },
       {
         id: 6,
@@ -361,6 +385,7 @@ const mock: EngineStatus = {
         chain: [mockPedal(7, "gain")],
         clips: mockParams?.has("take") ? [mockClip(8, "Bass 1", 2, 20)] : [],
         strip: { gainDb: 0, pan: 0.1, mute: mockParams?.has("mute") ?? false, solo: false },
+        latencyFrames: 0,
       },
     ],
     master: { gainDb: -1, pan: 0, mute: false, solo: false },
@@ -371,6 +396,13 @@ const mock: EngineStatus = {
     count: 5,
     failed: 1,
     scannedAt: mockParams?.has("scanning") ? 0 : MOCK_SCANNED_AT,
+  },
+  latency: {
+    compensationFrames: mockParams?.has("latency") ? MOCK_LATENCY : 0,
+    inputFrames: 128 + 37,
+    outputFrames: 128 + 29,
+    warnMs: 20,
+    warn: mockParams?.has("latency") ?? false,
   },
 };
 mockTransport.playing = mock.transport.playing || mock.transport.recording;
@@ -503,6 +535,20 @@ export async function pluginRescan(full: boolean): Promise<EngineStatus> {
   return mockStatus();
 }
 
+/** Sets the compensation above which the UI warns, in milliseconds. */
+export async function latencyWarningSet(ms: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("latency_warning_set", { ms });
+  const comp = (mock.latency.compensationFrames / MOCK_RATE) * 1000;
+  mock.latency = { ...mock.latency, warnMs: ms, warn: comp > ms };
+  mockPublish();
+  return mockStatus();
+}
+
+/** Frames at a rate as milliseconds, to one decimal. */
+export function ms(frames: number, sampleRate: number): string {
+  return `${((frames / sampleRate) * 1000).toFixed(1)} ms`;
+}
+
 export async function engineStatus(): Promise<EngineStatus> {
   return inTauri ? invoke<EngineStatus>("engine_status") : mockStatus();
 }
@@ -568,6 +614,7 @@ export async function projectNew(name: string): Promise<EngineStatus> {
         chain: [mockPedal(2, "gain"), mockPedal(3, "overdrive")],
         clips: [],
         strip: { ...UNITY },
+        latencyFrames: 0,
       },
     ],
     master: { ...UNITY },
@@ -681,6 +728,7 @@ export async function trackAdd(name?: string): Promise<EngineStatus> {
     chain: [],
     clips: [],
     strip: { ...UNITY },
+    latencyFrames: 0,
   });
   return mockEdit();
 }

@@ -57,3 +57,35 @@ of 6 ms or less, with no underruns over ten clicks, on a class-compliant
 USB interface. If the measured number sits far above the reported one, the
 two-unit path or the ring buffer is adding latency and the engine should
 move to a single duplex unit on an aggregate device before M1.
+
+## Compensation across tracks
+
+A different latency from the round trip above: what plugins add. Every
+processor reports the frames it delays the signal by, and a track's
+chain delays it by the sum. Without correction a track with a lookahead
+limiter plays late against one without, and a take recorded along to it
+lands late on the timeline.
+
+The engine levels the tracks (`crates/engine/src/delay.rs`): `plan`
+takes every chain's latency and gives each track the difference to the
+slowest, and a `Delay` node on each track's *playback* branch, between
+the player and the bus, holds that many frames back. Live input joins
+the bus after the delay, so monitoring is never compensated: the player
+hears their own chain's latency and nothing else. The compensation is
+recomputed whenever a chain changes and whenever a plugin reports a new
+latency (the shell polls the plugin handles a few times a second). The
+engine test plays an impulse on two tracks, one through a 10-frame
+lookahead, and checks both land on the same output frame once
+compensated and 10 frames apart when not.
+
+Recorded takes are moved earlier when they are placed on the timeline,
+by the compensation plus the input and output latency CoreAudio reports
+for the open devices (device latency, safety offset and one buffer each
+way). What the player heard was that late against the timeline, and what
+they played in time with it came back that much later still. A take
+that would start before zero is trimmed at the front instead.
+
+The UI shows the compensation next to the engine's device line
+(`comp 12.3 ms`) and on each pedal that adds latency, and warns when it
+goes above a threshold set in Settings (20 ms by default, kept in
+`settings.json`).

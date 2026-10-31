@@ -67,6 +67,7 @@ pub fn run() {
             commands::chain_remove,
             commands::chain_move,
             commands::chain_set_param,
+            commands::latency_warning_set,
             commands::editor_open,
             commands::editor_close,
         ])

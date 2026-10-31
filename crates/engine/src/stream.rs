@@ -86,6 +86,11 @@ pub struct StreamInfo {
     pub duplex: bool,
     /// Frames of input the ring buffer holds back at start, zero in duplex.
     pub ring_prefill_frames: u32,
+    /// Latency CoreAudio reports on the way in: the device's own, the
+    /// safety offset and one buffer. Zero when the device does not say.
+    pub input_latency_frames: u32,
+    /// The same on the way out, plus the ring prefill when there is one.
+    pub output_latency_frames: u32,
 }
 
 /// Counters the callbacks bump. Read from any thread.
@@ -316,6 +321,10 @@ impl Stream {
                 output_channels,
                 duplex,
                 ring_prefill_frames,
+                input_latency_frames: device::reported_latency(input, true)
+                    .map_or(0, |(d, s)| d + s + buffer_frames),
+                output_latency_frames: device::reported_latency(output, false)
+                    .map_or(0, |(d, s)| d + s + buffer_frames + ring_prefill_frames),
             },
         })
     }

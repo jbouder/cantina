@@ -22,6 +22,7 @@ import {
   engineStop,
   inTauri,
   type MeterFrame,
+  ms,
   onMeters,
   onStatus,
   projectRedo,
@@ -154,9 +155,19 @@ export function App() {
               {status === null
                 ? "..."
                 : running
-                  ? `${status.inputName ?? "?"} → ${status.outputName ?? "?"} · ${status.sampleRate / 1000} kHz · ${status.bufferFrames} frames`
+                  ? `${status.inputName ?? "?"} → ${status.outputName ?? "?"} · ${status.sampleRate / 1000} kHz · ${status.bufferFrames} frames${
+                      status.latency.compensationFrames > 0
+                        ? ` · comp ${ms(status.latency.compensationFrames, status.sampleRate)}`
+                        : ""
+                    }`
                   : "engine stopped"}
             </Lcd>
+            {status?.latency.warn ? (
+              <Lcd role="status" error className="text-base">
+                Plugins delay playback by {ms(status.latency.compensationFrames, status.sampleRate)}
+                , above the {status.latency.warnMs} ms you set. Live monitoring is not delayed.
+              </Lcd>
+            ) : null}
             <Meter label="In" level={frame.input} />
             <Meter label="Out" level={frame.output} />
           </div>
@@ -234,7 +245,9 @@ export function App() {
           </section>
         ) : null}
       </main>
-      {settingsOpen ? <Settings onClose={closeSettings} onStatusChange={setStatus} /> : null}
+      {settingsOpen && status ? (
+        <Settings status={status} onClose={closeSettings} onStatusChange={setStatus} />
+      ) : null}
       {projectsOpen && status ? (
         <Projects
           current={status.project.name}
