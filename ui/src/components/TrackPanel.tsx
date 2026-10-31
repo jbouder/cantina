@@ -6,6 +6,7 @@ import {
   type EngineStatus,
   type KitInfo,
   type PatternInfo,
+  patternClipRemove,
   type Tempo,
   type TrackStatus,
   trackArm,
@@ -211,8 +212,37 @@ export function TrackPanel({
             </Button>
           </li>
         ))}
+        {track.patternClips.map((clip) => {
+          const name = patterns.find((p) => p.id === clip.pattern)?.name ?? "?";
+          const bars = (clip.length / 960 / tempo.numerator).toFixed(1).replace(/\.0$/, "");
+          const at = (clip.start / 960 / tempo.numerator + 1).toFixed(1).replace(/\.0$/, "");
+          return (
+            <li
+              key={clip.id}
+              className="surface-lcd flex items-center gap-2 py-1 pr-1 pl-3 font-lcd text-base"
+            >
+              <span className="lcd-text">
+                {name} · bar {at} · {bars} bar{bars === "1" ? "" : "s"}
+              </span>
+              <Button
+                aria-label={`Delete ${name} at bar ${at}`}
+                onClick={() => run(patternClipRemove(clip.id))}
+                className="min-h-9 min-w-9 px-1"
+              >
+                <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3 fill-current">
+                  <path d="M3 2l5 5 5-5 1 1-5 5 5 5-1 1-5-5-5 5-1-1 5-5-5-5z" />
+                </svg>
+              </Button>
+            </li>
+          );
+        })}
         {track.clips.length === 0 && !track.kit ? (
           <li className="text-ink-dim text-sm">No clips yet: arm the track and record.</li>
+        ) : null}
+        {track.kit && track.patternClips.length === 0 ? (
+          <li className="text-ink-dim text-sm">
+            No patterns placed yet: Place at playhead, or drag a pattern onto the timeline.
+          </li>
         ) : null}
       </ul>
     </section>

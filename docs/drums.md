@@ -2,8 +2,8 @@
 
 Beats in Cantina are a **kit** (sounds) played by a **sampler** (the
 `Processor` that makes the sound) under a **sequencer** (what decides
-when), from **patterns** edited in a step grid. This page covers all
-four; pattern clips on the timeline are documented as M5 adds them.
+when), from **patterns** edited in a step grid and placed on the timeline as
+**pattern clips**. This page covers all of it.
 
 ## Kit format
 
@@ -207,3 +207,48 @@ columns set apart.
 
 The arithmetic (which step the playhead is on, what a drag makes of a
 velocity, the length label) is `ui/src/lib/drums.ts`, tested on its own.
+
+## Pattern clips
+
+A pattern becomes part of a song by being placed on a drum track. A
+pattern clip is like an audio clip, but kept in ticks rather than
+samples:
+
+```json
+"patternClips": [
+  { "id": 8, "pattern": 7, "start": 0, "offset": 0, "length": 15360 },
+  { "id": 9, "pattern": 7, "start": 19200, "offset": 960, "length": 6720 }
+]
+```
+
+`start` is the tick the clip begins at, `length` how many ticks it
+lasts, and `offset` how far into the pattern it starts, all in the tempo
+map's 960 ticks per quarter note. The pattern loops inside the clip, so
+a one-bar pattern in a four-bar clip plays four times: **drag the
+clip's right edge to loop it for more bars**. Because the positions are
+musical, changing the tempo leaves every clip on its bars; the clips
+only move in the sample timeline. The format went to version 4 with
+them.
+
+- **Place**: in the drum grid, **Place at playhead** puts the chosen
+  pattern on the track at the playhead for one pass, or drag the same
+  button onto the timeline and drop it on a drum track where it should
+  start (snapped to the grid). Dropping on an audio track is refused.
+- **Move, trim, split, delete** work as for audio clips (see
+  [timeline.md](timeline.md)): the timeline converts between samples
+  and ticks on the way in and out, trimming the front keeps the beats
+  where they were by moving the offset, and a pattern clip may grow
+  past its pattern's length. A clip dragged onto an audio track stays
+  on its own track at the new position. Each edit is a command
+  (`InsertPatternClip`, `RemovePatternClip`, `MovePatternClip`,
+  `TrimPatternClip`, `SplitPatternClip`) with an inverse.
+- **Editing a pattern updates every clip of it**: clips refer to the
+  pattern by id, the engine's score shares one copy of the pattern's
+  data between its clips, and a pattern edit sends every drum track a
+  fresh score.
+- A pattern on the timeline cannot be removed; delete its clips first.
+- The clip body shows a preview: one band per pad of the kit, a block
+  per hit with the velocity as its brightness, looping from the offset.
+- **Loop** (auditioning) on a track replaces that track's clips in the
+  score while it is on, so the pattern is heard alone from the start of
+  the timeline; turn it off to hear the arrangement.

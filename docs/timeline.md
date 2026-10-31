@@ -39,7 +39,10 @@ response, or from a synthesized pluck in a browser.
 
 Each edit becomes one command (`clip_move`, `clip_trim`, `clip_split`,
 `clip_remove`) when the pointer is released; the drag is previewed on the
-canvas without touching the project.
+canvas without touching the project. Pattern clips on drum tracks go
+through the same code: they are converted from ticks to samples for the
+lane and back for the `pattern_clip_*` commands (see
+[drums.md](drums.md)), and a clip only lands on a track of its own kind.
 
 ## The grid
 

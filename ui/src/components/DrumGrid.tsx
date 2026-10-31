@@ -14,6 +14,7 @@ import {
   draggedVelocity,
   isBeatStart,
   lengthLabel,
+  ticksAt,
   velocityAt,
   velocityLabel,
 } from "../lib/drums";
@@ -24,6 +25,7 @@ import {
   type PatternInfo,
   patternAdd,
   patternAudition,
+  patternClipAdd,
   patternRemove,
   patternRename,
   patternSetLength,
@@ -38,6 +40,7 @@ import {
 import { Button } from "./Button";
 import { Led } from "./Led";
 import { Select } from "./Select";
+import { PATTERN_DRAG } from "./Timeline";
 
 type Props = {
   /** A drum track: `track.kit` is set. */
@@ -334,6 +337,19 @@ export function DrumGrid({
             >
               <Led on={auditioning === pattern.id} label="Looping" />
               Loop
+            </Button>
+            <Button
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData(PATTERN_DRAG, String(pattern.id));
+                e.dataTransfer.effectAllowed = "copy";
+              }}
+              onClick={() =>
+                run(patternClipAdd(track.id, pattern.id, Math.round(ticksAt(position, tempo))))
+              }
+              title="Place the pattern on this track at the playhead, or drag it onto the timeline; drag the clip's right edge to loop it for more bars"
+            >
+              Place at playhead
             </Button>
           </>
         ) : null}
