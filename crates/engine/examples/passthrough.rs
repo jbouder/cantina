@@ -1,53 +1,21 @@
-//! Guitar in, guitar out, with a gain in between.
+//! Guitar in, guitar out, through a chain of stock processors.
 //!
 //! ```text
 //! cargo run -p cantina-engine --example passthrough -- --list
 //! cargo run -p cantina-engine --example passthrough -- --in Scarlett --out Scarlett --buffer 64
+//! cargo run -p cantina-engine --example passthrough -- --chain gain,overdrive,gain
 //! ```
 //!
-//! While running, type a number and press return to set the gain in dB,
-//! `s` to print counters, `q` to quit.
+//! While running, type `list` to see the chain and its parameters,
+//! `<processor>.<param> <value>` to change one (for example `2.drive 30`
+//! or `2.1 30`), `s` for counters, `q` to quit. Processors and parameters
+//! are numbered from 1 as `list` shows them.
 
 use std::io::{self, BufRead, Write};
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
-use cantina_dsp::Gain;
-use cantina_engine::{device, BlockProcessor, Stream, StreamConfig};
-
-/// Copies input to output through a smoothed gain. The gain in dB arrives
-/// from the main thread as the bits of an `f32` in an atomic.
-struct GainProcessor {
-    gain: Gain,
-    shared_db_bits: Arc<AtomicU32>,
-    last_bits: u32,
-}
-
-impl GainProcessor {
-    fn new(sample_rate: f32, shared_db_bits: Arc<AtomicU32>) -> Self {
-        let bits = shared_db_bits.load(Ordering::Relaxed);
-        let mut gain = Gain::new(sample_rate);
-        gain.set_db(f32::from_bits(bits));
-        Self {
-            gain,
-            shared_db_bits,
-            last_bits: bits,
-        }
-    }
-}
-
-impl BlockProcessor for GainProcessor {
-    fn process(&mut self, input: &[f32], output: &mut [f32]) {
-        let bits = self.shared_db_bits.load(Ordering::Relaxed);
-        if bits != self.last_bits {
-            self.last_bits = bits;
-            self.gain.set_db(f32::from_bits(bits));
-        }
-        output.copy_from_slice(input);
-        self.gain.process(output);
-    }
-}
+use cantina_dsp::{stock, Chain, Unit, STOCK_NAMES};
+use cantina_engine::{device, ChainProcessor, ParamChange, Stream, StreamConfig, MAX_BLOCK_FRAMES};
 
 struct Options {
     list: bool,
@@ -56,6 +24,7 @@ struct Options {
     sample_rate: f64,
     buffer_frames: u32,
     input_channel: usize,
+    chain: Vec<String>,
     gain_db: f32,
 }
 
@@ -67,6 +36,7 @@ fn parse_args() -> Result<Options> {
         sample_rate: 48_000.0,
         buffer_frames: 128,
         input_channel: 0,
+        chain: vec!["gain".into(), "overdrive".into()],
         gain_db: 0.0,
     };
     let mut args = std::env::args().skip(1);
@@ -87,12 +57,22 @@ fn parse_args() -> Result<Options> {
                 }
                 opts.input_channel = n - 1;
             }
+            "--chain" => {
+                opts.chain = value("--chain")?
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+            }
             "--gain" | "-g" => opts.gain_db = value("--gain")?.parse()?,
             "--help" | "-h" => {
                 println!(
                     "passthrough [--list] [--in NAME] [--out NAME] [--rate HZ] [--buffer FRAMES] \
-                     [--channel N] [--gain DB]\n\nNames match a prefix, case-insensitively. \
-                     Channel is 1-based. Defaults: system devices, 48000 Hz, 128 frames, channel 1, 0 dB."
+                     [--channel N] [--chain a,b,c] [--gain DB]\n\nNames match a prefix, \
+                     case-insensitively. Channel is 1-based. --gain sets every gain processor's \
+                     initial level. Stock processors: {}.\nDefaults: system devices, 48000 Hz, \
+                     128 frames, channel 1, chain gain,overdrive, 0 dB.",
+                    STOCK_NAMES.join(", ")
                 );
                 std::process::exit(0);
             }
@@ -137,6 +117,94 @@ fn print_devices() -> Result<()> {
     Ok(())
 }
 
+fn build_chain(names: &[String], gain_db: f32) -> Result<Chain> {
+    let mut chain = Chain::new();
+    for name in names {
+        let mut processor =
+            stock(name).with_context(|| format!("no stock processor named {name:?}"))?;
+        if name.eq_ignore_ascii_case("gain") {
+            processor.set_param(0, gain_db);
+        }
+        chain.push(processor);
+    }
+    Ok(chain)
+}
+
+/// Name, unit, minimum and maximum of one parameter.
+type ParamRow = (String, Unit, f32, f32);
+
+/// A snapshot of the chain's layout for the command loop, since the chain
+/// itself moves into the audio thread.
+struct Layout {
+    processors: Vec<(String, Vec<ParamRow>)>,
+}
+
+impl Layout {
+    fn of(chain: &Chain) -> Self {
+        Self {
+            processors: chain
+                .iter()
+                .map(|p| {
+                    (
+                        p.name().to_string(),
+                        p.params()
+                            .iter()
+                            .map(|i| (i.name.to_string(), i.unit, i.min, i.max))
+                            .collect(),
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    fn print(&self, values: &[Vec<f32>]) {
+        for (i, (name, params)) in self.processors.iter().enumerate() {
+            println!("{}. {name}", i + 1);
+            for (j, (pname, unit, min, max)) in params.iter().enumerate() {
+                println!(
+                    "   {}.{} {pname:<8} {:>8.2} {}  [{min} .. {max}]",
+                    i + 1,
+                    j + 1,
+                    values[i][j],
+                    unit_label(*unit)
+                );
+            }
+        }
+    }
+
+    /// Parses `<processor>.<param>` where each part is a 1-based index or,
+    /// for the parameter, a name.
+    fn resolve(&self, target: &str) -> Result<(usize, usize)> {
+        let (p, q) = target
+            .split_once('.')
+            .context("use <processor>.<param>, for example 2.drive")?;
+        let processor = p.parse::<usize>().context("processor must be a number")?;
+        if processor == 0 || processor > self.processors.len() {
+            bail!("no processor {processor}; type list");
+        }
+        let params = &self.processors[processor - 1].1;
+        let param = match q.parse::<usize>() {
+            Ok(n) if n >= 1 && n <= params.len() => n - 1,
+            Ok(n) => bail!("no parameter {n} on processor {processor}"),
+            Err(_) => params
+                .iter()
+                .position(|(name, ..)| name.eq_ignore_ascii_case(q))
+                .with_context(|| format!("no parameter {q:?} on processor {processor}"))?,
+        };
+        Ok((processor - 1, param))
+    }
+}
+
+fn unit_label(unit: Unit) -> &'static str {
+    match unit {
+        Unit::Generic => "",
+        Unit::Decibels => "dB",
+        Unit::Hertz => "Hz",
+        Unit::Seconds => "s",
+        Unit::Percent => "%",
+    }
+}
+
 fn main() -> Result<()> {
     let opts = parse_args()?;
     if opts.list {
@@ -146,7 +214,14 @@ fn main() -> Result<()> {
     let input = resolve(opts.input.as_deref(), device::default_input(), "input")?;
     let output = resolve(opts.output.as_deref(), device::default_output(), "output")?;
 
-    let gain_db_bits = Arc::new(AtomicU32::new(opts.gain_db.to_bits()));
+    let chain = build_chain(&opts.chain, opts.gain_db)?;
+    let layout = Layout::of(&chain);
+    let mut values: Vec<Vec<f32>> = chain
+        .iter()
+        .map(|p| (0..p.params().len()).map(|id| p.param(id)).collect())
+        .collect();
+    let (processor, mut changes) = ChainProcessor::new(chain, opts.sample_rate, MAX_BLOCK_FRAMES);
+
     let stream = Stream::open(
         StreamConfig {
             input,
@@ -155,10 +230,9 @@ fn main() -> Result<()> {
             buffer_frames: opts.buffer_frames,
             input_channel: opts.input_channel,
         },
-        GainProcessor::new(opts.sample_rate as f32, Arc::clone(&gain_db_bits)),
+        processor,
     )?;
     let info = stream.info();
-    let gain_db = |bits: &AtomicU32| f32::from_bits(bits.load(Ordering::Relaxed));
 
     println!(
         "in:  {} (channel {})",
@@ -193,26 +267,42 @@ fn main() -> Result<()> {
         2 * info.buffer_frames,
         info.ring_prefill_frames
     );
-    println!("Measured round trip is M0 issue 3; this number is what the driver claims.");
-    println!(
-        "gain {:.1} dB. Type a number for a new gain, s for stats, q to quit.",
-        gain_db(&gain_db_bits)
-    );
+    println!("Run measure_latency for the real number.");
+    println!();
+    layout.print(&values);
+    println!("Type <processor>.<param> <value>, list, s, or q.");
 
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
         let line = line?;
-        match line.trim() {
-            "q" | "quit" => break,
-            "s" | "stats" => print_stats(&stream),
-            "" => {}
-            text => match text.parse::<f32>() {
-                Ok(db) => {
-                    gain_db_bits.store(db.to_bits(), Ordering::Relaxed);
-                    println!("gain {db:.1} dB");
+        let mut words = line.split_whitespace();
+        match (words.next(), words.next()) {
+            (None, _) => {}
+            (Some("q") | Some("quit"), _) => break,
+            (Some("s") | Some("stats"), _) => print_stats(&stream),
+            (Some("list") | Some("l"), _) => layout.print(&values),
+            (Some(target), Some(value)) => match (layout.resolve(target), value.parse::<f32>()) {
+                (Ok((p, q)), Ok(v)) => {
+                    let (_, _, min, max) = layout.processors[p].1[q];
+                    let v = v.clamp(min, max);
+                    if changes
+                        .push(ParamChange {
+                            processor: p,
+                            param: q,
+                            value: v,
+                        })
+                        .is_ok()
+                    {
+                        values[p][q] = v;
+                        println!("{}.{} = {v}", p + 1, q + 1);
+                    } else {
+                        println!("the audio thread is not draining changes");
+                    }
                 }
-                Err(_) => println!("type a gain in dB, s, or q"),
+                (Err(e), _) => println!("{e}"),
+                (_, Err(_)) => println!("value must be a number"),
             },
+            (Some(_), None) => println!("type <processor>.<param> <value>, list, s, or q"),
         }
         io::stdout().flush()?;
     }
