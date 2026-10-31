@@ -9,9 +9,45 @@
 //! `s` to print counters, `q` to quit.
 
 use std::io::{self, BufRead, Write};
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
-use cantina_engine::{device, Stream, StreamConfig};
+use cantina_dsp::Gain;
+use cantina_engine::{device, BlockProcessor, Stream, StreamConfig};
+
+/// Copies input to output through a smoothed gain. The gain in dB arrives
+/// from the main thread as the bits of an `f32` in an atomic.
+struct GainProcessor {
+    gain: Gain,
+    shared_db_bits: Arc<AtomicU32>,
+    last_bits: u32,
+}
+
+impl GainProcessor {
+    fn new(sample_rate: f32, shared_db_bits: Arc<AtomicU32>) -> Self {
+        let bits = shared_db_bits.load(Ordering::Relaxed);
+        let mut gain = Gain::new(sample_rate);
+        gain.set_db(f32::from_bits(bits));
+        Self {
+            gain,
+            shared_db_bits,
+            last_bits: bits,
+        }
+    }
+}
+
+impl BlockProcessor for GainProcessor {
+    fn process(&mut self, input: &[f32], output: &mut [f32]) {
+        let bits = self.shared_db_bits.load(Ordering::Relaxed);
+        if bits != self.last_bits {
+            self.last_bits = bits;
+            self.gain.set_db(f32::from_bits(bits));
+        }
+        output.copy_from_slice(input);
+        self.gain.process(output);
+    }
+}
 
 struct Options {
     list: bool,
@@ -110,15 +146,19 @@ fn main() -> Result<()> {
     let input = resolve(opts.input.as_deref(), device::default_input(), "input")?;
     let output = resolve(opts.output.as_deref(), device::default_output(), "output")?;
 
-    let stream = Stream::open(StreamConfig {
-        input,
-        output,
-        sample_rate: opts.sample_rate,
-        buffer_frames: opts.buffer_frames,
-        input_channel: opts.input_channel,
-        gain_db: opts.gain_db,
-    })?;
+    let gain_db_bits = Arc::new(AtomicU32::new(opts.gain_db.to_bits()));
+    let stream = Stream::open(
+        StreamConfig {
+            input,
+            output,
+            sample_rate: opts.sample_rate,
+            buffer_frames: opts.buffer_frames,
+            input_channel: opts.input_channel,
+        },
+        GainProcessor::new(opts.sample_rate as f32, Arc::clone(&gain_db_bits)),
+    )?;
     let info = stream.info();
+    let gain_db = |bits: &AtomicU32| f32::from_bits(bits.load(Ordering::Relaxed));
 
     println!(
         "in:  {} (channel {})",
@@ -156,7 +196,7 @@ fn main() -> Result<()> {
     println!("Measured round trip is M0 issue 3; this number is what the driver claims.");
     println!(
         "gain {:.1} dB. Type a number for a new gain, s for stats, q to quit.",
-        stream.gain_db()
+        gain_db(&gain_db_bits)
     );
 
     let stdin = io::stdin();
@@ -168,7 +208,7 @@ fn main() -> Result<()> {
             "" => {}
             text => match text.parse::<f32>() {
                 Ok(db) => {
-                    stream.set_gain_db(db);
+                    gain_db_bits.store(db.to_bits(), Ordering::Relaxed);
                     println!("gain {db:.1} dB");
                 }
                 Err(_) => println!("type a gain in dB, s, or q"),

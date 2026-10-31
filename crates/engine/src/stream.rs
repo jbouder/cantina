@@ -1,5 +1,5 @@
 //! A duplex CoreAudio stream: input device to output device through a
-//! processing callback.
+//! [`BlockProcessor`].
 //!
 //! # Real-time rules
 //!
@@ -19,7 +19,6 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
-use cantina_dsp::Gain;
 use coreaudio::audio_unit::audio_format::LinearPcmFlags;
 use coreaudio::audio_unit::macos_helpers::audio_unit_from_device_id_uninitialized;
 use coreaudio::audio_unit::render_callback::{data, Args};
@@ -33,7 +32,7 @@ use crate::device::{self, DeviceId};
 
 /// Largest block the render callback can handle without allocating. Devices
 /// are configured for far less; this is the ceiling for scratch space.
-const MAX_BLOCK_FRAMES: usize = 4096;
+pub const MAX_BLOCK_FRAMES: usize = 4096;
 
 /// How to open a stream.
 #[derive(Debug, Clone)]
@@ -44,7 +43,27 @@ pub struct StreamConfig {
     pub buffer_frames: u32,
     /// Zero-based input channel to take the signal from.
     pub input_channel: usize,
-    pub gain_db: f32,
+}
+
+/// Mono-in, mono-out processing that runs inside the render callback.
+///
+/// Implementations obey the real-time rules: `process` never allocates,
+/// locks, blocks or performs I/O. Anything the processor needs is created
+/// before it is handed to [`Stream::open`]. Talk to the rest of the program
+/// through atomics and lock-free queues only.
+pub trait BlockProcessor: Send + 'static {
+    /// Produces `output` from `input`. Both slices are the same length,
+    /// never longer than [`MAX_BLOCK_FRAMES`].
+    fn process(&mut self, input: &[f32], output: &mut [f32]);
+}
+
+impl<F> BlockProcessor for F
+where
+    F: FnMut(&[f32], &mut [f32]) + Send + 'static,
+{
+    fn process(&mut self, input: &[f32], output: &mut [f32]) {
+        self(input, output)
+    }
 }
 
 /// What the stream actually opened with.
@@ -77,7 +96,6 @@ pub struct Stats {
 /// An open duplex stream. Dropping it stops the audio units.
 pub struct Stream {
     units: Units,
-    gain_db_bits: Arc<AtomicU32>,
     stats: Arc<Stats>,
     info: StreamInfo,
 }
@@ -88,16 +106,15 @@ enum Units {
 }
 
 impl Stream {
-    /// Opens and starts a stream. Device sample rate and buffer size are set
-    /// first so both units agree on the block size.
-    pub fn open(config: StreamConfig) -> Result<Stream> {
+    /// Opens and starts a stream running `processor`. Device sample rate and
+    /// buffer size are set first so both units agree on the block size.
+    pub fn open(config: StreamConfig, mut processor: impl BlockProcessor) -> Result<Stream> {
         let StreamConfig {
             input,
             output,
             sample_rate,
             buffer_frames,
             input_channel,
-            gain_db,
         } = config;
 
         device::set_sample_rate(input, sample_rate)?;
@@ -176,7 +193,6 @@ impl Stream {
         }
 
         let stats = Arc::new(Stats::default());
-        let gain_db_bits = Arc::new(AtomicU32::new(gain_db.to_bits()));
 
         // --- input callback: real-time, see module docs ---
         let input_stats = Arc::clone(&stats);
@@ -206,11 +222,8 @@ impl Stream {
 
         // --- render callback: real-time, see module docs ---
         let render_stats = Arc::clone(&stats);
-        let render_gain_bits = Arc::clone(&gain_db_bits);
-        let mut gain = Gain::new(sample_rate as f32);
-        gain.set_db(gain_db);
-        let mut scratch = vec![0.0f32; MAX_BLOCK_FRAMES];
-        let mut last_gain_bits = gain_db.to_bits();
+        let mut scratch_in = vec![0.0f32; MAX_BLOCK_FRAMES];
+        let mut scratch_out = vec![0.0f32; MAX_BLOCK_FRAMES];
         let render = move |args: Args<data::NonInterleaved<f32>>| {
             let Args {
                 num_frames,
@@ -224,7 +237,7 @@ impl Stream {
                 .max_block_frames
                 .fetch_max(num_frames as u32, Ordering::Relaxed);
 
-            if num_frames > scratch.len() {
+            if num_frames > MAX_BLOCK_FRAMES {
                 render_stats
                     .oversized_blocks
                     .fetch_add(1, Ordering::Relaxed);
@@ -233,31 +246,27 @@ impl Stream {
                 }
                 return Ok(());
             }
-            let block = &mut scratch[..num_frames];
+            let input = &mut scratch_in[..num_frames];
+            let output = &mut scratch_out[..num_frames];
 
             let available = num_frames.min(consumer.slots());
             if let Ok(chunk) = consumer.read_chunk(available) {
                 let (first, second) = chunk.as_slices();
-                block[..first.len()].copy_from_slice(first);
-                block[first.len()..available].copy_from_slice(second);
+                input[..first.len()].copy_from_slice(first);
+                input[first.len()..available].copy_from_slice(second);
                 chunk.commit_all();
             }
             if available < num_frames {
-                block[available..].fill(0.0);
+                input[available..].fill(0.0);
                 render_stats
                     .output_underruns
                     .fetch_add((num_frames - available) as u64, Ordering::Relaxed);
             }
 
-            let bits = render_gain_bits.load(Ordering::Relaxed);
-            if bits != last_gain_bits {
-                last_gain_bits = bits;
-                gain.set_db(f32::from_bits(bits));
-            }
-            gain.process(block);
+            processor.process(input, output);
 
             for channel in data.channels_mut() {
-                channel.copy_from_slice(block);
+                channel.copy_from_slice(output);
             }
             Ok(())
         };
@@ -281,7 +290,6 @@ impl Stream {
 
         Ok(Stream {
             units,
-            gain_db_bits,
             stats,
             info: StreamInfo {
                 sample_rate,
@@ -292,16 +300,6 @@ impl Stream {
                 ring_prefill_frames,
             },
         })
-    }
-
-    /// Changes the gain. Lock-free; the audio thread smooths the change.
-    pub fn set_gain_db(&self, db: f32) {
-        self.gain_db_bits.store(db.to_bits(), Ordering::Relaxed);
-    }
-
-    /// The current target gain in decibels.
-    pub fn gain_db(&self) -> f32 {
-        f32::from_bits(self.gain_db_bits.load(Ordering::Relaxed))
     }
 
     pub fn stats(&self) -> &Stats {
