@@ -34,6 +34,8 @@ pub fn run() {
             commands::subscribe_meters,
             commands::meter_ack,
             commands::frames_dropped,
+            commands::plugin_list,
+            commands::plugin_rescan,
             commands::project_list,
             commands::project_new,
             commands::project_open,

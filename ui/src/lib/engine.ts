@@ -20,6 +20,49 @@ export interface EngineStatus {
   project: ProjectStatus;
   /** Specs `chainAdd` accepts. */
   pedalKinds: string[];
+  plugins: PluginsStatus;
+}
+
+/** The scanner in brief; `pluginList` has the list. Mirrors `PluginsStatus` in src-tauri. */
+export interface PluginsStatus {
+  /** True while a scan runs in the background. */
+  scanning: boolean;
+  count: number;
+  failed: number;
+  /** Seconds since the epoch of the last scan, zero before the first. */
+  scannedAt: number;
+}
+
+export type PluginFormat = "au" | "clap";
+
+/** A plugin the scanner found. Mirrors `PluginEntry` in crates/hosting. */
+export interface PluginEntry {
+  format: PluginFormat;
+  /** The spec `chainAdd` takes: `au:…` or `clap:…#…`. */
+  spec: string;
+  source: string;
+  name: string;
+  vendor: string;
+  version: string;
+  inputs: number;
+  outputs: number;
+  hasEditor: boolean;
+}
+
+/** A plugin the scanner's child process could not load, or died loading. */
+export interface PluginFailure {
+  format: PluginFormat;
+  source: string;
+  name: string;
+  why: string;
+}
+
+/** Everything the scanner knows. Mirrors `PluginList` in crates/hosting. */
+export interface PluginList {
+  version: number;
+  scannedAt: number;
+  plugins: PluginEntry[];
+  failed: PluginFailure[];
 }
 
 export interface TransportStatus {
@@ -208,6 +251,8 @@ const mockSettings: AudioSettings = {
 
 const mockParams = inTauri ? null : new URLSearchParams(window.location.search);
 const MOCK_RATE = 48000;
+/** The stand-in scanned ten minutes ago. */
+const MOCK_SCANNED_AT = Math.floor(Date.now() / 1000) - 600;
 
 function mockPedal(id: number, spec: string): PedalInfo {
   return spec === "overdrive"
@@ -295,6 +340,12 @@ const mock: EngineStatus = {
     master: { gainDb: -1, pan: 0, mute: false, solo: false },
   },
   pedalKinds: ["gain", "overdrive"],
+  plugins: {
+    scanning: mockParams?.has("scanning") ?? false,
+    count: 5,
+    failed: 1,
+    scannedAt: mockParams?.has("scanning") ? 0 : MOCK_SCANNED_AT,
+  },
 };
 mockTransport.playing = mock.transport.playing || mock.transport.recording;
 mockTransport.recording = mock.transport.recording;
@@ -358,6 +409,72 @@ const statusListeners = new Set<(s: EngineStatus) => void>();
 function mockPublish() {
   const s = mockStatus();
   for (const l of statusListeners) l(s);
+}
+
+// ----- plugins -----
+
+function mockPlugin(
+  format: PluginFormat,
+  vendor: string,
+  name: string,
+  io: [number, number],
+  hasEditor: boolean,
+): PluginEntry {
+  const spec =
+    format === "au"
+      ? `au:aufx:${name.slice(0, 4).toLowerCase()}:appl`
+      : `clap:/Library/Audio/Plug-Ins/CLAP/${name}.clap#com.${vendor.toLowerCase()}.${name.toLowerCase()}`;
+  return {
+    format,
+    spec,
+    source: spec,
+    name,
+    vendor,
+    version: format === "au" ? "1.7.0" : "2.3.1",
+    inputs: io[0],
+    outputs: io[1],
+    hasEditor,
+  };
+}
+
+const mockPlugins: PluginList = {
+  version: 1,
+  scannedAt: MOCK_SCANNED_AT,
+  plugins: [
+    mockPlugin("au", "Apple", "AUDelay", [2, 2], false),
+    mockPlugin("au", "Apple", "AUDistortion", [2, 2], false),
+    mockPlugin("au", "Apple", "AUMatrixReverb", [2, 2], false),
+    mockPlugin("au", "Neural DSP", "Archetype Plini", [2, 2], true),
+    mockPlugin("clap", "Surge Synth Team", "Surge XT Effects", [2, 2], true),
+  ],
+  failed: [
+    {
+      format: "clap",
+      source: "clap:/Library/Audio/Plug-Ins/CLAP/Old Fuzz.clap",
+      name: "Old Fuzz",
+      why: "crashed while loading (signal: 6 (SIGABRT))",
+    },
+  ],
+};
+
+/** What the scanner found. Starts a scan if none has run yet. */
+export async function pluginList(): Promise<PluginList> {
+  if (inTauri) return invoke<PluginList>("plugin_list");
+  return mockParams?.has("scanning")
+    ? { version: 1, scannedAt: 0, plugins: [], failed: [] }
+    : structuredClone(mockPlugins);
+}
+
+/** Scans new and changed plugins in the background, or everything when `full`. */
+export async function pluginRescan(full: boolean): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("plugin_rescan", { full });
+  mock.plugins = { ...mock.plugins, scanning: true };
+  mockPublish();
+  window.setTimeout(() => {
+    mock.plugins = { ...mock.plugins, scanning: false, scannedAt: Date.now() / 1000 };
+    mockPublish();
+  }, 1200);
+  return mockStatus();
 }
 
 export async function engineStatus(): Promise<EngineStatus> {

@@ -2,6 +2,10 @@
 //! out, a `Gain` parameter in decibels, and a `Delay` parameter in samples
 //! that it both applies and reports as latency. Saved state is the two
 //! values as little-endian `f32`s.
+//!
+//! The bundle carries a second plugin, [`CRASH_ID`], that aborts the
+//! process the moment a host instantiates it. It exists so the scanner's
+//! child process has something real to die on; listing it is harmless.
 
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -16,6 +20,7 @@ use clack_extensions::params::{
     PluginMainThreadParams, PluginParams,
 };
 use clack_extensions::state::{PluginState, PluginStateImpl};
+use clack_plugin::entry::prelude::*;
 use clack_plugin::events::event_types::ParamValueEvent;
 use clack_plugin::prelude::*;
 use clack_plugin::process::audio::ChannelPair;
@@ -23,6 +28,10 @@ use clack_plugin::stream::{InputStream, OutputStream};
 
 pub const ID: &str = "com.cantina.test-gain";
 pub const NAME: &str = "Cantina Test Gain";
+pub const VENDOR: &str = "Cantina";
+/// A plugin that aborts on instantiation.
+pub const CRASH_ID: &str = "com.cantina.test-crash";
+pub const CRASH_NAME: &str = "Cantina Test Crash";
 pub const MAX_DELAY: usize = 64;
 const GAIN: u32 = 0;
 const DELAY: u32 = 1;
@@ -100,11 +109,7 @@ impl Plugin for TestGain {
     }
 }
 
-impl DefaultPluginFactory for TestGain {
-    fn get_descriptor() -> PluginDescriptor {
-        PluginDescriptor::new(ID, NAME)
-    }
-
+impl TestGain {
     fn new_shared(_host: HostSharedHandle<'_>) -> Result<Shared, PluginError> {
         Ok(Shared::new())
     }
@@ -114,6 +119,77 @@ impl DefaultPluginFactory for TestGain {
         shared: &'a Shared,
     ) -> Result<MainThread<'a>, PluginError> {
         Ok(MainThread { shared })
+    }
+}
+
+/// Aborts when instantiated. See the module docs.
+pub struct Crash;
+
+impl Plugin for Crash {
+    type AudioProcessor<'a> = ();
+    type Shared<'a> = ();
+    type MainThread<'a> = ();
+}
+
+pub struct Entry {
+    factory: PluginFactoryWrapper<Factory>,
+}
+
+pub struct Factory {
+    gain: PluginDescriptor,
+    crash: PluginDescriptor,
+}
+
+impl clack_plugin::entry::Entry for Entry {
+    fn new(_bundle_path: Option<&std::ffi::CStr>) -> Result<Self, EntryLoadError> {
+        Ok(Self {
+            factory: PluginFactoryWrapper::new(Factory {
+                gain: PluginDescriptor::new(ID, NAME)
+                    .with_vendor(VENDOR)
+                    .with_version(env!("CARGO_PKG_VERSION")),
+                crash: PluginDescriptor::new(CRASH_ID, CRASH_NAME)
+                    .with_vendor(VENDOR)
+                    .with_version(env!("CARGO_PKG_VERSION")),
+            }),
+        })
+    }
+
+    fn declare_factories<'a>(&'a self, builder: &mut EntryFactories<'a>) {
+        builder.register_factory(&self.factory);
+    }
+}
+
+impl PluginFactoryImpl for Factory {
+    fn plugin_count(&self) -> u32 {
+        2
+    }
+
+    fn plugin_descriptor(&self, index: u32) -> Option<&PluginDescriptor> {
+        match index {
+            0 => Some(&self.gain),
+            1 => Some(&self.crash),
+            _ => None,
+        }
+    }
+
+    fn create_plugin<'a>(
+        &'a self,
+        host_info: HostInfo<'a>,
+        plugin_id: &std::ffi::CStr,
+    ) -> Option<PluginInstance<'a>> {
+        if plugin_id == self.gain.id().unwrap_or_default() {
+            Some(PluginInstance::new::<TestGain>(
+                host_info,
+                &self.gain,
+                TestGain::new_shared,
+                TestGain::new_main_thread,
+            ))
+        } else if plugin_id == self.crash.id().unwrap_or_default() {
+            eprintln!("{CRASH_NAME}: aborting on purpose");
+            std::process::abort();
+        } else {
+            None
+        }
     }
 }
 
@@ -306,4 +382,4 @@ impl PluginStateImpl for MainThread<'_> {
     }
 }
 
-clack_export_entry!(SinglePluginEntry<TestGain>);
+clack_export_entry!(Entry);

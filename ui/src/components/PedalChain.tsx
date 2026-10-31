@@ -16,6 +16,8 @@ type Props = {
   track: number;
   chain: PedalInfo[];
   kinds: string[];
+  /** Opens the plugin browser for this track. */
+  onBrowsePlugins: () => void;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
 };
@@ -26,9 +28,10 @@ function titleCase(spec: string) {
 
 /**
  * The pedals in order, each with its knobs. Reorder by dragging a card
- * or with the arrow keys on its grip; add from the picker at the end.
+ * or with the arrow keys on its grip; add a stock pedal from the picker
+ * at the end, or a third-party plugin from the browser.
  */
-export function PedalChain({ track, chain, kinds, onStatus, onError }: Props) {
+export function PedalChain({ track, chain, kinds, onBrowsePlugins, onStatus, onError }: Props) {
   const [dragging, setDragging] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
   const [kind, setKind] = useState(kinds[0] ?? "gain");
@@ -97,6 +100,9 @@ export function PedalChain({ track, chain, kinds, onStatus, onError }: Props) {
           ))}
         </Select>
         <Button onClick={() => run(chainAdd(track, kind))}>Add</Button>
+        <Button aria-haspopup="dialog" onClick={onBrowsePlugins}>
+          Plugins…
+        </Button>
       </div>
     </div>
   );
