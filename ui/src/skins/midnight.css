@@ -1,0 +1,63 @@
+/*
+ * Midnight: a rounded navy pod with chrome buttons and glass over the
+ * displays. Ported from music-visualizer. Only the tokens that differ
+ * from Classic are set.
+ */
+:root[data-skin="midnight"] {
+  --frame-hi: #4a5f9a;
+  --frame: #1f2a4d;
+  --frame-mid: #18213d;
+  --frame-lo: #0d1326;
+  --frame-edge: #04060e;
+  --titlebar-hi: #16203f;
+  --titlebar-lo: #0e1630;
+  --title-on: #6fd8ff;
+  --title-on-lo: #1d4f7a;
+  --lcd-bg: #020610;
+  --lcd-fg: #4fe0ff;
+  --lcd-dim: #0c2a3a;
+  --list-bg: #020610;
+  --list-fg: #4fe0ff;
+  --select: #1b3f8f;
+  --silver-hi: #d6e2ff;
+  --silver: #9fb3e0;
+  --silver-lo: #5e74aa;
+  --glyph: #0a1230;
+  --pbtn-hi: #33467a;
+  --pbtn: #24325a;
+  --pbtn-lo: #1a2547;
+  --pbtn-bevel-hi: #5570b0;
+  --pbtn-bevel-lo: #0a0f20;
+  --led-on: #4fe0ff;
+  --led-off: #0c2a3a;
+  --vol-lo: #1f6fff;
+  --vol-mid: #4fe0ff;
+  --vol-hi: #e6f8ff;
+  --track: #060a18;
+  --sheet-bg: #070b18;
+
+  --window-radius: 24px;
+  --window-bg:
+    radial-gradient(120% 60% at 50% 0%, rgb(120 160 255 / 0.18), transparent 60%),
+    linear-gradient(180deg, #24305a, #141c38);
+  --titlebar-bg: transparent;
+  --titlebar-shadow: none;
+  --titlebar-border: 0;
+  --titlebar-grip: linear-gradient(90deg, transparent, var(--title-on), transparent);
+  --control-radius: 12px;
+  --button-bg: linear-gradient(180deg, var(--silver-hi), var(--silver) 55%, var(--silver-lo));
+  --button-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.7), inset 0 -2px 0 var(--frame-lo),
+    0 0 0 1px var(--frame-edge);
+  --button-hover-bg: linear-gradient(180deg, #f0f5ff, var(--silver) 55%, var(--silver-lo));
+  --button-active-bg: linear-gradient(180deg, var(--silver-lo), var(--silver));
+  --button-active-shadow: inset 0 2px 3px rgb(0 0 0 / 0.5), 0 0 0 1px var(--frame-edge);
+  --pbutton-shadow:
+    inset 0 1px 0 var(--pbtn-bevel-hi), inset 0 -1px 0 var(--pbtn-bevel-lo),
+    0 0 0 1px var(--frame-edge);
+  --lcd-radius: 12px;
+  --lcd-border: 1px solid #000;
+  --lcd-shadow:
+    inset 0 2px 6px rgb(0 0 0 / 0.9), inset 0 -1px 0 rgb(120 160 255 / 0.15),
+    0 1px 0 rgb(255 255 255 / 0.08);
+}
