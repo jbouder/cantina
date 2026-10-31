@@ -15,6 +15,45 @@ export interface EngineStatus {
   /** What the engine did on its own, such as falling back to another device. */
   notice: string | null;
   noticeSeq: number;
+  track: TrackStatus;
+  /** The pedal chain in order. */
+  chain: PedalInfo[];
+  /** Specs `chainAdd` accepts. */
+  pedalKinds: string[];
+}
+
+/** The one track. Mirrors `TrackStatus` in src-tauri. */
+export interface TrackStatus {
+  /** Armed tracks monitor their input and can record. */
+  armed: boolean;
+  recording: boolean;
+  playing: boolean;
+  take: TakeInfo | null;
+}
+
+export interface TakeInfo {
+  path: string;
+  name: string;
+  seconds: number;
+}
+
+/** A pedal in the chain. Mirrors `PedalInfo` in src-tauri. */
+export interface PedalInfo {
+  /** Stable for the pedal's life. */
+  id: number;
+  spec: string;
+  name: string;
+  params: ParamInfo[];
+}
+
+export interface ParamInfo {
+  name: string;
+  /** "dB", "Hz", "s", "%" or "". */
+  unit: string;
+  min: number;
+  max: number;
+  default: number;
+  value: number;
 }
 
 /** Which devices to open and how. `null` follows the system default. */
@@ -48,6 +87,10 @@ export interface Level {
 export interface MeterFrame {
   input: Level;
   output: Level;
+  /** Timeline position in seconds. */
+  position: number;
+  playing: boolean;
+  recording: boolean;
 }
 
 /** True inside the Tauri web view, false in a plain browser tab. */
@@ -105,6 +148,30 @@ const mockSettings: AudioSettings = {
 };
 
 const mockParams = inTauri ? null : new URLSearchParams(window.location.search);
+
+function mockPedal(id: number, spec: string): PedalInfo {
+  return spec === "overdrive"
+    ? {
+        id,
+        spec,
+        name: "Overdrive",
+        params: [
+          { name: "Drive", unit: "dB", min: 0, max: 40, default: 20, value: 20 },
+          { name: "Tone", unit: "Hz", min: 500, max: 8000, default: 3000, value: 3000 },
+          { name: "Level", unit: "dB", min: -24, max: 6, default: -6, value: -6 },
+        ],
+      }
+    : {
+        id,
+        spec: "gain",
+        name: "Gain",
+        params: [{ name: "Gain", unit: "dB", min: -60, max: 24, default: 0, value: 0 }],
+      };
+}
+
+let mockNextPedal = 3;
+const mockTransport = { position: 0, playing: false, recording: false };
+
 const mock: EngineStatus = {
   running: mockParams?.has("running") ?? false,
   sampleRate: 48000,
@@ -118,7 +185,19 @@ const mock: EngineStatus = {
     ? "Scarlett 2i2 USB was disconnected; the saved input device is not connected; using MacBook Pro Microphone"
     : null,
   noticeSeq: mockParams?.has("notice") ? 1 : 0,
+  track: {
+    armed: mockParams?.has("armed") ?? false,
+    recording: mockParams?.has("recording") ?? false,
+    playing: mockParams?.has("playing") ?? false,
+    take: mockParams?.has("take")
+      ? { path: "/takes/take-1761912000.wav", name: "take-1761912000", seconds: 12.4 }
+      : null,
+  },
+  chain: [mockPedal(1, "gain"), mockPedal(2, "overdrive")],
+  pedalKinds: ["gain", "overdrive"],
 };
+mockTransport.playing = mock.track.playing || mock.track.recording;
+mockTransport.recording = mock.track.recording;
 
 function mockDevice(uid: string | null, input: boolean): AudioDevice | undefined {
   return uid
@@ -131,6 +210,8 @@ function mockStatus(): EngineStatus {
   const o = mockDevice(mockSettings.outputUid, false);
   return {
     ...mock,
+    track: { ...mock.track, playing: mockTransport.playing, recording: mockTransport.recording },
+    chain: mock.chain.map((p) => ({ ...p, params: p.params.map((q) => ({ ...q })) })),
     sampleRate: mockSettings.sampleRate,
     bufferFrames: mockSettings.bufferFrames,
     inputUid: mockSettings.inputUid,
@@ -185,6 +266,69 @@ export async function setAudioSettings(settings: AudioSettings): Promise<EngineS
   return mockStatus();
 }
 
+export async function trackArm(armed: boolean): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("track_arm", { armed });
+  mock.track.armed = armed;
+  return mockStatus();
+}
+
+export async function trackRecord(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("track_record");
+  if (!mock.track.armed) throw new Error("arm the track before recording");
+  mockTransport.position = 0;
+  mockTransport.playing = true;
+  mockTransport.recording = true;
+  return mockStatus();
+}
+
+export async function trackPlay(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("track_play");
+  mockTransport.position = 0;
+  mockTransport.playing = true;
+  return mockStatus();
+}
+
+export async function trackStop(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("track_stop");
+  if (mockTransport.recording) {
+    mock.track.take = {
+      path: "/takes/take-mock.wav",
+      name: "take-mock",
+      seconds: mockTransport.position,
+    };
+  }
+  mockTransport.playing = false;
+  mockTransport.recording = false;
+  return mockStatus();
+}
+
+export async function chainAdd(spec: string, index?: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("chain_add", { spec, index: index ?? null });
+  mock.chain.splice(index ?? mock.chain.length, 0, mockPedal(mockNextPedal++, spec));
+  return mockStatus();
+}
+
+export async function chainRemove(id: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("chain_remove", { id });
+  mock.chain = mock.chain.filter((p) => p.id !== id);
+  return mockStatus();
+}
+
+export async function chainMove(id: number, to: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("chain_move", { id, to });
+  const from = mock.chain.findIndex((p) => p.id === id);
+  const [pedal] = mock.chain.splice(from, 1);
+  if (pedal) mock.chain.splice(Math.min(to, mock.chain.length), 0, pedal);
+  return mockStatus();
+}
+
+/** Sets a knob. Not echoed back as a status: the UI already shows the value. */
+export async function chainSetParam(id: number, param: number, value: number): Promise<void> {
+  if (inTauri) return invoke("chain_set_param", { id, param, value });
+  const p = mock.chain.find((p) => p.id === id)?.params[param];
+  if (p) p.value = value;
+}
+
 /**
  * Status changes the engine makes on its own, such as rebuilding after a
  * device vanished. Returns a function that stops listening.
@@ -226,7 +370,8 @@ function openMeterChannel() {
   let t = 0;
   window.setInterval(() => {
     t += 1 / 60;
-    const frame: MeterFrame = mock.running
+    if (mockTransport.playing) mockTransport.position += 1 / 60;
+    const levels = mock.running
       ? {
           input: {
             rms: 0.18 + 0.12 * Math.sin(t * 2.1),
@@ -238,6 +383,12 @@ function openMeterChannel() {
           },
         }
       : { input: SILENT, output: SILENT };
+    const frame: MeterFrame = {
+      ...levels,
+      position: mockParams?.has("take") && !mockTransport.playing ? 0 : mockTransport.position,
+      playing: mockTransport.playing,
+      recording: mockTransport.recording,
+    };
     for (const l of meterListeners) l(frame);
   }, 1000 / 60);
 }

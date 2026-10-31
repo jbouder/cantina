@@ -13,6 +13,7 @@ pub mod device;
 pub mod graph;
 pub mod latency;
 pub mod meter;
+pub mod mute;
 pub mod player;
 pub mod processors;
 pub mod recorder;
@@ -28,10 +29,11 @@ pub use graph::{
     BlockContext, Endpoint, Graph, GraphConfig, GraphError, Node, NodeId, NodeInfo, ProcessorNode,
 };
 pub use meter::{Level, Meter, MeterHandle};
+pub use mute::Mute;
 pub use player::{Clip, Player, PlayerHandle, PlayerStats};
 pub use recorder::{Recorder, RecorderHandle, RecorderStats};
 pub use runtime::{CommitError, Controller, ParamChange, Runtime, RuntimeStats};
 pub use stream::{BlockProcessor, Stats, Stream, StreamConfig, StreamInfo, MAX_BLOCK_FRAMES};
 pub use tempo::{Beat, MusicalPosition, TempoMap, TimeSignature, PPQ};
-pub use transport::{LoopRange, TransportHandle};
+pub use transport::{LoopRange, TransportClock, TransportHandle};
 pub use wav::WavInfo;

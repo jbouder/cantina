@@ -133,6 +133,35 @@
   }
 }
 
+/* A horizontal fader: an <input type="range"> drawn in the skin's materials. */
+@utility fader {
+  appearance: none;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  &::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: var(--control-radius);
+    background: var(--track);
+    box-shadow: var(--fader-track-shadow);
+  }
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 18px;
+    height: 28px;
+    margin-top: -11px;
+    border-radius: var(--control-radius);
+    background: var(--button-bg);
+    box-shadow: var(--button-shadow);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
 @utility title-text {
   font-family: var(--font-lcd);
   color: var(--title-text);

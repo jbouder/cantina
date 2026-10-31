@@ -186,11 +186,36 @@ impl Transport {
     }
 }
 
+/// A read-only view of the transport for threads that only watch it,
+/// such as a meter pump. Clone it from [`TransportHandle::clock`].
+#[derive(Clone)]
+pub struct TransportClock {
+    shared: Arc<Shared>,
+}
+
+impl TransportClock {
+    pub fn is_playing(&self) -> bool {
+        self.shared.playing.load(Ordering::Relaxed)
+    }
+
+    /// Timeline sample at the end of the last block.
+    pub fn position(&self) -> u64 {
+        self.shared.position.load(Ordering::Relaxed)
+    }
+}
+
 impl TransportHandle {
     /// Sends a command. Returns false when the queue is full, which means
     /// the audio thread has not run for a while.
     fn send(&mut self, command: TransportCommand) -> bool {
         self.commands.push(command).is_ok()
+    }
+
+    /// A view of the playing flag and position that other threads can hold.
+    pub fn clock(&self) -> TransportClock {
+        TransportClock {
+            shared: Arc::clone(&self.shared),
+        }
     }
 
     pub fn play(&mut self) -> bool {
