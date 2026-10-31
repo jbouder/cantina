@@ -43,6 +43,11 @@ impl Projects {
         cantina_project::dir_for(&self.root, name)
     }
 
+    /// Where the user's own drum kits go: `Kits` next to the projects.
+    pub fn kits_dir(&self) -> PathBuf {
+        self.root.join("Kits")
+    }
+
     pub fn list(&self) -> Result<Vec<String>> {
         cantina_project::list(&self.root)
             .with_context(|| format!("listing projects in {}", self.root.display()))

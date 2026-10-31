@@ -26,19 +26,19 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, bail, Context, Result};
-use cantina_dsp::{Handle, ParamInfo, Unit, STOCK_NAMES};
+use cantina_dsp::{Handle, LoadedKit, ParamInfo, Unit, STOCK_NAMES};
 use cantina_engine::strip::{GAIN, MUTE, PAN};
 use cantina_engine::{
-    device, plan, processors, wav, Controller, Delay, DeviceEvent, DeviceId, Endpoint, GraphConfig,
-    Meter, MeterHandle, Mute, NodeId, Player, PlayerHandle, Recorder, RecorderHandle, Runtime,
-    Stream, StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle, Watcher,
-    MAX_BLOCK_FRAMES,
+    device, kit, plan, processors, wav, Controller, Delay, DeviceEvent, DeviceId, Endpoint,
+    GraphConfig, KitEntry, Meter, MeterHandle, Mute, NodeId, PatternData, Placement, Player,
+    PlayerHandle, Recorder, RecorderHandle, Runtime, Score, Sequencer, SequencerHandle, Stream,
+    StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
 };
 use cantina_hosting::scan::{self, PluginList, Scanner};
 use cantina_hosting::{AudioUnitHandle, ClapHandle, Editor};
 use cantina_project::{
-    Clip, ClipId, Command, History, Journal, JournalEntry, Pedal, PedalId, Project,
-    Strip as StripModel, Tempo, Track, TrackId, PLUGINS_DIR,
+    Clip, ClipId, Command, History, Journal, JournalEntry, Pattern, PatternId, PatternRow, Pedal,
+    PedalId, Project, Strip as StripModel, Tempo, Track, TrackId, PLUGINS_DIR,
 };
 use objc2::MainThreadMarker;
 use serde::Serialize;
@@ -76,6 +76,27 @@ pub struct EngineStatus {
     pub pedal_kinds: Vec<String>,
     pub plugins: PluginsStatus,
     pub latency: LatencyStatus,
+    /// The drum kits installed, for a drum track to pick from.
+    pub kits: Vec<KitInfo>,
+    /// The pattern looping on a drum track for editing, if any. Not
+    /// part of the project.
+    pub audition: Option<AuditionStatus>,
+}
+
+/// An installed kit. Mirrors `KitInfo` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KitInfo {
+    pub id: String,
+    pub name: String,
+}
+
+/// A pattern looping on a drum track. Mirrors `AuditionStatus` in the UI.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuditionStatus {
+    pub track: u64,
+    pub pattern: u64,
 }
 
 /// Where the time goes. Mirrors `LatencyStatus` in the UI.
@@ -132,8 +153,22 @@ pub struct ProjectStatus {
     pub sample_rate: f64,
     pub tempo: Tempo,
     pub tracks: Vec<TrackStatus>,
+    /// Drum patterns, shared by every drum track.
+    pub patterns: Vec<PatternInfo>,
     /// The master strip; pan and solo are unused on it.
     pub master: StripModel,
+}
+
+/// A pattern, as the grid shows it. Mirrors `PatternInfo` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PatternInfo {
+    pub id: u64,
+    pub name: String,
+    pub steps_per_beat: u8,
+    pub length: u16,
+    pub swing: f32,
+    pub rows: Vec<PatternRow>,
 }
 
 /// What a journal left behind. Mirrors `RecoveryInfo` in the UI.
@@ -155,12 +190,34 @@ pub struct TrackStatus {
     /// records.
     pub armed: bool,
     pub recording: bool,
+    /// The kit of a drum track; an audio track has none.
+    pub kit: Option<KitStatus>,
     /// The pedal chain in order.
     pub chain: Vec<PedalInfo>,
     pub clips: Vec<ClipInfo>,
     pub strip: StripModel,
     /// Frames the chain delays the signal by.
     pub latency_frames: usize,
+}
+
+/// A drum track's kit, with the pads the grid shows rows for. Mirrors
+/// `KitStatus` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KitStatus {
+    pub id: String,
+    pub name: String,
+    pub pads: Vec<PadInfo>,
+    /// True when no installed kit has this id; the track plays silence.
+    pub missing: bool,
+}
+
+/// A pad of a kit. Mirrors `PadInfo` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PadInfo {
+    pub id: String,
+    pub name: String,
 }
 
 /// A clip, as the UI sees it. Positions are in samples at the project's
@@ -320,32 +377,65 @@ impl<T> MainThreadCell<T> {
     }
 }
 
-/// The nodes one track owns while the stream is open:
+/// The nodes one track owns while the stream is open. An audio track:
 ///
 /// ```text
 /// input -> mute -> bus -> pedals... -> strip -> (master)
 ///            |      ^                    |
 ///       recorder  delay <- player      meter
 /// ```
+///
+/// A drum track has no input: the sequencer takes the player's place.
+///
+/// ```text
+/// sequencer -> delay -> bus -> pedals... -> strip -> (master)
+/// ```
 struct LiveTrack {
     id: TrackId,
-    /// The monitor gate: input passes when the track is armed.
-    mute: NodeId,
+    source: Source,
     /// Where live input and playback meet before the pedals.
     bus: NodeId,
     pedals: Vec<LivePedal>,
-    player_node: NodeId,
-    player: PlayerHandle,
     /// Latency compensation on the playback branch only, so live input
     /// is never delayed to match another track.
     delay: NodeId,
-    recorder_node: NodeId,
-    recorder: RecorderHandle,
     /// Gain, pan and mute after the pedals.
     strip: NodeId,
     /// Post-fader, a tap off the strip.
     meter: NodeId,
     levels: MeterHandle,
+}
+
+/// What feeds a track: its input and clips, or a kit under a sequencer.
+enum Source {
+    Audio {
+        /// The monitor gate: input passes when the track is armed.
+        mute: NodeId,
+        player_node: NodeId,
+        player: PlayerHandle,
+        recorder_node: NodeId,
+        recorder: RecorderHandle,
+    },
+    Drums {
+        /// The kit id the sequencer was built with; a change rebuilds it.
+        kit: String,
+        sequencer_node: NodeId,
+        sequencer: SequencerHandle,
+    },
+}
+
+impl Source {
+    fn nodes(&self) -> Vec<NodeId> {
+        match self {
+            Source::Audio {
+                mute,
+                player_node,
+                recorder_node,
+                ..
+            } => vec![*mute, *player_node, *recorder_node],
+            Source::Drums { sequencer_node, .. } => vec![*sequencer_node],
+        }
+    }
 }
 
 /// A pedal's node, and for a plugin the UI-thread side of it, which the
@@ -365,23 +455,33 @@ impl LiveTrack {
     }
 
     fn nodes(&self) -> impl Iterator<Item = NodeId> + '_ {
-        [
-            self.mute,
-            self.bus,
-            self.player_node,
-            self.delay,
-            self.recorder_node,
-            self.strip,
-            self.meter,
-        ]
-        .into_iter()
-        .chain(self.pedals.iter().map(|p| p.node))
+        [self.bus, self.delay, self.strip, self.meter]
+            .into_iter()
+            .chain(self.source.nodes())
+            .chain(self.pedals.iter().map(|p| p.node))
+    }
+
+    fn recorder(&mut self) -> Option<&mut RecorderHandle> {
+        match &mut self.source {
+            Source::Audio { recorder, .. } => Some(recorder),
+            Source::Drums { .. } => None,
+        }
     }
 }
 
 /// Plugin state by pedal, with the spec it was saved from so a stale file
 /// never lands in a different plugin.
 type PluginStates = HashMap<PedalId, (String, Vec<u8>)>;
+
+/// What [`Live::sync`] needs from the engine.
+struct SyncContext<'a> {
+    project: &'a Project,
+    catalog: &'a mut Catalog,
+    kits: &'a mut Kits,
+    audition: Option<(TrackId, PatternId)>,
+    audio_dir: &'a Path,
+    states: &'a PluginStates,
+}
 
 /// The meters the pump reads, in frame order: input, master, then one
 /// per track in the project's order. Replaced whole on each sync.
@@ -451,14 +551,15 @@ impl Live {
     /// state; a plugin created here gets its saved state from `states`
     /// before the project's parameter values go on top. Clips that
     /// cannot load are reported but do not stop the rest.
-    fn sync(
-        &mut self,
-        project: &Project,
-        catalog: &mut Catalog,
-        audio_dir: &Path,
-        states: &PluginStates,
-        removed_pedals: &mut Vec<PedalId>,
-    ) -> Result<()> {
+    fn sync(&mut self, cx: SyncContext<'_>, removed_pedals: &mut Vec<PedalId>) -> Result<()> {
+        let SyncContext {
+            project,
+            catalog,
+            kits,
+            audition,
+            audio_dir,
+            states,
+        } = cx;
         let sample_rate = self.stream.info().sample_rate;
         let mut problems = Vec::new();
 
@@ -481,8 +582,19 @@ impl Live {
         for track in &project.tracks {
             let mut live = match self.tracks.iter().position(|t| t.id == track.id) {
                 Some(i) => self.tracks.remove(i),
-                None => Self::create_track(&mut self.controller, track, sample_rate),
+                None => Self::create_track(&mut self.controller, track, sample_rate, kits),
             };
+            // A drum track whose kit changed gets a new sequencer; the
+            // old one's voices go with it.
+            if let (Some(wanted), Source::Drums { kit: have, .. }) = (&track.kit, &live.source) {
+                if wanted != have {
+                    for node in live.source.nodes() {
+                        self.controller.graph_mut().remove(node)?;
+                    }
+                    live.source =
+                        Self::create_source(&mut self.controller, track, sample_rate, kits);
+                }
+            }
             let graph = self.controller.graph_mut();
             // Pedals that left this chain.
             let mut removed = Vec::new();
@@ -533,12 +645,26 @@ impl Live {
                 pedals.push(live_pedal);
             }
             live.pedals = pedals;
-            self.controller
-                .set_param(live.mute, 0, if track.armed { 1.0 } else { 0.0 });
-            let clips = engine_clips(track, audio_dir);
-            if live.player.clips() != clips.as_slice() {
-                if let Err(e) = live.player.set_clips(clips) {
-                    problems.push(format!("{}: {e:#}", track.name));
+            match &mut live.source {
+                Source::Audio { mute, player, .. } => {
+                    self.controller
+                        .set_param(*mute, 0, if track.armed { 1.0 } else { 0.0 });
+                    let clips = engine_clips(track, audio_dir);
+                    if player.clips() != clips.as_slice() {
+                        if let Err(e) = player.set_clips(clips) {
+                            problems.push(format!("{}: {e:#}", track.name));
+                        }
+                    }
+                }
+                Source::Drums { sequencer, kit, .. } => {
+                    let loaded = kits.get(kit);
+                    let score = score_for(track, project, &loaded, audition);
+                    if sequencer.score() != &score && !sequencer.set_score(score) {
+                        problems.push(format!(
+                            "{}: the audio thread is not taking patterns",
+                            track.name
+                        ));
+                    }
                 }
             }
             ordered.push(live);
@@ -558,36 +684,91 @@ impl Live {
         }
     }
 
-    fn create_track(controller: &mut Controller, track: &Track, sample_rate: f64) -> LiveTrack {
+    fn create_track(
+        controller: &mut Controller,
+        track: &Track,
+        sample_rate: f64,
+        kits: &mut Kits,
+    ) -> LiveTrack {
+        let source = Self::create_source(controller, track, sample_rate, kits);
         let graph = controller.graph_mut();
-        let mute = graph.add(Box::new(Mute::new(track.armed)));
         let bus = graph.add_processor(cantina_dsp::stock("gain").expect("gain is stock"));
-        let (player, player_handle) = Player::new(sample_rate, CHANNELS);
-        let player_node = graph.add(Box::new(player));
         let delay = graph.add(Box::new(Delay::new(
             MAX_COMPENSATION_SECONDS * sample_rate as usize,
         )));
-        // Takes are mono: the input is one channel.
-        let (recorder, recorder_handle) = Recorder::new(sample_rate, 1);
-        let recorder_node = graph.add(Box::new(recorder));
         let s = &track.strip;
         let strip = graph.add(Box::new(Strip::new(s.gain_db, s.pan, s.mute)));
         let (meter, levels) = Meter::new();
         let meter = graph.add(Box::new(meter));
         LiveTrack {
             id: track.id,
-            mute,
+            source,
             bus,
             pedals: Vec::new(),
-            player_node,
-            player: player_handle,
             delay,
-            recorder_node,
-            recorder: recorder_handle,
             strip,
             meter,
             levels,
         }
+    }
+
+    fn create_source(
+        controller: &mut Controller,
+        track: &Track,
+        sample_rate: f64,
+        kits: &mut Kits,
+    ) -> Source {
+        let graph = controller.graph_mut();
+        match &track.kit {
+            Some(kit) => {
+                let (sequencer, handle) = Sequencer::new(kits.get(kit));
+                Source::Drums {
+                    kit: kit.clone(),
+                    sequencer_node: graph.add(Box::new(sequencer)),
+                    sequencer: handle,
+                }
+            }
+            None => {
+                let mute = graph.add(Box::new(Mute::new(track.armed)));
+                let (player, player_handle) = Player::new(sample_rate, CHANNELS);
+                let player_node = graph.add(Box::new(player));
+                // Takes are mono: the input is one channel.
+                let (recorder, recorder_handle) = Recorder::new(sample_rate, 1);
+                let recorder_node = graph.add(Box::new(recorder));
+                Source::Audio {
+                    mute,
+                    player_node,
+                    player: player_handle,
+                    recorder_node,
+                    recorder: recorder_handle,
+                }
+            }
+        }
+    }
+
+    /// Sends every drum track the score the project gives it now, when
+    /// it changed. Pattern edits come through here without touching the
+    /// graph's structure.
+    fn refresh_scores(
+        &mut self,
+        project: &Project,
+        kits: &mut Kits,
+        audition: Option<(TrackId, PatternId)>,
+    ) -> Result<()> {
+        for live in &mut self.tracks {
+            let Source::Drums { sequencer, kit, .. } = &mut live.source else {
+                continue;
+            };
+            let Some(track) = project.track(live.id) else {
+                continue;
+            };
+            let loaded = kits.get(kit);
+            let score = score_for(track, project, &loaded, audition);
+            if sequencer.score() != &score && !sequencer.set_score(score) {
+                bail!("{}: the audio thread is not taking patterns", track.name);
+            }
+        }
+        Ok(())
     }
 
     /// Delays every track's playback to the slowest chain. Live input
@@ -655,10 +836,22 @@ impl Live {
         graph.clear_edges();
         graph.connect(Endpoint::Input, self.input_meter)?;
         for track in &self.tracks {
-            graph.connect(Endpoint::Input, track.mute)?;
-            graph.connect(track.mute, track.bus)?;
-            graph.connect(track.mute, track.recorder_node)?;
-            graph.connect(track.player_node, track.delay)?;
+            match &track.source {
+                Source::Audio {
+                    mute,
+                    player_node,
+                    recorder_node,
+                    ..
+                } => {
+                    graph.connect(Endpoint::Input, *mute)?;
+                    graph.connect(*mute, track.bus)?;
+                    graph.connect(*mute, *recorder_node)?;
+                    graph.connect(*player_node, track.delay)?;
+                }
+                Source::Drums { sequencer_node, .. } => {
+                    graph.connect(*sequencer_node, track.delay)?;
+                }
+            }
             graph.connect(track.delay, track.bus)?;
             let mut previous = track.bus;
             for pedal in &track.pedals {
@@ -673,6 +866,109 @@ impl Live {
         graph.connect(self.master, Endpoint::Output)?;
         self.controller.commit()?;
         Ok(())
+    }
+}
+
+/// What a drum track plays: the pattern being auditioned on it, looping
+/// from the start. (Pattern clips on the timeline join this in M5's
+/// next step.)
+fn score_for(
+    track: &Track,
+    project: &Project,
+    kit: &LoadedKit,
+    audition: Option<(TrackId, PatternId)>,
+) -> Score {
+    let mut score = Score::new();
+    if let Some((t, id)) = audition {
+        if t == track.id {
+            if let Some(pattern) = project.pattern(id) {
+                score.push(Placement::forever(pattern_data(pattern, kit)));
+            }
+        }
+    }
+    score
+}
+
+/// A pattern with its pads resolved against a kit. Rows for pads the
+/// kit does not have are left out.
+fn pattern_data(pattern: &Pattern, kit: &LoadedKit) -> Arc<PatternData> {
+    Arc::new(PatternData {
+        steps_per_beat: pattern.steps_per_beat as u32,
+        length: pattern.length as u32,
+        swing: pattern.swing,
+        rows: pattern
+            .rows
+            .iter()
+            .filter_map(|row| kit.pad_index(&row.pad).map(|i| (i, row.steps.clone())))
+            .collect(),
+    })
+}
+
+/// The installed drum kits: found once, each loaded the first time a
+/// track asks for it and kept for the session.
+#[derive(Default)]
+pub struct Kits {
+    roots: Vec<PathBuf>,
+    entries: Vec<KitEntry>,
+    loaded: HashMap<String, Arc<LoadedKit>>,
+    /// Kits that would not load, by id, with the reason.
+    failed: HashMap<String, String>,
+}
+
+impl Kits {
+    /// Looks in `roots`, first root winning on a duplicate id.
+    fn discover(roots: Vec<PathBuf>, problems: &mut Vec<String>) -> Self {
+        let entries = kit::discover(&roots, problems);
+        Self {
+            roots,
+            entries,
+            loaded: HashMap::new(),
+            failed: HashMap::new(),
+        }
+    }
+
+    /// Looks again, keeping what is loaded.
+    fn rescan(&mut self, problems: &mut Vec<String>) {
+        self.entries = kit::discover(&self.roots, problems);
+        self.failed.clear();
+    }
+
+    fn entries(&self) -> &[KitEntry] {
+        &self.entries
+    }
+
+    fn entry(&self, id: &str) -> Option<&KitEntry> {
+        self.entries.iter().find(|k| k.id == id)
+    }
+
+    /// The kit, loading it the first time. A kit that is not installed
+    /// or will not load comes back empty, so the track plays silence,
+    /// and the reason is kept for the status.
+    fn get(&mut self, id: &str) -> Arc<LoadedKit> {
+        if let Some(kit) = self.loaded.get(id) {
+            return Arc::clone(kit);
+        }
+        let kit = match self.entry(id).cloned() {
+            Some(entry) => match kit::load(&entry.path) {
+                Ok((_, loaded)) => Arc::new(loaded),
+                Err(e) => {
+                    self.failed.insert(id.to_string(), format!("{e:#}"));
+                    Arc::new(LoadedKit::empty(&entry.name))
+                }
+            },
+            None => {
+                self.failed
+                    .insert(id.to_string(), format!("no kit {id:?} is installed"));
+                Arc::new(LoadedKit::empty(id))
+            }
+        };
+        self.loaded.insert(id.to_string(), Arc::clone(&kit));
+        kit
+    }
+
+    /// Why `get` came back empty for `id`, if it did.
+    fn problem(&self, id: &str) -> Option<&str> {
+        self.failed.get(id).map(String::as_str)
     }
 }
 
@@ -767,6 +1063,10 @@ pub struct Engine {
     /// Which pedals have an editor open, for the status from any thread.
     open_editors: HashSet<PedalId>,
     catalog: Catalog,
+    kits: Kits,
+    /// The pattern looping on a drum track for editing. Session state,
+    /// not part of the project.
+    audition: Option<(TrackId, PatternId)>,
     recording: Vec<Recording>,
     last_error: Option<String>,
     notice: Option<String>,
@@ -818,6 +1118,11 @@ impl Engine {
             None => Settings::default(),
         };
         let projects = Projects::locate(&app);
+        let mut kit_problems = Vec::new();
+        let kits = Kits::discover(kit_roots(&app, &projects), &mut kit_problems);
+        if !kit_problems.is_empty() {
+            last_error = Some(format!("kits: {}", kit_problems.join("; ")));
+        }
         let (project, project_dir) = match projects
             .open_last_or_untitled(settings.last_project.as_deref(), settings.audio.sample_rate)
         {
@@ -846,6 +1151,8 @@ impl Engine {
             editors: MainThreadCell(HashMap::new()),
             open_editors: HashSet::new(),
             catalog: Catalog::default(),
+            kits,
+            audition: None,
             recording: Vec::new(),
             last_error,
             notice: None,
@@ -925,6 +1232,19 @@ impl Engine {
                 scanned_at: self.plugins.scanned_at,
             },
             latency: self.latency_status(),
+            kits: self
+                .kits
+                .entries()
+                .iter()
+                .map(|k| KitInfo {
+                    id: k.id.clone(),
+                    name: k.name.clone(),
+                })
+                .collect(),
+            audition: self.audition.map(|(track, pattern)| AuditionStatus {
+                track: track.0,
+                pattern: pattern.0,
+            }),
         }
     }
 
@@ -1044,6 +1364,7 @@ impl Engine {
                     name: t.name.clone(),
                     armed: t.armed,
                     recording: self.recording.iter().any(|r| r.track == t.id),
+                    kit: t.kit.as_deref().map(|id| self.kit_status(id)),
                     chain: t
                         .chain
                         .iter()
@@ -1078,7 +1399,69 @@ impl Engine {
                     latency_frames: t.chain.iter().map(|p| self.pedal_latency(p.id)).sum(),
                 })
                 .collect(),
+            patterns: p
+                .patterns
+                .iter()
+                .map(|q| PatternInfo {
+                    id: q.id.0,
+                    name: q.name.clone(),
+                    steps_per_beat: q.steps_per_beat,
+                    length: q.length,
+                    swing: q.swing,
+                    rows: q.rows.clone(),
+                })
+                .collect(),
             master: p.master.clone(),
+        }
+    }
+
+    /// A kit as a track's status shows it. The pads come from the loaded
+    /// kit when it is loaded, else from its file, so the grid has rows
+    /// before the stream opens.
+    fn kit_status(&self, id: &str) -> KitStatus {
+        if let Some(loaded) = self.kits.loaded.get(id) {
+            return KitStatus {
+                id: id.to_string(),
+                name: loaded.name.clone(),
+                pads: loaded
+                    .pads()
+                    .iter()
+                    .map(|p| PadInfo {
+                        id: p.id.clone(),
+                        name: p.name.clone(),
+                    })
+                    .collect(),
+                missing: self.kits.problem(id).is_some(),
+            };
+        }
+        match self.kits.entry(id) {
+            Some(entry) => {
+                let pads = std::fs::read_to_string(entry.path.join(kit::KIT_FILE))
+                    .ok()
+                    .and_then(|text| cantina_dsp::Kit::from_json(&text).ok())
+                    .map(|k| {
+                        k.pads
+                            .into_iter()
+                            .map(|p| PadInfo {
+                                id: p.id,
+                                name: p.name,
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                KitStatus {
+                    id: id.to_string(),
+                    name: entry.name.clone(),
+                    pads,
+                    missing: false,
+                }
+            }
+            None => KitStatus {
+                id: id.to_string(),
+                name: id.to_string(),
+                pads: Vec::new(),
+                missing: true,
+            },
         }
     }
 
@@ -1217,9 +1600,11 @@ impl Engine {
                 Ok(())
             }
             Command::ArmTrack { id, armed } => {
-                let mute = live.track(*id)?.mute;
-                live.controller
-                    .set_param(mute, 0, if *armed { 1.0 } else { 0.0 });
+                if let Source::Audio { mute, .. } = &live.track(*id)?.source {
+                    let mute = *mute;
+                    live.controller
+                        .set_param(mute, 0, if *armed { 1.0 } else { 0.0 });
+                }
                 Ok(())
             }
             Command::RenameTrack { .. } | Command::SetTempo { .. } => {
@@ -1235,6 +1620,17 @@ impl Engine {
                 live.apply_strips(&self.project);
                 Ok(())
             }
+            Command::InsertPattern { .. }
+            | Command::RemovePattern { .. }
+            | Command::RenamePattern { .. }
+            | Command::SetPatternStep { .. }
+            | Command::SetPatternLength { .. }
+            | Command::SetPatternResolution { .. }
+            | Command::SetPatternSwing { .. }
+            | Command::ReplacePattern { .. } => {
+                self.check_audition();
+                self.refresh_scores()
+            }
             Command::Batch { commands } if commands.iter().all(is_light) => {
                 for c in commands {
                     self.react(c)?;
@@ -1247,20 +1643,189 @@ impl Engine {
 
     /// Rebuilds the graph's structure from the project.
     fn sync(&mut self) -> Result<()> {
+        self.check_audition();
         let Some(live) = &mut self.live else {
             return Ok(());
         };
         let audio_dir = cantina_project::audio_dir(&self.project_dir);
         let mut removed = Vec::new();
         let result = live.sync(
-            &self.project,
-            &mut self.catalog,
-            &audio_dir,
-            &self.plugin_states,
+            SyncContext {
+                project: &self.project,
+                catalog: &mut self.catalog,
+                kits: &mut self.kits,
+                audition: self.audition,
+                audio_dir: &audio_dir,
+                states: &self.plugin_states,
+            },
             &mut removed,
         );
         self.close_editors(removed);
         result
+    }
+
+    /// Sends every drum track its score after a pattern edit.
+    fn refresh_scores(&mut self) -> Result<()> {
+        let Some(live) = &mut self.live else {
+            return Ok(());
+        };
+        live.refresh_scores(&self.project, &mut self.kits, self.audition)
+    }
+
+    /// Drops an audition whose track or pattern is gone.
+    fn check_audition(&mut self) {
+        if let Some((track, pattern)) = self.audition {
+            let valid = self.project.track(track).is_some_and(|t| t.is_drums())
+                && self.project.pattern(pattern).is_some();
+            if !valid {
+                self.audition = None;
+            }
+        }
+    }
+
+    // ----- drums -----
+
+    /// Adds a drum track playing `kit`, or the first installed kit.
+    pub fn track_add_drums(&mut self, kit: Option<String>) -> Result<EngineStatus> {
+        let kit = match kit {
+            Some(k) => k,
+            None => self
+                .kits
+                .entries()
+                .first()
+                .map(|k| k.id.clone())
+                .context("no drum kits are installed")?,
+        };
+        if self.kits.entry(&kit).is_none() {
+            bail!("no kit {kit:?} is installed");
+        }
+        let id = TrackId(self.project.fresh_id());
+        let drums = self.project.tracks.iter().filter(|t| t.is_drums()).count();
+        let name = if drums == 0 {
+            "Drums".to_string()
+        } else {
+            format!("Drums {}", drums + 1)
+        };
+        self.apply(Command::InsertTrack {
+            index: usize::MAX,
+            track: Track::drums(id, name, kit),
+        })
+    }
+
+    /// Changes a drum track's kit.
+    pub fn track_set_kit(&mut self, id: u64, kit: String) -> Result<EngineStatus> {
+        if self.kits.entry(&kit).is_none() {
+            bail!("no kit {kit:?} is installed");
+        }
+        self.apply(Command::SetTrackKit {
+            id: TrackId(id),
+            kit,
+        })
+    }
+
+    /// Looks for kits again, for one installed while the app runs.
+    pub fn kits_rescan(&mut self) -> EngineStatus {
+        let mut problems = Vec::new();
+        self.kits.rescan(&mut problems);
+        if !problems.is_empty() {
+            self.last_error = Some(format!("kits: {}", problems.join("; ")));
+        }
+        self.publish()
+    }
+
+    /// Adds an empty one-bar pattern of sixteenths.
+    pub fn pattern_add(&mut self, name: Option<String>) -> Result<EngineStatus> {
+        let id = PatternId(self.project.fresh_id());
+        let name = name
+            .map(|n| n.trim().to_string())
+            .filter(|n| !n.is_empty())
+            .unwrap_or_else(|| format!("Pattern {}", self.project.patterns.len() + 1));
+        self.apply(Command::InsertPattern {
+            index: usize::MAX,
+            pattern: Pattern::new(id, name),
+        })
+    }
+
+    pub fn pattern_remove(&mut self, id: u64) -> Result<EngineStatus> {
+        self.apply(Command::RemovePattern { id: PatternId(id) })
+    }
+
+    pub fn pattern_rename(&mut self, id: u64, name: String) -> Result<EngineStatus> {
+        let name = name.trim().to_string();
+        if name.is_empty() {
+            bail!("a pattern needs a name");
+        }
+        self.apply(Command::RenamePattern {
+            id: PatternId(id),
+            name,
+        })
+    }
+
+    /// Sets one cell of a pattern: a velocity from 0 (clear) to 1.
+    pub fn pattern_set_step(
+        &mut self,
+        id: u64,
+        pad: String,
+        step: usize,
+        velocity: f32,
+    ) -> Result<EngineStatus> {
+        self.apply(Command::SetPatternStep {
+            pattern: PatternId(id),
+            pad,
+            step,
+            velocity: velocity.clamp(0.0, 1.0),
+        })
+    }
+
+    pub fn pattern_set_length(&mut self, id: u64, length: u16) -> Result<EngineStatus> {
+        self.apply(Command::SetPatternLength {
+            id: PatternId(id),
+            length,
+        })
+    }
+
+    pub fn pattern_set_resolution(&mut self, id: u64, steps_per_beat: u8) -> Result<EngineStatus> {
+        self.apply(Command::SetPatternResolution {
+            id: PatternId(id),
+            steps_per_beat,
+        })
+    }
+
+    /// Sets a pattern's swing. Not published: the slider is continuous
+    /// and the UI shows what it sent.
+    pub fn pattern_set_swing(&mut self, id: u64, swing: f32) -> Result<()> {
+        self.apply_quietly(Command::SetPatternSwing {
+            id: PatternId(id),
+            swing: swing.clamp(0.0, 1.0),
+        })
+    }
+
+    /// Loops `pattern` on `track` from the start while the transport
+    /// plays, for editing it by ear; `None` stops. Not an edit: nothing
+    /// is recorded or saved.
+    pub fn pattern_audition(
+        &mut self,
+        track: Option<u64>,
+        pattern: Option<u64>,
+    ) -> Result<EngineStatus> {
+        self.audition = match (track, pattern) {
+            (Some(t), Some(p)) => {
+                let track = self
+                    .project
+                    .track(TrackId(t))
+                    .with_context(|| format!("no track {t}"))?;
+                if !track.is_drums() {
+                    bail!("{} is not a drum track", track.name);
+                }
+                self.project
+                    .pattern(PatternId(p))
+                    .with_context(|| format!("no pattern {p}"))?;
+                Some((TrackId(t), PatternId(p)))
+            }
+            _ => None,
+        };
+        self.refresh_scores()?;
+        Ok(self.publish())
     }
 
     // ----- editor windows -----
@@ -1592,6 +2157,11 @@ impl Engine {
     /// Arms or disarms a track. Armed, its input is monitored through
     /// the chain and it records when the transport records.
     pub fn track_arm(&mut self, id: u64, armed: bool) -> Result<EngineStatus> {
+        if let Some(track) = self.project.track(TrackId(id)) {
+            if track.is_drums() && armed {
+                bail!("{} is a drum track and has no input to record", track.name);
+            }
+        }
         self.apply(Command::ArmTrack {
             id: TrackId(id),
             armed,
@@ -1694,7 +2264,7 @@ impl Engine {
             .project
             .tracks
             .iter()
-            .filter(|t| t.armed)
+            .filter(|t| t.armed && !t.is_drums())
             .map(|t| (t.id, t.name.clone()))
             .collect();
         if armed.is_empty() {
@@ -1716,7 +2286,8 @@ impl Engine {
         for (track, track_name) in armed {
             let (file, name) = take_name(&audio_dir, &track_name);
             live.track_mut(track)?
-                .recorder
+                .recorder()
+                .context("a drum track cannot record")?
                 .start(audio_dir.join(&file), from)?;
             self.recording.push(Recording {
                 track,
@@ -2125,7 +2696,9 @@ impl Engine {
                     .recording
                     .store(false, Ordering::Relaxed);
                 for track in &mut live.tracks {
-                    let _ = track.recorder.stop();
+                    if let Some(recorder) = track.recorder() {
+                        let _ = recorder.stop();
+                    }
                 }
             }
             live.stream.close();
@@ -2269,7 +2842,37 @@ fn is_light(command: &Command) -> bool {
             | Command::SetPan { .. }
             | Command::SetMute { .. }
             | Command::SetSolo { .. }
+            | Command::InsertPattern { .. }
+            | Command::RemovePattern { .. }
+            | Command::RenamePattern { .. }
+            | Command::SetPatternStep { .. }
+            | Command::SetPatternLength { .. }
+            | Command::SetPatternResolution { .. }
+            | Command::SetPatternSwing { .. }
+            | Command::ReplacePattern { .. }
     )
+}
+
+/// Where kits live: the user's `Kits` folder next to the projects, which
+/// wins, then the kits that ship with the app (`kits/` in the app's
+/// resources, or the repository's `kits/` in a development build), and
+/// anything `CANTINA_KITS` names.
+fn kit_roots(app: &AppHandle, projects: &Projects) -> Vec<PathBuf> {
+    let mut roots = vec![projects.kits_dir()];
+    if let Some(extra) = std::env::var_os("CANTINA_KITS") {
+        roots.extend(std::env::split_paths(&extra));
+    }
+    if let Ok(resources) = app.path().resource_dir() {
+        roots.push(resources.join("kits"));
+    }
+    if cfg!(debug_assertions) {
+        roots.push(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("kits"),
+        );
+    }
+    roots
 }
 
 fn tempo_map(tempo: &Tempo) -> TempoMap {
@@ -2302,11 +2905,14 @@ fn take_name(audio_dir: &Path, track_name: &str) -> (String, String) {
 /// Stops a track's recorder, waits for the writer to finalize the file
 /// and returns its length in frames.
 fn finish_take(live: &mut Live, take: &Recording, audio_dir: &Path) -> Result<u64> {
-    let track = live.track_mut(take.track)?;
-    let closed_before = track.recorder.stats().files_closed.load(Ordering::Relaxed);
-    track.recorder.stop()?;
+    let recorder = live
+        .track_mut(take.track)?
+        .recorder()
+        .context("a drum track cannot record")?;
+    let closed_before = recorder.stats().files_closed.load(Ordering::Relaxed);
+    recorder.stop()?;
     let deadline = Instant::now() + TAKE_CLOSE_TIMEOUT;
-    while track.recorder.stats().files_closed.load(Ordering::Relaxed) == closed_before {
+    while recorder.stats().files_closed.load(Ordering::Relaxed) == closed_before {
         if Instant::now() > deadline {
             bail!("the take did not finish writing in time");
         }

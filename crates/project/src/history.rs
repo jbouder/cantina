@@ -176,7 +176,9 @@ impl History {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{Clip, ClipId, Pedal, PedalId, Strip, Tempo, Track, TrackId};
+    use crate::model::{
+        Clip, ClipId, Pattern, PatternId, Pedal, PedalId, Strip, Tempo, Track, TrackId,
+    };
     use proptest::prelude::*;
 
     fn project() -> Project {
@@ -365,6 +367,14 @@ mod tests {
         Pan(usize, f32),
         Mute(Option<usize>, bool),
         Solo(usize, bool),
+        Kit(usize, u8),
+        AddPattern(u8),
+        RemovePattern(usize),
+        RenamePattern(usize, u8),
+        Step(usize, u8, u8, f32),
+        Length(usize, u8),
+        Resolution(usize, u8),
+        Swing(usize, f32),
         Batch(Vec<Op>),
     }
 
@@ -390,6 +400,15 @@ mod tests {
             (0..4usize, -1.0f32..1.0).prop_map(|(t, v)| Op::Pan(t, v)),
             (proptest::option::of(0..4usize), any::<bool>()).prop_map(|(t, v)| Op::Mute(t, v)),
             (0..4usize, any::<bool>()).prop_map(|(t, v)| Op::Solo(t, v)),
+            (0..4usize, any::<u8>()).prop_map(|(t, k)| Op::Kit(t, k)),
+            any::<u8>().prop_map(Op::AddPattern),
+            (0..4usize).prop_map(Op::RemovePattern),
+            (0..4usize, any::<u8>()).prop_map(|(p, n)| Op::RenamePattern(p, n)),
+            (0..4usize, 0..3u8, 0..40u8, 0.0f32..1.0)
+                .prop_map(|(p, pad, s, v)| Op::Step(p, pad, s, v)),
+            (0..4usize, 1..40u8).prop_map(|(p, l)| Op::Length(p, l)),
+            (0..4usize, 0..9u8).prop_map(|(p, r)| Op::Resolution(p, r)),
+            (0..4usize, 0.0f32..1.0).prop_map(|(p, v)| Op::Swing(p, v)),
         ];
         leaf.prop_recursive(2, 6, 3, |inner| {
             proptest::collection::vec(inner, 1..4).prop_map(Op::Batch)
@@ -416,6 +435,10 @@ mod tests {
             .map_or(PedalId(9999), |c| c.id)
     }
 
+    fn nth_pattern(p: &Project, i: usize) -> PatternId {
+        p.patterns.get(i).map_or(PatternId(9999), |c| c.id)
+    }
+
     /// Turns an op into a command against the current project. `extra`
     /// offsets fresh ids so the commands of one batch do not collide.
     fn resolve(p: &Project, op: &Op, extra: &mut u64) -> Command {
@@ -426,7 +449,11 @@ mod tests {
         match op {
             Op::AddTrack(n) => Command::InsertTrack {
                 index: *n as usize,
-                track: Track::new(TrackId(fresh(extra)), format!("T{n}")),
+                track: if n % 3 == 0 {
+                    Track::drums(TrackId(fresh(extra)), format!("D{n}"), "acoustic")
+                } else {
+                    Track::new(TrackId(fresh(extra)), format!("T{n}"))
+                },
             },
             Op::RemoveTrack(i) => Command::RemoveTrack {
                 id: nth_track(p, *i),
@@ -519,6 +546,39 @@ mod tests {
             Op::Solo(t, v) => Command::SetSolo {
                 track: nth_track(p, *t),
                 on: *v,
+            },
+            Op::Kit(t, k) => Command::SetTrackKit {
+                id: nth_track(p, *t),
+                kit: format!("kit{k}"),
+            },
+            Op::AddPattern(n) => Command::InsertPattern {
+                index: *n as usize,
+                pattern: Pattern::new(PatternId(fresh(extra)), format!("P{n}")),
+            },
+            Op::RemovePattern(i) => Command::RemovePattern {
+                id: nth_pattern(p, *i),
+            },
+            Op::RenamePattern(i, n) => Command::RenamePattern {
+                id: nth_pattern(p, *i),
+                name: format!("P{n}"),
+            },
+            Op::Step(i, pad, s, v) => Command::SetPatternStep {
+                pattern: nth_pattern(p, *i),
+                pad: ["kick", "snare", "hh-closed"][*pad as usize].into(),
+                step: *s as usize,
+                velocity: *v,
+            },
+            Op::Length(i, l) => Command::SetPatternLength {
+                id: nth_pattern(p, *i),
+                length: *l as u16,
+            },
+            Op::Resolution(i, r) => Command::SetPatternResolution {
+                id: nth_pattern(p, *i),
+                steps_per_beat: *r,
+            },
+            Op::Swing(i, v) => Command::SetPatternSwing {
+                id: nth_pattern(p, *i),
+                swing: *v,
             },
             Op::Batch(ops) => Command::Batch {
                 commands: ops.iter().map(|o| resolve(p, o, extra)).collect(),

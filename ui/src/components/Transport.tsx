@@ -17,16 +17,26 @@ type Props = {
   running: boolean;
   /** Timeline position in seconds, from the meter frames. */
   position: number;
+  /** True when a drum pattern is looping on a track, which is something to play. */
+  auditioning: boolean;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
 };
 
 /** Record, play and stop for the whole project, with the position. */
-export function Transport({ transport, tracks, running, position, onStatus, onError }: Props) {
+export function Transport({
+  transport,
+  tracks,
+  running,
+  position,
+  auditioning,
+  onStatus,
+  onError,
+}: Props) {
   const run = (action: Promise<EngineStatus>) => action.then(onStatus, (e) => onError(String(e)));
   const rolling = transport.playing || transport.recording;
-  const armed = tracks.filter((t) => t.armed);
-  const hasClips = tracks.some((t) => t.clips.length > 0);
+  const armed = tracks.filter((t) => t.armed && !t.kit);
+  const hasClips = auditioning || tracks.some((t) => t.clips.length > 0);
   const note = transport.recording
     ? `Recording ${armed.map((t) => t.name).join(", ")}…`
     : armed.length === 0

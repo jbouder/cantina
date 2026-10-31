@@ -19,6 +19,7 @@ import {
   type TrackStatus,
   tempoSet,
   trackAdd,
+  trackAddDrums,
   trackArm,
   transportLocate,
 } from "../lib/engine";
@@ -56,6 +57,8 @@ type Props = {
   playing: boolean;
   running: boolean;
   selectedTrack: number | null;
+  /** Whether a drum track can be added: at least one kit is installed. */
+  hasKits: boolean;
   onSelectTrack: (id: number) => void;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
@@ -113,6 +116,7 @@ export function Timeline({
   playing,
   running,
   selectedTrack,
+  hasKits,
   onSelectTrack,
   onStatus,
   onError,
@@ -539,20 +543,41 @@ export function Timeline({
               >
                 {t.name}
               </button>
-              <button
-                type="button"
-                aria-pressed={t.armed}
-                aria-label={`Arm ${t.name}`}
-                onClick={() => run(trackArm(t.id, !t.armed))}
-                className="grid size-11 shrink-0 place-items-center border-0 bg-transparent"
-              >
-                <Led on={t.recording || t.armed} tone="record" label="Armed" />
-              </button>
+              {t.kit ? (
+                <span
+                  role="img"
+                  aria-label="Drum track"
+                  title={t.kit.name}
+                  className="grid size-11 shrink-0 place-items-center text-lcd-fg"
+                >
+                  <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
+                    <path d="M8 2c3.3 0 6 1.1 6 2.5v6C14 12.9 11.3 14 8 14s-6-1.1-6-3.5v-6C2 3.1 4.7 2 8 2zm0 1.5c-2.8 0-4.5.8-4.5 1s1.7 1 4.5 1 4.5-.8 4.5-1-1.7-1-4.5-1z" />
+                  </svg>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  aria-pressed={t.armed}
+                  aria-label={`Arm ${t.name}`}
+                  onClick={() => run(trackArm(t.id, !t.armed))}
+                  className="grid size-11 shrink-0 place-items-center border-0 bg-transparent"
+                >
+                  <Led on={t.recording || t.armed} tone="record" label="Armed" />
+                </button>
+              )}
             </div>
           ))}
-          <div className="p-1">
+          <div className="grid gap-1 p-1">
             <Button onClick={() => run(trackAdd())} className="w-full">
               Add track
+            </Button>
+            <Button
+              onClick={() => run(trackAddDrums())}
+              disabled={!hasKits}
+              title={hasKits ? "A track that plays drum patterns" : "No drum kits are installed"}
+              className="w-full"
+            >
+              Add drums
             </Button>
           </div>
         </div>

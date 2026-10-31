@@ -11,7 +11,10 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::model::{Clip, ClipId, Pedal, PedalId, Project, Strip, Tempo, Track, TrackId};
+use crate::model::{
+    Clip, ClipId, Pattern, PatternId, PatternRow, Pedal, PedalId, Project, Strip, Tempo, Track,
+    TrackId, MAX_PATTERN_STEPS,
+};
 
 /// Why a command was refused. The project is unchanged when one of these
 /// comes back.
@@ -23,6 +26,8 @@ pub enum CommandError {
     NoClip(ClipId),
     #[error("no pedal {0}")]
     NoPedal(PedalId),
+    #[error("no pattern {0}")]
+    NoPattern(PatternId),
     #[error("pedal {pedal} has no parameter {param}")]
     NoParam { pedal: PedalId, param: usize },
     #[error("id {0} is already in use")]
@@ -123,6 +128,51 @@ pub enum Command {
         track: TrackId,
         on: bool,
     },
+    /// Changes a drum track's kit. Refused on an audio track.
+    SetTrackKit {
+        id: TrackId,
+        kit: String,
+    },
+    /// Adds a pattern at `index` (clamped to the end).
+    InsertPattern {
+        index: usize,
+        pattern: Pattern,
+    },
+    RemovePattern {
+        id: PatternId,
+    },
+    RenamePattern {
+        id: PatternId,
+        name: String,
+    },
+    /// Sets one cell. A velocity of zero clears it; a row with no hits
+    /// left is dropped, and a hit on a pad with no row makes one.
+    SetPatternStep {
+        pattern: PatternId,
+        pad: String,
+        step: usize,
+        velocity: f32,
+    },
+    /// Sets the step count. Rows are cut or padded with silence; the
+    /// inverse carries the rows as they were.
+    SetPatternLength {
+        id: PatternId,
+        length: u16,
+    },
+    /// Steps per beat: 1, 2, 3, 4, 6 or 8. The steps keep their
+    /// velocities and play faster or slower.
+    SetPatternResolution {
+        id: PatternId,
+        steps_per_beat: u8,
+    },
+    SetPatternSwing {
+        id: PatternId,
+        swing: f32,
+    },
+    /// Replaces a pattern whole. The inverse of a length change.
+    ReplacePattern {
+        pattern: Pattern,
+    },
     /// Several commands as one edit. Applied in order; the inverse
     /// reverts them in reverse.
     Batch {
@@ -155,6 +205,16 @@ impl Command {
             Command::SetPan { .. } => "change pan".into(),
             Command::SetMute { on, .. } => if *on { "mute" } else { "unmute" }.into(),
             Command::SetSolo { on, .. } => if *on { "solo" } else { "unsolo" }.into(),
+            Command::SetTrackKit { kit, .. } => format!("change kit to {kit}"),
+            Command::InsertPattern { pattern, .. } => format!("add pattern {}", pattern.name),
+            Command::RemovePattern { .. } => "remove pattern".into(),
+            Command::RenamePattern { name, .. } => format!("rename pattern to {name}"),
+            Command::SetPatternStep { velocity, .. } if *velocity > 0.0 => "set step".into(),
+            Command::SetPatternStep { .. } => "clear step".into(),
+            Command::SetPatternLength { .. } => "change pattern length".into(),
+            Command::SetPatternResolution { .. } => "change step resolution".into(),
+            Command::SetPatternSwing { .. } => "change swing".into(),
+            Command::ReplacePattern { .. } => "edit pattern".into(),
             Command::Batch { commands } => commands
                 .first()
                 .map_or_else(|| "edit".into(), Command::label),
@@ -169,6 +229,10 @@ impl Command {
             Command::SetTempo { .. } => Some("tempo".into()),
             Command::SetGain { track, .. } => Some(format!("gain:{}", strip_key(*track))),
             Command::SetPan { track, .. } => Some(format!("pan:{track}")),
+            Command::SetPatternStep {
+                pattern, pad, step, ..
+            } => Some(format!("step:{pattern}:{pad}:{step}")),
+            Command::SetPatternSwing { id, .. } => Some(format!("swing:{id}")),
             _ => None,
         }
     }
@@ -224,7 +288,7 @@ impl Command {
                 ensure_fresh(project, clip.id.0)?;
                 let t = track_mut(project, *track)?;
                 t.clips.push(clip.clone());
-                t.clips.sort_by_key(|c| c.start);
+                t.clips.sort_by_key(|c| (c.start, c.id));
                 Ok(Command::RemoveClip { id: clip.id })
             }
             Command::RemoveClip { id } => {
@@ -244,7 +308,7 @@ impl Command {
                 clip.start = *start;
                 let dest = &mut project.tracks[to];
                 dest.clips.push(clip);
-                dest.clips.sort_by_key(|c| c.start);
+                dest.clips.sort_by_key(|c| (c.start, c.id));
                 Ok(Command::MoveClip {
                     id: *id,
                     track: from_id,
@@ -274,7 +338,7 @@ impl Command {
                 clip.start = *start;
                 clip.offset = *offset;
                 clip.length = *length;
-                clips.sort_by_key(|c| c.start);
+                clips.sort_by_key(|c| (c.start, c.id));
                 Ok(inverse)
             }
             Command::SplitClip { id, at, new_id } => {
@@ -307,6 +371,7 @@ impl Command {
                 };
                 clip.length = left;
                 clips.insert(index + 1, right);
+                clips.sort_by_key(|c| (c.start, c.id));
                 Ok(Command::Batch {
                     commands: vec![Command::RemoveClip { id: *new_id }, original],
                 })
@@ -417,6 +482,140 @@ impl Command {
                     on: was,
                 })
             }
+            Command::SetTrackKit { id, kit } => {
+                if kit.is_empty() || kit.contains(['/', '\\']) {
+                    return Err(CommandError::Invalid(format!("{kit:?} is not a kit id")));
+                }
+                let track = track_mut(project, *id)?;
+                let Some(slot) = track.kit.as_mut() else {
+                    return Err(CommandError::Invalid(format!(
+                        "track {} is an audio track and has no kit",
+                        track.name
+                    )));
+                };
+                let was = std::mem::replace(slot, kit.clone());
+                Ok(Command::SetTrackKit { id: *id, kit: was })
+            }
+            Command::InsertPattern { index, pattern } => {
+                check_pattern(pattern)?;
+                ensure_fresh(project, pattern.id.0)?;
+                let index = (*index).min(project.patterns.len());
+                let mut pattern = pattern.clone();
+                pattern.rows.sort_by(|a, b| a.pad.cmp(&b.pad));
+                project.patterns.insert(index, pattern);
+                Ok(Command::RemovePattern {
+                    id: pattern_id_at(project, index),
+                })
+            }
+            Command::RemovePattern { id } => {
+                let index = pattern_index(project, *id)?;
+                let pattern = project.patterns.remove(index);
+                Ok(Command::InsertPattern { index, pattern })
+            }
+            Command::RenamePattern { id, name } => {
+                if name.is_empty() {
+                    return Err(CommandError::Invalid("a pattern needs a name".into()));
+                }
+                let pattern = pattern_mut(project, *id)?;
+                let was = std::mem::replace(&mut pattern.name, name.clone());
+                Ok(Command::RenamePattern { id: *id, name: was })
+            }
+            Command::SetPatternStep {
+                pattern,
+                pad,
+                step,
+                velocity,
+            } => {
+                if !velocity.is_finite() || !(0.0..=1.0).contains(velocity) {
+                    return Err(CommandError::Invalid(format!(
+                        "{velocity} is not a velocity between 0 and 1"
+                    )));
+                }
+                if pad.is_empty() {
+                    return Err(CommandError::Invalid("a step needs a pad".into()));
+                }
+                let p = pattern_mut(project, *pattern)?;
+                if *step >= p.length as usize {
+                    return Err(CommandError::Invalid(format!(
+                        "step {step} is past the end of a {}-step pattern",
+                        p.length
+                    )));
+                }
+                let was = p.velocity(pad, *step);
+                match p.rows.iter().position(|r| &r.pad == pad) {
+                    Some(i) => {
+                        p.rows[i].steps[*step] = *velocity;
+                        if p.rows[i].steps.iter().all(|v| *v == 0.0) {
+                            p.rows.remove(i);
+                        }
+                    }
+                    None if *velocity > 0.0 => {
+                        let mut steps = vec![0.0; p.length as usize];
+                        steps[*step] = *velocity;
+                        p.rows.push(PatternRow {
+                            pad: pad.clone(),
+                            steps,
+                        });
+                        p.rows.sort_by(|a, b| a.pad.cmp(&b.pad));
+                    }
+                    None => {}
+                }
+                Ok(Command::SetPatternStep {
+                    pattern: *pattern,
+                    pad: pad.clone(),
+                    step: *step,
+                    velocity: was,
+                })
+            }
+            Command::SetPatternLength { id, length } => {
+                if *length == 0 || *length as usize > MAX_PATTERN_STEPS {
+                    return Err(CommandError::Invalid(format!(
+                        "a pattern has 1 to {MAX_PATTERN_STEPS} steps, not {length}"
+                    )));
+                }
+                let p = pattern_mut(project, *id)?;
+                let was = p.clone();
+                p.length = *length;
+                for row in &mut p.rows {
+                    row.steps.resize(*length as usize, 0.0);
+                }
+                p.rows.retain(|r| r.steps.iter().any(|v| *v > 0.0));
+                Ok(Command::ReplacePattern { pattern: was })
+            }
+            Command::SetPatternResolution { id, steps_per_beat } => {
+                if !matches!(steps_per_beat, 1 | 2 | 3 | 4 | 6 | 8) {
+                    return Err(CommandError::Invalid(format!(
+                        "{steps_per_beat} steps per beat; 1, 2, 3, 4, 6 or 8 are allowed"
+                    )));
+                }
+                let p = pattern_mut(project, *id)?;
+                let was = std::mem::replace(&mut p.steps_per_beat, *steps_per_beat);
+                Ok(Command::SetPatternResolution {
+                    id: *id,
+                    steps_per_beat: was,
+                })
+            }
+            Command::SetPatternSwing { id, swing } => {
+                if !swing.is_finite() || !(0.0..=1.0).contains(swing) {
+                    return Err(CommandError::Invalid(format!(
+                        "{swing} is not a swing between 0 and 1"
+                    )));
+                }
+                let p = pattern_mut(project, *id)?;
+                let was = std::mem::replace(&mut p.swing, *swing);
+                Ok(Command::SetPatternSwing {
+                    id: *id,
+                    swing: was,
+                })
+            }
+            Command::ReplacePattern { pattern } => {
+                check_pattern(pattern)?;
+                let index = pattern_index(project, pattern.id)?;
+                let mut pattern = pattern.clone();
+                pattern.rows.sort_by(|a, b| a.pad.cmp(&b.pad));
+                let was = std::mem::replace(&mut project.patterns[index], pattern);
+                Ok(Command::ReplacePattern { pattern: was })
+            }
             Command::Batch { commands } => {
                 let mut inverses = Vec::with_capacity(commands.len());
                 for command in commands {
@@ -475,6 +674,29 @@ fn clip_index(project: &Project, id: ClipId) -> Result<(usize, usize), CommandEr
         .enumerate()
         .find_map(|(t, track)| track.clips.iter().position(|c| c.id == id).map(|c| (t, c)))
         .ok_or(CommandError::NoClip(id))
+}
+
+fn pattern_index(project: &Project, id: PatternId) -> Result<usize, CommandError> {
+    project
+        .patterns
+        .iter()
+        .position(|p| p.id == id)
+        .ok_or(CommandError::NoPattern(id))
+}
+
+fn pattern_id_at(project: &Project, index: usize) -> PatternId {
+    project.patterns[index].id
+}
+
+fn pattern_mut(project: &mut Project, id: PatternId) -> Result<&mut Pattern, CommandError> {
+    project.pattern_mut(id).ok_or(CommandError::NoPattern(id))
+}
+
+/// A pattern must be valid on its own before it goes in.
+fn check_pattern(pattern: &Pattern) -> Result<(), CommandError> {
+    let mut scratch = Project::new("check", 48_000.0);
+    scratch.patterns.push(pattern.clone());
+    scratch.validate().map_err(CommandError::Invalid)
 }
 
 fn pedal_index(project: &Project, id: PedalId) -> Result<(usize, usize), CommandError> {
@@ -817,6 +1039,185 @@ mod tests {
             .coalesce_key()
             .as_deref(),
             Some("gain:master")
+        );
+    }
+
+    #[test]
+    fn patterns() {
+        let mut p = project();
+        p.tracks.push(Track::drums(TrackId(7), "Drums", "acoustic"));
+        let beat = Pattern::new(PatternId(8), "Beat");
+        let added = round_trip(
+            &p,
+            Command::InsertPattern {
+                index: 0,
+                pattern: beat.clone(),
+            },
+        );
+        assert_eq!(added.patterns[0].id, PatternId(8));
+        round_trip(&added, Command::RemovePattern { id: PatternId(8) });
+        round_trip(
+            &added,
+            Command::RenamePattern {
+                id: PatternId(8),
+                name: "Verse".into(),
+            },
+        );
+        let hit = round_trip(
+            &added,
+            Command::SetPatternStep {
+                pattern: PatternId(8),
+                pad: "snare".into(),
+                step: 4,
+                velocity: 0.9,
+            },
+        );
+        assert_eq!(hit.patterns[0].rows.len(), 1, "a row appears for the pad");
+        assert_eq!(hit.patterns[0].velocity("snare", 4), 0.9);
+        let two = round_trip(
+            &hit,
+            Command::SetPatternStep {
+                pattern: PatternId(8),
+                pad: "kick".into(),
+                step: 0,
+                velocity: 1.0,
+            },
+        );
+        let pads: Vec<&str> = two.patterns[0]
+            .rows
+            .iter()
+            .map(|r| r.pad.as_str())
+            .collect();
+        assert_eq!(pads, ["kick", "snare"], "rows stay sorted by pad");
+        let cleared = round_trip(
+            &two,
+            Command::SetPatternStep {
+                pattern: PatternId(8),
+                pad: "kick".into(),
+                step: 0,
+                velocity: 0.0,
+            },
+        );
+        assert_eq!(cleared.patterns[0].rows.len(), 1, "an empty row goes away");
+        // Clearing a cell that is already clear changes nothing, which
+        // is not an error.
+        let mut same = cleared.clone();
+        Command::SetPatternStep {
+            pattern: PatternId(8),
+            pad: "ride".into(),
+            step: 1,
+            velocity: 0.0,
+        }
+        .apply(&mut same)
+        .unwrap();
+        assert_eq!(same, cleared);
+        let shorter = round_trip(
+            &two,
+            Command::SetPatternLength {
+                id: PatternId(8),
+                length: 4,
+            },
+        );
+        assert_eq!(shorter.patterns[0].length, 4);
+        assert_eq!(
+            shorter.patterns[0].rows.len(),
+            1,
+            "the snare at step 4 was cut"
+        );
+        assert_eq!(shorter.patterns[0].rows[0].steps.len(), 4);
+        let longer = round_trip(
+            &two,
+            Command::SetPatternLength {
+                id: PatternId(8),
+                length: 32,
+            },
+        );
+        assert_eq!(longer.patterns[0].rows[0].steps.len(), 32);
+        round_trip(
+            &two,
+            Command::SetPatternResolution {
+                id: PatternId(8),
+                steps_per_beat: 8,
+            },
+        );
+        round_trip(
+            &two,
+            Command::SetPatternSwing {
+                id: PatternId(8),
+                swing: 0.5,
+            },
+        );
+        round_trip(
+            &p,
+            Command::SetTrackKit {
+                id: TrackId(7),
+                kit: "rock".into(),
+            },
+        );
+        for bad in [
+            Command::SetTrackKit {
+                id: TrackId(1),
+                kit: "rock".into(),
+            },
+            Command::SetTrackKit {
+                id: TrackId(7),
+                kit: "../x".into(),
+            },
+            Command::SetPatternStep {
+                pattern: PatternId(8),
+                pad: "kick".into(),
+                step: 16,
+                velocity: 1.0,
+            },
+            Command::SetPatternStep {
+                pattern: PatternId(8),
+                pad: "kick".into(),
+                step: 0,
+                velocity: 2.0,
+            },
+            Command::SetPatternLength {
+                id: PatternId(8),
+                length: 0,
+            },
+            Command::SetPatternResolution {
+                id: PatternId(8),
+                steps_per_beat: 5,
+            },
+            Command::SetPatternSwing {
+                id: PatternId(8),
+                swing: -1.0,
+            },
+            Command::RenamePattern {
+                id: PatternId(8),
+                name: String::new(),
+            },
+            Command::InsertPattern {
+                index: 0,
+                pattern: Pattern {
+                    length: 0,
+                    ..Pattern::new(PatternId(9), "x")
+                },
+            },
+        ] {
+            assert!(
+                matches!(bad.apply(&mut added.clone()), Err(CommandError::Invalid(_))),
+                "{bad:?} was not refused"
+            );
+        }
+        assert_eq!(
+            Command::RemovePattern { id: PatternId(99) }.apply(&mut p.clone()),
+            Err(CommandError::NoPattern(PatternId(99)))
+        );
+        assert_eq!(
+            Command::SetPatternStep {
+                pattern: PatternId(8),
+                pad: "kick".into(),
+                step: 3,
+                velocity: 0.5
+            }
+            .coalesce_key()
+            .as_deref(),
+            Some("step:8:kick:3")
         );
     }
 

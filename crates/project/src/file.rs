@@ -10,6 +10,9 @@
 //!   pedals/         user pedal definitions used by this project
 //! ```
 //!
+//! Drum kits are not in the project: a track names its kit by id and the
+//! shell finds it among the installed kits.
+//!
 //! `project.json` carries a `version`. [`load`] upgrades an older file in
 //! memory through the migrations below, one version step at a time, and
 //! the next [`save`] writes the current version. A file from a newer
@@ -199,6 +202,16 @@ fn migrate(from: u32, mut value: Value) -> Value {
             }
             value
         }
+        // 2 -> 3: drums. The project gains a pattern list and a track
+        // may name a kit; a version 2 file has neither, so every track
+        // is an audio track and there are no patterns.
+        2 => {
+            if let Some(p) = value.as_object_mut() {
+                p.entry("patterns")
+                    .or_insert_with(|| Value::Array(Vec::new()));
+            }
+            value
+        }
         _ => value,
     }
 }
@@ -295,14 +308,14 @@ mod tests {
             "{no_version}"
         );
 
-        let shape = load_str(r#"{"version":2,"name":"x","sampleRate":"fast"}"#, path).unwrap_err();
+        let shape = load_str(r#"{"version":3,"name":"x","sampleRate":"fast"}"#, path).unwrap_err();
         assert!(matches!(shape, LoadError::Shape { .. }), "{shape}");
         assert!(shape
             .to_string()
             .contains("does not match the project format"));
 
         let invalid = load_str(
-            r#"{"version":2,"name":"x","sampleRate":48000,"tracks":[{"id":1,"name":"a"},{"id":1,"name":"b"}]}"#,
+            r#"{"version":3,"name":"x","sampleRate":48000,"tracks":[{"id":1,"name":"a"},{"id":1,"name":"b"}]}"#,
             path,
         )
         .unwrap_err();
@@ -354,6 +367,36 @@ mod tests {
         let value: Value = serde_json::from_str(&text).unwrap();
         assert_eq!(value["version"], FORMAT_VERSION);
         assert_eq!(value["master"]["gainDb"], 0.0);
+    }
+
+    #[test]
+    fn a_version_2_file_gains_patterns() {
+        let text = fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/v2.json"),
+        )
+        .unwrap();
+        let project = load_str(&text, Path::new("v2/project.json")).unwrap();
+        assert_eq!(project.version, FORMAT_VERSION);
+        assert!(project.patterns.is_empty());
+        assert!(project.tracks.iter().all(|t| !t.is_drums()));
+        assert!(project.tracks[0].strip.solo, "the strips survive");
+    }
+
+    #[test]
+    fn a_version_3_file_has_drums() {
+        let text = fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/v3.json"),
+        )
+        .unwrap();
+        let project = load_str(&text, Path::new("v3/project.json")).unwrap();
+        assert_eq!(project.patterns.len(), 1);
+        assert_eq!(project.patterns[0].velocity("kick", 0), 1.0);
+        assert_eq!(project.tracks[1].kit.as_deref(), Some("acoustic"));
+        let json = serde_json::to_value(&project).unwrap();
+        assert!(
+            json["tracks"][0].get("kit").is_none(),
+            "audio tracks carry no kit"
+        );
     }
 
     #[test]
