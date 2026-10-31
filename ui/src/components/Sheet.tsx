@@ -46,7 +46,7 @@ export function Sheet({ title, onClose, children }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="surface-window relative w-full max-w-md overflow-hidden"
+        className="surface-panel relative w-full max-w-md overflow-hidden"
       >
         <header className="surface-titlebar flex min-h-[30px] items-center gap-2 py-1 pr-1 pl-3">
           <h2 id={titleId} className="title-text m-0 flex-1 font-normal text-[1.05rem]">
@@ -58,7 +58,7 @@ export function Sheet({ title, onClose, children }: Props) {
             </svg>
           </Button>
         </header>
-        <div className="grid gap-3 bg-sheet-bg p-4 text-ink">{children}</div>
+        <div className="grid gap-3 bg-sheet-bg p-4 text-sheet-ink">{children}</div>
       </div>
     </div>
   );

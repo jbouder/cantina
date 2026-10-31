@@ -6,11 +6,13 @@ type Props = HTMLAttributes<HTMLElement> & {
 };
 
 /** A display box in the skin's LCD material. Text inside uses the LCD face. */
-export function Lcd({ className = "", error = false, ...rest }: Props) {
+export function Lcd({ className = "", error = false, children, ...rest }: Props) {
   return (
     <output
       className={`surface-lcd block px-3 py-2 font-lcd text-xl leading-tight ${error ? "text-lcd-error" : ""} ${className}`}
       {...rest}
-    />
+    >
+      <span className="lcd-text">{children}</span>
+    </output>
   );
 }

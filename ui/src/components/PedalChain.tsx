@@ -154,7 +154,7 @@ function PedalCard({
         onDragStart();
       }}
       onDragEnd={onDragEnd}
-      className={`surface-window grid w-48 shrink-0 gap-2 p-3 ${dragging ? "opacity-50" : ""}`}
+      className={`surface-panel grid w-48 shrink-0 gap-2 p-3 ${dragging ? "opacity-50" : ""}`}
     >
       <header className="flex items-center gap-1">
         <button

@@ -17,6 +17,9 @@
   --frame-mid: #2e2e3e;
   --frame-lo: #1c1c26;
   --frame-edge: #08080c;
+  /* The flat color the panel face averages to: what text sits on. The
+   * contrast check reads it and a plain fill may use it. */
+  --face: #343446;
 
   /* Title bar. */
   --titlebar-hi: #2a2a38;
@@ -51,7 +54,7 @@
 
   /* Text on the frame. */
   --ink: #d6d6e0;
-  --ink-dim: #9696a8;
+  --ink-dim: #aeaec0;
 
   /* Indicator lights. */
   --led-on: #3cff3c;
@@ -74,38 +77,77 @@
   --stage: #000;
 
   /* Materials: how the tokens above are composed into surfaces. */
+
+  /* The window: the frame that fills the shell. */
   --window-radius: 2px;
   --window-bg: linear-gradient(180deg, var(--frame) 0%, var(--frame-mid) 100%);
   --window-shadow:
     inset 1px 1px 0 var(--frame-hi), inset -1px -1px 0 var(--frame-lo), 0 0 0 1px var(--frame-edge),
     0 14px 40px rgb(0 0 0 / 0.65);
+  /* A clip-path for cut corners, and a filter on the window's wrapper for
+   * glows that must not be clipped. */
+  --window-clip: none;
+  --window-filter: none;
+  --window-padding: 16px;
+
+  /* Panels inside the window: pedal cards and sheets. Default to the
+   * window's own material; skins with cheeks or screws give panels a
+   * plainer one. */
+  --panel-bg: var(--window-bg);
+  --panel-shadow: var(--window-shadow);
+  --panel-radius: var(--window-radius);
+
+  /* Title bar. */
   --titlebar-bg: linear-gradient(180deg, var(--titlebar-hi), var(--titlebar-lo));
   --titlebar-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12);
   --titlebar-border: 1px solid var(--frame-edge);
+  --titlebar-radius: 0;
+  --titlebar-margin: 0;
   --titlebar-grip: repeating-linear-gradient(
     180deg,
     var(--title-on) 0 1px,
     var(--title-on-lo) 1px 2px,
     transparent 2px 3px
   );
+  --grip-height: 9px;
+  --grip-opacity: 0.9;
+  --title-text-shadow: 0 1px 0 #000;
+  --title-tracking: 0.18em;
+  --title-bg: transparent;
+  --title-padding: 0;
+  --title-radius: 0;
+
+  /* Controls. */
   --control-radius: 2px;
+  --button-radius: var(--control-radius);
   --button-bg: linear-gradient(180deg, var(--silver-hi), var(--silver) 40%, var(--silver-lo));
   --button-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #55556a, 0 0 0 1px var(--frame-edge);
   --button-hover-bg: linear-gradient(180deg, #fff, #d4d4de 40%, #9a9aaa);
+  --button-hover-shadow: var(--button-shadow);
   --button-active-bg: linear-gradient(180deg, var(--silver-lo), var(--silver) 70%);
   --button-active-shadow: inset 1px 1px 0 #55556a, 0 0 0 1px var(--frame-edge);
+  --button-active-ink: var(--glyph);
+  --button-active-transform: none;
+  --pbutton-radius: var(--control-radius);
   --pbutton-bg: linear-gradient(180deg, var(--pbtn-hi), var(--pbtn) 60%, var(--pbtn-lo));
   --pbutton-shadow:
     inset 1px 1px 0 var(--pbtn-bevel-hi), inset -1px -1px 0 var(--pbtn-bevel-lo),
     0 0 0 1px var(--frame-edge);
+  --fader-track-shadow: inset 0 1px 2px rgb(0 0 0 / 0.8), 0 1px 0 var(--frame-hi);
+
+  /* Displays. The overlay sits over the LCD background (a VFD grid, say)
+   * and the mask, when set, turns display text into a dot matrix. */
   --lcd-radius: 0px;
   --lcd-border: 1px solid var(--frame-edge);
   --lcd-shadow:
     inset 1px 1px 0 var(--frame-lo), inset -1px -1px 0 var(--frame-hi),
     inset 2px 2px 4px rgb(0 0 0 / 0.9);
+  --lcd-overlay: none;
+  --lcd-mask: none;
   --lcd-text-shadow: 0 0 6px var(--lcd-glow);
-  --fader-track-shadow: inset 0 1px 2px rgb(0 0 0 / 0.8), 0 1px 0 var(--frame-hi);
-  --title-text-shadow: 0 1px 0 #000;
+
+  /* Text inside sheets, for skins whose frame ink does not suit them. */
+  --sheet-ink: var(--ink);
 
   /* Type. */
   --font-lcd: "VT323", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;

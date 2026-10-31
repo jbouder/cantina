@@ -23,8 +23,11 @@ export function Fader({ param, value, onChange }: Props) {
         <label htmlFor={id} className="font-bold text-[11px] uppercase tracking-[0.08em]">
           {param.name}
         </label>
-        <output htmlFor={id} className="font-lcd text-lcd-fg text-sm leading-none">
-          {format(value, param.unit)}
+        <output
+          htmlFor={id}
+          className="surface-lcd px-1.5 py-0.5 font-lcd text-sm leading-none tabular-nums"
+        >
+          <span className="lcd-text">{format(value, param.unit)}</span>
         </output>
       </div>
       <input
