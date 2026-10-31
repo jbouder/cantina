@@ -1,22 +1,33 @@
+import type { EngineStatus } from "../lib/engine";
 import { SKINS, useSkin } from "../skins";
 import { Button } from "./Button";
+import { DevicePicker } from "./DevicePicker";
 import { Sheet } from "./Sheet";
 
-type Props = { onClose: () => void };
+type Props = {
+  onClose: () => void;
+  onStatusChange: (status: EngineStatus) => void;
+};
 
-/** The settings sheet. For now it holds the skin picker. */
-export function Settings({ onClose }: Props) {
+/** The settings sheet: audio devices and the skin picker. */
+export function Settings({ onClose, onStatusChange }: Props) {
   const [skin, setSkin] = useSkin();
   return (
     <Sheet title="Settings" onClose={onClose}>
-      <div role="radiogroup" aria-labelledby="skin-label" className="grid gap-2">
-        <span id="skin-label" className="text-sm">
+      <section aria-labelledby="audio-heading" className="grid gap-2">
+        <h3 id="audio-heading" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+          Audio
+        </h3>
+        <DevicePicker onStatusChange={onStatusChange} />
+      </section>
+      <section aria-labelledby="skin-label" className="grid gap-2">
+        <h3 id="skin-label" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
           Skin
-          <small className="block text-ink-dim text-xs">
+          <small className="block font-normal text-ink-dim text-xs normal-case tracking-normal">
             Changes the whole studio's look. Remembered for next time.
           </small>
-        </span>
-        <div className="flex flex-wrap gap-1">
+        </h3>
+        <div role="radiogroup" aria-labelledby="skin-label" className="flex flex-wrap gap-1">
           {SKINS.map((s) => (
             <Button
               key={s.id}
@@ -29,7 +40,7 @@ export function Settings({ onClose }: Props) {
             </Button>
           ))}
         </div>
-      </div>
+      </section>
     </Sheet>
   );
 }

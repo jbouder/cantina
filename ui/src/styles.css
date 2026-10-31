@@ -84,6 +84,11 @@
   text-shadow: var(--lcd-text-shadow);
 }
 
+/* The filled part of a level meter, clipped to the level by the component. */
+@utility surface-meter {
+  background: var(--meter-bg);
+}
+
 /* A silver transport key. Pressed state comes from aria-pressed. */
 @utility surface-button {
   color: var(--glyph);

@@ -16,5 +16,6 @@ hound = "3.5.1"
 objc2-audio-toolbox = "0.3"
 objc2-core-audio = "0.3"
 objc2-core-audio-types = "0.3"
+objc2-core-foundation = "0.3"
 rtrb = "0.4.1"
 
