@@ -177,7 +177,8 @@ impl History {
 mod tests {
     use super::*;
     use crate::model::{
-        Clip, ClipId, Pattern, PatternId, Pedal, PedalId, Strip, Tempo, Track, TrackId,
+        Clip, ClipId, Pattern, PatternClip, PatternClipId, PatternId, Pedal, PedalId, Strip, Tempo,
+        Track, TrackId,
     };
     use proptest::prelude::*;
 
@@ -375,6 +376,11 @@ mod tests {
         Length(usize, u8),
         Resolution(usize, u8),
         Swing(usize, f32),
+        Place(usize, usize, u32, u32),
+        RemovePlaced(usize),
+        MovePlaced(usize, usize, u32),
+        TrimPlaced(usize, u32, u32, u32),
+        SplitPlaced(usize, u32),
         Batch(Vec<Op>),
     }
 
@@ -409,6 +415,13 @@ mod tests {
             (0..4usize, 1..40u8).prop_map(|(p, l)| Op::Length(p, l)),
             (0..4usize, 0..9u8).prop_map(|(p, r)| Op::Resolution(p, r)),
             (0..4usize, 0.0f32..1.0).prop_map(|(p, v)| Op::Swing(p, v)),
+            (0..4usize, 0..4usize, 0..20_000u32, 1..10_000u32)
+                .prop_map(|(t, p, s, l)| Op::Place(t, p, s, l)),
+            (0..6usize).prop_map(Op::RemovePlaced),
+            (0..6usize, 0..4usize, 0..20_000u32).prop_map(|(c, t, s)| Op::MovePlaced(c, t, s)),
+            (0..6usize, 0..20_000u32, 0..4000u32, 0..10_000u32)
+                .prop_map(|(c, s, o, l)| Op::TrimPlaced(c, s, o, l)),
+            (0..6usize, 0..20_000u32).prop_map(|(c, at)| Op::SplitPlaced(c, at)),
         ];
         leaf.prop_recursive(2, 6, 3, |inner| {
             proptest::collection::vec(inner, 1..4).prop_map(Op::Batch)
@@ -437,6 +450,14 @@ mod tests {
 
     fn nth_pattern(p: &Project, i: usize) -> PatternId {
         p.patterns.get(i).map_or(PatternId(9999), |c| c.id)
+    }
+
+    fn nth_pattern_clip(p: &Project, i: usize) -> PatternClipId {
+        p.tracks
+            .iter()
+            .flat_map(|t| t.pattern_clips.iter())
+            .nth(i)
+            .map_or(PatternClipId(9999), |c| c.id)
     }
 
     /// Turns an op into a command against the current project. `extra`
@@ -579,6 +600,35 @@ mod tests {
             Op::Swing(i, v) => Command::SetPatternSwing {
                 id: nth_pattern(p, *i),
                 swing: *v,
+            },
+            Op::Place(t, i, s, l) => Command::InsertPatternClip {
+                track: nth_track(p, *t),
+                clip: PatternClip {
+                    id: PatternClipId(fresh(extra)),
+                    pattern: nth_pattern(p, *i),
+                    start: *s as u64,
+                    offset: 0,
+                    length: *l as u64,
+                },
+            },
+            Op::RemovePlaced(c) => Command::RemovePatternClip {
+                id: nth_pattern_clip(p, *c),
+            },
+            Op::MovePlaced(c, t, s) => Command::MovePatternClip {
+                id: nth_pattern_clip(p, *c),
+                track: nth_track(p, *t),
+                start: *s as u64,
+            },
+            Op::TrimPlaced(c, s, o, l) => Command::TrimPatternClip {
+                id: nth_pattern_clip(p, *c),
+                start: *s as u64,
+                offset: *o as u64,
+                length: *l as u64,
+            },
+            Op::SplitPlaced(c, at) => Command::SplitPatternClip {
+                id: nth_pattern_clip(p, *c),
+                at: *at as u64,
+                new_id: PatternClipId(fresh(extra)),
             },
             Op::Batch(ops) => Command::Batch {
                 commands: ops.iter().map(|o| resolve(p, o, extra)).collect(),

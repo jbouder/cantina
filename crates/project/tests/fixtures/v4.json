@@ -1,0 +1,38 @@
+{
+  "version": 4,
+  "name": "Fixture",
+  "sampleRate": 48000.0,
+  "tempo": { "bpm": 110.0, "numerator": 4, "denominator": 4 },
+  "tracks": [
+    {
+      "id": 1,
+      "name": "Guitar",
+      "armed": true,
+      "chain": [
+        { "id": 2, "spec": "gain", "values": [-3.0] },
+        { "id": 3, "spec": "overdrive", "values": [20.0, 3000.0, -6.0] }
+      ],
+      "clips": [
+        { "id": 4, "name": "Guitar 1", "file": "Guitar-1.wav", "start": 0, "offset": 0, "length": 96000 }
+      ],
+      "strip": { "gainDb": -2.0, "pan": -0.3, "mute": false, "solo": false }
+    },
+    { "id": 6, "name": "Drums", "armed": false, "kit": "acoustic", "chain": [], "clips": [],
+      "patternClips": [
+        { "id": 8, "pattern": 7, "start": 0, "offset": 0, "length": 15360 },
+        { "id": 9, "pattern": 7, "start": 19200, "offset": 960, "length": 6720 }
+      ],
+      "strip": { "gainDb": 0.0, "pan": 0.0, "mute": false, "solo": false } }
+  ],
+  "patterns": [
+    {
+      "id": 7, "name": "Beat", "stepsPerBeat": 4, "length": 16, "swing": 0.2,
+      "rows": [
+        { "pad": "hh-closed", "steps": [0.8, 0, 0.5, 0, 0.8, 0, 0.5, 0, 0.8, 0, 0.5, 0, 0.8, 0, 0.5, 0] },
+        { "pad": "kick", "steps": [1, 0, 0, 0, 0, 0, 0, 0, 0.9, 0, 0.6, 0, 0, 0, 0, 0] },
+        { "pad": "snare", "steps": [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0.3] }
+      ]
+    }
+  ],
+  "master": { "gainDb": -1.0, "pan": 0.0, "mute": false, "solo": false }
+}

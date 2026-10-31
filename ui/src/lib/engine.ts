@@ -198,6 +198,8 @@ export interface TrackStatus {
   kit: KitStatus | null;
   chain: PedalInfo[];
   clips: ClipInfo[];
+  /** Patterns on the timeline, for a drum track. Positions in ticks. */
+  patternClips: PatternClipInfo[];
   strip: Strip;
   /** Frames the chain delays the signal by. */
   latencyFrames: number;
@@ -208,6 +210,15 @@ export interface ClipInfo {
   id: number;
   name: string;
   file: string;
+  start: number;
+  offset: number;
+  length: number;
+}
+
+/** A pattern clip on a drum track. Positions are in ticks (960 per beat). */
+export interface PatternClipInfo {
+  id: number;
+  pattern: number;
   start: number;
   offset: number;
   length: number;
@@ -484,6 +495,7 @@ const mock: EngineStatus = {
         clips: mockParams?.has("take")
           ? [mockClip(4, "Guitar 1", 0, 12.4), mockClip(5, "Guitar 2", 16, 6.1)]
           : [],
+        patternClips: [],
         strip: { gainDb: -3, pan: -0.25, mute: false, solo: mockParams?.has("solo") ?? false },
         latencyFrames: mockParams?.has("latency") ? MOCK_LATENCY : 0,
       },
@@ -495,6 +507,7 @@ const mock: EngineStatus = {
         kit: null,
         chain: [mockPedal(7, "gain")],
         clips: mockParams?.has("take") ? [mockClip(8, "Bass 1", 2, 20)] : [],
+        patternClips: [],
         strip: { gainDb: 0, pan: 0.1, mute: mockParams?.has("mute") ?? false, solo: false },
         latencyFrames: 0,
       },
@@ -508,6 +521,15 @@ const mock: EngineStatus = {
               kit: mockKitStatus(mockParams.get("kit") ?? "acoustic"),
               chain: [],
               clips: [],
+              // `?beats` places the patterns: two bars of Verse, then
+              // two of Chorus starting a beat in.
+              patternClips: mockParams.has("beats")
+                ? [
+                    { id: 13, pattern: 11, start: 0, offset: 0, length: 7680 },
+                    { id: 14, pattern: 12, start: 7680, offset: 960, length: 7680 },
+                    { id: 15, pattern: 11, start: 19200, offset: 0, length: 3840 },
+                  ]
+                : [],
               strip: { gainDb: -2, pan: 0, mute: false, solo: false },
               latencyFrames: 0,
             },
@@ -559,6 +581,7 @@ function mockStatus(): EngineStatus {
         kit: t.kit ? { ...t.kit, pads: t.kit.pads.map((p) => ({ ...p })) } : null,
         chain: t.chain.map((p) => ({ ...p, params: p.params.map((q) => ({ ...q })) })),
         clips: t.clips.map((c) => ({ ...c })),
+        patternClips: t.patternClips.map((c) => ({ ...c })),
         strip: { ...t.strip },
       })),
       patterns: mock.project.patterns.map((p) => ({
@@ -751,6 +774,7 @@ export async function projectNew(name: string): Promise<EngineStatus> {
         kit: null,
         chain: [mockPedal(2, "gain"), mockPedal(3, "overdrive")],
         clips: [],
+        patternClips: [],
         strip: { ...UNITY },
         latencyFrames: 0,
       },
@@ -867,6 +891,7 @@ export async function trackAdd(name?: string): Promise<EngineStatus> {
     kit: null,
     chain: [],
     clips: [],
+    patternClips: [],
     strip: { ...UNITY },
     latencyFrames: 0,
   });
@@ -886,6 +911,7 @@ export async function trackAddDrums(kit?: string): Promise<EngineStatus> {
     kit: mockKitStatus(id),
     chain: [],
     clips: [],
+    patternClips: [],
     strip: { ...UNITY },
     latencyFrames: 0,
   });
@@ -927,6 +953,9 @@ export async function patternAdd(name?: string): Promise<EngineStatus> {
 
 export async function patternRemove(id: number): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("pattern_remove", { id });
+  if (mock.project.tracks.some((t) => t.patternClips.some((c) => c.pattern === id))) {
+    throw new Error("the pattern is on the timeline; delete its clips first");
+  }
   mock.project.patterns = mock.project.patterns.filter((p) => p.id !== id);
   if (mock.audition?.pattern === id) mock.audition = null;
   return mockEdit("remove pattern");
@@ -986,6 +1015,112 @@ export async function patternSetSwing(id: number, swing: number): Promise<void> 
   if (inTauri) return invoke("pattern_set_swing", { id, swing });
   mockPatternById(id).swing = swing;
   mock.project.dirty = true;
+}
+
+// ----- pattern clips -----
+
+function mockPatternClipAt(id: number): {
+  track: TrackStatus;
+  clip: PatternClipInfo;
+  index: number;
+} {
+  for (const track of mock.project.tracks) {
+    const index = track.patternClips.findIndex((c) => c.id === id);
+    const clip = track.patternClips[index];
+    if (clip) return { track, clip, index };
+  }
+  throw new Error(`no pattern clip ${id}`);
+}
+
+function sortPatternClips(track: TrackStatus) {
+  track.patternClips.sort((a, b) => a.start - b.start || a.id - b.id);
+}
+
+/** Puts a pattern on a drum track at `start` ticks, for `length` ticks or one pass. */
+export async function patternClipAdd(
+  track: number,
+  pattern: number,
+  start: number,
+  length?: number,
+): Promise<EngineStatus> {
+  start = Math.round(start);
+  if (inTauri) {
+    return invoke<EngineStatus>("pattern_clip_add", {
+      track,
+      pattern,
+      start,
+      length: length ?? null,
+    });
+  }
+  const t = mockTrack(track);
+  if (!t.kit) throw new Error(`${t.name} is an audio track; patterns go on drum tracks`);
+  const p = mockPatternById(pattern);
+  t.patternClips.push({
+    id: mockNextId++,
+    pattern,
+    start,
+    offset: 0,
+    length: length ?? (960 / p.stepsPerBeat) * p.length,
+  });
+  sortPatternClips(t);
+  return mockEdit("place pattern");
+}
+
+export async function patternClipRemove(id: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pattern_clip_remove", { id });
+  for (const t of mock.project.tracks) t.patternClips = t.patternClips.filter((c) => c.id !== id);
+  return mockEdit("delete pattern clip");
+}
+
+export async function patternClipMove(
+  id: number,
+  track: number,
+  start: number,
+): Promise<EngineStatus> {
+  start = Math.round(start);
+  if (inTauri) return invoke<EngineStatus>("pattern_clip_move", { id, track, start });
+  const found = mockPatternClipAt(id);
+  const dest = mockTrack(track);
+  if (!dest.kit) throw new Error(`${dest.name} is an audio track; patterns go on drum tracks`);
+  found.track.patternClips.splice(found.index, 1);
+  dest.patternClips.push({ ...found.clip, start });
+  sortPatternClips(dest);
+  return mockEdit("move pattern clip");
+}
+
+export async function patternClipTrim(
+  id: number,
+  start: number,
+  offset: number,
+  length: number,
+): Promise<EngineStatus> {
+  start = Math.round(start);
+  offset = Math.round(offset);
+  length = Math.round(length);
+  if (inTauri) return invoke<EngineStatus>("pattern_clip_trim", { id, start, offset, length });
+  const found = mockPatternClipAt(id);
+  Object.assign(found.clip, { start, offset, length });
+  sortPatternClips(found.track);
+  return mockEdit("trim pattern clip");
+}
+
+export async function patternClipSplit(id: number, at: number): Promise<EngineStatus> {
+  at = Math.round(at);
+  if (inTauri) return invoke<EngineStatus>("pattern_clip_split", { id, at });
+  const { track, clip, index } = mockPatternClipAt(id);
+  if (at <= clip.start || at >= clip.start + clip.length) {
+    throw new Error(`tick ${at} is not inside pattern clip ${id}`);
+  }
+  const left = at - clip.start;
+  track.patternClips.splice(index + 1, 0, {
+    ...clip,
+    id: mockNextId++,
+    start: at,
+    offset: clip.offset + left,
+    length: clip.length - left,
+  });
+  clip.length = left;
+  return mockEdit("split pattern clip");
 }
 
 /** Loops a pattern on a drum track while the transport plays; `null` stops. */

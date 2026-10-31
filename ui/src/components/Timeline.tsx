@@ -1,4 +1,5 @@
 import {
+  type DragEvent,
   type KeyboardEvent,
   type PointerEvent,
   useCallback,
@@ -15,6 +16,12 @@ import {
   clipSplit,
   clipTrim,
   type EngineStatus,
+  type PatternInfo,
+  patternClipAdd,
+  patternClipMove,
+  patternClipRemove,
+  patternClipSplit,
+  patternClipTrim,
   type Tempo,
   type TrackStatus,
   tempoSet,
@@ -32,10 +39,14 @@ import {
   type Geometry,
   gridFor,
   hitTest,
+  laneToTicks,
   moved,
   musicalLabel,
+  patternLane,
+  previewHits,
   RULER_HEIGHT,
   sampleAt,
+  samplesPerTick,
   snap,
   TRACK_HEIGHT,
   trimmedLeft,
@@ -48,8 +59,13 @@ import { Button } from "./Button";
 import { Lcd } from "./Lcd";
 import { Led } from "./Led";
 
+/** The drag type a pattern chip carries from the drum grid. */
+export const PATTERN_DRAG = "application/x-cantina-pattern";
+
 type Props = {
   tracks: TrackStatus[];
+  /** The project's patterns, for drawing pattern clips. */
+  patterns: PatternInfo[];
   sampleRate: number;
   tempo: Tempo;
   /** Playhead, in seconds. */
@@ -110,6 +126,7 @@ const LABEL_WIDTH = 160;
  */
 export function Timeline({
   tracks,
+  patterns,
   sampleRate,
   tempo,
   position,
@@ -140,14 +157,29 @@ export function Timeline({
   const grid = useMemo(() => gridFor(tempo, sampleRate, view.spp), [tempo, sampleRate, view.spp]);
   const height = RULER_HEIGHT + Math.max(1, tracks.length) * TRACK_HEIGHT;
   const playhead = position * sampleRate;
-  const clipsByTrack = useMemo(() => tracks.map((t) => t.clips), [tracks]);
+  // What each lane holds: audio clips in samples, or a drum track's
+  // pattern clips converted from ticks so the same hit testing and drag
+  // arithmetic serve both. A pattern clip has no file.
+  const spt = samplesPerTick(tempo, sampleRate);
+  const lanes = useMemo(
+    () =>
+      tracks.map((t) =>
+        t.kit
+          ? t.patternClips.map((c) =>
+              patternLane(c, patterns.find((p) => p.id === c.pattern)?.name ?? "?", spt),
+            )
+          : t.clips,
+      ),
+    [tracks, patterns, spt],
+  );
+  const isPattern = (clip: ClipInfo) => clip.file === "";
   const selected = useMemo(() => {
-    for (const t of tracks) {
-      const c = t.clips.find((c) => c.id === selectedClip);
+    for (const [i, t] of tracks.entries()) {
+      const c = lanes[i]?.find((c) => c.id === selectedClip);
       if (c) return { track: t, clip: c };
     }
     return null;
-  }, [tracks, selectedClip]);
+  }, [tracks, lanes, selectedClip]);
 
   useEffect(() => {
     setBpm(String(tempo.bpm));
@@ -258,6 +290,7 @@ export function Timeline({
 
     // Clips, with the one being dragged drawn where it is going.
     const drawClip = (clip: ClipInfo, geometry: Geometry, row: number, isSelected: boolean) => {
+      const track = tracks[row];
       const x0 = xOf(geometry.start, view);
       const x1 = xOf(geometry.start + geometry.length, view);
       if (x1 < 0 || x0 > width) return;
@@ -267,8 +300,36 @@ export function Timeline({
       const h = TRACK_HEIGHT - 8;
       ctx.fillStyle = isSelected ? tk["clip-selected"] : tk.clip;
       ctx.fillRect(left, y, right - left, h);
+      // A pattern clip shows its steps: one band per pad, a block per
+      // hit, the pattern looping from the clip's offset.
+      const original = track?.patternClips.find((c) => c.id === clip.id);
+      const pattern = original && patterns.find((p) => p.id === original.pattern);
+      if (original && pattern && track?.kit && right > left) {
+        const pads = track.kit.pads.map((p) => p.id);
+        const shown = {
+          ...original,
+          offset: Math.round(geometry.offset / spt),
+          length: Math.round(geometry.length / spt),
+        };
+        const fromRel = (left - x0) * view.spp;
+        const toRel = (right - x0) * view.spp;
+        const band = (h - 14) / Math.max(1, pads.length);
+        const stepPx = Math.max(2, ((960 / pattern.stepsPerBeat) * spt) / view.spp - 1);
+        for (const hit of previewHits(shown, pattern, pads, spt, fromRel, toRel)) {
+          const hx = x0 + hit.at / view.spp;
+          ctx.globalAlpha = 0.35 + hit.velocity * 0.65;
+          ctx.fillStyle = tk.wave;
+          ctx.fillRect(
+            hx,
+            y + 12 + hit.row * band,
+            Math.min(stepPx, right - hx),
+            Math.max(1, band - 1),
+          );
+        }
+        ctx.globalAlpha = 1;
+      }
       // Waveform: one column per pixel from the cache's level for this zoom.
-      const cache = peaksFor(clip.file);
+      const cache = clip.file ? peaksFor(clip.file) : null;
       if (cache && right > left) {
         const fromFrame = geometry.offset + (left - x0) * view.spp;
         const toFrame = fromFrame + (right - left) * view.spp;
@@ -298,8 +359,8 @@ export function Timeline({
       ctx.fillText(clip.name.toUpperCase(), Math.max(left, x0) + 4, y + 9);
       ctx.restore();
     };
-    tracks.forEach((t, i) => {
-      for (const clip of t.clips) {
+    lanes.forEach((clips, i) => {
+      for (const clip of clips) {
         if (drag && drag.clip.id === clip.id) continue;
         drawClip(clip, clip, i, clip.id === selectedClip);
       }
@@ -323,6 +384,9 @@ export function Timeline({
     }
   }, [
     tracks,
+    lanes,
+    patterns,
+    spt,
     view,
     grid,
     width,
@@ -344,7 +408,7 @@ export function Timeline({
   const onPointerDown = (e: PointerEvent<HTMLCanvasElement>) => {
     if (e.button !== 0) return;
     const { x, y } = local(e);
-    const hit = hitTest(clipsByTrack, x, y, view);
+    const hit = hitTest(lanes, x, y, view);
     if (!hit) return;
     e.currentTarget.focus();
     if (hit.kind === "ruler") {
@@ -360,7 +424,7 @@ export function Timeline({
     setSelectedClip(hit.clip.id);
     if (e.altKey && hit.kind === "clip") {
       const at = Math.round(sampleAt(x, view));
-      if (canSplit(hit.clip, at)) run(clipSplit(hit.clip.id, at));
+      if (canSplit(hit.clip, at)) run(split(hit.clip, at));
       return;
     }
     const d: Drag = {
@@ -392,7 +456,8 @@ export function Timeline({
     } else if (d.kind === "left") {
       geometry = trimmedLeft(d.clip, sampleAt(x, view), grid.division, snapOn);
     } else {
-      const frames = peaksFor(d.clip.file)?.frames;
+      // A pattern clip can grow without limit: the pattern loops.
+      const frames = isPattern(d.clip) ? Number.POSITIVE_INFINITY : peaksFor(d.clip.file)?.frames;
       geometry = trimmedRight(d.clip, sampleAt(x, view), grid.division, snapOn, frames);
     }
     const next = { ...d, geometry, toTrack, moved: true };
@@ -407,14 +472,59 @@ export function Timeline({
     if (!d || !d.moved) return;
     e.currentTarget.releasePointerCapture(e.pointerId);
     const g = d.geometry;
-    const dest = tracks[d.toTrack];
+    // A clip only lands on a track of its own kind; otherwise it stays
+    // on its track at the new position.
+    const wanted = tracks[d.toTrack];
+    const dest = wanted && Boolean(wanted.kit) === isPattern(d.clip) ? wanted : tracks[d.fromTrack];
     if (d.kind === "clip") {
-      if (dest && (g.start !== d.clip.start || d.toTrack !== d.fromTrack)) {
-        run(clipMove(d.clip.id, dest.id, g.start));
+      if (dest && (g.start !== d.clip.start || dest.id !== tracks[d.fromTrack]?.id)) {
+        run(
+          isPattern(d.clip)
+            ? patternClipMove(d.clip.id, dest.id, Math.round(g.start / spt))
+            : clipMove(d.clip.id, dest.id, g.start),
+        );
       }
     } else if (g.start !== d.clip.start || g.length !== d.clip.length) {
-      run(clipTrim(d.clip.id, g.start, g.offset, g.length));
+      if (isPattern(d.clip)) {
+        const t = laneToTicks(g, spt);
+        run(patternClipTrim(d.clip.id, t.start, t.offset, t.length));
+      } else {
+        run(clipTrim(d.clip.id, g.start, g.offset, g.length));
+      }
     }
+  };
+
+  const split = (clip: ClipInfo, at: number) =>
+    isPattern(clip) ? patternClipSplit(clip.id, Math.round(at / spt)) : clipSplit(clip.id, at);
+
+  const remove = (clip: ClipInfo) =>
+    isPattern(clip) ? patternClipRemove(clip.id) : clipRemove(clip.id);
+
+  // ----- dropping a pattern from the drum grid -----
+
+  const onDragOver = (e: DragEvent<HTMLCanvasElement>) => {
+    if (e.dataTransfer.types.includes(PATTERN_DRAG)) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    }
+  };
+
+  const onDrop = (e: DragEvent<HTMLCanvasElement>) => {
+    const id = Number(e.dataTransfer.getData(PATTERN_DRAG));
+    if (!id) return;
+    e.preventDefault();
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+    const row = Math.floor((y - RULER_HEIGHT) / TRACK_HEIGHT);
+    const track = tracks[row];
+    if (!track) return;
+    if (!track.kit) {
+      onError(`${track.name} is an audio track; drop the pattern on a drum track`);
+      return;
+    }
+    const start = snap(sampleAt(x, view), grid.division, snapOn);
+    run(patternClipAdd(track.id, id, Math.round(start / spt)));
   };
 
   // ----- the keyboard -----
@@ -424,12 +534,12 @@ export function Timeline({
     switch (e.key) {
       case "Delete":
       case "Backspace":
-        if (selected) run(clipRemove(selected.clip.id));
+        if (selected) run(remove(selected.clip));
         break;
       case "s":
       case "S":
         if (selected && canSplit(selected.clip, Math.round(playhead))) {
-          run(clipSplit(selected.clip.id, Math.round(playhead)));
+          run(split(selected.clip, Math.round(playhead)));
         }
         break;
       case "ArrowLeft":
@@ -437,7 +547,11 @@ export function Timeline({
         const step = (e.key === "ArrowLeft" ? -1 : 1) * grid.division;
         if (selected) {
           const g = moved(selected.clip, step, grid.division, snapOn);
-          run(clipMove(selected.clip.id, selected.track.id, g.start));
+          run(
+            isPattern(selected.clip)
+              ? patternClipMove(selected.clip.id, selected.track.id, Math.round(g.start / spt))
+              : clipMove(selected.clip.id, selected.track.id, g.start),
+          );
         } else {
           setView((v) => ({ ...v, scroll: Math.max(0, v.scroll + step * 4) }));
         }
@@ -488,7 +602,7 @@ export function Timeline({
           onClick={() => {
             const end = Math.max(
               sampleRate * 8,
-              ...tracks.flatMap((t) => t.clips.map((c) => c.start + c.length)),
+              ...lanes.flatMap((clips) => clips.map((c) => c.start + c.length)),
             );
             setView(fitView(end, width));
           }}
@@ -585,7 +699,7 @@ export function Timeline({
           <canvas
             ref={canvas}
             tabIndex={0}
-            aria-label="Timeline. Drag clips to move them, drag an edge to trim, Alt-click to split, click the ruler to move the playhead. With a clip selected: Delete removes it, S splits it at the playhead, the arrow keys nudge it."
+            aria-label="Timeline. Drag clips to move them, drag an edge to trim, Alt-click to split, click the ruler to move the playhead. With a clip selected: Delete removes it, S splits it at the playhead, the arrow keys nudge it. Drop a pattern from the drum grid on a drum track to place it."
             aria-disabled={!running}
             style={{ width, height, touchAction: "none" }}
             className={`block ${drag ? (drag.kind === "clip" ? "cursor-grabbing" : "cursor-ew-resize") : ""}`}
@@ -594,6 +708,8 @@ export function Timeline({
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
             onKeyDown={onKeyDown}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
           />
         </div>
       </div>

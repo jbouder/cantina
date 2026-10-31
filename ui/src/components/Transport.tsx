@@ -36,7 +36,8 @@ export function Transport({
   const run = (action: Promise<EngineStatus>) => action.then(onStatus, (e) => onError(String(e)));
   const rolling = transport.playing || transport.recording;
   const armed = tracks.filter((t) => t.armed && !t.kit);
-  const hasClips = auditioning || tracks.some((t) => t.clips.length > 0);
+  const hasClips =
+    auditioning || tracks.some((t) => t.clips.length > 0 || t.patternClips.length > 0);
   const note = transport.recording
     ? `Recording ${armed.map((t) => t.name).join(", ")}…`
     : armed.length === 0

@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::model::{
-    Clip, ClipId, Pattern, PatternId, PatternRow, Pedal, PedalId, Project, Strip, Tempo, Track,
-    TrackId, MAX_PATTERN_STEPS,
+    Clip, ClipId, Pattern, PatternClip, PatternClipId, PatternId, PatternRow, Pedal, PedalId,
+    Project, Strip, Tempo, Track, TrackId, MAX_PATTERN_STEPS,
 };
 
 /// Why a command was refused. The project is unchanged when one of these
@@ -28,6 +28,8 @@ pub enum CommandError {
     NoPedal(PedalId),
     #[error("no pattern {0}")]
     NoPattern(PatternId),
+    #[error("no pattern clip {0}")]
+    NoPatternClip(PatternClipId),
     #[error("pedal {pedal} has no parameter {param}")]
     NoParam { pedal: PedalId, param: usize },
     #[error("id {0} is already in use")]
@@ -173,6 +175,35 @@ pub enum Command {
     ReplacePattern {
         pattern: Pattern,
     },
+    /// Puts a pattern on a drum track. Positions in ticks.
+    InsertPatternClip {
+        track: TrackId,
+        clip: PatternClip,
+    },
+    RemovePatternClip {
+        id: PatternClipId,
+    },
+    /// Puts a pattern clip at `start` on `track`, which may be another
+    /// drum track.
+    MovePatternClip {
+        id: PatternClipId,
+        track: TrackId,
+        start: u64,
+    },
+    /// Sets a pattern clip's whole geometry, in ticks.
+    TrimPatternClip {
+        id: PatternClipId,
+        start: u64,
+        offset: u64,
+        length: u64,
+    },
+    /// Cuts a pattern clip at tick `at`, strictly inside it. The right
+    /// part becomes a new clip with `new_id`.
+    SplitPatternClip {
+        id: PatternClipId,
+        at: u64,
+        new_id: PatternClipId,
+    },
     /// Several commands as one edit. Applied in order; the inverse
     /// reverts them in reverse.
     Batch {
@@ -215,6 +246,11 @@ impl Command {
             Command::SetPatternResolution { .. } => "change step resolution".into(),
             Command::SetPatternSwing { .. } => "change swing".into(),
             Command::ReplacePattern { .. } => "edit pattern".into(),
+            Command::InsertPatternClip { .. } => "place pattern".into(),
+            Command::RemovePatternClip { .. } => "delete pattern clip".into(),
+            Command::MovePatternClip { .. } => "move pattern clip".into(),
+            Command::TrimPatternClip { .. } => "trim pattern clip".into(),
+            Command::SplitPatternClip { .. } => "split pattern clip".into(),
             Command::Batch { commands } => commands
                 .first()
                 .map_or_else(|| "edit".into(), Command::label),
@@ -509,6 +545,12 @@ impl Command {
             }
             Command::RemovePattern { id } => {
                 let index = pattern_index(project, *id)?;
+                if project.pattern_in_use(*id) {
+                    return Err(CommandError::Invalid(format!(
+                        "pattern {} is on the timeline; delete its clips first",
+                        project.patterns[index].name
+                    )));
+                }
                 let pattern = project.patterns.remove(index);
                 Ok(Command::InsertPattern { index, pattern })
             }
@@ -616,6 +658,115 @@ impl Command {
                 let was = std::mem::replace(&mut project.patterns[index], pattern);
                 Ok(Command::ReplacePattern { pattern: was })
             }
+            Command::InsertPatternClip { track, clip } => {
+                if clip.length == 0 {
+                    return Err(CommandError::Invalid(
+                        "a pattern clip needs a length".into(),
+                    ));
+                }
+                ensure_fresh(project, clip.id.0)?;
+                pattern_index(project, clip.pattern)?;
+                let t = track_mut(project, *track)?;
+                if !t.is_drums() {
+                    return Err(CommandError::Invalid(format!(
+                        "{} is an audio track; patterns go on drum tracks",
+                        t.name
+                    )));
+                }
+                t.pattern_clips.push(clip.clone());
+                t.pattern_clips.sort_by_key(|c| (c.start, c.id));
+                Ok(Command::RemovePatternClip { id: clip.id })
+            }
+            Command::RemovePatternClip { id } => {
+                let (track, index) = pattern_clip_index(project, *id)?;
+                let clip = project.tracks[track].pattern_clips.remove(index);
+                Ok(Command::InsertPatternClip {
+                    track: project.tracks[track].id,
+                    clip,
+                })
+            }
+            Command::MovePatternClip { id, track, start } => {
+                let (from, index) = pattern_clip_index(project, *id)?;
+                let to = track_index(project, *track)?;
+                if !project.tracks[to].is_drums() {
+                    return Err(CommandError::Invalid(format!(
+                        "{} is an audio track; patterns go on drum tracks",
+                        project.tracks[to].name
+                    )));
+                }
+                let from_id = project.tracks[from].id;
+                let mut clip = project.tracks[from].pattern_clips.remove(index);
+                let was = clip.start;
+                clip.start = *start;
+                let dest = &mut project.tracks[to];
+                dest.pattern_clips.push(clip);
+                dest.pattern_clips.sort_by_key(|c| (c.start, c.id));
+                Ok(Command::MovePatternClip {
+                    id: *id,
+                    track: from_id,
+                    start: was,
+                })
+            }
+            Command::TrimPatternClip {
+                id,
+                start,
+                offset,
+                length,
+            } => {
+                if *length == 0 {
+                    return Err(CommandError::Invalid(
+                        "a pattern clip cannot be trimmed to nothing".into(),
+                    ));
+                }
+                let (track, index) = pattern_clip_index(project, *id)?;
+                let clips = &mut project.tracks[track].pattern_clips;
+                let clip = &mut clips[index];
+                let inverse = Command::TrimPatternClip {
+                    id: *id,
+                    start: clip.start,
+                    offset: clip.offset,
+                    length: clip.length,
+                };
+                clip.start = *start;
+                clip.offset = *offset;
+                clip.length = *length;
+                clips.sort_by_key(|c| (c.start, c.id));
+                Ok(inverse)
+            }
+            Command::SplitPatternClip { id, at, new_id } => {
+                ensure_fresh(project, new_id.0)?;
+                let (track, index) = pattern_clip_index(project, *id)?;
+                let clips = &mut project.tracks[track].pattern_clips;
+                let clip = &mut clips[index];
+                if *at <= clip.start || *at >= clip.end() {
+                    return Err(CommandError::Invalid(format!(
+                        "tick {at} is not inside pattern clip {} ({}..{})",
+                        clip.id,
+                        clip.start,
+                        clip.end()
+                    )));
+                }
+                let left = at - clip.start;
+                let original = Command::TrimPatternClip {
+                    id: *id,
+                    start: clip.start,
+                    offset: clip.offset,
+                    length: clip.length,
+                };
+                let right = PatternClip {
+                    id: *new_id,
+                    pattern: clip.pattern,
+                    start: *at,
+                    offset: clip.offset + left,
+                    length: clip.length - left,
+                };
+                clip.length = left;
+                clips.insert(index + 1, right);
+                clips.sort_by_key(|c| (c.start, c.id));
+                Ok(Command::Batch {
+                    commands: vec![Command::RemovePatternClip { id: *new_id }, original],
+                })
+            }
             Command::Batch { commands } => {
                 let mut inverses = Vec::with_capacity(commands.len());
                 for command in commands {
@@ -682,6 +833,25 @@ fn pattern_index(project: &Project, id: PatternId) -> Result<usize, CommandError
         .iter()
         .position(|p| p.id == id)
         .ok_or(CommandError::NoPattern(id))
+}
+
+/// Track index and pattern clip index within it.
+fn pattern_clip_index(
+    project: &Project,
+    id: PatternClipId,
+) -> Result<(usize, usize), CommandError> {
+    project
+        .tracks
+        .iter()
+        .enumerate()
+        .find_map(|(t, track)| {
+            track
+                .pattern_clips
+                .iter()
+                .position(|c| c.id == id)
+                .map(|c| (t, c))
+        })
+        .ok_or(CommandError::NoPatternClip(id))
 }
 
 fn pattern_id_at(project: &Project, index: usize) -> PatternId {
@@ -1218,6 +1388,127 @@ mod tests {
             .coalesce_key()
             .as_deref(),
             Some("step:8:kick:3")
+        );
+    }
+
+    #[test]
+    fn pattern_clips() {
+        let mut p = project();
+        p.tracks.push(Track::drums(TrackId(7), "Drums", "acoustic"));
+        p.tracks
+            .push(Track::drums(TrackId(8), "More drums", "rock"));
+        p.patterns.push(Pattern::new(PatternId(9), "Beat"));
+        let clip = |id: u64, start: u64, length: u64| PatternClip {
+            id: PatternClipId(id),
+            pattern: PatternId(9),
+            start,
+            offset: 0,
+            length,
+        };
+        let placed = round_trip(
+            &p,
+            Command::InsertPatternClip {
+                track: TrackId(7),
+                clip: clip(10, 3840, 7680),
+            },
+        );
+        assert_eq!(placed.tracks[2].pattern_clips.len(), 1);
+        assert!(matches!(
+            Command::RemovePattern { id: PatternId(9) }.apply(&mut placed.clone()),
+            Err(CommandError::Invalid(_))
+        ));
+        round_trip(
+            &placed,
+            Command::RemovePatternClip {
+                id: PatternClipId(10),
+            },
+        );
+        let moved = round_trip(
+            &placed,
+            Command::MovePatternClip {
+                id: PatternClipId(10),
+                track: TrackId(8),
+                start: 0,
+            },
+        );
+        assert!(moved.tracks[2].pattern_clips.is_empty());
+        assert_eq!(moved.tracks[3].pattern_clips[0].start, 0);
+        let trimmed = round_trip(
+            &placed,
+            Command::TrimPatternClip {
+                id: PatternClipId(10),
+                start: 4800,
+                offset: 960,
+                length: 6720,
+            },
+        );
+        assert_eq!(trimmed.tracks[2].pattern_clips[0].offset, 960);
+        let split = round_trip(
+            &placed,
+            Command::SplitPatternClip {
+                id: PatternClipId(10),
+                at: 3840 + 1920,
+                new_id: PatternClipId(11),
+            },
+        );
+        let clips = &split.tracks[2].pattern_clips;
+        assert_eq!((clips[0].start, clips[0].length), (3840, 1920));
+        assert_eq!(
+            (
+                clips[1].id,
+                clips[1].start,
+                clips[1].offset,
+                clips[1].length
+            ),
+            (PatternClipId(11), 5760, 1920, 5760)
+        );
+        for bad in [
+            Command::InsertPatternClip {
+                track: TrackId(1),
+                clip: clip(12, 0, 100),
+            },
+            Command::InsertPatternClip {
+                track: TrackId(7),
+                clip: clip(12, 0, 0),
+            },
+            Command::InsertPatternClip {
+                track: TrackId(7),
+                clip: PatternClip {
+                    pattern: PatternId(99),
+                    ..clip(12, 0, 100)
+                },
+            },
+            Command::MovePatternClip {
+                id: PatternClipId(10),
+                track: TrackId(1),
+                start: 0,
+            },
+            Command::TrimPatternClip {
+                id: PatternClipId(10),
+                start: 0,
+                offset: 0,
+                length: 0,
+            },
+            Command::SplitPatternClip {
+                id: PatternClipId(10),
+                at: 3840,
+                new_id: PatternClipId(11),
+            },
+        ] {
+            let mut q = placed.clone();
+            let err = bad.apply(&mut q).unwrap_err();
+            assert!(
+                matches!(err, CommandError::Invalid(_) | CommandError::NoPattern(_)),
+                "{bad:?}: {err}"
+            );
+            assert_eq!(q, placed, "{bad:?} changed the project");
+        }
+        assert_eq!(
+            Command::RemovePatternClip {
+                id: PatternClipId(99)
+            }
+            .apply(&mut p.clone()),
+            Err(CommandError::NoPatternClip(PatternClipId(99)))
         );
     }
 

@@ -4,7 +4,9 @@
  * handles the pointer; everything it decides is decided here, where a
  * test can reach it.
  */
-import type { ClipInfo, Tempo } from "./engine";
+
+import { PPQ } from "./drums";
+import type { ClipInfo, PatternClipInfo, PatternInfo, Tempo } from "./engine";
 
 /** What the timeline shows: the sample at its left edge and the zoom. */
 export interface View {
@@ -181,4 +183,78 @@ export function follow(view: View, sample: number, width: number): number {
     return Math.max(0, sample - span * 0.1);
   }
   return view.scroll;
+}
+
+/** Samples per tick at a tempo: how pattern clips, kept in ticks, land on the sample timeline. */
+export function samplesPerTick(tempo: Pick<Tempo, "bpm">, sampleRate: number): number {
+  return (sampleRate * 60) / (tempo.bpm * PPQ);
+}
+
+/**
+ * A pattern clip as a lane item in samples, so hit testing and the drag
+ * arithmetic treat it like an audio clip. The file is empty; ids are
+ * unique across the project, so the clip is told apart by its id.
+ */
+export function patternLane(clip: PatternClipInfo, name: string, spt: number): ClipInfo {
+  return {
+    id: clip.id,
+    name,
+    file: "",
+    start: clip.start * spt,
+    offset: clip.offset * spt,
+    length: clip.length * spt,
+  };
+}
+
+/** A lane geometry back in ticks, rounded, with at least one tick of length. */
+export function laneToTicks(geometry: Geometry, spt: number): Geometry {
+  const start = Math.round(geometry.start / spt);
+  const offset = Math.round(geometry.offset / spt);
+  const length = Math.max(1, Math.round(geometry.length / spt));
+  return { start, offset, length };
+}
+
+/** A step of a pattern clip to draw: which step, its velocity and where it sits in the clip, in samples. */
+export interface PreviewHit {
+  row: number;
+  /** Samples from the clip's start. */
+  at: number;
+  velocity: number;
+}
+
+/**
+ * The hits a pattern clip shows between two clip-relative sample
+ * positions, looping the pattern from the clip's offset. `rows` lists
+ * the pads to draw, in order; pads not in the pattern draw nothing.
+ */
+export function previewHits(
+  clip: PatternClipInfo,
+  pattern: PatternInfo,
+  rows: string[],
+  spt: number,
+  from: number,
+  to: number,
+): PreviewHit[] {
+  const out: PreviewHit[] = [];
+  const stepTicks = PPQ / Math.max(1, pattern.stepsPerBeat);
+  const cycle = stepTicks * Math.max(1, pattern.length);
+  if (cycle <= 0 || spt <= 0) return out;
+  const firstTick = Math.max(0, from / spt);
+  const lastTick = Math.min(clip.length, to / spt);
+  // Pattern-relative tick of the clip's start.
+  const origin = clip.offset % cycle;
+  let k = Math.floor((firstTick + origin) / stepTicks) - 1;
+  for (;;) {
+    const tick = k * stepTicks - origin;
+    if (tick > lastTick) break;
+    if (tick >= firstTick && tick >= 0 && tick < clip.length) {
+      const step = ((k % pattern.length) + pattern.length) % pattern.length;
+      rows.forEach((pad, row) => {
+        const v = pattern.rows.find((r) => r.pad === pad)?.steps[step] ?? 0;
+        if (v > 0) out.push({ row, at: tick * spt, velocity: v });
+      });
+    }
+    k += 1;
+  }
+  return out;
 }

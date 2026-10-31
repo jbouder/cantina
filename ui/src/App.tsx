@@ -215,6 +215,7 @@ export function App() {
             />
             <Timeline
               tracks={status.project.tracks}
+              patterns={status.project.patterns}
               sampleRate={status.project.sampleRate}
               tempo={status.project.tempo}
               position={frame.position}

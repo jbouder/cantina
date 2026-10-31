@@ -1,15 +1,19 @@
 import { describe, expect, it } from "vitest";
-import type { ClipInfo } from "./engine";
+import type { ClipInfo, PatternInfo } from "./engine";
 import {
   canSplit,
   fitView,
   follow,
   gridFor,
   hitTest,
+  laneToTicks,
   moved,
   musicalLabel,
+  patternLane,
+  previewHits,
   RULER_HEIGHT,
   sampleAt,
+  samplesPerTick,
   snap,
   TRACK_HEIGHT,
   trimmedLeft,
@@ -133,5 +137,61 @@ describe("edits", () => {
     expect(canSplit(c, 10_000)).toBe(false);
     expect(canSplit(c, 20_000)).toBe(true);
     expect(canSplit(c, 30_000)).toBe(false);
+  });
+});
+
+describe("pattern clips", () => {
+  const spt = samplesPerTick(tempo, SR);
+  const pattern: PatternInfo = {
+    id: 11,
+    name: "Beat",
+    stepsPerBeat: 4,
+    length: 16,
+    swing: 0,
+    rows: [
+      { pad: "kick", steps: [1, ...new Array(7).fill(0), 0.5, ...new Array(7).fill(0)] },
+      { pad: "snare", steps: [0, 0, 0, 0, 1, ...new Array(11).fill(0)] },
+    ],
+  };
+  it("convert between ticks and samples", () => {
+    expect(spt).toBe(25);
+    const lane = patternLane(
+      { id: 7, pattern: 11, start: 960, offset: 240, length: 3840 },
+      "Beat",
+      spt,
+    );
+    expect(lane).toEqual({
+      id: 7,
+      name: "Beat",
+      file: "",
+      start: 24_000,
+      offset: 6_000,
+      length: 96_000,
+    });
+    expect(laneToTicks({ start: 24_010, offset: 6_000, length: 96_000 }, spt)).toEqual({
+      start: 960,
+      offset: 240,
+      length: 3840,
+    });
+    expect(laneToTicks({ start: 0, offset: 0, length: 3 }, spt).length).toBe(1);
+  });
+  it("preview the hits of a looping, offset clip within a window", () => {
+    const clip = { id: 7, pattern: 11, start: 0, offset: 960, length: 7680 };
+    const hits = previewHits(clip, pattern, ["kick", "snare"], spt, 0, 7680 * spt);
+    // Offset a beat: the snare (step 4) lands at tick 0, the half kick
+    // (step 8) a beat later, the kick (step 0) at the next pass.
+    expect(hits).toEqual([
+      { row: 1, at: 0, velocity: 1 },
+      { row: 0, at: 960 * spt, velocity: 0.5 },
+      { row: 0, at: 2880 * spt, velocity: 1 },
+      { row: 1, at: 3840 * spt, velocity: 1 },
+      { row: 0, at: 4800 * spt, velocity: 0.5 },
+      { row: 0, at: 6720 * spt, velocity: 1 },
+    ]);
+    // A window sees only its hits.
+    expect(previewHits(clip, pattern, ["kick"], spt, 1000 * spt, 3000 * spt)).toEqual([
+      { row: 0, at: 2880 * spt, velocity: 1 },
+    ]);
+    expect(previewHits(clip, pattern, ["ride"], spt, 0, 1e9)).toEqual([]);
   });
 });
