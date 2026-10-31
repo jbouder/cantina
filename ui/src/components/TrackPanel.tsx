@@ -19,6 +19,7 @@ type Props = {
   count: number;
   sampleRate: number;
   kinds: string[];
+  onBrowsePlugins: () => void;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
 };
@@ -28,7 +29,16 @@ type Props = {
  * and its clips as a list (the timeline draws them; this is the list a
  * screen reader or the keyboard gets).
  */
-export function TrackPanel({ track, index, count, sampleRate, kinds, onStatus, onError }: Props) {
+export function TrackPanel({
+  track,
+  index,
+  count,
+  sampleRate,
+  kinds,
+  onBrowsePlugins,
+  onStatus,
+  onError,
+}: Props) {
   const run = (action: Promise<EngineStatus>) => action.then(onStatus, (e) => onError(String(e)));
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(track.name);
@@ -131,6 +141,7 @@ export function TrackPanel({ track, index, count, sampleRate, kinds, onStatus, o
         track={track.id}
         chain={track.chain}
         kinds={kinds}
+        onBrowsePlugins={onBrowsePlugins}
         onStatus={onStatus}
         onError={onError}
       />

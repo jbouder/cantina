@@ -5,6 +5,7 @@ import { Led } from "./components/Led";
 import { Meter } from "./components/Meter";
 import { Mixer } from "./components/Mixer";
 import { Notice } from "./components/Notice";
+import { PluginBrowser } from "./components/PluginBrowser";
 import { ProjectBar } from "./components/ProjectBar";
 import { Projects } from "./components/Projects";
 import { Recovery } from "./components/Recovery";
@@ -44,12 +45,14 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [frame, setFrame] = useState<MeterFrame>(IDLE);
-  // In a browser `?settings` and `?projects` open the sheets, so
-  // screenshots can show them.
+  // In a browser `?settings`, `?projects` and `?plugins` open the
+  // sheets, so screenshots can show them.
   const [settingsOpen, setSettingsOpen] = useState(() => params?.has("settings") ?? false);
   const [projectsOpen, setProjectsOpen] = useState(() => params?.has("projects") ?? false);
+  const [pluginsOpen, setPluginsOpen] = useState(() => params?.has("plugins") ?? false);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const closeProjects = useCallback(() => setProjectsOpen(false), []);
+  const closePlugins = useCallback(() => setPluginsOpen(false), []);
   const [selectedTrack, setSelectedTrack] = useState<number | null>(null);
 
   // In a browser `?scroll=<px>` scrolls the page, so screenshots can
@@ -223,6 +226,7 @@ export function App() {
                 count={status.project.tracks.length}
                 sampleRate={status.project.sampleRate}
                 kinds={status.pedalKinds}
+                onBrowsePlugins={() => setPluginsOpen(true)}
                 onStatus={setStatus}
                 onError={setError}
               />
@@ -236,6 +240,15 @@ export function App() {
           current={status.project.name}
           dirty={status.project.dirty}
           onClose={closeProjects}
+          onStatus={setStatus}
+        />
+      ) : null}
+      {pluginsOpen && status && selected ? (
+        <PluginBrowser
+          track={selected.id}
+          trackName={selected.name}
+          plugins={status.plugins}
+          onClose={closePlugins}
           onStatus={setStatus}
         />
       ) : null}

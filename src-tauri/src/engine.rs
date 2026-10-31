@@ -31,6 +31,7 @@ use cantina_engine::{
     MeterHandle, Mute, NodeId, Player, PlayerHandle, Recorder, RecorderHandle, Runtime, Stream,
     StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
 };
+use cantina_hosting::scan::{self, PluginList, Scanner};
 use cantina_project::{
     Clip, ClipId, Command, History, Journal, JournalEntry, Pedal, PedalId, Project,
     Strip as StripModel, Tempo, Track, TrackId,
@@ -68,6 +69,20 @@ pub struct EngineStatus {
     pub project: ProjectStatus,
     /// Specs `chain_add` accepts.
     pub pedal_kinds: Vec<String>,
+    pub plugins: PluginsStatus,
+}
+
+/// What the plugin scanner has found, in brief; `plugin_list` has the
+/// list itself. Mirrors `PluginsStatus` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginsStatus {
+    /// True while a scan runs in the background.
+    pub scanning: bool,
+    pub count: usize,
+    pub failed: usize,
+    /// Seconds since the epoch of the last scan, zero before the first.
+    pub scanned_at: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -595,6 +610,10 @@ pub struct Engine {
     transport_state: Arc<TransportState>,
     /// Frames skipped because the UI had not taken the previous one.
     frames_dropped: Arc<AtomicU32>,
+    /// What the scanner found last, from the cache until a scan runs.
+    plugins: PluginList,
+    plugins_path: Option<PathBuf>,
+    scanning: bool,
 }
 
 /// What the meter pump reads to fill in a frame.
@@ -610,7 +629,20 @@ impl Engine {
             .app_config_dir()
             .ok()
             .map(|dir| dir.join("settings.json"));
+        let plugins_path = app
+            .path()
+            .app_data_dir()
+            .ok()
+            .map(|dir| dir.join("plugins.json"));
         let mut last_error = None;
+        let plugins = match plugins_path.as_deref().map(PluginList::load) {
+            Some(Ok(list)) => list,
+            Some(Err(e)) => {
+                last_error = Some(format!("{e:#}"));
+                PluginList::default()
+            }
+            None => PluginList::default(),
+        };
         let settings = match settings_path.as_deref().map(Settings::load) {
             Some(Ok(s)) => s,
             Some(Err(e)) => {
@@ -652,6 +684,9 @@ impl Engine {
             meter_subscribers: Arc::new(Mutex::new(Vec::new())),
             transport_state: Arc::new(TransportState::default()),
             frames_dropped: Arc::new(AtomicU32::new(0)),
+            plugins,
+            plugins_path,
+            scanning: false,
         };
         engine.adopt_sample_rate();
         engine.remember_project();
@@ -712,7 +747,73 @@ impl Engine {
             },
             project: self.project_status(),
             pedal_kinds: STOCK_NAMES.iter().map(|s| s.to_string()).collect(),
+            plugins: PluginsStatus {
+                scanning: self.scanning,
+                count: self.plugins.plugins.len(),
+                failed: self.plugins.failed.len(),
+                scanned_at: self.plugins.scanned_at,
+            },
         }
+    }
+
+    // ----- plugins -----
+
+    /// What the scanner found. Asking for the list before any scan has
+    /// run starts one, so the first launch fills it in by itself.
+    pub fn plugin_list(&mut self) -> PluginList {
+        if self.plugins.is_unscanned() && !self.scanning {
+            self.plugin_rescan(false);
+        }
+        self.plugins.clone()
+    }
+
+    /// Scans in the background: new and changed sources only, or every
+    /// source when `full`. The child is this binary run with
+    /// `--scan-plugins`, so a plugin that crashes on load is recorded as
+    /// failed and the app stays up. The status is pushed when it is done.
+    pub fn plugin_rescan(&mut self, full: bool) -> EngineStatus {
+        if self.scanning {
+            return self.status();
+        }
+        self.scanning = true;
+        let previous = self.plugins.clone();
+        let app = self.app.clone();
+        thread::Builder::new()
+            .name("plugin-scan".into())
+            .spawn(move || {
+                let result = std::env::current_exe()
+                    .context("finding the Cantina binary")
+                    .and_then(|exe| {
+                        Scanner::new(exe, vec![scan::CHILD_FLAG.into()]).scan(
+                            scan::discover(),
+                            &previous,
+                            full,
+                            |_| {},
+                        )
+                    });
+                app.state::<EngineState>()
+                    .lock()
+                    .plugins_scanned(result.map(|o| o.list));
+            })
+            .expect("spawning the plugin scan thread");
+        self.publish()
+    }
+
+    /// The scan thread's result.
+    fn plugins_scanned(&mut self, result: Result<PluginList>) {
+        self.scanning = false;
+        match result {
+            Ok(list) => {
+                if let Some(path) = &self.plugins_path {
+                    if let Err(e) = list.save(path) {
+                        self.last_error = Some(format!("{e:#}"));
+                    }
+                }
+                self.plugins = list;
+            }
+            Err(e) => self.last_error = Some(format!("scanning plugins: {e:#}")),
+        }
+        self.publish();
     }
 
     fn project_status(&self) -> ProjectStatus {

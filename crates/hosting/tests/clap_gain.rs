@@ -1,33 +1,11 @@
 //! Loads the workspace's own test plugin, built as a dylib, and checks the
 //! CLAP wrapper behaves like a Processor.
 
-use std::path::PathBuf;
-use std::process::Command;
+mod common;
 
 use cantina_dsp::{Buffer, Processor};
 use cantina_hosting::clap::{self, ClapProcessor};
-
-/// The fixture lives next to the test binary's profile directory. Build it
-/// if a `-p cantina-hosting` run skipped it.
-fn fixture_path() -> PathBuf {
-    let exe = std::env::current_exe().unwrap();
-    let profile_dir = exe
-        .ancestors()
-        .find(|p| p.join("deps").is_dir() && p.join(".fingerprint").is_dir())
-        .expect("test binary lives under target/<profile>/")
-        .to_path_buf();
-    let path = profile_dir.join("libcantina_clap_gain.dylib");
-    if !path.exists() {
-        let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
-        let status = Command::new(cargo)
-            .args(["build", "-p", "cantina-clap-gain"])
-            .status()
-            .expect("cargo runs");
-        assert!(status.success(), "building the CLAP fixture failed");
-    }
-    assert!(path.exists(), "{} is missing", path.display());
-    path
-}
+use common::fixture_path;
 
 fn param_named(p: &dyn Processor, name: &str) -> usize {
     p.params()
@@ -39,9 +17,11 @@ fn param_named(p: &dyn Processor, name: &str) -> usize {
 #[test]
 fn fixture_is_listed() {
     let plugins = clap::list_plugins(&fixture_path()).unwrap();
-    assert_eq!(plugins.len(), 1);
+    assert_eq!(plugins.len(), 2, "the gain and the crash plugin");
     assert_eq!(plugins[0].id, cantina_clap_gain::ID);
     assert_eq!(plugins[0].name, cantina_clap_gain::NAME);
+    assert_eq!(plugins[0].vendor, cantina_clap_gain::VENDOR);
+    assert_eq!(plugins[1].id, cantina_clap_gain::CRASH_ID);
 }
 
 #[test]

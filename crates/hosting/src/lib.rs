@@ -6,11 +6,14 @@
 //! commercial Mac plugin; CLAP follows.
 //!
 //! Plugins run in-process on the audio thread, like every mainstream DAW
-//! except Bitwig. Scanning in a child process, so a crashing plugin cannot
-//! take the app down, is M4.
+//! except Bitwig. Scanning runs in a child process ([`scan`]), so a plugin
+//! that crashes when it loads is recorded as failed instead of taking the
+//! app down.
 
 pub mod au;
 pub mod clap;
+pub mod scan;
 
 pub use au::{AudioUnitProcessor, ComponentId, ComponentInfo};
 pub use clap::ClapProcessor;
+pub use scan::{Format, PluginEntry, PluginList, Scanner, Source};

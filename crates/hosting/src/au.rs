@@ -14,18 +14,18 @@ use std::slice;
 use anyhow::{anyhow, bail, Context, Result};
 use cantina_dsp::{Buffer, ParamId, ParamInfo, Processor, Unit};
 use objc2_audio_toolbox::{
-    kAudioUnitManufacturer_Apple, kAudioUnitProperty_Latency,
-    kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitProperty_ParameterInfo,
-    kAudioUnitProperty_ParameterList, kAudioUnitProperty_SetRenderCallback,
-    kAudioUnitProperty_StreamFormat, kAudioUnitScope_Global, kAudioUnitScope_Input,
-    kAudioUnitScope_Output, kAudioUnitType_Effect, kAudioUnitType_MusicEffect,
-    AURenderCallbackStruct, AudioComponent, AudioComponentCopyName, AudioComponentDescription,
-    AudioComponentFindNext, AudioComponentGetDescription, AudioComponentGetVersion,
-    AudioComponentInstanceDispose, AudioComponentInstanceNew, AudioUnit, AudioUnitGetParameter,
-    AudioUnitGetProperty, AudioUnitGetPropertyInfo, AudioUnitInitialize, AudioUnitParameterID,
-    AudioUnitParameterInfo, AudioUnitParameterOptions, AudioUnitParameterUnit, AudioUnitRender,
-    AudioUnitRenderActionFlags, AudioUnitScope, AudioUnitSetParameter, AudioUnitSetProperty,
-    AudioUnitUninitialize,
+    kAudioUnitManufacturer_Apple, kAudioUnitProperty_CocoaUI, kAudioUnitProperty_ElementCount,
+    kAudioUnitProperty_Latency, kAudioUnitProperty_MaximumFramesPerSlice,
+    kAudioUnitProperty_ParameterInfo, kAudioUnitProperty_ParameterList,
+    kAudioUnitProperty_SetRenderCallback, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Global,
+    kAudioUnitScope_Input, kAudioUnitScope_Output, kAudioUnitType_Effect,
+    kAudioUnitType_MusicEffect, AURenderCallbackStruct, AudioComponent, AudioComponentCopyName,
+    AudioComponentDescription, AudioComponentFindNext, AudioComponentGetDescription,
+    AudioComponentGetVersion, AudioComponentInstanceDispose, AudioComponentInstanceNew, AudioUnit,
+    AudioUnitGetParameter, AudioUnitGetProperty, AudioUnitGetPropertyInfo, AudioUnitInitialize,
+    AudioUnitParameterID, AudioUnitParameterInfo, AudioUnitParameterOptions,
+    AudioUnitParameterUnit, AudioUnitRender, AudioUnitRenderActionFlags, AudioUnitScope,
+    AudioUnitSetParameter, AudioUnitSetProperty, AudioUnitUninitialize,
 };
 use objc2_core_audio_types::{
     kAudioFormatFlagIsFloat, kAudioFormatFlagIsNonInterleaved, kAudioFormatFlagIsPacked,
@@ -96,6 +96,108 @@ impl ComponentInfo {
     pub fn is_apple(&self) -> bool {
         self.id.manufacturer == kAudioUnitManufacturer_Apple
     }
+
+    /// The manufacturer and the unit's own name, split out of the
+    /// `Manufacturer: Name` form the component reports.
+    pub fn vendor_and_name(&self) -> (String, String) {
+        match self.name.split_once(": ") {
+            Some((vendor, name)) => (vendor.to_string(), name.to_string()),
+            None => (String::new(), self.name.clone()),
+        }
+    }
+
+    /// The version as `major.minor.patch`, decoded from the packed
+    /// number the component reports.
+    pub fn version_string(&self) -> String {
+        format!(
+            "{}.{}.{}",
+            self.version >> 16,
+            (self.version >> 8) & 0xff,
+            self.version & 0xff
+        )
+    }
+}
+
+/// What instantiating a unit reveals that the component list does not:
+/// its default channel layout and whether it ships an editor view.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InstanceInfo {
+    pub inputs: u32,
+    pub outputs: u32,
+    pub has_editor: bool,
+}
+
+/// Instantiates a unit, reads its [`InstanceInfo`] and disposes of it
+/// again. This runs the plugin's code, which is why the scanner does it
+/// in a child process.
+pub fn describe_instance(id: ComponentId) -> Result<InstanceInfo> {
+    let mut wanted = id.description();
+    let component = unsafe { AudioComponentFindNext(null_mut(), NonNull::from(&mut wanted)) };
+    if component.is_null() {
+        bail!("Audio Unit {id} is not installed");
+    }
+    let mut unit: AudioUnit = null_mut();
+    check(
+        unsafe { AudioComponentInstanceNew(component, NonNull::from(&mut unit)) },
+        "instantiating the Audio Unit",
+    )?;
+    let info = read_instance_info(unit);
+    unsafe { AudioComponentInstanceDispose(unit) };
+    info
+}
+
+fn read_instance_info(unit: AudioUnit) -> Result<InstanceInfo> {
+    let channels = |scope: AudioUnitScope| -> u32 {
+        let mut count = 0u32;
+        let mut size = size_of::<u32>() as u32;
+        let status = unsafe {
+            AudioUnitGetProperty(
+                unit,
+                kAudioUnitProperty_ElementCount,
+                scope,
+                0,
+                NonNull::from(&mut count).cast(),
+                NonNull::from(&mut size),
+            )
+        };
+        if status != 0 || count == 0 {
+            return 0;
+        }
+        let mut format = MaybeUninit::<AudioStreamBasicDescription>::uninit();
+        let mut size = size_of::<AudioStreamBasicDescription>() as u32;
+        let status = unsafe {
+            AudioUnitGetProperty(
+                unit,
+                kAudioUnitProperty_StreamFormat,
+                scope,
+                0,
+                NonNull::new(format.as_mut_ptr()).unwrap().cast(),
+                NonNull::from(&mut size),
+            )
+        };
+        if status != 0 {
+            return 0;
+        }
+        unsafe { format.assume_init() }.mChannelsPerFrame
+    };
+    let inputs = channels(kAudioUnitScope_Input);
+    let outputs = channels(kAudioUnitScope_Output);
+    let mut size = 0u32;
+    let status = unsafe {
+        AudioUnitGetPropertyInfo(
+            unit,
+            kAudioUnitProperty_CocoaUI,
+            kAudioUnitScope_Global,
+            0,
+            &mut size,
+            null_mut(),
+        )
+    };
+    Ok(InstanceInfo {
+        inputs,
+        outputs,
+        has_editor: status == 0 && size > 0,
+    })
 }
 
 /// Every installed effect Audio Unit, Apple's and third parties', in the

@@ -2,6 +2,7 @@
 //! locks the engine for one call and returns the status the UI should
 //! show.
 
+use cantina_hosting::scan::PluginList;
 use cantina_project::Tempo;
 use tauri::ipc::{Channel, InvokeResponseBody, Response};
 use tauri::State;
@@ -64,6 +65,21 @@ pub fn meter_ack(engine: State<'_, EngineState>) {
 #[tauri::command]
 pub fn frames_dropped(engine: State<'_, EngineState>) -> u32 {
     engine.lock().frames_dropped()
+}
+
+// ----- plugins -----
+
+/// What the scanner found. Starts a scan if none has run yet.
+#[tauri::command]
+pub fn plugin_list(engine: State<'_, EngineState>) -> PluginList {
+    engine.lock().plugin_list()
+}
+
+/// Scans new and changed plugins in the background, or everything when
+/// `full`. The status is pushed when it finishes.
+#[tauri::command]
+pub fn plugin_rescan(engine: State<'_, EngineState>, full: bool) -> EngineStatus {
+    engine.lock().plugin_rescan(full)
 }
 
 // ----- the project -----

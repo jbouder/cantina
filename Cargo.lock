@@ -283,6 +283,7 @@ dependencies = [
  "anyhow",
  "cantina-dsp",
  "cantina-engine",
+ "cantina-hosting",
  "cantina-project",
  "serde",
  "serde_json",
@@ -333,6 +334,8 @@ dependencies = [
  "objc2-audio-toolbox",
  "objc2-core-audio-types",
  "objc2-core-foundation",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
