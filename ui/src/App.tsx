@@ -22,6 +22,8 @@ import {
   type MeterFrame,
   onMeters,
   onStatus,
+  projectRedo,
+  projectUndo,
   SILENT,
 } from "./lib/engine";
 
@@ -65,6 +67,22 @@ export function App() {
       stopStatus();
       stopMeters();
     };
+  }, []);
+
+  // Cmd-Z and Shift-Cmd-Z anywhere but inside a text field, where the
+  // field's own undo applies.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z" || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === "INPUT" && (target as HTMLInputElement).type === "text") return;
+      if (tag === "TEXTAREA" || target?.isContentEditable) return;
+      e.preventDefault();
+      (e.shiftKey ? projectRedo() : projectUndo()).then(setStatus, (err) => setError(String(err)));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   const toggle = useCallback(async () => {

@@ -38,6 +38,8 @@ pub fn run() {
             commands::project_new,
             commands::project_open,
             commands::project_save,
+            commands::project_undo,
+            commands::project_redo,
             commands::tempo_set,
             commands::strip_gain,
             commands::strip_pan,

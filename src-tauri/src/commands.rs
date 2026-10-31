@@ -89,6 +89,16 @@ pub fn project_save(engine: State<'_, EngineState>) -> Result<EngineStatus, Stri
 }
 
 #[tauri::command]
+pub fn project_undo(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().undo().map_err(fail)
+}
+
+#[tauri::command]
+pub fn project_redo(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().redo().map_err(fail)
+}
+
+#[tauri::command]
 pub fn tempo_set(engine: State<'_, EngineState>, tempo: Tempo) -> Result<EngineStatus, String> {
     engine.lock().tempo_set(tempo).map_err(fail)
 }
