@@ -1,0 +1,141 @@
+{
+  "version": 1,
+  "name": "Electronic",
+  "pads": [
+    {
+      "id": "kick",
+      "name": "Kick",
+      "gainDb": 1,
+      "layers": [
+        {
+          "file": "kick.wav"
+        }
+      ]
+    },
+    {
+      "id": "kick-2",
+      "name": "Soft kick",
+      "layers": [
+        {
+          "file": "kick-2.wav"
+        }
+      ]
+    },
+    {
+      "id": "snare",
+      "name": "Snare",
+      "layers": [
+        {
+          "file": "snare.wav"
+        }
+      ]
+    },
+    {
+      "id": "snare-2",
+      "name": "Mid snare",
+      "pan": -0.15,
+      "layers": [
+        {
+          "file": "snare-2.wav"
+        }
+      ]
+    },
+    {
+      "id": "clap",
+      "name": "Clap",
+      "pan": 0.15,
+      "layers": [
+        {
+          "file": "clap.wav"
+        }
+      ]
+    },
+    {
+      "id": "hh-closed",
+      "name": "Closed hat",
+      "pan": 0.3,
+      "choke": "hat",
+      "gainDb": -1,
+      "layers": [
+        {
+          "file": "hh-closed.wav"
+        }
+      ]
+    },
+    {
+      "id": "hh-open",
+      "name": "Open hat",
+      "pan": 0.3,
+      "choke": "hat",
+      "gainDb": -3,
+      "layers": [
+        {
+          "file": "hh-open.wav"
+        }
+      ]
+    },
+    {
+      "id": "tom-hi",
+      "name": "High tom",
+      "pan": -0.3,
+      "layers": [
+        {
+          "file": "tom-hi.wav"
+        }
+      ]
+    },
+    {
+      "id": "tom-lo",
+      "name": "Low tom",
+      "pan": 0.3,
+      "layers": [
+        {
+          "file": "tom-lo.wav"
+        }
+      ]
+    },
+    {
+      "id": "perc",
+      "name": "Pop",
+      "pan": -0.4,
+      "layers": [
+        {
+          "file": "perc.wav"
+        }
+      ]
+    },
+    {
+      "id": "blip",
+      "name": "Blip",
+      "pan": 0.45,
+      "gainDb": -3,
+      "layers": [
+        {
+          "file": "blip.wav"
+        }
+      ]
+    },
+    {
+      "id": "bell",
+      "name": "Bell",
+      "pan": 0.5,
+      "gainDb": -4,
+      "layers": [
+        {
+          "file": "bell.wav"
+        }
+      ]
+    },
+    {
+      "id": "wood",
+      "name": "Wood",
+      "pan": -0.5,
+      "gainDb": -3,
+      "layers": [
+        {
+          "file": "wood.wav"
+        }
+      ]
+    }
+  ]
+}

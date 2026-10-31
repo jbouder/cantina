@@ -1,0 +1,189 @@
+{
+  "version": 1,
+  "name": "Acoustic",
+  "pads": [
+    {
+      "id": "kick",
+      "name": "Kick",
+      "layers": [
+        {
+          "file": "kick-soft.wav",
+          "velocity": [
+            0,
+            0.6
+          ]
+        },
+        {
+          "file": "kick-hard.wav",
+          "velocity": [
+            0.6,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "snare",
+      "name": "Snare",
+      "pan": -0.1,
+      "layers": [
+        {
+          "file": "snare-soft.wav",
+          "velocity": [
+            0,
+            0.65
+          ]
+        },
+        {
+          "file": "snare-hard.wav",
+          "velocity": [
+            0.65,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hh-closed",
+      "name": "Closed hat",
+      "pan": 0.3,
+      "choke": "hat",
+      "layers": [
+        {
+          "file": "hh-closed.wav"
+        }
+      ]
+    },
+    {
+      "id": "hh-pedal",
+      "name": "Pedal hat",
+      "pan": 0.3,
+      "choke": "hat",
+      "gainDb": -3,
+      "layers": [
+        {
+          "file": "hh-pedal.wav"
+        }
+      ]
+    },
+    {
+      "id": "hh-open",
+      "name": "Open hat",
+      "pan": 0.3,
+      "choke": "hat",
+      "gainDb": -2,
+      "layers": [
+        {
+          "file": "hh-open.wav"
+        }
+      ]
+    },
+    {
+      "id": "tom-hi",
+      "name": "High tom",
+      "pan": -0.35,
+      "layers": [
+        {
+          "file": "tom-hi-soft.wav",
+          "velocity": [
+            0,
+            0.6
+          ]
+        },
+        {
+          "file": "tom-hi-hard.wav",
+          "velocity": [
+            0.6,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tom-mid",
+      "name": "Mid tom",
+      "pan": 0.1,
+      "layers": [
+        {
+          "file": "tom-mid-soft.wav",
+          "velocity": [
+            0,
+            0.6
+          ]
+        },
+        {
+          "file": "tom-mid-hard.wav",
+          "velocity": [
+            0.6,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tom-lo",
+      "name": "Low tom",
+      "pan": 0.4,
+      "layers": [
+        {
+          "file": "tom-lo-soft.wav",
+          "velocity": [
+            0,
+            0.6
+          ]
+        },
+        {
+          "file": "tom-lo-hard.wav",
+          "velocity": [
+            0.6,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "crash",
+      "name": "Crash",
+      "pan": -0.5,
+      "gainDb": -3,
+      "layers": [
+        {
+          "file": "crash-soft.wav",
+          "velocity": [
+            0,
+            0.6
+          ]
+        },
+        {
+          "file": "crash-hard.wav",
+          "velocity": [
+            0.6,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ride",
+      "name": "Ride",
+      "pan": 0.55,
+      "gainDb": -2,
+      "layers": [
+        {
+          "file": "ride-soft.wav",
+          "velocity": [
+            0,
+            0.6
+          ]
+        },
+        {
+          "file": "ride-hard.wav",
+          "velocity": [
+            0.6,
+            1
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -100,6 +100,31 @@ pad's gain and the pan, with silence before the first. Regenerate the
 reference after an intended change with
 `UPDATE_GOLDEN=1 cargo test -p cantina-dsp --test sampler`.
 
+## Stock kits
+
+Three kits ship with the app, in `kits/` at the repository root and in
+the app bundle's resources:
+
+| Kit | Id | Pads |
+| --- | --- | --- |
+| Acoustic | `acoustic` | kick, snare, closed/pedal/open hat, three toms, crash, ride, with soft and hard velocity layers on the drums and cymbals |
+| Tight rock | `rock` | a heavy kick, a hard snare, closed and (short) open hat, two toms, crash, ride, cowbell |
+| Electronic | `electronic` | two kicks, two snares, a clap, hats, two toms, pop, blip, bell, wood |
+
+Every kit has `kick`, `snare`, `hh-closed`, `hh-open`, `tom-hi` and
+`tom-lo`, so a pattern written on one plays on the others; the hats
+choke each other in every kit. The samples are public domain (CC0),
+recorded by their authors on Freesound and gathered by the Sonic Pi
+project; `kits/CREDITS.md` lists every file's source, and a test fails
+if a sample is added without a credit, left unused, or if a kit takes
+more than 200 ms to load (they take a few milliseconds). The kit
+definitions themselves are Cantina's, under the MIT license.
+
+The stock kits are also format examples: copy one to
+`~/Music/Cantina/Kits/<id>/`, change the samples, and it appears in the
+kit picker on the next launch (or **Rescan** in the picker), ahead of a
+stock kit with the same id.
+
 ## Drum tracks
 
 A track is an audio track or a drum track, decided when it is made
@@ -119,6 +144,8 @@ wins on a duplicate id), the kits that ship with the app, and any folder
 `CANTINA_KITS` names. A kit is loaded the first time a track asks for it
 and kept for the session. A track whose kit is not installed plays
 silence and its grid says so; pick another kit from the panel's picker.
+The picker's **Rescan** looks for kits again, for one installed while
+the app runs.
 Changing a track's kit is an edit (`SetTrackKit`) and rebuilds its
 sequencer. The shell's `Kits` (`src-tauri/src/engine.rs`) holds all of
 this.

@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "name": "Tight rock",
+  "pads": [
+    {
+      "id": "kick",
+      "name": "Kick",
+      "gainDb": 1,
+      "layers": [
+        {
+          "file": "kick.wav"
+        }
+      ]
+    },
+    {
+      "id": "snare",
+      "name": "Snare",
+      "pan": -0.05,
+      "layers": [
+        {
+          "file": "snare.wav"
+        }
+      ]
+    },
+    {
+      "id": "hh-closed",
+      "name": "Closed hat",
+      "pan": 0.25,
+      "choke": "hat",
+      "gainDb": -2,
+      "layers": [
+        {
+          "file": "hh-closed.wav"
+        }
+      ]
+    },
+    {
+      "id": "hh-open",
+      "name": "Open hat",
+      "pan": 0.25,
+      "choke": "hat",
+      "gainDb": -1,
+      "layers": [
+        {
+          "file": "hh-open.wav"
+        }
+      ]
+    },
+    {
+      "id": "tom-hi",
+      "name": "High tom",
+      "pan": -0.3,
+      "layers": [
+        {
+          "file": "tom-hi.wav"
+        }
+      ]
+    },
+    {
+      "id": "tom-lo",
+      "name": "Low tom",
+      "pan": 0.35,
+      "layers": [
+        {
+          "file": "tom-lo.wav"
+        }
+      ]
+    },
+    {
+      "id": "crash",
+      "name": "Crash",
+      "pan": -0.45,
+      "gainDb": -4,
+      "layers": [
+        {
+          "file": "crash.wav"
+        }
+      ]
+    },
+    {
+      "id": "ride",
+      "name": "Ride",
+      "pan": 0.5,
+      "gainDb": -3,
+      "layers": [
+        {
+          "file": "ride.wav"
+        }
+      ]
+    },
+    {
+      "id": "cowbell",
+      "name": "Cowbell",
+      "pan": 0.15,
+      "gainDb": -4,
+      "layers": [
+        {
+          "file": "cowbell.wav"
+        }
+      ]
+    }
+  ]
+}
