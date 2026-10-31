@@ -10,5 +10,7 @@
 //! take the app down, is M4.
 
 pub mod au;
+pub mod clap;
 
 pub use au::{AudioUnitProcessor, ComponentId, ComponentInfo};
+pub use clap::ClapProcessor;
