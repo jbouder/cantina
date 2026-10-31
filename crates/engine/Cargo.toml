@@ -1,0 +1,17 @@
+[package]
+name = "cantina-engine"
+description = "CoreAudio stream, real-time graph runtime, transport and queues for Cantina"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow = "1.0.104"
+cantina-dsp.workspace = true
+coreaudio-rs = "0.14.2"
+objc2-audio-toolbox = "0.3"
+objc2-core-audio = "0.3"
+objc2-core-audio-types = "0.3"
+rtrb = "0.4.1"
