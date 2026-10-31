@@ -11,7 +11,7 @@
 //! pumps meter levels to the UI at display rate.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
@@ -20,14 +20,15 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{bail, Context, Result};
 use cantina_dsp::{ParamInfo, Unit, STOCK_NAMES};
 use cantina_engine::{
-    device, processors, wav, Clip, Controller, DeviceEvent, DeviceId, Endpoint, GraphConfig, Level,
-    Meter, MeterHandle, Mute, NodeId, Player, PlayerHandle, Recorder, RecorderHandle, Runtime,
-    Stream, StreamConfig, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
+    device, processors, wav, Clip, Controller, DeviceEvent, DeviceId, Endpoint, GraphConfig, Meter,
+    MeterHandle, Mute, NodeId, Player, PlayerHandle, Recorder, RecorderHandle, Runtime, Stream,
+    StreamConfig, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
 };
 use serde::Serialize;
-use tauri::ipc::Channel;
+use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::frame::Frame;
 use crate::settings::{AudioSettings, Settings};
 
 /// Event name for status pushes to the UI.
@@ -126,31 +127,12 @@ pub struct DeviceEntry {
     pub default_output: bool,
 }
 
-/// One meter update. Mirrors `MeterFrame` in the UI.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MeterFrame {
-    pub input: LevelOut,
-    pub output: LevelOut,
-    /// Timeline position in seconds.
-    pub position: f64,
-    pub playing: bool,
-    pub recording: bool,
-}
-
-#[derive(Debug, Clone, Copy, Serialize)]
-pub struct LevelOut {
-    pub peak: f32,
-    pub rms: f32,
-}
-
-impl From<Level> for LevelOut {
-    fn from(l: Level) -> Self {
-        Self {
-            peak: l.peak,
-            rms: l.rms,
-        }
-    }
+/// A UI listener for binary frames (see `frame.rs`). At most one frame is
+/// in flight per subscriber: the pump skips frames until the UI has taken
+/// the last one, so a slow or hidden UI gets fresh frames, never a queue.
+struct Subscriber {
+    channel: Channel<InvokeResponseBody>,
+    in_flight: Arc<AtomicBool>,
 }
 
 /// Frames per second the meter pump sends.
@@ -301,9 +283,11 @@ pub struct Engine {
     last_error: Option<String>,
     notice: Option<String>,
     notice_seq: u32,
-    meter_subscribers: Arc<Mutex<Vec<Channel<MeterFrame>>>>,
+    meter_subscribers: Arc<Mutex<Vec<Subscriber>>>,
     /// Shared with the meter pump so frames carry the transport state.
     transport_state: Arc<TransportState>,
+    /// Frames skipped because the UI had not taken the previous one.
+    frames_dropped: Arc<AtomicU32>,
 }
 
 /// What the meter pump reads to fill in a frame.
@@ -341,7 +325,7 @@ impl Engine {
                 Some(item)
             })
             .collect();
-        Self {
+        let engine = Self {
             app,
             live: None,
             settings,
@@ -356,7 +340,37 @@ impl Engine {
             notice_seq: 0,
             meter_subscribers: Arc::new(Mutex::new(Vec::new())),
             transport_state: Arc::new(TransportState::default()),
+            frames_dropped: Arc::new(AtomicU32::new(0)),
+        };
+        // For measuring the UI's cost of the frame stream without audio:
+        // a pump of synthetic levels with no stream behind it.
+        if std::env::var_os("CANTINA_SYNTHETIC_METERS").is_some() {
+            engine.spawn_synthetic_pump();
         }
+        engine
+    }
+
+    fn spawn_synthetic_pump(&self) {
+        let (_, input) = Meter::new();
+        let (_, output) = Meter::new();
+        let (_, controller) = Runtime::new(GraphConfig {
+            sample_rate: 48_000.0,
+            max_block_frames: MAX_BLOCK_FRAMES,
+            channels: 1,
+        })
+        .expect("a one-channel graph is valid");
+        spawn_meter_pump(
+            Arc::clone(&self.meter_subscribers),
+            input,
+            output,
+            controller.transport().clock(),
+            48_000.0,
+            Arc::clone(&self.transport_state),
+            Arc::clone(&self.frames_dropped),
+            Arc::new(AtomicBool::new(false)),
+        );
+        // The controller must outlive the pump's clock view of it.
+        std::mem::forget(controller);
     }
 
     pub fn status(&self) -> EngineStatus {
@@ -631,12 +645,31 @@ impl Engine {
         self.status()
     }
 
-    /// Adds a listener for meter frames. It is dropped when sending fails.
-    pub fn subscribe_meters(&self, channel: Channel<MeterFrame>) {
+    /// Adds a listener for binary frames. It is dropped when sending fails.
+    pub fn subscribe_meters(&self, channel: Channel<InvokeResponseBody>) {
         self.meter_subscribers
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .push(channel);
+            .push(Subscriber {
+                channel,
+                in_flight: Arc::new(AtomicBool::new(false)),
+            });
+    }
+
+    /// The UI has taken the last frame; the pump may send another.
+    pub fn meter_ack(&self) {
+        for sub in self
+            .meter_subscribers
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+        {
+            sub.in_flight.store(false, Ordering::Release);
+        }
+    }
+
+    pub fn frames_dropped(&self) -> u32 {
+        self.frames_dropped.load(Ordering::Relaxed)
     }
 
     /// Reacts to a hardware change delivered by the watcher thread.
@@ -840,6 +873,7 @@ impl Engine {
             controller.transport().clock(),
             sample_rate,
             Arc::clone(&self.transport_state),
+            Arc::clone(&self.frames_dropped),
             Arc::clone(&pump_stop),
         );
 
@@ -902,42 +936,64 @@ fn spawn_watcher_thread(app: AppHandle, rx: mpsc::Receiver<DeviceEvent>) {
         .expect("spawning the device watcher thread");
 }
 
-/// Sends meter frames to every subscriber at display rate until stopped.
+/// Sends frames to every subscriber at display rate until stopped. A
+/// subscriber that still holds the last frame is skipped and the frame
+/// counted as dropped; a subscriber whose channel fails is removed.
+#[allow(clippy::too_many_arguments)]
 fn spawn_meter_pump(
-    subscribers: Arc<Mutex<Vec<Channel<MeterFrame>>>>,
+    subscribers: Arc<Mutex<Vec<Subscriber>>>,
     input: MeterHandle,
     output: MeterHandle,
     clock: cantina_engine::TransportClock,
     sample_rate: f64,
     state: Arc<TransportState>,
+    dropped: Arc<AtomicU32>,
     stop: Arc<AtomicBool>,
 ) {
     thread::Builder::new()
         .name("meter-pump".into())
         .spawn(move || {
             let period = Duration::from_secs(1) / METER_RATE;
+            let mut sequence = 0u32;
+            let mut bytes = Vec::new();
+            let mut send = |meters: [f32; 4], playing: bool, recording: bool| {
+                let frame = Frame {
+                    sequence,
+                    dropped: dropped.load(Ordering::Relaxed),
+                    position_seconds: clock.position() as f64 / sample_rate,
+                    playing,
+                    recording,
+                    beat: None,
+                    meters: &meters,
+                    spectrum: &[],
+                    waveform: &[],
+                };
+                sequence = sequence.wrapping_add(1);
+                let mut subs = subscribers.lock().unwrap_or_else(|e| e.into_inner());
+                subs.retain(|sub| {
+                    if sub.in_flight.swap(true, Ordering::AcqRel) {
+                        dropped.fetch_add(1, Ordering::Relaxed);
+                        return true;
+                    }
+                    frame.encode_into(&mut bytes);
+                    sub.channel
+                        .send(InvokeResponseBody::Raw(bytes.clone()))
+                        .is_ok()
+                });
+            };
             while !stop.load(Ordering::Relaxed) {
                 thread::sleep(period);
-                let frame = MeterFrame {
-                    input: input.take(0).into(),
-                    output: output.take(0).into(),
-                    position: clock.position() as f64 / sample_rate,
-                    playing: clock.is_playing(),
-                    recording: state.recording.load(Ordering::Relaxed),
-                };
-                let mut subs = subscribers.lock().unwrap_or_else(|e| e.into_inner());
-                subs.retain(|channel| channel.send(frame.clone()).is_ok());
+                let (i, o) = (input.take(0), output.take(0));
+                send(
+                    [i.peak, i.rms, o.peak, o.rms],
+                    clock.is_playing(),
+                    state.recording.load(Ordering::Relaxed),
+                );
             }
-            // Leave the meters at rest.
-            let silent = MeterFrame {
-                input: Level::default().into(),
-                output: Level::default().into(),
-                position: clock.position() as f64 / sample_rate,
-                playing: false,
-                recording: false,
-            };
-            let mut subs = subscribers.lock().unwrap_or_else(|e| e.into_inner());
-            subs.retain(|channel| channel.send(silent.clone()).is_ok());
+            // Leave the meters at rest, even if that frame has to wait for
+            // the UI's acknowledgement of the previous one.
+            thread::sleep(period);
+            send([0.0; 4], false, false);
         })
         .expect("spawning the meter pump thread");
 }

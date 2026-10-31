@@ -1,5 +1,6 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { decodeFrame, encodeFrame } from "./frame";
 
 /** What the shell reports about the engine. Mirrors `EngineStatus` in src-tauri. */
 export interface EngineStatus {
@@ -349,47 +350,88 @@ export function onStatus(listener: (status: EngineStatus) => void): () => void {
 }
 
 /**
- * Meter frames at display rate. One channel is opened per page and shared
- * by every listener, since the shell keeps a channel until it fails.
+ * Meter frames at display rate, as binary frames (see frame.ts). One
+ * channel is opened per page and shared by every listener. Frames are
+ * delivered on the next animation frame and acknowledged then, so the
+ * shell never sends more than one frame per displayed frame: a hidden or
+ * busy UI gets a fresh frame when it is ready, not a queue of stale ones.
  */
 const meterListeners = new Set<(f: MeterFrame) => void>();
 let meterChannelOpen = false;
+let latest: ArrayBuffer | null = null;
+let scheduled = false;
+
+/** How many frames the shell reported skipping, for the stats readout. */
+export let framesDropped = 0;
+
+function deliver() {
+  scheduled = false;
+  const buffer = latest;
+  latest = null;
+  if (inTauri) invoke("meter_ack");
+  if (!buffer) return;
+  let frame: ReturnType<typeof decodeFrame>;
+  try {
+    frame = decodeFrame(buffer);
+  } catch (e) {
+    console.error(e);
+    return;
+  }
+  framesDropped = frame.dropped;
+  const m = frame.meters;
+  const out: MeterFrame = {
+    input: { peak: m[0] ?? 0, rms: m[1] ?? 0 },
+    output: { peak: m[2] ?? 0, rms: m[3] ?? 0 },
+    position: frame.position,
+    playing: frame.playing,
+    recording: frame.recording,
+  };
+  for (const l of meterListeners) l(out);
+}
+
+function receive(buffer: ArrayBuffer) {
+  latest = buffer;
+  if (!scheduled) {
+    scheduled = true;
+    requestAnimationFrame(deliver);
+  }
+}
 
 function openMeterChannel() {
   if (meterChannelOpen) return;
   meterChannelOpen = true;
   if (inTauri) {
-    const channel = new Channel<MeterFrame>();
-    channel.onmessage = (frame) => {
-      for (const l of meterListeners) l(frame);
-    };
+    const channel = new Channel<ArrayBuffer>();
+    channel.onmessage = receive;
     invoke("subscribe_meters", { channel });
     return;
   }
-  // The stand-in: a slow swell with a peak that leads the RMS.
+  // The stand-in: a slow swell with a peak that leads the RMS, encoded
+  // the way the shell encodes it so the decoder is exercised too.
   let t = 0;
+  let sequence = 0;
   window.setInterval(() => {
     t += 1 / 60;
     if (mockTransport.playing) mockTransport.position += 1 / 60;
-    const levels = mock.running
-      ? {
-          input: {
-            rms: 0.18 + 0.12 * Math.sin(t * 2.1),
-            peak: 0.4 + 0.3 * Math.abs(Math.sin(t * 3.7)),
-          },
-          output: {
-            rms: 0.3 + 0.15 * Math.sin(t * 2.1 + 0.4),
-            peak: 0.55 + 0.35 * Math.abs(Math.sin(t * 3.7 + 0.4)),
-          },
-        }
-      : { input: SILENT, output: SILENT };
-    const frame: MeterFrame = {
-      ...levels,
-      position: mockParams?.has("take") && !mockTransport.playing ? 0 : mockTransport.position,
-      playing: mockTransport.playing,
-      recording: mockTransport.recording,
-    };
-    for (const l of meterListeners) l(frame);
+    const meters = mock.running
+      ? [
+          0.4 + 0.3 * Math.abs(Math.sin(t * 3.7)),
+          0.18 + 0.12 * Math.sin(t * 2.1),
+          0.55 + 0.35 * Math.abs(Math.sin(t * 3.7 + 0.4)),
+          0.3 + 0.15 * Math.sin(t * 2.1 + 0.4),
+        ]
+      : [0, 0, 0, 0];
+    receive(
+      encodeFrame({
+        sequence: sequence++,
+        dropped: 0,
+        position: mockParams?.has("take") && !mockTransport.playing ? 0 : mockTransport.position,
+        playing: mockTransport.playing,
+        recording: mockTransport.recording,
+        beat: null,
+        meters,
+      }),
+    );
   }, 1000 / 60);
 }
 
