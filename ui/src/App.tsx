@@ -7,7 +7,8 @@ import { Notice } from "./components/Notice";
 import { ProjectBar } from "./components/ProjectBar";
 import { Projects } from "./components/Projects";
 import { Settings } from "./components/Settings";
-import { TrackList } from "./components/TrackList";
+import { Timeline } from "./components/Timeline";
+import { TrackPanel } from "./components/TrackPanel";
 import { Transport } from "./components/Transport";
 import { Window } from "./components/Window";
 import {
@@ -44,6 +45,7 @@ export function App() {
   const [projectsOpen, setProjectsOpen] = useState(() => params?.has("projects") ?? false);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const closeProjects = useCallback(() => setProjectsOpen(false), []);
+  const [selectedTrack, setSelectedTrack] = useState<number | null>(null);
 
   useEffect(() => {
     engineStatus().then(setStatus, (e) => setError(String(e)));
@@ -73,6 +75,9 @@ export function App() {
   }, []);
 
   const running = status?.running ?? false;
+  // The selected track, or the first one when the selection is gone.
+  const tracks = status?.project.tracks ?? [];
+  const selected = tracks.find((t) => t.id === selectedTrack) ?? tracks[0] ?? null;
   const problem = error ?? status?.error ?? null;
   // The transport flags in the frame are fresher than the last status push.
   const transport = status
@@ -158,13 +163,30 @@ export function App() {
               onStatus={setStatus}
               onError={setError}
             />
-            <TrackList
+            <Timeline
               tracks={status.project.tracks}
               sampleRate={status.project.sampleRate}
-              kinds={status.pedalKinds}
+              tempo={status.project.tempo}
+              position={frame.position}
+              playing={transport.playing}
+              running={running}
+              selectedTrack={selected?.id ?? null}
+              onSelectTrack={setSelectedTrack}
               onStatus={setStatus}
               onError={setError}
             />
+            {selected ? (
+              <TrackPanel
+                key={selected.id}
+                track={selected}
+                index={status.project.tracks.indexOf(selected)}
+                count={status.project.tracks.length}
+                sampleRate={status.project.sampleRate}
+                kinds={status.pedalKinds}
+                onStatus={setStatus}
+                onError={setError}
+              />
+            ) : null}
           </section>
         ) : null}
       </main>

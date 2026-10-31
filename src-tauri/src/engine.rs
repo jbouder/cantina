@@ -842,6 +842,78 @@ impl Engine {
         self.apply(Command::RemoveClip { id: ClipId(id) })
     }
 
+    /// Puts a clip at `start` on `track`, which may be another track.
+    pub fn clip_move(&mut self, id: u64, track: u64, start: u64) -> Result<EngineStatus> {
+        self.apply(Command::MoveClip {
+            id: ClipId(id),
+            track: TrackId(track),
+            start,
+        })
+    }
+
+    /// Sets a clip's start, offset into its file and length. The region
+    /// must lie within the file.
+    pub fn clip_trim(
+        &mut self,
+        id: u64,
+        start: u64,
+        offset: u64,
+        length: u64,
+    ) -> Result<EngineStatus> {
+        let id = ClipId(id);
+        let (_, clip) = self
+            .project
+            .clip(id)
+            .with_context(|| format!("no clip {id}"))?;
+        let path = cantina_project::audio_dir(&self.project_dir).join(&clip.file);
+        let frames = wav::info(&path)?.frames;
+        if offset + length > frames {
+            bail!(
+                "{} has {frames} frames; the clip cannot reach {}",
+                clip.file,
+                offset + length
+            );
+        }
+        self.apply(Command::TrimClip {
+            id,
+            start,
+            offset,
+            length,
+        })
+    }
+
+    /// Cuts a clip at timeline sample `at`; the right part is a new clip.
+    pub fn clip_split(&mut self, id: u64, at: u64) -> Result<EngineStatus> {
+        let new_id = ClipId(self.project.fresh_id());
+        self.apply(Command::SplitClip {
+            id: ClipId(id),
+            at,
+            new_id,
+        })
+    }
+
+    /// The samples of a file in `audio/`, mixed to mono, as little-endian
+    /// f32 for the UI's peak cache. `file` is a name inside `audio/`, so
+    /// no path can escape the project.
+    pub fn audio_samples(&self, file: &str) -> Result<Vec<u8>> {
+        if file.is_empty() || file.contains(['/', '\\']) || file.starts_with('.') {
+            bail!("{file:?} is not a file in audio/");
+        }
+        let path = cantina_project::audio_dir(&self.project_dir).join(file);
+        let (info, channels) = wav::read_all(&path)?;
+        let frames = info.frames as usize;
+        let mut bytes = Vec::with_capacity(frames * 4);
+        let scale = 1.0 / channels.len().max(1) as f32;
+        for i in 0..frames {
+            let sum: f32 = channels
+                .iter()
+                .map(|c| c.get(i).copied().unwrap_or(0.0))
+                .sum();
+            bytes.extend_from_slice(&(sum * scale).to_le_bytes());
+        }
+        Ok(bytes)
+    }
+
     // ----- the transport -----
 
     /// Rolls from the current position.

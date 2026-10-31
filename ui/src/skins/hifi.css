@@ -40,6 +40,18 @@
   --vol-mid: #4ff0d0;
   --vol-hi: #ff9a3c;
   --track: #120a04;
+
+  /* Timeline. */
+  --tl-bg: #120a04;
+  --tl-lane: #1c1208;
+  --tl-grid: #3a2a14;
+  --tl-bar: #5a4424;
+  --tl-ruler-fg: #d8c8a8;
+  --tl-clip: #0f4a40;
+  --tl-clip-edge: #4ff0d0;
+  --tl-clip-selected: #176a5c;
+  --tl-wave: #9cf8e6;
+  --tl-playhead: #ffb35c;
   --focus: #7a2e00;
   color-scheme: light;
 

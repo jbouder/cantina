@@ -41,6 +41,18 @@
   --vol-mid: #b04fff;
   --vol-hi: #3cf0ff;
   --track: #10061a;
+
+  /* Timeline. */
+  --tl-bg: #06030c;
+  --tl-lane: #0e0718;
+  --tl-grid: #26123a;
+  --tl-bar: #45206a;
+  --tl-ruler-fg: #c9a6e0;
+  --tl-clip: #3a0a58;
+  --tl-clip-edge: #3cf0ff;
+  --tl-clip-selected: #5a1288;
+  --tl-wave: #ff8cf0;
+  --tl-playhead: #3cf0ff;
   --focus: #3cf0ff;
 
   /* Cut corners, a thin magenta edge, and a glow on the wrapper that

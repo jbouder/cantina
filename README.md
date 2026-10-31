@@ -16,7 +16,9 @@ M3 Multitrack in progress. The project model landed: a `.cantina`
 directory with `project.json` and immutable audio, every edit a command
 with an inverse, a versioned loader, and a shell that builds the engine
 graph from any number of tracks, records takes into the project and
-places them as clips. Before that, M2 built the shell: a Tauri 2 app with
+places them as clips. Clips live on a canvas timeline with waveforms from
+peak caches built in a worker: move, trim, split and delete, snapped to a
+grid from the tempo. Before that, M2 built the shell: a Tauri 2 app with
 a device picker that survives relaunches and rebuilds the stream when an
 interface vanishes or changes rate, input and output meters over a binary
 frame channel, a pedal chain you can reorder while audio runs, and the
@@ -27,7 +29,8 @@ a block boundary, a transport with tempo map, loop and click, WAV
 playback and recording on their own threads, and golden-file tests for
 the DSP. M0's latency measurement still needs an audio interface. Spike
 findings in [docs/spike.md](docs/spike.md), the project format in
-[docs/project.md](docs/project.md), the skin system in
+[docs/project.md](docs/project.md), the timeline in
+[docs/timeline.md](docs/timeline.md), the skin system in
 [docs/skins.md](docs/skins.md), the frame format in
 [docs/frames.md](docs/frames.md).
 

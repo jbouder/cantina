@@ -76,6 +76,18 @@
   --focus: #9be7ff;
   --stage: #000;
 
+  /* Timeline: the lanes, grid, clips and playhead, read by the canvas. */
+  --tl-bg: #0c0c12;
+  --tl-lane: #14141c;
+  --tl-grid: #26262f;
+  --tl-bar: #40404f;
+  --tl-ruler-fg: #aeaec0;
+  --tl-clip: #1b4d1b;
+  --tl-clip-edge: #3cff3c;
+  --tl-clip-selected: #2a6b2a;
+  --tl-wave: #8cff8c;
+  --tl-playhead: #ffb35c;
+
   /* Materials: how the tokens above are composed into surfaces. */
 
   /* The window: the frame that fills the shell. */
