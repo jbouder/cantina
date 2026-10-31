@@ -18,9 +18,10 @@
 use std::io::{self, BufRead, Write};
 
 use anyhow::{bail, Context, Result};
-use cantina_dsp::{Chain, Unit, STOCK_NAMES};
+use cantina_dsp::{Unit, STOCK_NAMES};
 use cantina_engine::{
-    device, processors, ChainProcessor, ParamChange, Stream, StreamConfig, MAX_BLOCK_FRAMES,
+    device, processors, Controller, GraphConfig, NodeId, Runtime, Stream, StreamConfig,
+    MAX_BLOCK_FRAMES,
 };
 use cantina_hosting::{au, clap};
 
@@ -168,36 +169,43 @@ fn print_clap_plugins() {
     );
 }
 
-fn build_chain(names: &[String], gain_db: f32) -> Result<Chain> {
-    let mut chain = Chain::new();
+/// Adds the processors to the controller's graph in series and returns
+/// their node ids in chain order.
+fn build_chain(controller: &mut Controller, names: &[String], gain_db: f32) -> Result<Vec<NodeId>> {
+    let graph = controller.graph_mut();
+    let mut nodes = Vec::with_capacity(names.len());
     for name in names {
         let mut processor = processors::create(name, 1)?;
         if name.eq_ignore_ascii_case("gain") {
             processor.set_param(0, gain_db);
         }
-        chain.push(processor);
+        nodes.push(graph.add_processor(processor));
     }
-    Ok(chain)
+    graph.set_chain(&nodes)?;
+    controller.commit()?;
+    Ok(nodes)
 }
 
 /// Name, unit, minimum and maximum of one parameter.
 type ParamRow = (String, Unit, f32, f32);
 
-/// A snapshot of the chain's layout for the command loop, since the chain
-/// itself moves into the audio thread.
+/// The chain's layout for the command loop, taken from the controller's
+/// view of the graph.
 struct Layout {
-    processors: Vec<(String, Vec<ParamRow>)>,
+    processors: Vec<(NodeId, String, Vec<ParamRow>)>,
 }
 
 impl Layout {
-    fn of(chain: &Chain) -> Self {
+    fn of(controller: &Controller, nodes: &[NodeId]) -> Self {
         Self {
-            processors: chain
+            processors: nodes
                 .iter()
-                .map(|p| {
+                .map(|id| {
+                    let info = controller.graph().node(*id).expect("node was just added");
                     (
-                        p.name().to_string(),
-                        p.params()
+                        *id,
+                        info.name.clone(),
+                        info.params
                             .iter()
                             .map(|i| (i.name.to_string(), i.unit, i.min, i.max))
                             .collect(),
@@ -207,15 +215,16 @@ impl Layout {
         }
     }
 
-    fn print(&self, values: &[Vec<f32>]) {
-        for (i, (name, params)) in self.processors.iter().enumerate() {
+    fn print(&self, controller: &Controller) {
+        for (i, (id, name, params)) in self.processors.iter().enumerate() {
             println!("{}. {name}", i + 1);
+            let values = controller.graph().node(*id).map(|n| n.values.as_slice());
             for (j, (pname, unit, min, max)) in params.iter().enumerate() {
                 println!(
                     "   {}.{} {pname:<8} {:>8.2} {}  [{min} .. {max}]",
                     i + 1,
                     j + 1,
-                    values[i][j],
+                    values.and_then(|v| v.get(j)).copied().unwrap_or(0.0),
                     unit_label(*unit)
                 );
             }
@@ -232,7 +241,7 @@ impl Layout {
         if processor == 0 || processor > self.processors.len() {
             bail!("no processor {processor}; type list");
         }
-        let params = &self.processors[processor - 1].1;
+        let params = &self.processors[processor - 1].2;
         let param = match q.parse::<usize>() {
             Ok(n) if n >= 1 && n <= params.len() => n - 1,
             Ok(n) => bail!("no parameter {n} on processor {processor}"),
@@ -272,13 +281,13 @@ fn main() -> Result<()> {
     let input = resolve(opts.input.as_deref(), device::default_input(), "input")?;
     let output = resolve(opts.output.as_deref(), device::default_output(), "output")?;
 
-    let chain = build_chain(&opts.chain, opts.gain_db)?;
-    let layout = Layout::of(&chain);
-    let mut values: Vec<Vec<f32>> = chain
-        .iter()
-        .map(|p| (0..p.params().len()).map(|id| p.param(id)).collect())
-        .collect();
-    let (processor, mut changes) = ChainProcessor::new(chain, opts.sample_rate, MAX_BLOCK_FRAMES);
+    let (runtime, mut controller) = Runtime::new(GraphConfig {
+        sample_rate: opts.sample_rate,
+        max_block_frames: MAX_BLOCK_FRAMES,
+        channels: 1,
+    })?;
+    let nodes = build_chain(&mut controller, &opts.chain, opts.gain_db)?;
+    let layout = Layout::of(&controller, &nodes);
 
     let stream = Stream::open(
         StreamConfig {
@@ -288,7 +297,7 @@ fn main() -> Result<()> {
             buffer_frames: opts.buffer_frames,
             input_channel: opts.input_channel,
         },
-        processor,
+        runtime,
     )?;
     let info = stream.info();
 
@@ -327,7 +336,7 @@ fn main() -> Result<()> {
     );
     println!("Run measure_latency for the real number.");
     println!();
-    layout.print(&values);
+    layout.print(&controller);
     println!("Type <processor>.<param> <value>, list, s, or q.");
 
     let stdin = io::stdin();
@@ -337,21 +346,13 @@ fn main() -> Result<()> {
         match (words.next(), words.next()) {
             (None, _) => {}
             (Some("q") | Some("quit"), _) => break,
-            (Some("s") | Some("stats"), _) => print_stats(&stream),
-            (Some("list") | Some("l"), _) => layout.print(&values),
+            (Some("s") | Some("stats"), _) => print_stats(&stream, &controller),
+            (Some("list") | Some("l"), _) => layout.print(&controller),
             (Some(target), Some(value)) => match (layout.resolve(target), value.parse::<f32>()) {
                 (Ok((p, q)), Ok(v)) => {
-                    let (_, _, min, max) = layout.processors[p].1[q];
-                    let v = v.clamp(min, max);
-                    if changes
-                        .push(ParamChange {
-                            processor: p,
-                            param: q,
-                            value: v,
-                        })
-                        .is_ok()
-                    {
-                        values[p][q] = v;
+                    let id = layout.processors[p].0;
+                    if controller.set_param(id, q, v) {
+                        let v = controller.graph().node(id).map_or(v, |n| n.values[q]);
                         println!("{}.{} = {v}", p + 1, q + 1);
                     } else {
                         println!("the audio thread is not draining changes");
@@ -364,12 +365,12 @@ fn main() -> Result<()> {
         }
         io::stdout().flush()?;
     }
-    print_stats(&stream);
+    print_stats(&stream, &controller);
     stream.close();
     Ok(())
 }
 
-fn print_stats(stream: &Stream) {
+fn print_stats(stream: &Stream, controller: &Controller) {
     use std::sync::atomic::Ordering::Relaxed;
     let s = stream.stats();
     println!(
@@ -380,5 +381,13 @@ fn print_stats(stream: &Stream) {
         s.output_underruns.load(Relaxed),
         s.max_block_frames.load(Relaxed),
         s.oversized_blocks.load(Relaxed),
+    );
+    let r = controller.stats();
+    println!(
+        "graph blocks {}, swaps {}, busy nodes {}, dropped params {}",
+        r.blocks.load(Relaxed),
+        r.swaps.load(Relaxed),
+        r.busy_nodes.load(Relaxed),
+        r.params_dropped.load(Relaxed),
     );
 }
