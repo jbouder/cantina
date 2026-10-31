@@ -12,8 +12,10 @@ progress.
 
 ## Status
 
-M0 Spike: can this work? The engine passes audio from an input device to an
-output device through a gain. Nothing else exists yet.
+M0 Spike done, apart from the latency measurement, which needs an audio
+interface. The engine passes audio from an input device to an output device
+through a chain of processors: stock gain and overdrive, any Audio Unit
+effect, any CLAP plugin. Findings in [docs/spike.md](docs/spike.md).
 
 ## Build
 

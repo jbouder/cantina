@@ -19,6 +19,7 @@ where the band plays.
 | Third-party plugins | Audio Units first, CLAP second, VST3 deferred | AU covers nearly every commercial Mac plugin. CLAP is MIT licensed with a pure Rust host library and is the escape hatch for people who want to write a pedal in code. VST3's SDK is GPLv3 or proprietary and forces the project license. |
 | User-made pedals | Visual node graph over DSP primitives, saved as JSON | Real-time safe by construction, shareable, no compiler. Power users write a CLAP plugin instead, so no Faust tier. |
 | Visualizer | Extract the scenes from `music-visualizer` into a shared package | 23 WebGL 2 and Canvas 2D scenes plus 395 MilkDrop presets already exist. Cantina adds exact beat and bar positions from the tempo map. |
+| Processor threading | One `Processor` object that moves between the UI thread and the audio thread with the graph swap; the engine will own a main-thread handle per processor from M1 | CLAP splits plugins into a main-thread half and an audio-thread half and the M0 spike found the single-object trait cannot express that. Keeping the main half on the UI thread and talking to the audio half through queues matches how parameters already travel. See `docs/spike.md`. |
 | Plugin process model | In-process on the audio thread | What every mainstream DAW except Bitwig does. Scanning runs in a child process so a crashing plugin cannot take the app down at startup. Sandboxing is a later project. |
 | Docs | Astro with Starlight in `docs/`, published to Cloudflare | Great docs from the start. Starlight gives search, navigation and dark mode for free, Cloudflare gives a preview deployment per pull request. Tracked in the Docs milestone, which runs alongside the numbered ones. |
 | License | MIT | AU and CLAP cover the plugin need, so VST3 is dropped for good. Permissive is simplest for contributors and lets anyone reuse the `dsp` crate. Decided 2026-10-31 before the first commit. |
@@ -184,6 +185,11 @@ milestone lands its guides and references on it.
 Goal: guitar in to guitar out through CoreAudio with a measured round trip,
 then one AU and one CLAP plugin in the path. Go/no-go on latency and on the
 processor trait.
+
+Outcome (2026-10-31): trait **go**, with the threading decision above owed
+to M4. Latency **pending hardware**: the measurement tool is built and the
+bar is in `docs/latency.md`, but no interface was available to run it.
+Findings in `docs/spike.md`.
 
 - Workspace, `dsp` and `engine` crates, CoreAudio passthrough with a gain.
 - Measure round trip with a loopback cable and a click; record the number.
