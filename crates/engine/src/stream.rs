@@ -45,7 +45,8 @@ pub struct StreamConfig {
     pub input_channel: usize,
 }
 
-/// Mono-in, mono-out processing that runs inside the render callback.
+/// Mono-in processing that runs inside the render callback, with a mono
+/// or a stereo output.
 ///
 /// Implementations obey the real-time rules: `process` never allocates,
 /// locks, blocks or performs I/O. Anything the processor needs is created
@@ -55,6 +56,14 @@ pub trait BlockProcessor: Send + 'static {
     /// Produces `output` from `input`. Both slices are the same length,
     /// never longer than [`MAX_BLOCK_FRAMES`].
     fn process(&mut self, input: &[f32], output: &mut [f32]);
+
+    /// Produces a stereo pair from `input`, when the output device has
+    /// two or more channels. All three slices are the same length. The
+    /// default is the mono output on both sides.
+    fn process_stereo(&mut self, input: &[f32], left: &mut [f32], right: &mut [f32]) {
+        self.process(input, left);
+        right.copy_from_slice(left);
+    }
 }
 
 impl<F> BlockProcessor for F
@@ -224,6 +233,8 @@ impl Stream {
         let render_stats = Arc::clone(&stats);
         let mut scratch_in = vec![0.0f32; MAX_BLOCK_FRAMES];
         let mut scratch_out = vec![0.0f32; MAX_BLOCK_FRAMES];
+        let mut scratch_right = vec![0.0f32; MAX_BLOCK_FRAMES];
+        let stereo = output_channels >= 2;
         let render = move |args: Args<data::NonInterleaved<f32>>| {
             let Args {
                 num_frames,
@@ -263,10 +274,17 @@ impl Stream {
                     .fetch_add((num_frames - available) as u64, Ordering::Relaxed);
             }
 
-            processor.process(input, output);
-
-            for channel in data.channels_mut() {
-                channel.copy_from_slice(output);
+            if stereo {
+                let right = &mut scratch_right[..num_frames];
+                processor.process_stereo(input, output, right);
+                for (i, channel) in data.channels_mut().enumerate() {
+                    channel.copy_from_slice(if i == 0 { &*output } else { &*right });
+                }
+            } else {
+                processor.process(input, output);
+                for channel in data.channels_mut() {
+                    channel.copy_from_slice(output);
+                }
             }
             Ok(())
         };

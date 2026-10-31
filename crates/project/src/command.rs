@@ -11,7 +11,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::model::{Clip, ClipId, Pedal, PedalId, Project, Tempo, Track, TrackId};
+use crate::model::{Clip, ClipId, Pedal, PedalId, Project, Strip, Tempo, Track, TrackId};
 
 /// Why a command was refused. The project is unchanged when one of these
 /// comes back.
@@ -105,6 +105,24 @@ pub enum Command {
     SetTempo {
         tempo: Tempo,
     },
+    /// Gain in decibels on a track's strip, or the master's with no track.
+    SetGain {
+        track: Option<TrackId>,
+        db: f32,
+    },
+    SetPan {
+        track: TrackId,
+        pan: f32,
+    },
+    /// Mute on a track's strip, or the master's with no track.
+    SetMute {
+        track: Option<TrackId>,
+        on: bool,
+    },
+    SetSolo {
+        track: TrackId,
+        on: bool,
+    },
     /// Several commands as one edit. Applied in order; the inverse
     /// reverts them in reverse.
     Batch {
@@ -132,6 +150,11 @@ impl Command {
             Command::MovePedal { .. } => "move pedal".into(),
             Command::SetParam { .. } => "change parameter".into(),
             Command::SetTempo { .. } => "change tempo".into(),
+            Command::SetGain { track: None, .. } => "change master gain".into(),
+            Command::SetGain { .. } => "change gain".into(),
+            Command::SetPan { .. } => "change pan".into(),
+            Command::SetMute { on, .. } => if *on { "mute" } else { "unmute" }.into(),
+            Command::SetSolo { on, .. } => if *on { "solo" } else { "unsolo" }.into(),
             Command::Batch { commands } => commands
                 .first()
                 .map_or_else(|| "edit".into(), Command::label),
@@ -144,6 +167,8 @@ impl Command {
         match self {
             Command::SetParam { pedal, param, .. } => Some(format!("param:{pedal}:{param}")),
             Command::SetTempo { .. } => Some("tempo".into()),
+            Command::SetGain { track, .. } => Some(format!("gain:{}", strip_key(*track))),
+            Command::SetPan { track, .. } => Some(format!("pan:{track}")),
             _ => None,
         }
     }
@@ -350,6 +375,48 @@ impl Command {
                 let was = std::mem::replace(&mut project.tempo, tempo.clone());
                 Ok(Command::SetTempo { tempo: was })
             }
+            Command::SetGain { track, db } => {
+                if !db.is_finite() {
+                    return Err(CommandError::Invalid(format!(
+                        "{db} dB is not a usable gain"
+                    )));
+                }
+                let strip = strip_mut(project, *track)?;
+                let was = std::mem::replace(&mut strip.gain_db, *db);
+                Ok(Command::SetGain {
+                    track: *track,
+                    db: was,
+                })
+            }
+            Command::SetPan { track, pan } => {
+                if !pan.is_finite() || !(-1.0..=1.0).contains(pan) {
+                    return Err(CommandError::Invalid(format!(
+                        "{pan} is not a pan position"
+                    )));
+                }
+                let strip = strip_mut(project, Some(*track))?;
+                let was = std::mem::replace(&mut strip.pan, *pan);
+                Ok(Command::SetPan {
+                    track: *track,
+                    pan: was,
+                })
+            }
+            Command::SetMute { track, on } => {
+                let strip = strip_mut(project, *track)?;
+                let was = std::mem::replace(&mut strip.mute, *on);
+                Ok(Command::SetMute {
+                    track: *track,
+                    on: was,
+                })
+            }
+            Command::SetSolo { track, on } => {
+                let strip = strip_mut(project, Some(*track))?;
+                let was = std::mem::replace(&mut strip.solo, *on);
+                Ok(Command::SetSolo {
+                    track: *track,
+                    on: was,
+                })
+            }
             Command::Batch { commands } => {
                 let mut inverses = Vec::with_capacity(commands.len());
                 for command in commands {
@@ -369,6 +436,18 @@ impl Command {
                 Ok(Command::Batch { commands: inverses })
             }
         }
+    }
+}
+
+fn strip_key(track: Option<TrackId>) -> String {
+    track.map_or_else(|| "master".to_string(), |t| t.to_string())
+}
+
+/// A track's strip, or the master's for `None`.
+fn strip_mut(project: &mut Project, track: Option<TrackId>) -> Result<&mut Strip, CommandError> {
+    match track {
+        None => Ok(&mut project.master),
+        Some(id) => Ok(&mut track_mut(project, id)?.strip),
     }
 }
 
@@ -671,6 +750,74 @@ mod tests {
             .apply(&mut p.clone()),
             Err(CommandError::Invalid(_))
         ));
+    }
+
+    #[test]
+    fn strips() {
+        let p = project();
+        let gained = round_trip(
+            &p,
+            Command::SetGain {
+                track: Some(TrackId(1)),
+                db: -6.0,
+            },
+        );
+        assert_eq!(gained.tracks[0].strip.gain_db, -6.0);
+        let master = round_trip(
+            &p,
+            Command::SetGain {
+                track: None,
+                db: -3.0,
+            },
+        );
+        assert_eq!(master.master.gain_db, -3.0);
+        round_trip(
+            &p,
+            Command::SetPan {
+                track: TrackId(1),
+                pan: 0.5,
+            },
+        );
+        round_trip(
+            &p,
+            Command::SetMute {
+                track: None,
+                on: true,
+            },
+        );
+        let soloed = round_trip(
+            &p,
+            Command::SetSolo {
+                track: TrackId(4),
+                on: true,
+            },
+        );
+        assert!(soloed.tracks[1].strip.solo);
+        assert!(matches!(
+            Command::SetPan {
+                track: TrackId(1),
+                pan: 2.0
+            }
+            .apply(&mut p.clone()),
+            Err(CommandError::Invalid(_))
+        ));
+        assert_eq!(
+            Command::SetSolo {
+                track: TrackId(9),
+                on: true
+            }
+            .apply(&mut p.clone()),
+            Err(CommandError::NoTrack(TrackId(9)))
+        );
+        assert_eq!(
+            Command::SetGain {
+                track: None,
+                db: 0.0
+            }
+            .coalesce_key()
+            .as_deref(),
+            Some("gain:master")
+        );
     }
 
     #[test]

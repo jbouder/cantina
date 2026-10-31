@@ -177,11 +177,28 @@ pub fn load_str(text: &str, path: &Path) -> Result<Project, LoadError> {
 /// Upgrades a `project.json` value from `from` to `from + 1`. Each step
 /// is written when the format changes and never edited afterwards, so a
 /// file from any earlier version walks the same path.
-fn migrate(from: u32, value: Value) -> Value {
+fn migrate(from: u32, mut value: Value) -> Value {
     match from {
-        // Version 1 is the first format; no step leads to it. Version 0
-        // never existed, but a file claiming it is read as version 1.
+        // Version 0 never existed; a file claiming it is read as version 1.
         0 => value,
+        // 1 -> 2: the mixer. Every track gets a strip at unity, centred,
+        // not muted or soloed, and the project a master strip the same.
+        1 => {
+            let unity = serde_json::json!({
+                "gainDb": 0.0, "pan": 0.0, "mute": false, "solo": false
+            });
+            if let Some(tracks) = value.get_mut("tracks").and_then(Value::as_array_mut) {
+                for track in tracks {
+                    if let Some(t) = track.as_object_mut() {
+                        t.entry("strip").or_insert_with(|| unity.clone());
+                    }
+                }
+            }
+            if let Some(p) = value.as_object_mut() {
+                p.entry("master").or_insert(unity);
+            }
+            value
+        }
         _ => value,
     }
 }
@@ -278,14 +295,14 @@ mod tests {
             "{no_version}"
         );
 
-        let shape = load_str(r#"{"version":1,"name":"x","sampleRate":"fast"}"#, path).unwrap_err();
+        let shape = load_str(r#"{"version":2,"name":"x","sampleRate":"fast"}"#, path).unwrap_err();
         assert!(matches!(shape, LoadError::Shape { .. }), "{shape}");
         assert!(shape
             .to_string()
             .contains("does not match the project format"));
 
         let invalid = load_str(
-            r#"{"version":1,"name":"x","sampleRate":48000,"tracks":[{"id":1,"name":"a"},{"id":1,"name":"b"}]}"#,
+            r#"{"version":2,"name":"x","sampleRate":48000,"tracks":[{"id":1,"name":"a"},{"id":1,"name":"b"}]}"#,
             path,
         )
         .unwrap_err();
@@ -314,6 +331,29 @@ mod tests {
         p.tracks[0].clips[0].length = 0;
         let err = save(&p, &dir_for(dir.path(), "Bad")).unwrap_err();
         assert!(matches!(err, SaveError::Invalid(_)), "{err}");
+    }
+
+    #[test]
+    fn a_version_1_file_gains_strips() {
+        let text = fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/v1.json"),
+        )
+        .unwrap();
+        let project = load_str(&text, Path::new("v1/project.json")).unwrap();
+        assert_eq!(project.version, FORMAT_VERSION);
+        assert_eq!(project.tracks[0].strip, crate::model::Strip::default());
+        assert_eq!(project.master, crate::model::Strip::default());
+        // Everything the old file held survives.
+        assert_eq!(project.tracks[0].chain.len(), 2);
+        assert_eq!(project.tracks[0].clips[1].offset, 4800);
+        // Saving writes the new version.
+        let dir = tempfile::tempdir().unwrap();
+        let project_dir = dir_for(dir.path(), "Old");
+        save(&project, &project_dir).unwrap();
+        let text = fs::read_to_string(project_dir.join(PROJECT_FILE)).unwrap();
+        let value: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(value["version"], FORMAT_VERSION);
+        assert_eq!(value["master"]["gainDb"], 0.0);
     }
 
     #[test]

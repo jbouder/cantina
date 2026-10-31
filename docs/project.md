@@ -52,6 +52,9 @@ serialized in camelCase:
   `au:…` or `clap:…`) and the value of each parameter in the order the
   processor lists them. Names, units and ranges come from the processor,
   not the file.
+- **Strips** (`strip` on a track, `master` on the project) hold
+  `gainDb`, `pan`, `mute` and `solo`. The format went to version 2 when
+  they arrived; a version 1 file gets strips at unity.
 - **`sampleRate`** is the rate every file in `audio/` is at. Opening a
   project switches the engine to that rate; changing the device rate is
   only allowed while the project has no audio.
@@ -75,18 +78,24 @@ in on a block boundary.
 
 ## The graph
 
-Per track, with everything summing into a master before the output:
+Per track, with everything summing into the master strip before the
+output:
 
 ```
-input -> mute -> bus -> pedals... -> master -> output
-           |      ^                     |
-      recorder  player             output meter
+input -> mute -> bus -> pedals... -> strip -> master -> output
+           |      ^                    |         |
+      recorder  player               meter   output meter
 input -> input meter
 ```
 
-The mute is the monitor gate, open while the track is armed. The recorder
-taps the dry input, so a take can be played back through a chain that
-changed after the fact. Recording starts a take on every armed track from
+The graph runs in stereo: the mono input is copied to both channels on
+the way in, pedals process both, and the strips pan. The mute is the
+monitor gate, open while the track is armed. The recorder taps the dry
+input, mono, so a take can be played back through a chain that changed
+after the fact. Each strip is gain, pan and mute, every one smoothed on
+the audio thread so a fader move never clicks; its meter is a tap after
+it. Solo is computed in the shell: a solo anywhere mutes every track that
+is not soloed, and solos add up. The master strip has gain and mute. Recording starts a take on every armed track from
 the playhead; stopping finalizes each file (`<Track>-<n>.wav` in `audio/`)
 and inserts it as a clip, through a command like any other edit.
 
@@ -103,6 +112,8 @@ file outside `audio/`) each produce their own error rather than a crash.
 Every fixture under `crates/project/tests/fixtures/` is loaded by the
 tests and must come out at the current version; when the format changes,
 the old shape stays there as a fixture and a migration step is added.
+Version 1 to 2 added the strips: `v1.json` has none and must load with
+every strip at unity.
 
 Saves write `project.json.tmp` and rename it over `project.json`, so a
 crash mid-save leaves the previous file whole.

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 /// The format version this crate writes. The loader upgrades older files;
 /// see `file.rs` for the migrations.
-pub const FORMAT_VERSION: u32 = 1;
+pub const FORMAT_VERSION: u32 = 2;
 
 /// Every object in a project has an id that is unique across tracks,
 /// clips and pedals and is never reused while the object exists.
@@ -68,6 +68,29 @@ impl Default for Tempo {
     }
 }
 
+/// A mixer strip: what a track, or the master, does to its sum.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Strip {
+    pub gain_db: f32,
+    /// -1 is hard left, 1 hard right. Ignored on the master.
+    pub pan: f32,
+    pub mute: bool,
+    /// Ignored on the master.
+    pub solo: bool,
+}
+
+impl Default for Strip {
+    fn default() -> Self {
+        Self {
+            gain_db: 0.0,
+            pan: 0.0,
+            mute: false,
+            solo: false,
+        }
+    }
+}
+
 /// A region of a file in `audio/` placed on the timeline. The file is
 /// never modified; trimming a clip changes `offset` and `length`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -115,6 +138,8 @@ pub struct Track {
     pub chain: Vec<Pedal>,
     #[serde(default)]
     pub clips: Vec<Clip>,
+    #[serde(default)]
+    pub strip: Strip,
 }
 
 impl Track {
@@ -125,6 +150,7 @@ impl Track {
             armed: false,
             chain: Vec::new(),
             clips: Vec::new(),
+            strip: Strip::default(),
         }
     }
 
@@ -151,6 +177,9 @@ pub struct Project {
     pub tempo: Tempo,
     #[serde(default)]
     pub tracks: Vec<Track>,
+    /// The master strip: gain and mute on the sum of the tracks.
+    #[serde(default)]
+    pub master: Strip,
 }
 
 impl Project {
@@ -162,6 +191,7 @@ impl Project {
             sample_rate,
             tempo: Tempo::default(),
             tracks: Vec::new(),
+            master: Strip::default(),
         }
     }
 
@@ -219,6 +249,11 @@ impl Project {
         for id in self.ids() {
             if !seen.insert(id) {
                 return Err(format!("id {id} is used more than once"));
+            }
+        }
+        for strip in self.tracks.iter().map(|t| &t.strip).chain([&self.master]) {
+            if !strip.gain_db.is_finite() || !strip.pan.is_finite() {
+                return Err("a strip has a gain or pan that is not a number".into());
             }
         }
         for track in &self.tracks {
@@ -308,8 +343,9 @@ mod tests {
         assert_eq!(json["sampleRate"], 48_000.0);
         assert_eq!(json["tracks"][0]["clips"][0]["start"], 0);
         let minimal: Project =
-            serde_json::from_str(r#"{"version":1,"name":"x","sampleRate":44100}"#).unwrap();
+            serde_json::from_str(r#"{"version":2,"name":"x","sampleRate":44100}"#).unwrap();
         assert_eq!(minimal.tempo, Tempo::default());
         assert!(minimal.tracks.is_empty());
+        assert_eq!(minimal.master, Strip::default());
     }
 }

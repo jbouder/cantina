@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "./components/Button";
 import { Lcd } from "./components/Lcd";
 import { Led } from "./components/Led";
 import { Meter } from "./components/Meter";
+import { Mixer } from "./components/Mixer";
 import { Notice } from "./components/Notice";
 import { ProjectBar } from "./components/ProjectBar";
 import { Projects } from "./components/Projects";
@@ -27,6 +28,7 @@ import {
 const IDLE: MeterFrame = {
   input: SILENT,
   output: SILENT,
+  tracks: [],
   position: 0,
   playing: false,
   recording: false,
@@ -46,6 +48,14 @@ export function App() {
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const closeProjects = useCallback(() => setProjectsOpen(false), []);
   const [selectedTrack, setSelectedTrack] = useState<number | null>(null);
+
+  // In a browser `?scroll=<px>` scrolls the page, so screenshots can
+  // show what is below the fold.
+  const main = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const scroll = params?.get("scroll");
+    if (scroll && main.current && status) main.current.scrollTop = Number(scroll);
+  }, [status]);
 
   useEffect(() => {
     engineStatus().then(setStatus, (e) => setError(String(e)));
@@ -101,7 +111,7 @@ export function App() {
         </Button>
       }
     >
-      <main className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto p-window">
+      <main ref={main} className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto p-window">
         {status?.notice ? <Notice message={status.notice} onDismiss={dismiss} /> : null}
 
         <section
@@ -172,6 +182,14 @@ export function App() {
               running={running}
               selectedTrack={selected?.id ?? null}
               onSelectTrack={setSelectedTrack}
+              onStatus={setStatus}
+              onError={setError}
+            />
+            <Mixer
+              tracks={status.project.tracks}
+              master={status.project.master}
+              levels={frame.tracks}
+              masterLevel={frame.output}
               onStatus={setStatus}
               onError={setError}
             />

@@ -93,6 +93,41 @@ pub fn tempo_set(engine: State<'_, EngineState>, tempo: Tempo) -> Result<EngineS
     engine.lock().tempo_set(tempo).map_err(fail)
 }
 
+// ----- the mixer -----
+
+/// Gain on a track's strip, or the master's with no track. Not echoed.
+#[tauri::command]
+pub fn strip_gain(
+    engine: State<'_, EngineState>,
+    track: Option<u64>,
+    db: f32,
+) -> Result<(), String> {
+    engine.lock().strip_gain(track, db).map_err(fail)
+}
+
+#[tauri::command]
+pub fn strip_pan(engine: State<'_, EngineState>, track: u64, pan: f32) -> Result<(), String> {
+    engine.lock().strip_pan(track, pan).map_err(fail)
+}
+
+#[tauri::command]
+pub fn strip_mute(
+    engine: State<'_, EngineState>,
+    track: Option<u64>,
+    on: bool,
+) -> Result<EngineStatus, String> {
+    engine.lock().strip_mute(track, on).map_err(fail)
+}
+
+#[tauri::command]
+pub fn strip_solo(
+    engine: State<'_, EngineState>,
+    track: u64,
+    on: bool,
+) -> Result<EngineStatus, String> {
+    engine.lock().strip_solo(track, on).map_err(fail)
+}
+
 // ----- tracks and clips -----
 
 #[tauri::command]

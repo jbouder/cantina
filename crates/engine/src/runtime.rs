@@ -105,9 +105,10 @@ enum Garbage {
     TempoMap(Box<TempoMap>),
 }
 
-/// The audio-thread half. Implements [`BlockProcessor`] for a mono
-/// stream: the input is copied to every graph channel and channel 0 is
-/// the output.
+/// The audio-thread half. Implements [`BlockProcessor`]: the input is
+/// copied to every graph channel; a mono stream takes channel 0 and a
+/// stereo stream takes channels 0 and 1, or channel 0 on both sides from
+/// a one-channel graph.
 pub struct Runtime {
     config: GraphConfig,
     active: Option<Box<Schedule>>,
@@ -286,8 +287,10 @@ fn retire(queue: &mut Producer<Garbage>, stats: &RuntimeStats, garbage: Garbage)
     }
 }
 
-impl BlockProcessor for Runtime {
-    fn process(&mut self, input: &[f32], output: &mut [f32]) {
+impl Runtime {
+    /// Runs the graph on `input` into the scratch lanes and returns them
+    /// with the frame count; the caller puts them back.
+    fn run_into_scratch(&mut self, input: &[f32]) -> (Vec<f32>, usize) {
         let frames = input.len().min(self.config.max_block_frames);
         let channels = self.config.channels;
         let inputs: [&[f32]; MAX_CHANNELS] = [&input[..frames]; MAX_CHANNELS];
@@ -302,7 +305,26 @@ impl BlockProcessor for Runtime {
             }
             self.run(&inputs[..channels], &mut outputs[..channels]);
         }
+        (scratch, frames)
+    }
+}
+
+impl BlockProcessor for Runtime {
+    fn process(&mut self, input: &[f32], output: &mut [f32]) {
+        let (scratch, frames) = self.run_into_scratch(input);
         output[..frames].copy_from_slice(&scratch[..frames]);
+        self.scratch = scratch;
+    }
+
+    fn process_stereo(&mut self, input: &[f32], left: &mut [f32], right: &mut [f32]) {
+        let (scratch, frames) = self.run_into_scratch(input);
+        let lane = self.config.max_block_frames;
+        left[..frames].copy_from_slice(&scratch[..frames]);
+        if self.config.channels >= 2 {
+            right[..frames].copy_from_slice(&scratch[lane..lane + frames]);
+        } else {
+            right[..frames].copy_from_slice(&scratch[..frames]);
+        }
         self.scratch = scratch;
     }
 }

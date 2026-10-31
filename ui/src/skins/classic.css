@@ -67,6 +67,7 @@
   --vol-hi: #e0301f;
   --track: #101018;
   --meter-bg: linear-gradient(90deg, var(--vol-lo), var(--vol-mid) 70%, var(--vol-hi));
+  --meter-bg-v: linear-gradient(0deg, var(--vol-lo), var(--vol-mid) 70%, var(--vol-hi));
 
   /* Sheets: settings and pickers that open over the frame. */
   --sheet-bg: #0c0c14;

@@ -125,6 +125,23 @@
   background: var(--meter-bg);
 }
 
+/* The same, standing up: the gradient runs bottom to top. */
+@utility surface-meter-v {
+  background: var(--meter-bg-v);
+}
+
+/*
+ * A vertical fader: the horizontal fader rotated, which every WebKit
+ * draws the same; the component sizes it to its column's height.
+ */
+@utility fader-vertical {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  transform-origin: center;
+}
+
 /* A silver transport key. Pressed state comes from aria-pressed. */
 @utility surface-button {
   color: var(--glyph);

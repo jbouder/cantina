@@ -37,7 +37,20 @@ export interface ProjectStatus {
   sampleRate: number;
   tempo: Tempo;
   tracks: TrackStatus[];
+  /** The master strip; pan and solo are unused on it. */
+  master: Strip;
 }
+
+/** A mixer strip. Mirrors `Strip` in crates/project. */
+export interface Strip {
+  gainDb: number;
+  /** -1 is hard left, 1 hard right. */
+  pan: number;
+  mute: boolean;
+  solo: boolean;
+}
+
+export const UNITY: Strip = { gainDb: 0, pan: 0, mute: false, solo: false };
 
 export interface Tempo {
   bpm: number;
@@ -54,6 +67,7 @@ export interface TrackStatus {
   recording: boolean;
   chain: PedalInfo[];
   clips: ClipInfo[];
+  strip: Strip;
 }
 
 /** A clip. Positions are in samples at the project's rate. */
@@ -115,7 +129,10 @@ export interface Level {
 /** One meter update, at display rate. Mirrors `MeterFrame` in src-tauri. */
 export interface MeterFrame {
   input: Level;
+  /** The master, post-fader. */
   output: Level;
+  /** One per track, post-fader, in the project's track order. */
+  tracks: Level[];
   /** Timeline position in seconds. */
   position: number;
   playing: boolean;
@@ -248,6 +265,7 @@ const mock: EngineStatus = {
         clips: mockParams?.has("take")
           ? [mockClip(4, "Guitar 1", 0, 12.4), mockClip(5, "Guitar 2", 16, 6.1)]
           : [],
+        strip: { gainDb: -3, pan: -0.25, mute: false, solo: mockParams?.has("solo") ?? false },
       },
       {
         id: 6,
@@ -256,8 +274,10 @@ const mock: EngineStatus = {
         recording: false,
         chain: [mockPedal(7, "gain")],
         clips: mockParams?.has("take") ? [mockClip(8, "Bass 1", 2, 20)] : [],
+        strip: { gainDb: 0, pan: 0.1, mute: mockParams?.has("mute") ?? false, solo: false },
       },
     ],
+    master: { gainDb: -1, pan: 0, mute: false, solo: false },
   },
   pedalKinds: ["gain", "overdrive"],
 };
@@ -283,7 +303,9 @@ function mockStatus(): EngineStatus {
         recording: mockTransport.recording && t.armed,
         chain: t.chain.map((p) => ({ ...p, params: p.params.map((q) => ({ ...q })) })),
         clips: t.clips.map((c) => ({ ...c })),
+        strip: { ...t.strip },
       })),
+      master: { ...mock.project.master },
     },
     sampleRate: mockSettings.sampleRate,
     bufferFrames: mockSettings.bufferFrames,
@@ -375,8 +397,10 @@ export async function projectNew(name: string): Promise<EngineStatus> {
         recording: false,
         chain: [mockPedal(2, "gain"), mockPedal(3, "overdrive")],
         clips: [],
+        strip: { ...UNITY },
       },
     ],
+    master: { ...UNITY },
   };
   return mockStatus();
 }
@@ -404,6 +428,38 @@ export async function tempoSet(tempo: Tempo): Promise<EngineStatus> {
   return mockEdit();
 }
 
+// ----- the mixer -----
+
+function mockStrip(track: number | null): Strip {
+  return track === null ? mock.project.master : mockTrack(track).strip;
+}
+
+/** Gain on a track's strip, or the master's with `null`. Not echoed. */
+export async function stripGain(track: number | null, db: number): Promise<void> {
+  if (inTauri) return invoke("strip_gain", { track, db });
+  mockStrip(track).gainDb = db;
+  mock.project.dirty = true;
+}
+
+/** Pan on a track's strip. Not echoed. */
+export async function stripPan(track: number, pan: number): Promise<void> {
+  if (inTauri) return invoke("strip_pan", { track, pan });
+  mockStrip(track).pan = pan;
+  mock.project.dirty = true;
+}
+
+export async function stripMute(track: number | null, on: boolean): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("strip_mute", { track, on });
+  mockStrip(track).mute = on;
+  return mockEdit();
+}
+
+export async function stripSolo(track: number, on: boolean): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("strip_solo", { track, on });
+  mockStrip(track).solo = on;
+  return mockEdit();
+}
+
 // ----- tracks and clips -----
 
 export async function trackAdd(name?: string): Promise<EngineStatus> {
@@ -415,6 +471,7 @@ export async function trackAdd(name?: string): Promise<EngineStatus> {
     recording: false,
     chain: [],
     clips: [],
+    strip: { ...UNITY },
   });
   return mockEdit();
 }
@@ -666,9 +723,12 @@ function publish(buffer: ArrayBuffer) {
   }
   framesDropped = frame.dropped;
   const m = frame.meters;
+  const tracks: Level[] = [];
+  for (let i = 4; i + 1 < m.length; i += 2) tracks.push({ peak: m[i] ?? 0, rms: m[i + 1] ?? 0 });
   const out: MeterFrame = {
     input: { peak: m[0] ?? 0, rms: m[1] ?? 0 },
     output: { peak: m[2] ?? 0, rms: m[3] ?? 0 },
+    tracks,
     position: frame.position,
     playing: frame.playing,
     recording: frame.recording,
@@ -702,14 +762,23 @@ function openMeterChannel() {
   window.setInterval(() => {
     t += 1 / 60;
     if (mockTransport.playing) mockTransport.position += 1 / 60;
+    const anySolo = mock.project.tracks.some((t) => t.strip.solo);
     const meters = mock.running
       ? [
           0.4 + 0.3 * Math.abs(Math.sin(t * 3.7)),
           0.18 + 0.12 * Math.sin(t * 2.1),
           0.55 + 0.35 * Math.abs(Math.sin(t * 3.7 + 0.4)),
           0.3 + 0.15 * Math.sin(t * 2.1 + 0.4),
+          ...mock.project.tracks.flatMap((track, i) => {
+            const silent = track.strip.mute || (anySolo && !track.strip.solo);
+            const g = silent ? 0 : 10 ** (track.strip.gainDb / 20);
+            return [
+              g * (0.5 + 0.3 * Math.abs(Math.sin(t * (2.9 + i) + i))),
+              g * (0.25 + 0.1 * Math.sin(t * (1.7 + i) + i)),
+            ];
+          }),
         ]
-      : [0, 0, 0, 0];
+      : new Array(4 + mock.project.tracks.length * 2).fill(0);
     // No shell to acknowledge, and headless captures never reach an
     // animation frame, so the stand-in publishes directly.
     publish(
