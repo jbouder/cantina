@@ -13,15 +13,17 @@
 //! While running, type `list` to see the chain and its parameters,
 //! `<processor>.<param> <value>` to change one (for example `2.drive 30`
 //! or `2.1 30`), `s` for counters, `q` to quit. Processors and parameters
-//! are numbered from 1 as `list` shows them.
+//! are numbered from 1 as `list` shows them. With `--click BPM` a
+//! metronome is mixed in while the transport plays: `play`, `stop`,
+//! `loop BARS` and `pos` drive it.
 
 use std::io::{self, BufRead, Write};
 
 use anyhow::{bail, Context, Result};
 use cantina_dsp::{Unit, STOCK_NAMES};
 use cantina_engine::{
-    device, processors, Controller, GraphConfig, NodeId, Runtime, Stream, StreamConfig,
-    MAX_BLOCK_FRAMES,
+    device, processors, Click, Controller, Endpoint, GraphConfig, LoopRange, NodeId, Runtime,
+    Stream, StreamConfig, TempoMap, TimeSignature, MAX_BLOCK_FRAMES,
 };
 use cantina_hosting::{au, clap};
 
@@ -36,6 +38,7 @@ struct Options {
     input_channel: usize,
     chain: Vec<String>,
     gain_db: f32,
+    click_bpm: Option<f64>,
 }
 
 fn parse_args() -> Result<Options> {
@@ -50,6 +53,7 @@ fn parse_args() -> Result<Options> {
         input_channel: 0,
         chain: vec!["gain".into(), "overdrive".into()],
         gain_db: 0.0,
+        click_bpm: None,
     };
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -79,13 +83,17 @@ fn parse_args() -> Result<Options> {
                     .collect();
             }
             "--gain" | "-g" => opts.gain_db = value("--gain")?.parse()?,
+            "--click" => opts.click_bpm = Some(value("--click")?.parse()?),
             "--help" | "-h" => {
                 println!(
                     "passthrough [--list] [--list-au] [--list-clap] [--in NAME] [--out NAME] \
-                     [--rate HZ] [--buffer FRAMES] [--channel N] [--chain a,b,c] [--gain DB]\n\n\
+                     [--rate HZ] [--buffer FRAMES] [--channel N] [--chain a,b,c] [--gain DB] \
+                     [--click BPM]\n\n\
                      Names match a prefix, case-insensitively. Channel is 1-based. --gain sets \
                      every gain processor's initial level. Chain items are stock processors ({}), \
                      au:<name or aufx:dely:appl>, or clap:<bundle name or path>[#plugin id].\n\
+                     --click adds a metronome at BPM in 4/4 that plays while the transport \
+                     runs.\n\
                      Defaults: system devices, 48000 Hz, 128 frames, channel 1, chain \
                      gain,overdrive, 0 dB.",
                     STOCK_NAMES.join(", ")
@@ -287,6 +295,14 @@ fn main() -> Result<()> {
         channels: 1,
     })?;
     let nodes = build_chain(&mut controller, &opts.chain, opts.gain_db)?;
+    if let Some(bpm) = opts.click_bpm {
+        let click = controller.graph_mut().add(Box::new(Click::default()));
+        controller.graph_mut().connect(click, Endpoint::Output)?;
+        controller.commit()?;
+        controller
+            .transport_mut()
+            .set_tempo_map(TempoMap::new(bpm, TimeSignature::COMMON));
+    }
     let layout = Layout::of(&controller, &nodes);
 
     let stream = Stream::open(
@@ -337,7 +353,7 @@ fn main() -> Result<()> {
     println!("Run measure_latency for the real number.");
     println!();
     layout.print(&controller);
-    println!("Type <processor>.<param> <value>, list, s, or q.");
+    println!("Type <processor>.<param> <value>, list, s, play, stop, loop BARS, pos, or q.");
 
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
@@ -347,6 +363,37 @@ fn main() -> Result<()> {
             (None, _) => {}
             (Some("q") | Some("quit"), _) => break,
             (Some("s") | Some("stats"), _) => print_stats(&stream, &controller),
+            (Some("play"), _) => {
+                controller.transport_mut().play();
+            }
+            (Some("stop"), _) => {
+                controller.transport_mut().stop();
+            }
+            (Some("pos"), _) => {
+                let t = controller.transport();
+                println!(
+                    "{} at sample {} ({})",
+                    if t.is_playing() { "playing" } else { "stopped" },
+                    t.position(),
+                    t.musical_position(opts.sample_rate)
+                );
+            }
+            (Some("loop"), Some(bars)) => match bars.parse::<u32>() {
+                Ok(0) => {
+                    controller.transport_mut().set_loop(None);
+                }
+                Ok(bars) => {
+                    let end = controller.transport().tempo_map().position_to_samples(
+                        cantina_engine::MusicalPosition::new(bars, 0, 0),
+                        opts.sample_rate,
+                    );
+                    controller.transport_mut().locate(0);
+                    controller
+                        .transport_mut()
+                        .set_loop(Some(LoopRange { start: 0, end }));
+                }
+                Err(_) => println!("loop takes a number of bars, 0 to clear"),
+            },
             (Some("list") | Some("l"), _) => layout.print(&controller),
             (Some(target), Some(value)) => match (layout.resolve(target), value.parse::<f32>()) {
                 (Ok((p, q)), Ok(v)) => {
