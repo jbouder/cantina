@@ -6,8 +6,9 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// The fixture dylib, next to the test binary's profile directory. Built
-/// if a `-p cantina-hosting` run skipped it.
+/// The fixture dylib, next to the test binary's profile directory. Always
+/// built, which is a no-op when it is current, so a `-p cantina-hosting`
+/// run never tests a stale fixture.
 pub fn fixture_path() -> PathBuf {
     let exe = std::env::current_exe().unwrap();
     let profile_dir = exe
@@ -16,14 +17,17 @@ pub fn fixture_path() -> PathBuf {
         .expect("test binary lives under target/<profile>/")
         .to_path_buf();
     let path = profile_dir.join("libcantina_clap_gain.dylib");
-    if !path.exists() {
+    static BUILT: std::sync::Once = std::sync::Once::new();
+    BUILT.call_once(|| {
         let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
-        let status = Command::new(cargo)
-            .args(["build", "-p", "cantina-clap-gain"])
-            .status()
-            .expect("cargo runs");
+        let mut command = Command::new(cargo);
+        command.args(["build", "-p", "cantina-clap-gain"]);
+        if profile_dir.ends_with("release") {
+            command.arg("--release");
+        }
+        let status = command.status().expect("cargo runs");
         assert!(status.success(), "building the CLAP fixture failed");
-    }
+    });
     assert!(path.exists(), "{} is missing", path.display());
     path
 }

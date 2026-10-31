@@ -69,6 +69,46 @@ impulse comes out at the delay time, the plist state round-trips into a
 fresh instance, and the handle sees a parameter change made behind its
 back while the processor is prepared and rendering.
 
+## CLAP
+
+`ClapProcessor` goes through [clack](https://github.com/prokopyl/clack),
+whose types enforce CLAP's thread split. The audio half, clack's
+`PluginAudioProcessor`, lives in the processor and moves with it. The
+main half, clack's `PluginInstance`, lives behind a mutex in a
+`ClapShared` that the processor and its `ClapHandle` both hold. The
+processor locks it only in `prepare`, `reset` and `drop`, which run off
+the audio thread; the handle locks it for state, latency and parameter
+flushes. Nothing locks it on the audio thread, which is what keeps the
+shared instance honest with CLAP's "main thread" rule.
+
+Parameter changes from the UI are queued as CLAP events and delivered at
+the next `process`, the sanctioned real-time path; before the plugin is
+active they go through a main-thread flush. Changes the plugin makes on
+its own come back as output events from `process` and cross to the handle
+over a lock-free ring, so `take_changes` costs nothing on the audio
+thread. While the plugin is inactive and asks for a flush
+(`host_params.request_flush`), the handle runs one on the main thread and
+collects what comes out. The host also implements `host_latency`, so a
+plugin that changes its latency is noticed (`ClapHandle::latency_changed`)
+and `host_params.rescan` is recorded.
+
+CLAP parameters carry no unit, so the wrapper asks the plugin to format
+each parameter's default value (`value_to_text`) and reads the suffix:
+`dB`, `Hz`, `kHz`, `s`, `ms` or `%`. A plugin that formats nothing useful
+falls back to a guess from the name.
+
+State is the plugin's `state` extension, saved and loaded on the main
+thread while the plugin is active, which CLAP allows and the plugin is
+responsible for making safe. A plugin without the extension saves its
+parameter values.
+
+The workspace's own test plugin (`crates/clap-fixture`) is the subject:
+it applies a gain and a delay it reports as latency, saves its two
+values, and echoes every parameter change it is sent as an output event,
+the way a plugin tells its host about a change. The tests check all of
+that through both the processor and the handle, including state saved
+while the plugin is active and restored into a fresh instance.
+
 ## State in the project
 
 A plugin's state lives in the project as `plugins/<pedal id>.state`: a
@@ -88,7 +128,9 @@ deleted clips, so undoing the removal finds the state again.
 The project's parameter values and the plugin's state overlap: both hold
 the parameters. The polling above keeps the values current, so a save
 stores a state and a value list that agree, and a load that applies the
-values over the state changes nothing.
+values over the state changes nothing. Both formats behave the same from
+the chain's point of view: the shell holds a `Handle` and never asks
+which kind it is.
 
 ## The scanner
 
