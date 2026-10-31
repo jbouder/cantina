@@ -13,21 +13,29 @@
 //! pedals here, user-designed pedals later, and third-party plugins in the
 //! `hosting` crate. The chain, the mixer, automation, latency compensation
 //! and the project file only ever see a `Processor`.
+//!
+//! Drums are here too: the [`kit`] module defines the kit format and the
+//! [`Sampler`] plays one. The sequencer that decides when to hit a pad
+//! lives in the engine crate, next to the tempo map.
 
 mod biquad;
 mod gain;
+pub mod kit;
 mod overdrive;
 mod processor;
 mod render;
+mod sampler;
 mod smooth;
 
 pub use biquad::Biquad;
 pub use gain::Gain;
+pub use kit::{Kit, KitError, LoadedKit, Sample, KIT_VERSION};
 pub use overdrive::Overdrive;
 pub use processor::{
     Buffer, Chain, Handle, ParamId, ParamInfo, Processor, StateError, Unit, MAX_CHANNELS,
 };
 pub use render::Renderer;
+pub use sampler::{Sampler, Trigger, MAX_TRIGGERS, MAX_VOICES};
 pub use smooth::Smoother;
 
 /// Converts decibels to a linear amplitude multiplier.
