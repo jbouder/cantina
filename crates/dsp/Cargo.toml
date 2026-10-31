@@ -1,0 +1,10 @@
+[package]
+name = "cantina-dsp"
+description = "Pure audio processing for Cantina: no I/O, no allocation on the audio path"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
