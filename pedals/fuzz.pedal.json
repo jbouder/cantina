@@ -1,0 +1,185 @@
+{
+  "version": 1,
+  "name": "Fuzz",
+  "params": [
+    {
+      "id": "drive",
+      "label": "Drive",
+      "unit": "dB",
+      "min": 0,
+      "max": 60,
+      "default": 40
+    },
+    {
+      "id": "tone",
+      "label": "Tone",
+      "unit": "Hz",
+      "min": 500,
+      "max": 8000,
+      "default": 3000
+    },
+    {
+      "id": "level",
+      "label": "Level",
+      "unit": "dB",
+      "min": -24,
+      "max": 6,
+      "default": -12
+    },
+    {
+      "id": "curve",
+      "label": "Curve",
+      "choices": [
+        "Silicon",
+        "Germanium",
+        "Octave"
+      ],
+      "default": 0
+    },
+    {
+      "id": "oversampling",
+      "label": "Oversampling",
+      "choices": [
+        "Off",
+        "2×",
+        "4×",
+        "8×"
+      ],
+      "default": 2
+    }
+  ],
+  "nodes": [
+    {
+      "id": "in",
+      "kind": "input",
+      "pos": [
+        40,
+        160
+      ]
+    },
+    {
+      "id": "pre",
+      "kind": "biquad",
+      "type": "highpass",
+      "freq": 40,
+      "pos": [
+        200,
+        160
+      ]
+    },
+    {
+      "id": "drive",
+      "kind": "gain",
+      "db": {
+        "param": "drive",
+        "map": [
+          12,
+          72
+        ]
+      },
+      "smooth": 0.01,
+      "pos": [
+        360,
+        160
+      ]
+    },
+    {
+      "id": "clip",
+      "kind": "waveshaper",
+      "curve": {
+        "param": "curve",
+        "values": [
+          "silicon",
+          "germanium",
+          "octave"
+        ]
+      },
+      "oversample": {
+        "param": "oversampling",
+        "values": [
+          1,
+          2,
+          4,
+          8
+        ]
+      },
+      "pos": [
+        520,
+        160
+      ]
+    },
+    {
+      "id": "post",
+      "kind": "biquad",
+      "type": "highpass",
+      "freq": 20,
+      "pos": [
+        680,
+        160
+      ]
+    },
+    {
+      "id": "tone",
+      "kind": "biquad",
+      "type": "lowpass",
+      "freq": {
+        "param": "tone"
+      },
+      "smooth": 0.01,
+      "pos": [
+        840,
+        160
+      ]
+    },
+    {
+      "id": "level",
+      "kind": "gain",
+      "db": {
+        "param": "level"
+      },
+      "smooth": 0.01,
+      "pos": [
+        1000,
+        160
+      ]
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "pos": [
+        1160,
+        160
+      ]
+    }
+  ],
+  "edges": [
+    [
+      "in",
+      "pre"
+    ],
+    [
+      "pre",
+      "drive"
+    ],
+    [
+      "drive",
+      "clip"
+    ],
+    [
+      "clip",
+      "post"
+    ],
+    [
+      "post",
+      "tone"
+    ],
+    [
+      "tone",
+      "level"
+    ],
+    [
+      "level",
+      "out"
+    ]
+  ]
+}

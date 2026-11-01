@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "name": "Chorus",
+  "params": [
+    {
+      "id": "rate",
+      "label": "Rate",
+      "unit": "Hz",
+      "min": 0.05,
+      "max": 10,
+      "default": 0.8
+    },
+    {
+      "id": "depth",
+      "label": "Depth",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "default": 50
+    },
+    {
+      "id": "feedback",
+      "label": "Feedback",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "default": 0
+    },
+    {
+      "id": "mix",
+      "label": "Mix",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "default": 50
+    },
+    {
+      "id": "sync",
+      "label": "Sync",
+      "toggle": true,
+      "default": 0
+    },
+    {
+      "id": "note",
+      "label": "Note",
+      "choices": [
+        "1/1",
+        "1/2",
+        "1/2T",
+        "1/4",
+        "1/4D",
+        "1/4T",
+        "1/8",
+        "1/8D",
+        "1/8T",
+        "1/16",
+        "1/16T",
+        "1/32"
+      ],
+      "default": 3
+    }
+  ],
+  "nodes": [
+    {
+      "id": "in",
+      "kind": "input",
+      "pos": [
+        40,
+        160
+      ]
+    },
+    {
+      "id": "lfo",
+      "kind": "lfo",
+      "rate": {
+        "param": "rate"
+      },
+      "sync": {
+        "param": "sync"
+      },
+      "note": {
+        "param": "note"
+      },
+      "depth": {
+        "param": "depth",
+        "map": [
+          0,
+          1
+        ]
+      },
+      "spread": 0.25,
+      "unipolar": true,
+      "pos": [
+        200,
+        320
+      ]
+    },
+    {
+      "id": "delay",
+      "kind": "delay",
+      "time": {
+        "node": "lfo",
+        "map": [
+          12,
+          20
+        ]
+      },
+      "feedback": {
+        "param": "feedback",
+        "map": [
+          0,
+          0.7
+        ]
+      },
+      "mix": {
+        "param": "mix",
+        "map": [
+          0,
+          1
+        ]
+      },
+      "max": 20,
+      "pos": [
+        360,
+        160
+      ]
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "pos": [
+        520,
+        160
+      ]
+    }
+  ],
+  "edges": [
+    [
+      "in",
+      "delay"
+    ],
+    [
+      "delay",
+      "out"
+    ]
+  ]
+}

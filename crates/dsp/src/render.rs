@@ -79,7 +79,7 @@ impl Renderer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Gain, Overdrive};
+    use crate::{stock, Gain};
 
     #[test]
     fn blocks_cover_the_signal_including_a_short_tail() {
@@ -118,9 +118,9 @@ mod tests {
             .map(|i| ((i % 50) as f32 / 25.0) - 1.0)
             .collect::<Vec<f32>>()];
         let renderer = Renderer::default();
-        let direct = renderer.render(&mut Overdrive::default(), &input);
+        let direct = renderer.render(stock("overdrive").unwrap().as_mut(), &input);
         let mut chain = Chain::new();
-        chain.push(Box::new(Overdrive::default()));
+        chain.push(stock("overdrive").unwrap());
         let mut via_chain = input.clone();
         renderer.chain(&mut chain, &mut via_chain);
         assert_eq!(direct, via_chain);

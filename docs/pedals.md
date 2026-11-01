@@ -310,3 +310,43 @@ deterministic and MIT like the rest of the repository. They are a
 starting point; a captured cabinet dropped into the folder will sound
 better. A test loads each, checks it is 100 ms at unit energy, and that
 `CREDITS.md` names every file.
+
+## Which pedals are in the pedal format
+
+Nine of the stock pedals are compositions of the format's primitives
+and ship as definitions in `pedals/` (embedded in the `dsp` crate, so
+`stock("overdrive")` compiles the JSON, and bundled with the app so a
+designer can open any of them as a starting point):
+
+| Pedal | Definition |
+| --- | --- |
+| Overdrive, Distortion, Fuzz | highpass → gain (the fixed boost folded into the drive's map) → oversampled waveshaper → highpass → tone lowpass → level |
+| Amp | highpass → gain → oversampled asymmetric clipper → highpass → four shelf and peak filters → level |
+| EQ | four biquads whose type, frequency, gain and Q each follow a parameter |
+| Chorus, Flanger | an lfo (quarter-cycle stereo spread) driving a delay's time, with feedback and mix |
+| Phaser | an lfo driving an allpass cascade's frequency over four and a half octaves, with feedback and mix |
+| Tremolo | an lfo read at its trough, shape and phase following the Shape knob, driving a gain |
+
+The rewrite was checked against the native implementations sample by
+sample over the golden fixtures, every parameter at its extremes and
+in stereo: the drives, the amp and the EQ are bit for bit the same; the
+tremolo and phaser are within 3e-6 (a different order of multiplies
+before `tanh` and `powf`); the chorus and flanger are within 1.2e-4,
+on the square fixture's full-scale edges, because the modulated delay
+time is assembled in a different order and differs by about 3e-5 of a
+sample. Those references were regenerated; everything else was left
+as it was and still passes at the 1e-5 tolerance.
+
+The rest stay native because the format cannot express them:
+
+- **Tuner**: a pitch detector with a readout, not a signal path.
+- **Gate** and **compressor**: a level detector controlling a gain is
+  feedback-free, but the detector, the hysteresis and hold, the knee
+  and the readout are one tight loop, not a graph of primitives.
+- **Delay**: its crossfading read heads, tempo sync at note values and
+  ping-pong mode are not what the format's `delay` node does (it slides
+  its read head, as a chorus needs).
+- **Reverb**: an eight-line feedback delay network with a Householder
+  matrix is a cycle; the format forbids cycles.
+- **Cabinet**: convolution with a file.
+- **Gain**: the primitive itself, and the engine's buses use it.

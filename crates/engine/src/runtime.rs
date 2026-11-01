@@ -413,7 +413,7 @@ mod tests {
     use crate::graph::{Endpoint, Node};
     use crate::tempo::MusicalPosition;
     use crate::transport::LoopRange;
-    use cantina_dsp::{stock, Buffer, Gain, Overdrive};
+    use cantina_dsp::{stock, Buffer, Gain};
     use std::sync::atomic::AtomicBool;
     use std::sync::Mutex;
     use std::thread::{self, ThreadId};
@@ -475,7 +475,7 @@ mod tests {
 
         // Reference: overdrive alone for the whole signal.
         let (mut reference, mut rc) = Runtime::new(config(1)).unwrap();
-        let od = rc.graph_mut().add_processor(Box::new(Overdrive::default()));
+        let od = rc.graph_mut().add_processor(stock("overdrive").unwrap());
         rc.graph_mut().set_chain(&[od]).unwrap();
         rc.commit().unwrap();
         let expected = render(&mut reference, &input, |_| {});
@@ -486,7 +486,7 @@ mod tests {
         let (mut runtime, mut controller) = Runtime::new(config(1)).unwrap();
         let od = controller
             .graph_mut()
-            .add_processor(Box::new(Overdrive::default()));
+            .add_processor(stock("overdrive").unwrap());
         controller.graph_mut().set_chain(&[od]).unwrap();
         controller.commit().unwrap();
         let actual = render(&mut runtime, &input, |block| {
@@ -509,11 +509,11 @@ mod tests {
 
         // A fresh overdrive would not match: its tone filter starts empty.
         let (mut fresh, mut fc) = Runtime::new(config(1)).unwrap();
-        let od2 = fc.graph_mut().add_processor(Box::new(Overdrive::default()));
+        let od2 = fc.graph_mut().add_processor(stock("overdrive").unwrap());
         fc.graph_mut().set_chain(&[od2]).unwrap();
         fc.commit().unwrap();
         let _ = render(&mut fresh, &input[..BLOCK * 20], |_| {});
-        let od3 = fc.graph_mut().add_processor(Box::new(Overdrive::default()));
+        let od3 = fc.graph_mut().add_processor(stock("overdrive").unwrap());
         fc.graph_mut().set_chain(&[od3]).unwrap();
         fc.commit().unwrap();
         let tail = render(&mut fresh, &input[BLOCK * 20..], |_| {});
@@ -731,7 +731,7 @@ mod tests {
         let (mut runtime, mut controller) = Runtime::new(config(2)).unwrap();
         let g = controller
             .graph_mut()
-            .add_processor(Box::new(Overdrive::default()));
+            .add_processor(stock("overdrive").unwrap());
         controller.graph_mut().set_chain(&[g]).unwrap();
         controller.commit().unwrap();
         let input = sine(BLOCK * 10 + 17);
@@ -744,7 +744,7 @@ mod tests {
         );
 
         let (mut reference, mut rc) = Runtime::new(config(1)).unwrap();
-        let g = rc.graph_mut().add_processor(Box::new(Overdrive::default()));
+        let g = rc.graph_mut().add_processor(stock("overdrive").unwrap());
         rc.graph_mut().set_chain(&[g]).unwrap();
         rc.commit().unwrap();
         let expected = render(&mut reference, &input, |_| {});

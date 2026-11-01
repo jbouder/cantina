@@ -18,8 +18,8 @@ export interface EngineStatus {
   noticeSeq: number;
   transport: TransportStatus;
   project: ProjectStatus;
-  /** Specs `chainAdd` accepts. */
-  pedalKinds: string[];
+  /** The stock pedals `chainAdd` accepts, with how each is made. */
+  pedalKinds: PedalKindInfo[];
   plugins: PluginsStatus;
   latency: LatencyStatus;
   /** The drum kits installed, for a drum track to pick from. */
@@ -28,6 +28,17 @@ export interface EngineStatus {
   irs: IrInfo[];
   /** The pattern looping on a drum track for editing, if any. Not part of the project. */
   audition: AuditionStatus | null;
+}
+
+/** A kind of pedal the picker offers. Mirrors `PedalKindInfo` in src-tauri. */
+export interface PedalKindInfo {
+  /** What `chainAdd` takes. */
+  spec: string;
+  name: string;
+  /** Ships with Cantina. */
+  stock: boolean;
+  /** Defined in the pedal format, so the designer can open it as a starting point. */
+  designable: boolean;
 }
 
 /** An installed kit. Mirrors `KitInfo` in src-tauri. */
@@ -432,6 +443,19 @@ const MOCK_IRS: IrInfo[] = [
   { id: "4x12-modern", name: "4x12 modern" },
 ];
 
+/** The stock pedals that ship in the pedal format (`pedals/`). */
+const MOCK_DESIGNABLE = [
+  "overdrive",
+  "distortion",
+  "fuzz",
+  "eq",
+  "chorus",
+  "flanger",
+  "phaser",
+  "tremolo",
+  "amp",
+];
+
 /** The stock pedals, as `crates/dsp` describes them. */
 const MOCK_STOCK: Record<string, { name: string; params: ParamInfo[]; readouts: string[] }> = {
   tuner: {
@@ -743,7 +767,12 @@ const mock: EngineStatus = {
       : [],
     master: { gainDb: -1, pan: 0, mute: false, solo: false },
   },
-  pedalKinds: Object.keys(MOCK_STOCK),
+  pedalKinds: Object.entries(MOCK_STOCK).map(([spec, kind]) => ({
+    spec,
+    name: kind.name,
+    stock: true,
+    designable: MOCK_DESIGNABLE.includes(spec),
+  })),
   plugins: {
     scanning: mockParams?.has("scanning") ?? false,
     count: 5,

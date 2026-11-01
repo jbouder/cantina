@@ -22,22 +22,19 @@
 //! primitives above, compiled into a [`PedalProcessor`] that is
 //! real-time safe by construction.
 
-mod amp;
+mod allpass;
 mod biquad;
 mod cabinet;
 mod compressor;
 pub mod convolution;
 mod delay_line;
-mod drive;
 mod echo;
 mod envelope;
-mod eq;
 pub mod fft;
 mod gain;
 mod gate;
 pub mod kit;
 pub mod lfo;
-mod modulation;
 pub mod oversample;
 pub mod pedal;
 pub mod pitch;
@@ -50,21 +47,18 @@ mod shaper;
 mod smooth;
 mod tuner;
 
-pub use amp::Amp;
+pub use allpass::Allpass;
 pub use biquad::Biquad;
 pub use cabinet::Cabinet;
 pub use compressor::Compressor;
 pub use convolution::Convolver;
 pub use delay_line::DelayLine;
-pub use drive::{Distortion, Drive, Fuzz, Overdrive, Voicing};
 pub use echo::Echo;
 pub use envelope::Envelope;
-pub use eq::Equalizer;
 pub use gain::Gain;
 pub use gate::NoiseGate;
 pub use kit::{Kit, KitError, LoadedKit, Sample, KIT_VERSION};
 pub use lfo::{Lfo, Shape};
-pub use modulation::{Phaser, SweptDelay, Tremolo};
 pub use oversample::Oversampler;
 pub use pedal::{compile, PedalDef, PedalError, PedalProcessor, PEDAL_VERSION};
 pub use processor::{
@@ -111,23 +105,67 @@ pub const STOCK_NAMES: &[&str] = &[
     "gain",
 ];
 
+/// The stock pedals that are compositions of the pedal format's
+/// primitives, as the definitions that ship in `pedals/`: name and
+/// JSON. The rest of [`STOCK_NAMES`] stay native because the format
+/// cannot express them (`docs/pedals.md` says which and why).
+pub static STOCK_PEDAL_JSON: &[(&str, &str)] = &[
+    (
+        "overdrive",
+        include_str!("../../../pedals/overdrive.pedal.json"),
+    ),
+    (
+        "distortion",
+        include_str!("../../../pedals/distortion.pedal.json"),
+    ),
+    ("fuzz", include_str!("../../../pedals/fuzz.pedal.json")),
+    ("eq", include_str!("../../../pedals/eq.pedal.json")),
+    ("chorus", include_str!("../../../pedals/chorus.pedal.json")),
+    (
+        "flanger",
+        include_str!("../../../pedals/flanger.pedal.json"),
+    ),
+    ("phaser", include_str!("../../../pedals/phaser.pedal.json")),
+    (
+        "tremolo",
+        include_str!("../../../pedals/tremolo.pedal.json"),
+    ),
+    ("amp", include_str!("../../../pedals/amp.pedal.json")),
+];
+
+/// The definition of a stock pedal that ships in the pedal format,
+/// parsed once: what the designer opens as a starting point. `None`
+/// for the native ones.
+pub fn stock_definition(name: &str) -> Option<&'static PedalDef> {
+    use std::collections::HashMap;
+    use std::sync::OnceLock;
+    static DEFS: OnceLock<HashMap<&'static str, PedalDef>> = OnceLock::new();
+    DEFS.get_or_init(|| {
+        STOCK_PEDAL_JSON
+            .iter()
+            .map(|(name, text)| {
+                let def = PedalDef::from_json(text)
+                    .unwrap_or_else(|e| panic!("stock pedal {name} does not load: {e}"));
+                (*name, def)
+            })
+            .collect()
+    })
+    .get(name.to_ascii_lowercase().as_str())
+}
+
 /// Builds a stock processor by name, unprepared and at default settings.
 pub fn stock(name: &str) -> Option<Box<dyn Processor>> {
+    if let Some(def) = stock_definition(name) {
+        let pedal =
+            compile(def).unwrap_or_else(|e| panic!("stock pedal {name} does not compile: {e}"));
+        return Some(Box::new(pedal));
+    }
     match name.to_ascii_lowercase().as_str() {
         "tuner" => Some(Box::new(Tuner::default())),
         "gate" => Some(Box::new(NoiseGate::default())),
         "compressor" => Some(Box::new(Compressor::default())),
-        "overdrive" => Some(Box::new(Overdrive::default())),
-        "distortion" => Some(Box::new(Distortion::default())),
-        "fuzz" => Some(Box::new(Fuzz::default())),
-        "eq" => Some(Box::new(Equalizer::default())),
-        "chorus" => Some(Box::new(SweptDelay::chorus())),
-        "flanger" => Some(Box::new(SweptDelay::flanger())),
-        "phaser" => Some(Box::new(Phaser::default())),
-        "tremolo" => Some(Box::new(Tremolo::default())),
         "delay" => Some(Box::new(Echo::default())),
         "reverb" => Some(Box::new(Reverb::default())),
-        "amp" => Some(Box::new(Amp::default())),
         "cab" => Some(Box::new(Cabinet::default())),
         "gain" => Some(Box::new(Gain::default())),
         _ => None,
@@ -153,5 +191,8 @@ mod tests {
             assert!(!p.params().is_empty(), "{name} has no parameters");
         }
         assert!(stock("flux capacitor").is_none());
+        assert_eq!(stock("Overdrive").unwrap().name(), "Overdrive");
+        assert_eq!(stock_definition("EQ").unwrap().name, "EQ");
+        assert_eq!(STOCK_PEDAL_JSON.len(), 9);
     }
 }

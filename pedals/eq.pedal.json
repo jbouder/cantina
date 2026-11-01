@@ -1,0 +1,302 @@
+{
+  "version": 1,
+  "name": "EQ",
+  "params": [
+    {
+      "id": "type1",
+      "label": "Band 1",
+      "choices": [
+        "Peak",
+        "Low shelf",
+        "High shelf",
+        "Low cut",
+        "High cut",
+        "Notch"
+      ],
+      "default": 1
+    },
+    {
+      "id": "freq1",
+      "label": "Freq",
+      "unit": "Hz",
+      "min": 20,
+      "max": 20000,
+      "default": 100
+    },
+    {
+      "id": "gain1",
+      "label": "Gain",
+      "unit": "dB",
+      "min": -18,
+      "max": 18,
+      "default": 0
+    },
+    {
+      "id": "q1",
+      "label": "Q",
+      "min": 0.1,
+      "max": 10,
+      "default": 0.7
+    },
+    {
+      "id": "type2",
+      "label": "Band 2",
+      "choices": [
+        "Peak",
+        "Low shelf",
+        "High shelf",
+        "Low cut",
+        "High cut",
+        "Notch"
+      ],
+      "default": 0
+    },
+    {
+      "id": "freq2",
+      "label": "Freq",
+      "unit": "Hz",
+      "min": 20,
+      "max": 20000,
+      "default": 400
+    },
+    {
+      "id": "gain2",
+      "label": "Gain",
+      "unit": "dB",
+      "min": -18,
+      "max": 18,
+      "default": 0
+    },
+    {
+      "id": "q2",
+      "label": "Q",
+      "min": 0.1,
+      "max": 10,
+      "default": 1
+    },
+    {
+      "id": "type3",
+      "label": "Band 3",
+      "choices": [
+        "Peak",
+        "Low shelf",
+        "High shelf",
+        "Low cut",
+        "High cut",
+        "Notch"
+      ],
+      "default": 0
+    },
+    {
+      "id": "freq3",
+      "label": "Freq",
+      "unit": "Hz",
+      "min": 20,
+      "max": 20000,
+      "default": 1600
+    },
+    {
+      "id": "gain3",
+      "label": "Gain",
+      "unit": "dB",
+      "min": -18,
+      "max": 18,
+      "default": 0
+    },
+    {
+      "id": "q3",
+      "label": "Q",
+      "min": 0.1,
+      "max": 10,
+      "default": 1
+    },
+    {
+      "id": "type4",
+      "label": "Band 4",
+      "choices": [
+        "Peak",
+        "Low shelf",
+        "High shelf",
+        "Low cut",
+        "High cut",
+        "Notch"
+      ],
+      "default": 2
+    },
+    {
+      "id": "freq4",
+      "label": "Freq",
+      "unit": "Hz",
+      "min": 20,
+      "max": 20000,
+      "default": 5000
+    },
+    {
+      "id": "gain4",
+      "label": "Gain",
+      "unit": "dB",
+      "min": -18,
+      "max": 18,
+      "default": 0
+    },
+    {
+      "id": "q4",
+      "label": "Q",
+      "min": 0.1,
+      "max": 10,
+      "default": 0.7
+    }
+  ],
+  "nodes": [
+    {
+      "id": "in",
+      "kind": "input",
+      "pos": [
+        40,
+        160
+      ]
+    },
+    {
+      "id": "band1",
+      "kind": "biquad",
+      "type": {
+        "param": "type1",
+        "values": [
+          "peak",
+          "lowshelf",
+          "highshelf",
+          "highpass",
+          "lowpass",
+          "notch"
+        ]
+      },
+      "freq": {
+        "param": "freq1"
+      },
+      "gain": {
+        "param": "gain1"
+      },
+      "q": {
+        "param": "q1"
+      },
+      "pos": [
+        200,
+        160
+      ]
+    },
+    {
+      "id": "band2",
+      "kind": "biquad",
+      "type": {
+        "param": "type2",
+        "values": [
+          "peak",
+          "lowshelf",
+          "highshelf",
+          "highpass",
+          "lowpass",
+          "notch"
+        ]
+      },
+      "freq": {
+        "param": "freq2"
+      },
+      "gain": {
+        "param": "gain2"
+      },
+      "q": {
+        "param": "q2"
+      },
+      "pos": [
+        360,
+        160
+      ]
+    },
+    {
+      "id": "band3",
+      "kind": "biquad",
+      "type": {
+        "param": "type3",
+        "values": [
+          "peak",
+          "lowshelf",
+          "highshelf",
+          "highpass",
+          "lowpass",
+          "notch"
+        ]
+      },
+      "freq": {
+        "param": "freq3"
+      },
+      "gain": {
+        "param": "gain3"
+      },
+      "q": {
+        "param": "q3"
+      },
+      "pos": [
+        520,
+        160
+      ]
+    },
+    {
+      "id": "band4",
+      "kind": "biquad",
+      "type": {
+        "param": "type4",
+        "values": [
+          "peak",
+          "lowshelf",
+          "highshelf",
+          "highpass",
+          "lowpass",
+          "notch"
+        ]
+      },
+      "freq": {
+        "param": "freq4"
+      },
+      "gain": {
+        "param": "gain4"
+      },
+      "q": {
+        "param": "q4"
+      },
+      "pos": [
+        680,
+        160
+      ]
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "pos": [
+        840,
+        160
+      ]
+    }
+  ],
+  "edges": [
+    [
+      "in",
+      "band1"
+    ],
+    [
+      "band1",
+      "band2"
+    ],
+    [
+      "band2",
+      "band3"
+    ],
+    [
+      "band3",
+      "band4"
+    ],
+    [
+      "band4",
+      "out"
+    ]
+  ]
+}

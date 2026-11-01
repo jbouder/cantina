@@ -23,11 +23,11 @@ use super::{
     Binding, NodeDef, ParamDef, PedalDef, PedalError, Problem, Value, MAX_NODES, MAX_PARAMS,
     PEDAL_VERSION,
 };
+use crate::allpass::Allpass;
 use crate::biquad::Biquad;
 use crate::db_to_linear;
 use crate::delay_line::DelayLine;
 use crate::lfo::{note_beats, Lfo, Shape};
-use crate::modulation::Allpass;
 use crate::oversample::{Oversampler, LATENCY as OVERSAMPLE_LATENCY};
 use crate::processor::{Buffer, ParamId, ParamInfo, Processor, Transport, Unit, MAX_CHANNELS};
 use crate::shaper::Curve;
@@ -174,12 +174,16 @@ impl Number {
                 scale,
             } => {
                 let v = values[*index];
-                let t = if scale.is_positional() {
-                    (v - min) / span
-                } else {
-                    v
+                let mapped = match scale {
+                    // A map that only shifts the range is an offset,
+                    // computed as one so it is exact: a drive with a
+                    // fixed boost folded in lands on the same gain the
+                    // boost would have given.
+                    Scale::Linear { lo, hi } if hi - lo == *span => lo + (v - min),
+                    _ if scale.is_positional() => scale.at((v - min) / span),
+                    _ => scale.at(v),
                 };
-                self.transform.apply(scale.at(t))
+                self.transform.apply(mapped)
             }
             Source::Signal { .. } => self.value,
         }

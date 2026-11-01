@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 use std::ptr::NonNull;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -74,8 +74,8 @@ pub struct EngineStatus {
     pub notice_seq: u32,
     pub transport: TransportStatus,
     pub project: ProjectStatus,
-    /// Specs `chain_add` accepts.
-    pub pedal_kinds: Vec<String>,
+    /// The stock pedals `chain_add` accepts, with how each is made.
+    pub pedal_kinds: Vec<PedalKindInfo>,
     pub plugins: PluginsStatus,
     pub latency: LatencyStatus,
     /// The drum kits installed, for a drum track to pick from.
@@ -85,6 +85,37 @@ pub struct EngineStatus {
     /// The pattern looping on a drum track for editing, if any. Not
     /// part of the project.
     pub audition: Option<AuditionStatus>,
+}
+
+/// A kind of pedal the picker offers. Mirrors `PedalKindInfo` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PedalKindInfo {
+    /// What `chain_add` takes.
+    pub spec: String,
+    pub name: String,
+    /// Ships with Cantina.
+    pub stock: bool,
+    /// Defined in the pedal format, so the designer can open it as a
+    /// starting point.
+    pub designable: bool,
+}
+
+/// The stock kinds, described once: building each to ask its name.
+fn stock_kinds() -> &'static [PedalKindInfo] {
+    static KINDS: OnceLock<Vec<PedalKindInfo>> = OnceLock::new();
+    KINDS.get_or_init(|| {
+        STOCK_NAMES
+            .iter()
+            .map(|spec| PedalKindInfo {
+                spec: spec.to_string(),
+                name: cantina_dsp::stock(spec)
+                    .map_or_else(|| spec.to_string(), |p| p.name().to_string()),
+                stock: true,
+                designable: cantina_dsp::stock_definition(spec).is_some(),
+            })
+            .collect()
+    })
 }
 
 /// An installed kit. Mirrors `KitInfo` in the UI.
@@ -1383,7 +1414,7 @@ impl Engine {
                 recording: !self.recording.is_empty(),
             },
             project: self.project_status(),
-            pedal_kinds: STOCK_NAMES.iter().map(|s| s.to_string()).collect(),
+            pedal_kinds: stock_kinds().to_vec(),
             plugins: PluginsStatus {
                 scanning: self.scanning,
                 count: self.plugins.plugins.len(),
