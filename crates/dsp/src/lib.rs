@@ -22,6 +22,7 @@ mod biquad;
 mod compressor;
 mod delay_line;
 mod drive;
+mod echo;
 mod envelope;
 mod eq;
 mod gain;
@@ -34,6 +35,7 @@ pub mod pitch;
 mod processor;
 mod readout;
 mod render;
+mod reverb;
 mod sampler;
 mod shaper;
 mod smooth;
@@ -43,6 +45,7 @@ pub use biquad::Biquad;
 pub use compressor::Compressor;
 pub use delay_line::DelayLine;
 pub use drive::{Distortion, Drive, Fuzz, Overdrive, Voicing};
+pub use echo::Echo;
 pub use envelope::Envelope;
 pub use eq::Equalizer;
 pub use gain::Gain;
@@ -56,7 +59,9 @@ pub use processor::{
 };
 pub use readout::Readout;
 pub use render::Renderer;
+pub use reverb::Reverb;
 pub use sampler::{Sampler, Trigger, MAX_TRIGGERS, MAX_VOICES};
+pub use shaper::Curve;
 pub use smooth::Smoother;
 pub use tuner::Tuner;
 
@@ -86,6 +91,8 @@ pub const STOCK_NAMES: &[&str] = &[
     "flanger",
     "phaser",
     "tremolo",
+    "delay",
+    "reverb",
     "gain",
 ];
 
@@ -103,6 +110,8 @@ pub fn stock(name: &str) -> Option<Box<dyn Processor>> {
         "flanger" => Some(Box::new(SweptDelay::flanger())),
         "phaser" => Some(Box::new(Phaser::default())),
         "tremolo" => Some(Box::new(Tremolo::default())),
+        "delay" => Some(Box::new(Echo::default())),
+        "reverb" => Some(Box::new(Reverb::default())),
         "gain" => Some(Box::new(Gain::default())),
         _ => None,
     }

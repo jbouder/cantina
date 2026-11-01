@@ -210,3 +210,44 @@ quarter cycle apart, except the tremolo, which pumps both together.
   peaks, so a synced tremolo is loudest on the beat and dips between;
   the test syncs to an eighth note at 90 bpm and checks the dips land
   8000 samples after each beat.
+
+## Delay
+
+`delay` (`crates/dsp/src/echo.rs`). **Time** (1 to 2000 ms) or, with
+**Sync** on, a **Note** value at the transport's tempo (clamped to two
+seconds); **Feedback** (up to 100%, which still loses 2% a repeat so it
+never runs away); **Tone**, a lowpass in the feedback path so repeats
+darken as they go; **Mix**; and a **Mode**: *Mono* sums the input into
+one line and sends it to both sides, *Stereo* keeps two lines, and
+*Ping-pong* sends the input left and crosses each repeat over.
+
+A change of time never slides the read head, which would bend the
+pitch of what is in the line like a tape machine. Instead the head
+crossfades from the old time to the new over 50 ms and takes the next
+change once the fade is done, so a long knob drag, or a tempo ramp on
+the timeline, follows in steps with no pitch artifacts. The test runs
+a steady 440 Hz tone through a quarter-note delay while the tempo drops
+from 120 to 60 bpm and checks the wet signal around the change is still
+a clean 440 Hz (everything 20 Hz or more away is 30 dB down).
+
+## Reverb
+
+`reverb` (`crates/dsp/src/reverb.rs`). A feedback delay network: the
+input, after **Pre-delay** (0 to 200 ms) and four Schroeder allpass
+diffusers, feeds eight delay lines (30 to 73 ms at the default
+**Size**; the knob scales them from half to one and a half times) that
+feed each other through a Householder matrix, which keeps the energy
+while scattering it so the echo density builds fast. A one-pole lowpass
+in each loop (**Damping**) loses highs faster than lows, as air and
+walls do, and each loop's gain is set from **Decay** (0.1 to 20 s) so
+the tail falls 60 dB in that time (tested at 0.5 and 2 s). The sides
+take the lines with different signs, so left and right differ.
+
+Each line's length wobbles by a tenth of a millisecond at a slow rate
+of its own, so no two paths line up for long: that is what keeps a
+sustained chord from turning into a metallic ring. The test holds a G
+major chord for two seconds, releases it, and sweeps the tail half a
+second later in 24th-octave steps, skipping the chord's own partials:
+no resonance may stand more than 15 dB over the median. A wider wobble
+fails a different way, by spreading the chord audibly, which is how the
+amount was chosen.
