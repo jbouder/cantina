@@ -1045,6 +1045,16 @@ export function ms(frames: number, sampleRate: number): string {
   return `${((frames / sampleRate) * 1000).toFixed(1)} ms`;
 }
 
+/** The open route in one line, or why there is none. */
+export function routeLabel(status: EngineStatus): string {
+  if (!status.running) return "Engine stopped";
+  const comp =
+    status.latency.compensationFrames > 0
+      ? ` · comp ${ms(status.latency.compensationFrames, status.sampleRate)}`
+      : "";
+  return `${status.inputName ?? "?"} → ${status.outputName ?? "?"} · ${status.sampleRate / 1000} kHz · ${status.bufferFrames} frames${comp}`;
+}
+
 export async function engineStatus(): Promise<EngineStatus> {
   return inTauri ? invoke<EngineStatus>("engine_status") : mockStatus();
 }

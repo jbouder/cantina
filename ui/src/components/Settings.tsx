@@ -1,20 +1,24 @@
-import { type EngineStatus, latencyWarningSet, ms } from "../lib/engine";
+import { type EngineStatus, latencyWarningSet, ms, routeLabel } from "../lib/engine";
 import { SKINS, useSkin } from "../skins";
 import { Button } from "./Button";
 import { DevicePicker } from "./DevicePicker";
+import { Lcd } from "./Lcd";
 import { Select } from "./Select";
 import { Sheet } from "./Sheet";
 
 type Props = {
   status: EngineStatus;
+  /** True while a start or stop is in flight. */
+  busy: boolean;
+  onToggleEngine: () => void;
   onClose: () => void;
   onStatusChange: (status: EngineStatus) => void;
 };
 
 const WARN_CHOICES = [5, 10, 20, 50, 100];
 
-/** The settings sheet: audio devices, the latency warning and the skin picker. */
-export function Settings({ status, onClose, onStatusChange }: Props) {
+/** The settings sheet: the engine, audio devices, the latency warning and the skin picker. */
+export function Settings({ status, busy, onToggleEngine, onClose, onStatusChange }: Props) {
   const [skin, setSkin] = useSkin();
   const { latency } = status;
   const choices = WARN_CHOICES.includes(latency.warnMs)
@@ -26,6 +30,20 @@ export function Settings({ status, onClose, onStatusChange }: Props) {
         <h3 id="audio-heading" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
           Audio
         </h3>
+        <div className="flex items-center gap-2">
+          <Lcd aria-live="polite" className="min-w-0 flex-1 text-base">
+            {routeLabel(status)}
+          </Lcd>
+          <Button
+            variant="transport"
+            aria-pressed={status.running}
+            disabled={busy}
+            onClick={onToggleEngine}
+            className="shrink-0"
+          >
+            {busy ? "…" : status.running ? "Stop engine" : "Start engine"}
+          </Button>
+        </div>
         <DevicePicker onStatusChange={onStatusChange} />
         <Select
           id="latency-warn"
