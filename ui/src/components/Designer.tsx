@@ -9,6 +9,8 @@ import {
 } from "react";
 import {
   chainSetParam,
+  chooseExportPath,
+  designerSave,
   designerUpdate,
   type EngineStatus,
   inTauri,
@@ -17,6 +19,7 @@ import {
   type PedalKindInfo,
   pedalCheck,
   pedalDefinition,
+  pedalExport,
   pedalStockDefinition,
 } from "../lib/engine";
 import {
@@ -160,6 +163,19 @@ export function Designer({ pedal, kinds, onClose, onStatus, onError }: Props) {
     );
   };
 
+  const save = () => {
+    designerSave(pedal.id).then(onStatus, (e) => onError(String(e)));
+  };
+
+  const exportFile = () => {
+    chooseExportPath(def.name).then(
+      (path) => {
+        if (path) pedalExport(pedal.id, path).catch((e) => onError(String(e)));
+      },
+      (e) => onError(String(e)),
+    );
+  };
+
   const add = () => {
     const [next, id] = addNode(def, adding);
     setSelected({ type: "node", id });
@@ -199,6 +215,15 @@ export function Designer({ pedal, kinds, onClose, onStatus, onError }: Props) {
           </h2>
           <span className="title-text text-sm">· {def.name} · running in the chain</span>
           <span className="flex-1" />
+          <Button
+            onClick={save}
+            title="Save to your library under a name made from the pedal's, and keep the project's own copy"
+          >
+            {pedal.spec.startsWith("pedal:draft-") ? "Save to library" : "Save"}
+          </Button>
+          <Button onClick={exportFile} title="Write the definition to a .pedal.json file to share">
+            Export…
+          </Button>
           <Button onClick={onClose} aria-label="Close the designer" className="px-2">
             <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-current">
               <path d="M3 2l5 5 5-5 1 1-5 5 5 5-1 1-5-5-5 5-1-1 5-5-5-5z" />

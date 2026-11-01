@@ -554,6 +554,36 @@ pub fn pedal_check(definition: serde_json::Value) -> Vec<cantina_dsp::Problem> {
     Engine::pedal_check(definition)
 }
 
+/// Saves a designed pedal to the library under an id made from its
+/// name, and the project's own copy.
+#[tauri::command]
+pub fn designer_save(engine: State<'_, EngineState>, id: u64) -> Result<EngineStatus, String> {
+    engine.lock().designer_save(id).map_err(fail)
+}
+
+/// Writes a designed pedal's definition to a file of the user's choosing.
+#[tauri::command]
+pub fn pedal_export(engine: State<'_, EngineState>, id: u64, path: String) -> Result<(), String> {
+    engine.lock().pedal_export(id, &path).map_err(fail)
+}
+
+/// Copies a pedal file into the library and, with a track, adds it to
+/// that track's chain.
+#[tauri::command]
+pub fn pedal_import(
+    engine: State<'_, EngineState>,
+    path: String,
+    track: Option<u64>,
+) -> Result<EngineStatus, String> {
+    engine.lock().pedal_import(&path, track).map_err(fail)
+}
+
+/// Looks for pedals in the library again.
+#[tauri::command]
+pub fn pedals_rescan(engine: State<'_, EngineState>) -> EngineStatus {
+    engine.lock().pedals_rescan()
+}
+
 // ----- editor windows -----
 
 /// Opens a plugin's native editor window, or brings it to the front.

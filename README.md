@@ -12,53 +12,21 @@ progress.
 
 ## Status
 
-M6 Stock pedals done. The board is full: a chromatic tuner that reads
-within a cent and streams its pitch to the UI through the frame's new
-readout section, a noise gate with hysteresis and hold, a soft-knee
-compressor with a gain reduction meter; overdrive, distortion and fuzz
-on one drive core with seven curves and a shared halfband oversampler
-(2× to 8×, constant latency, aliases cut by 40 dB or more); a four-band
-parametric EQ; chorus, flanger, phaser and tremolo on a tempo-synced
-LFO; a delay that crossfades between times so tempo changes never bend
-the repeats, and a feedback-delay-network reverb; and an amp with a
-tone stack feeding a zero-latency partitioned-convolution cabinet with
-a synthesised starter set of impulse responses. Every pedal is
-described in [docs/pedals.md](docs/pedals.md). M5 Drums came before. Beats are in: a drum kit format (pads with velocity
-layers, choke groups, gain and pan) and a sample-accurate polyphonic
-sampler; a step sequencer that computes every block's hits from the
-tempo map, so patterns follow tempo changes and loops; a drum grid with
-click-to-toggle, drag-for-velocity and full keyboard access, with
-swing, resolution and length; patterns as clips on the timeline, kept
-in ticks so they stay on their bars, with a step preview and the same
-move, trim and split as audio clips; and three stock kits (acoustic,
-tight rock, electronic) built from public-domain samples with every
-source credited. Drums in [docs/drums.md](docs/drums.md). M4 Hosting
-came before. Third-party plugins are in: a scanner that examines
-Audio Units and CLAP bundles in a child process, so a plugin that
-crashes on load is listed as failed instead of taking the app down, with
-a cache that only rescans what changed; Audio Units and CLAP plugins as
-full processors with parameters, latency and state saved in the project;
-native editor windows parented to the main window, with Apple's generic
-view for units without one; and latency compensation that delays every
-track's playback to the slowest chain while live monitoring is never
-delayed, with recorded takes placed back where they were played. The
-threading decision the spike left open is settled: the engine keeps a
-plugin's main-thread half on the UI thread as a handle. M3 built the project model: a `.cantina` directory with `project.json` and immutable
-audio, every edit a command with an inverse, a canvas timeline with
-peak caches, a mixer, undo and redo, and autosave with recovery. M2
-built the shell: a Tauri 2 app with a device picker that survives
-relaunches, meters over a binary frame channel, a pedal chain, and the
-six visualizer skins. M1 built the engine: a graph of processors swapped
-in on a block boundary, a transport with tempo map, loop and click, WAV
-playback and recording on their own threads, and golden-file tests for
-the DSP. M0's latency measurement still needs an audio interface. Spike
-findings in [docs/spike.md](docs/spike.md), hosting in
-[docs/hosting.md](docs/hosting.md), latency and compensation in
-[docs/latency.md](docs/latency.md), the project format in
-[docs/project.md](docs/project.md), the timeline in
-[docs/timeline.md](docs/timeline.md), the skin system in
-[docs/skins.md](docs/skins.md), the frame format in
-[docs/frames.md](docs/frames.md).
+M7 Pedal designer done. User pedals are a JSON graph of DSP
+primitives (gain, filter, oversampled waveshaper, delay, lfo, allpass,
+mix, split) that the `dsp` crate validates, naming the node behind
+every problem, and compiles into a processor that allocates nothing
+while it runs. Nine of the stock pedals now ship in that format, five
+of them bit for bit what they were and the rest within float
+rounding. The
+designer edits a pedal on a canvas while it plays in the chain, with
+a side panel for each node's fields (constants, parameters with maps,
+signals from other nodes) and the pedal's knobs; a broken graph shows
+its problems inline and the last valid pedal keeps playing. Pedals
+save to a library, projects keep their own copies, and single files
+import and export by dialog or by dropping them on the window. See
+[docs/pedal-format.md](docs/pedal-format.md) and
+[docs/designer.md](docs/designer.md). Next: M8 Stage.
 
 ## Start the app
 

@@ -10,6 +10,7 @@
 mod commands;
 mod engine;
 mod frame;
+mod pedals;
 mod project;
 mod settings;
 
@@ -18,6 +19,7 @@ use tauri::{Manager, RunEvent};
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             app.manage(EngineState::new(app.handle().clone()));
             Ok(())
@@ -93,6 +95,10 @@ pub fn run() {
             commands::pedal_definition,
             commands::pedal_stock_definition,
             commands::pedal_check,
+            commands::designer_save,
+            commands::pedal_export,
+            commands::pedal_import,
+            commands::pedals_rescan,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Cantina shell")

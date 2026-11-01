@@ -1,5 +1,7 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import ampDef from "../../../pedals/amp.pedal.json";
 import chorusDef from "../../../pedals/chorus.pedal.json";
 import distortionDef from "../../../pedals/distortion.pedal.json";
@@ -614,6 +616,33 @@ const MOCK_DEFS: Record<string, PedalDef> = {
 /** Pedals designed in the stand-in, by the id in their `pedal:<id>` spec. */
 const mockDesigns = new Map<string, PedalDef>();
 
+/** The stand-in's library: `?library` fills it with two pedals. */
+const mockLibrary: PedalKindInfo[] = mockParams?.has("library")
+  ? [
+      { spec: "pedal:warm-drive", name: "Warm Drive", stock: false, designable: true },
+      { spec: "pedal:slapback", name: "Slapback", stock: false, designable: true },
+    ]
+  : [];
+for (const entry of mockLibrary) {
+  const def = structuredClone(
+    entry.spec === "pedal:warm-drive" ? MOCK_DEFS.overdrive : MOCK_DEFS.chorus,
+  ) as PedalDef;
+  def.name = entry.name;
+  mockDesigns.set(entry.spec.slice(6), def);
+}
+
+function mockKinds(): PedalKindInfo[] {
+  return [
+    ...Object.entries(MOCK_STOCK).map(([spec, kind]) => ({
+      spec,
+      name: kind.name,
+      stock: true,
+      designable: MOCK_DESIGNABLE.includes(spec),
+    })),
+    ...mockLibrary,
+  ];
+}
+
 /** A parameter as the shell describes a designed pedal's. */
 function paramFromDef(def: ParamDef, value?: number): ParamInfo {
   const [min, max] = paramRange(def);
@@ -846,12 +875,7 @@ const mock: EngineStatus = {
       : [],
     master: { gainDb: -1, pan: 0, mute: false, solo: false },
   },
-  pedalKinds: Object.entries(MOCK_STOCK).map(([spec, kind]) => ({
-    spec,
-    name: kind.name,
-    stock: true,
-    designable: MOCK_DESIGNABLE.includes(spec),
-  })),
+  pedalKinds: mockKinds(),
   plugins: {
     scanning: mockParams?.has("scanning") ?? false,
     count: 5,
@@ -883,6 +907,7 @@ function mockStatus(): EngineStatus {
   const o = mockDevice(mockSettings.outputUid, false);
   return {
     ...mock,
+    pedalKinds: mockKinds(),
     transport: { playing: mockTransport.playing, recording: mockTransport.recording },
     project: {
       ...mock.project,
@@ -1687,6 +1712,100 @@ export async function pedalStockDefinition(name: string): Promise<PedalDef> {
 export async function pedalCheck(definition: PedalDef): Promise<Problem[]> {
   if (inTauri) return invoke<Problem[]>("pedal_check", { definition });
   return validate(definition);
+}
+
+/** An id made from a name, as the shell makes them. */
+export function pedalSlug(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "pedal";
+}
+
+/**
+ * Saves a designed pedal to the library under an id made from its
+ * name, and the project's own copy; a draft's spec becomes that id.
+ */
+export async function designerSave(id: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("designer_save", { id });
+  const pedal = mockPedalById(id);
+  const def = pedal && mockDesigns.get(pedal.spec.slice(6));
+  if (!pedal || !def) throw new Error(`pedal ${id} is not a design`);
+  const slug = pedalSlug(def.name);
+  mockDesigns.set(slug, structuredClone(def));
+  if (!mockLibrary.some((k) => k.spec === `pedal:${slug}`)) {
+    mockLibrary.push({ spec: `pedal:${slug}`, name: def.name, stock: false, designable: true });
+  }
+  pedal.spec = `pedal:${slug}`;
+  return mockEdit("change pedal");
+}
+
+/** Writes a designed pedal's definition to `path`. */
+export async function pedalExport(id: number, path: string): Promise<void> {
+  if (inTauri) return invoke("pedal_export", { id, path });
+  if (!mockPedalById(id)) throw new Error(`no pedal ${id}`);
+}
+
+/**
+ * Copies a pedal file into the library and, with a track, adds it to
+ * that track's chain.
+ */
+export async function pedalImport(path: string, track?: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pedal_import", { path, track: track ?? null });
+  const stem = (path.split("/").pop() ?? "pedal").replace(/\.pedal\.json$/, "");
+  const slug = pedalSlug(stem);
+  const def = structuredClone(MOCK_DEFS.overdrive) as PedalDef;
+  def.name = stem;
+  mockDesigns.set(slug, def);
+  if (!mockLibrary.some((k) => k.spec === `pedal:${slug}`)) {
+    mockLibrary.push({ spec: `pedal:${slug}`, name: stem, stock: false, designable: true });
+  }
+  if (track !== undefined) mockTrack(track).chain.push(mockPedal(mockNextId++, `pedal:${slug}`));
+  return mockEdit("add pedal");
+}
+
+/** Looks for library pedals again. */
+export async function pedalsRescan(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pedals_rescan");
+  return mockStatus();
+}
+
+const PEDAL_FILTER = [{ name: "Pedal", extensions: ["json"] }];
+
+/** Asks where to write a pedal file; null when the user cancels. */
+export async function chooseExportPath(name: string): Promise<string | null> {
+  if (!inTauri) return `/Users/you/Desktop/${pedalSlug(name)}.pedal.json`;
+  return saveDialog({ defaultPath: `${pedalSlug(name)}.pedal.json`, filters: PEDAL_FILTER });
+}
+
+/** Asks for pedal files to import; empty when the user cancels. */
+export async function chooseImportPaths(): Promise<string[]> {
+  if (!inTauri) return ["/Users/you/Downloads/Shared Drive.pedal.json"];
+  const chosen = await openDialog({ multiple: true, filters: PEDAL_FILTER });
+  return chosen ?? [];
+}
+
+/**
+ * Files dropped on the window. Returns a function that stops
+ * listening. Nothing in a browser.
+ */
+export function onFileDrop(listener: (paths: string[]) => void): () => void {
+  if (!inTauri) return () => {};
+  let stopped = false;
+  let stop: (() => void) | null = null;
+  getCurrentWebview()
+    .onDragDropEvent((event) => {
+      if (event.payload.type === "drop") listener(event.payload.paths);
+    })
+    .then((unlisten) => {
+      if (stopped) unlisten();
+      else stop = unlisten;
+    });
+  return () => {
+    stopped = true;
+    stop?.();
+  };
 }
 
 /** Opens a plugin's native editor window, or brings it to the front. */

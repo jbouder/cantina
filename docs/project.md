@@ -8,7 +8,7 @@ Song.cantina/
   journal.jsonl   every edit since the last save, one per line
   audio/          recorded and imported WAV files, never modified
   plugins/        third-party plugin state, one <pedal id>.state per plugin
-  pedals/         user pedal definitions used by this project (M7)
+  pedals/         the project's own copy of every designed pedal it uses
 ```
 
 The model lives in `crates/project` and knows nothing about audio devices.
@@ -63,6 +63,11 @@ serialized in camelCase:
 - **Drum tracks** carry a `kit` id and **`patterns`** on the project
   hold the step grids; see [drums.md](drums.md). The format went to
   version 3 with them.
+- **Designed pedals** have the spec `pedal:<id>`; the definition is
+  `pedals/<id>.pedal.json` in the project, written on Save for every
+  such pedal the chains use (drafts included) and read back on open,
+  so a song plays the same on its own, whatever the library holds. See
+  [designer.md](designer.md).
 
 ## Commands
 

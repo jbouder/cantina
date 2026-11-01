@@ -43,7 +43,7 @@ use cantina_hosting::{AudioUnitHandle, ClapHandle, Editor};
 use cantina_project::{
     Clip, ClipId, Command, History, Journal, JournalEntry, Pattern, PatternClip, PatternClipId,
     PatternId, PatternRow, Pedal, PedalId, Project, Strip as StripModel, Tempo, Track, TrackId,
-    PLUGINS_DIR,
+    PEDALS_DIR, PLUGINS_DIR,
 };
 use objc2::MainThreadMarker;
 use serde::Serialize;
@@ -51,6 +51,7 @@ use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::frame::Frame;
+use crate::pedals::{self, PedalEntry};
 use crate::project::Projects;
 use crate::settings::{AudioSettings, Settings};
 
@@ -1123,9 +1124,17 @@ fn build_processor(
         return Ok(Box::new(cab));
     }
     if let Some(id) = spec.strip_prefix("pedal:") {
-        let def = designs
-            .get(id)
-            .with_context(|| format!("no pedal design {id:?}"))?;
+        // A design the project refers to but has no copy of passes the
+        // signal through under a name that says so, rather than
+        // taking the whole chain down.
+        let missing;
+        let def = match designs.get(id) {
+            Some(def) => def,
+            None => {
+                missing = PedalDef::empty(&format!("{id} (missing)"));
+                &missing
+            }
+        };
         return Ok(Box::new(cantina_dsp::compile(def)?));
     }
     processors::create(spec, channels)
@@ -1180,6 +1189,37 @@ impl Irs {
         let impulse = Arc::new(ir::load(&entry.path)?);
         self.loaded.insert(id.to_string(), Arc::clone(&impulse));
         Ok(impulse)
+    }
+}
+
+/// The user's pedal library: found once, looked for again on request.
+#[derive(Default)]
+pub struct Library {
+    roots: Vec<PathBuf>,
+    entries: Vec<PedalEntry>,
+}
+
+impl Library {
+    fn discover(roots: Vec<PathBuf>, problems: &mut Vec<String>) -> Self {
+        let entries = pedals::discover(&roots, problems);
+        Self { roots, entries }
+    }
+
+    fn rescan(&mut self, problems: &mut Vec<String>) {
+        self.entries = pedals::discover(&self.roots, problems);
+    }
+
+    fn entries(&self) -> &[PedalEntry] {
+        &self.entries
+    }
+
+    fn entry(&self, id: &str) -> Option<&PedalEntry> {
+        self.entries.iter().find(|e| e.id == id)
+    }
+
+    /// Where saves and imports go: the first root.
+    fn dir(&self) -> &Path {
+        self.roots.first().map_or(Path::new("."), |p| p.as_path())
     }
 }
 
@@ -1286,9 +1326,11 @@ pub struct Engine {
     catalog: Catalog,
     kits: Kits,
     irs: Irs,
-    /// Pedals designed this session, by the id in their `pedal:<id>`
-    /// spec.
+    /// The designed pedals the project uses, by the id in their
+    /// `pedal:<id>` spec: the project's own copies, plus drafts and
+    /// library pedals added this session. Written to `pedals/` on save.
     designs: Designs,
+    library: Library,
     /// The pattern looping on a drum track for editing. Session state,
     /// not part of the project.
     audition: Option<(TrackId, PatternId)>,
@@ -1346,8 +1388,9 @@ impl Engine {
         let mut kit_problems = Vec::new();
         let kits = Kits::discover(kit_roots(&app, &projects), &mut kit_problems);
         let irs = Irs::discover(ir_roots(&app, &projects));
+        let library = Library::discover(pedal_roots(&app, &projects), &mut kit_problems);
         if !kit_problems.is_empty() {
-            last_error = Some(format!("kits: {}", kit_problems.join("; ")));
+            last_error = Some(kit_problems.join("; "));
         }
         let (project, project_dir) = match projects
             .open_last_or_untitled(settings.last_project.as_deref(), settings.audio.sample_rate)
@@ -1378,6 +1421,7 @@ impl Engine {
             open_editors: HashSet::new(),
             catalog: Catalog::default(),
             designs: HashMap::new(),
+            library,
             kits,
             irs,
             audition: None,
@@ -1453,7 +1497,16 @@ impl Engine {
                 recording: !self.recording.is_empty(),
             },
             project: self.project_status(),
-            pedal_kinds: stock_kinds().to_vec(),
+            pedal_kinds: stock_kinds()
+                .iter()
+                .cloned()
+                .chain(self.library.entries().iter().map(|e| PedalKindInfo {
+                    spec: format!("pedal:{}", e.id),
+                    name: e.name.clone(),
+                    stock: false,
+                    designable: true,
+                }))
+                .collect(),
             plugins: PluginsStatus {
                 scanning: self.scanning,
                 count: self.plugins.plugins.len(),
@@ -2414,6 +2467,7 @@ impl Engine {
     pub fn project_save(&mut self) -> Result<EngineStatus> {
         self.capture_plugin_states();
         self.write_plugin_states()?;
+        self.write_designs()?;
         cantina_project::save(&self.project, &self.project_dir)?;
         self.journal.clear()?;
         self.recovery = None;
@@ -2432,6 +2486,10 @@ impl Engine {
         self.project = project;
         self.journal = Journal::in_dir(&dir);
         self.plugin_states = read_plugin_states(&dir);
+        let mut problems = Vec::new();
+        self.designs = pedals::load_dir(&dir.join(PEDALS_DIR), &mut problems);
+        self.catalog = Catalog::default();
+        self.notice_problems(problems);
         self.project_dir = dir;
         self.dirty = false;
         self.history.clear();
@@ -2791,6 +2849,20 @@ impl Engine {
             ("cab", Some(first)) => format!("cab:{first}"),
             _ => spec.to_string(),
         };
+        // A library pedal comes in with its definition, and the project
+        // gets its own copy, so the song keeps sounding the same if the
+        // library pedal changes later.
+        if let Some(id) = spec.strip_prefix("pedal:") {
+            if !self.designs.contains_key(id) {
+                let entry = self
+                    .library
+                    .entry(id)
+                    .with_context(|| format!("no pedal {id:?} in the library"))?;
+                let def = pedals::read(&entry.path)?;
+                pedals::write(&self.project_pedal_path(id), &def)?;
+                self.designs.insert(id.to_string(), def);
+            }
+        }
         let kind = self.catalog.get(&spec, &mut self.irs, &self.designs)?;
         let pedal = Pedal {
             id: PedalId(self.project.fresh_id()),
@@ -2942,6 +3014,119 @@ impl Engine {
             status: self.publish(),
             problems: Vec::new(),
         })
+    }
+
+    /// Where the project keeps its copy of a designed pedal.
+    fn project_pedal_path(&self, id: &str) -> PathBuf {
+        self.project_dir
+            .join(PEDALS_DIR)
+            .join(pedals::file_name(id))
+    }
+
+    /// Writes the project's copy of every designed pedal it uses,
+    /// drafts included, so the song opens the same on its own.
+    fn write_designs(&self) -> Result<()> {
+        for track in &self.project.tracks {
+            for pedal in &track.chain {
+                let Some(id) = pedal.spec.strip_prefix("pedal:") else {
+                    continue;
+                };
+                if let Some(def) = self.designs.get(id) {
+                    pedals::write(&self.project_pedal_path(id), def)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Saves a designed pedal to the library under an id made from its
+    /// name, writes the project's copy, and points the pedal at that
+    /// id if it was a draft.
+    pub fn designer_save(&mut self, id: u64) -> Result<EngineStatus> {
+        let pedal_id = PedalId(id);
+        let (_, pedal) = self
+            .project
+            .pedal(pedal_id)
+            .with_context(|| format!("no pedal {id}"))?;
+        let key = pedal
+            .spec
+            .strip_prefix("pedal:")
+            .with_context(|| format!("{} is not a designed pedal", pedal.spec))?
+            .to_string();
+        let def = self
+            .designs
+            .get(&key)
+            .cloned()
+            .with_context(|| format!("no pedal design {key:?}"))?;
+        let slug = pedals::slug(&def.name);
+        pedals::write(&self.library.dir().join(pedals::file_name(&slug)), &def)?;
+        pedals::write(&self.project_pedal_path(&slug), &def)?;
+        self.designs.insert(slug.clone(), def);
+        let mut problems = Vec::new();
+        self.library.rescan(&mut problems);
+        self.notice_problems(problems);
+        if slug != key {
+            return self.apply(Command::SetPedalSpec {
+                id: pedal_id,
+                spec: format!("pedal:{slug}"),
+            });
+        }
+        Ok(self.publish())
+    }
+
+    /// Writes a designed pedal's definition to `path`, for sharing.
+    pub fn pedal_export(&self, id: u64, path: &str) -> Result<()> {
+        let (_, pedal) = self
+            .project
+            .pedal(PedalId(id))
+            .with_context(|| format!("no pedal {id}"))?;
+        let key = pedal
+            .spec
+            .strip_prefix("pedal:")
+            .with_context(|| format!("{} is not a designed pedal", pedal.spec))?;
+        let def = self
+            .designs
+            .get(key)
+            .with_context(|| format!("no pedal design {key:?}"))?;
+        let mut path = PathBuf::from(path);
+        if pedals::id_of(&path).is_none() {
+            let stem = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .map(|s| s.trim_end_matches(".pedal").to_string())
+                .unwrap_or_else(|| key.to_string());
+            path.set_file_name(pedals::file_name(&stem));
+        }
+        pedals::write(&path, def)
+    }
+
+    /// Copies a pedal file into the library and, with a track, adds it
+    /// to that track's chain.
+    pub fn pedal_import(&mut self, path: &str, track: Option<u64>) -> Result<EngineStatus> {
+        let entry = pedals::import(Path::new(path), self.library.dir())?;
+        let mut problems = Vec::new();
+        self.library.rescan(&mut problems);
+        self.notice_problems(problems);
+        match track {
+            Some(track) => self.chain_add(track, &format!("pedal:{}", entry.id), None),
+            None => Ok(self.publish()),
+        }
+    }
+
+    /// Looks for library pedals again.
+    pub fn pedals_rescan(&mut self) -> EngineStatus {
+        let mut problems = Vec::new();
+        self.library.rescan(&mut problems);
+        self.notice_problems(problems);
+        self.publish()
+    }
+
+    /// Files that would not load become a notice.
+    fn notice_problems(&mut self, problems: Vec<String>) {
+        if !problems.is_empty() {
+            self.notice = Some(problems.join("; "));
+            self.notice_seq += 1;
+        }
     }
 
     /// Drops a pedal's live node so the next sync builds it again from
@@ -3373,6 +3558,18 @@ fn ir_roots(app: &AppHandle, projects: &Projects) -> Vec<PathBuf> {
     }
     if cfg!(debug_assertions) {
         roots.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("irs"));
+    }
+    roots
+}
+
+/// Where designed pedals live: the user's `Pedals` folder next to the
+/// projects, which saves and imports go to, and anything
+/// `CANTINA_PEDALS` names.
+fn pedal_roots(app: &AppHandle, projects: &Projects) -> Vec<PathBuf> {
+    let _ = app;
+    let mut roots = vec![projects.pedals_dir()];
+    if let Some(extra) = std::env::var_os("CANTINA_PEDALS") {
+        roots.extend(std::env::split_paths(&extra));
     }
     roots
 }

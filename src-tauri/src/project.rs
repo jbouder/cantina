@@ -53,6 +53,11 @@ impl Projects {
         self.root.join("IRs")
     }
 
+    /// Where the user's designed pedals go: the library.
+    pub fn pedals_dir(&self) -> PathBuf {
+        self.root.join("Pedals")
+    }
+
     pub fn list(&self) -> Result<Vec<String>> {
         cantina_project::list(&self.root)
             .with_context(|| format!("listing projects in {}", self.root.display()))
