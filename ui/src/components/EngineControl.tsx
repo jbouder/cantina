@@ -13,7 +13,7 @@ type Props = {
 };
 
 /**
- * The engine cluster in the title bar: a key with the power LED that
+ * The engine cluster in the toolbar under the title: a key with the power LED that
  * starts and stops the audio stream, and the in and out meters. The
  * route and rates are its tooltip; Settings spells them out.
  */

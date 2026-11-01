@@ -16,7 +16,7 @@ type Props = {
 };
 
 /**
- * The project cluster in the title bar: the open project's name, whether
+ * The project cluster in the toolbar under the title: the open project's name, whether
  * it has unsaved edits, Undo, Redo, Save and the picker.
  */
 export function ProjectBar({ project, onOpenProjects, onStatus, onError }: Props) {

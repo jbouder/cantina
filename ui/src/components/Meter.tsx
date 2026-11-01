@@ -13,7 +13,7 @@ type Props = {
   level: Level;
   /** Stands the meter up, for a mixer strip. */
   vertical?: boolean;
-  /** A small one for the title bar: a short bar and a small readout. */
+  /** A small one for the toolbar: a short bar and a small readout. */
   mini?: boolean;
   /** Just a thin bar, for a track header; the label goes to assistive tech only. */
   bare?: boolean;

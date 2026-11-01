@@ -3,19 +3,29 @@ import { TitleBar } from "./TitleBar";
 
 type Props = {
   title: string;
-  /** Title bar controls at the left end. */
+  /** Toolbar controls at the left end: the project cluster. */
   start?: ReactNode;
-  /** Title bar controls at the right end. */
+  /** Toolbar controls at the right end: the engine cluster and settings. */
   end?: ReactNode;
   children: ReactNode;
 };
 
-/** The skinned frame that fills the shell window. */
+/**
+ * The skinned frame that fills the shell window: the title bar, then one
+ * key-high toolbar with the project at the left and the engine at the
+ * right, then the body.
+ */
 export function Window({ title, start, end, children }: Props) {
   return (
     <div className="window-glow relative flex h-full flex-col overflow-hidden p-2">
       <div className="surface-window flex min-h-0 flex-1 flex-col overflow-hidden">
-        <TitleBar title={title} start={start} end={end} />
+        <TitleBar title={title} />
+        {start || end ? (
+          <div className="flex shrink-0 items-center gap-1 px-window pt-window">
+            {start ? <div className="flex min-w-0 shrink items-center gap-1">{start}</div> : null}
+            {end ? <div className="ml-auto flex shrink-0 items-center gap-1">{end}</div> : null}
+          </div>
+        ) : null}
         <div className="relative flex min-h-0 flex-1 flex-col">{children}</div>
       </div>
     </div>
