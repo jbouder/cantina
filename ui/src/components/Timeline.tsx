@@ -57,8 +57,14 @@ import {
   xOf,
   zoomAround,
 } from "../lib/timeline";
-import { Button } from "./Button";
 import { MasterHeader, TrackHeader } from "./TrackHeader";
+
+/**
+ * A small key in the ruler corner above the track headers, the height of
+ * the header keys so it reads as part of the sidebar rather than the strip.
+ */
+const ADD_KEY =
+  "surface-pbutton min-h-6 shrink-0 border-0 px-2 font-bold text-[11px] uppercase leading-none tracking-[0.06em]";
 
 /** The drag type a pattern chip carries from the drum grid. */
 export const PATTERN_DRAG = "application/x-cantina-pattern";
@@ -624,7 +630,26 @@ export function Timeline({
         className="surface-lcd grid min-h-0 content-start overflow-x-hidden overflow-y-auto"
         style={{ gridTemplateColumns: `${LABEL_WIDTH}px 1fr` }}
       >
-        <div className="grid content-start" style={{ paddingTop: RULER_HEIGHT }}>
+        <div className="grid content-start">
+          <div className="flex items-center gap-1 px-1" style={{ height: RULER_HEIGHT }}>
+            <button
+              type="button"
+              onClick={() => run(trackAdd())}
+              title="A track that records your instrument through its pedalboard"
+              className={ADD_KEY}
+            >
+              Add guitar
+            </button>
+            <button
+              type="button"
+              onClick={() => run(trackAddDrums())}
+              disabled={!hasKits}
+              title={hasKits ? "A track that plays drum patterns" : "No drum kits are installed"}
+              className={ADD_KEY}
+            >
+              Add drums
+            </button>
+          </div>
           {tracks.map((t, i) => (
             <TrackHeader
               key={t.id}
@@ -638,19 +663,6 @@ export function Timeline({
             />
           ))}
           <MasterHeader master={master} level={masterLevel} onStatus={onStatus} onError={onError} />
-          <div className="grid grid-cols-2 gap-1 p-1">
-            <Button onClick={() => run(trackAdd())} className="min-w-0 px-1">
-              Add track
-            </Button>
-            <Button
-              onClick={() => run(trackAddDrums())}
-              disabled={!hasKits}
-              title={hasKits ? "A track that plays drum patterns" : "No drum kits are installed"}
-              className="min-w-0 px-1"
-            >
-              Add drums
-            </Button>
-          </div>
         </div>
         <div ref={container} className="min-w-0">
           <canvas
