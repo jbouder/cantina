@@ -18,13 +18,17 @@
 //! [`Sampler`] plays one. The sequencer that decides when to hit a pad
 //! lives in the engine crate, next to the tempo map.
 
+mod amp;
 mod biquad;
+mod cabinet;
 mod compressor;
+pub mod convolution;
 mod delay_line;
 mod drive;
 mod echo;
 mod envelope;
 mod eq;
+pub mod fft;
 mod gain;
 mod gate;
 pub mod kit;
@@ -41,8 +45,11 @@ mod shaper;
 mod smooth;
 mod tuner;
 
+pub use amp::Amp;
 pub use biquad::Biquad;
+pub use cabinet::Cabinet;
 pub use compressor::Compressor;
+pub use convolution::Convolver;
 pub use delay_line::DelayLine;
 pub use drive::{Distortion, Drive, Fuzz, Overdrive, Voicing};
 pub use echo::Echo;
@@ -93,6 +100,8 @@ pub const STOCK_NAMES: &[&str] = &[
     "tremolo",
     "delay",
     "reverb",
+    "amp",
+    "cab",
     "gain",
 ];
 
@@ -112,6 +121,8 @@ pub fn stock(name: &str) -> Option<Box<dyn Processor>> {
         "tremolo" => Some(Box::new(Tremolo::default())),
         "delay" => Some(Box::new(Echo::default())),
         "reverb" => Some(Box::new(Reverb::default())),
+        "amp" => Some(Box::new(Amp::default())),
+        "cab" => Some(Box::new(Cabinet::default())),
         "gain" => Some(Box::new(Gain::default())),
         _ => None,
     }

@@ -24,12 +24,20 @@ export interface EngineStatus {
   latency: LatencyStatus;
   /** The drum kits installed, for a drum track to pick from. */
   kits: KitInfo[];
+  /** The cabinet impulse responses installed, for a cabinet pedal to pick from. */
+  irs: IrInfo[];
   /** The pattern looping on a drum track for editing, if any. Not part of the project. */
   audition: AuditionStatus | null;
 }
 
 /** An installed kit. Mirrors `KitInfo` in src-tauri. */
 export interface KitInfo {
+  id: string;
+  name: string;
+}
+
+/** An installed cabinet impulse response. Mirrors `IrInfo` in src-tauri. */
+export interface IrInfo {
   id: string;
   name: string;
 }
@@ -417,6 +425,13 @@ function drive(driveMax: number, driveDefault: number, level: number, curves: st
   ];
 }
 
+const MOCK_IRS: IrInfo[] = [
+  { id: "1x12-open-back", name: "1x12 open back" },
+  { id: "2x12-closed", name: "2x12 closed" },
+  { id: "4x10-bass", name: "4x10 bass" },
+  { id: "4x12-modern", name: "4x12 modern" },
+];
+
 /** The stock pedals, as `crates/dsp` describes them. */
 const MOCK_STOCK: Record<string, { name: string; params: ParamInfo[]; readouts: string[] }> = {
   tuner: {
@@ -518,6 +533,19 @@ const MOCK_STOCK: Record<string, { name: string; params: ParamInfo[]; readouts: 
     ],
     readouts: [],
   },
+  amp: {
+    name: "Amp",
+    params: [
+      p("Gain", "dB", 0, 40, 15),
+      p("Bass", "dB", -12, 12, 0),
+      p("Mid", "dB", -12, 12, 0),
+      p("Treble", "dB", -12, 12, 0),
+      p("Presence", "dB", -12, 12, 0),
+      p("Level", "dB", -24, 12, -6),
+    ],
+    readouts: [],
+  },
+  cab: { name: "Cabinet", params: [p("Level", "dB", -24, 12, 0)], readouts: [] },
   gain: { name: "Gain", params: [p("Gain", "dB", -60, 24, 0)], readouts: [] },
 };
 
@@ -540,10 +568,14 @@ function mockPedal(id: number, spec: string): PedalInfo {
       readouts: [],
     };
   }
-  const kind = MOCK_STOCK[spec] ?? MOCK_STOCK.gain;
+  // A cabinet's spec carries its impulse: `cab:<id>`; a bare `cab`
+  // starts on the first one installed, as the shell does.
+  const base = spec.startsWith("cab:") ? "cab" : spec;
+  const kind = MOCK_STOCK[base] ?? MOCK_STOCK.gain;
+  const resolved = spec === "cab" ? `cab:${MOCK_IRS[0]?.id ?? ""}` : spec;
   return {
     id,
-    spec: MOCK_STOCK[spec] ? spec : "gain",
+    spec: MOCK_STOCK[base] ? resolved : "gain",
     name: kind?.name ?? "Gain",
     params: (kind?.params ?? []).map((q) => ({ ...q })),
     hasEditor: false,
@@ -726,6 +758,7 @@ const mock: EngineStatus = {
     warn: mockParams?.has("latency") ?? false,
   },
   kits: mockKits,
+  irs: MOCK_IRS,
   audition: mockParams?.has("audition") ? { track: MOCK_DRUMS, pattern: 11 } : null,
 };
 mockTransport.playing = mock.transport.playing || mock.transport.recording;
@@ -1097,6 +1130,20 @@ export async function trackSetKit(id: number, kit: string): Promise<EngineStatus
 /** Looks for installed kits again. */
 export async function kitsRescan(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("kits_rescan");
+  return mockStatus();
+}
+
+/** Swaps what a pedal is: a cabinet's impulse response (`cab:<id>`). */
+export async function chainSetSpec(id: number, spec: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("chain_set_spec", { id, spec });
+  const p = mockPedalById(id);
+  if (p) p.spec = spec;
+  return mockEdit("change pedal");
+}
+
+/** Looks for installed impulse responses again. */
+export async function irsRescan(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("irs_rescan");
   return mockStatus();
 }
 

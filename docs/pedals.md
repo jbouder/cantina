@@ -251,3 +251,59 @@ second later in 24th-octave steps, skipping the chord's own partials:
 no resonance may stand more than 15 dB over the median. A wider wobble
 fails a different way, by spreading the chord audibly, which is how the
 amount was chosen.
+
+## Amp
+
+`amp` (`crates/dsp/src/amp.rs`). A driven preamp and a tone stack,
+meant to feed the cabinet: a 40 Hz highpass, **Gain** (0 to 40 dB), a
+lopsided clipper (the drives' Asymmetric curve) at 4× oversampling, a
+highpass for the offset it leaves, then **Bass** (low shelf at 120 Hz),
+**Mid** (peak at 700 Hz), **Treble** (high shelf at 3 kHz) and
+**Presence** (a broad high shelf at 5 kHz), each ±12 dB, and **Level**.
+Like the drives it reports the oversampler's 22 samples of latency. A
+test measures each knob in its band at a level where the clipper is
+linear, and that gain drives it.
+
+## Cabinet
+
+`cab` (`crates/dsp/src/cabinet.rs`). Both channels convolved with one
+impulse response, scaled to unit energy so a cabinet does not change
+the overall level, with a **Level** knob. The impulse is resampled to
+the stream's rate at `prepare` if it was recorded at another.
+
+The convolver (`crates/dsp/src/convolution.rs`) is uniformly
+partitioned with **no added latency**: the impulse is cut into
+partitions one block long. The first is convolved directly, sample by
+sample, so each output sample is ready as its input arrives. The rest
+are convolved in the frequency domain: when a block's worth of input
+is complete its spectrum enters a frequency-domain delay line and is
+multiplied against every later partition's spectrum (lower half plus
+one bin, since the input is real), giving the tail for the *next* block
+period in time for it. Input blocks can be any size up to the
+partition, so a short last block in a render works. The FFT is a plain
+radix-2 (`crates/dsp/src/fft.rs`). Tests compare the convolver with a
+direct time-domain convolution at several block and impulse sizes (to
+1e-4), and time a two-second impulse at 64-frame blocks: about a tenth
+of a core per channel on an Apple Silicon MacBook Pro.
+
+### Impulse responses
+
+A cabinet's impulse is part of its spec, `cab:<id>`, so the project
+file carries which one it uses; the card has a picker and **Rescan**.
+Impulses are `.wav` files (stereo averaged to mono, cut at three
+seconds) found under `~/Music/Cantina/IRs` (which wins), anything
+`CANTINA_IRS` names, and the starter set that ships with the app
+(`irs/` in the resources; the repository's `irs/` in a development
+build). The id is the file stem, so a project refers to `4x12-modern`
+and finds it on another machine with the same file. Swapping the
+impulse is an undoable edit (`SetPedalSpec`), and the shell rebuilds
+only that pedal's node.
+
+The starter set is **synthesised**, not recorded (`irs/CREDITS.md`,
+`crates/engine/examples/make_irs.rs`): an impulse through a
+speaker-shaped filter, a few close reflections and a short dark tail,
+four designs (1×12 open back, 2×12 closed, 4×12 modern, 4×10 bass),
+deterministic and MIT like the rest of the repository. They are a
+starting point; a captured cabinet dropped into the folder will sound
+better. A test loads each, checks it is 100 ms at unit energy, and that
+`CREDITS.md` names every file.

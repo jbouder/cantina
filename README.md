@@ -12,7 +12,18 @@ progress.
 
 ## Status
 
-M5 Drums done. Beats are in: a drum kit format (pads with velocity
+M6 Stock pedals done. The board is full: a chromatic tuner that reads
+within a cent and streams its pitch to the UI through the frame's new
+readout section, a noise gate with hysteresis and hold, a soft-knee
+compressor with a gain reduction meter; overdrive, distortion and fuzz
+on one drive core with seven curves and a shared halfband oversampler
+(2× to 8×, constant latency, aliases cut by 40 dB or more); a four-band
+parametric EQ; chorus, flanger, phaser and tremolo on a tempo-synced
+LFO; a delay that crossfades between times so tempo changes never bend
+the repeats, and a feedback-delay-network reverb; and an amp with a
+tone stack feeding a zero-latency partitioned-convolution cabinet with
+a synthesised starter set of impulse responses. Every pedal is
+described in [docs/pedals.md](docs/pedals.md). M5 Drums came before. Beats are in: a drum kit format (pads with velocity
 layers, choke groups, gain and pan) and a sample-accurate polyphonic
 sampler; a step sequencer that computes every block's hits from the
 tempo map, so patterns follow tempo changes and loops; a drum grid with

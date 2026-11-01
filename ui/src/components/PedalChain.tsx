@@ -1,12 +1,15 @@
-import { type DragEvent, useCallback, useEffect, useRef, useState } from "react";
+import { type DragEvent, useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   chainAdd,
   chainMove,
   chainRemove,
   chainSetParam,
+  chainSetSpec,
   type EngineStatus,
   editorClose,
   editorOpen,
+  type IrInfo,
+  irsRescan,
   ms,
   type PedalInfo,
 } from "../lib/engine";
@@ -24,6 +27,8 @@ type Props = {
   kinds: string[];
   /** The latest frame's pedal readouts by pedal id (see readouts.ts). */
   readouts: Map<number, number[]>;
+  /** The cabinet impulse responses installed. */
+  irs: IrInfo[];
   /** Opens the plugin browser for this track. */
   onBrowsePlugins: () => void;
   onStatus: (status: EngineStatus) => void;
@@ -45,6 +50,7 @@ export function PedalChain({
   sampleRate,
   kinds,
   readouts,
+  irs,
   onBrowsePlugins,
   onStatus,
   onError,
@@ -84,6 +90,7 @@ export function PedalChain({
             <PedalCard
               pedal={pedal}
               readouts={readouts.get(pedal.id)}
+              irs={irs}
               sampleRate={sampleRate}
               index={index}
               count={chain.length}
@@ -96,6 +103,8 @@ export function PedalChain({
               onMove={(to) => run(chainMove(pedal.id, to))}
               onRemove={() => run(chainRemove(pedal.id))}
               onEditor={(open) => run(open ? editorOpen(pedal.id) : editorClose(pedal.id))}
+              onSpec={(spec) => run(chainSetSpec(pedal.id, spec))}
+              onRescanIrs={() => run(irsRescan())}
               onError={onError}
             />
           </li>
@@ -131,6 +140,7 @@ export function PedalChain({
 type CardProps = {
   pedal: PedalInfo;
   readouts: number[] | undefined;
+  irs: IrInfo[];
   sampleRate: number;
   index: number;
   count: number;
@@ -141,12 +151,16 @@ type CardProps = {
   onRemove: () => void;
   /** Opens or closes the plugin's own editor window. */
   onEditor: (open: boolean) => void;
+  /** Swaps the pedal's spec: a cabinet's impulse response. */
+  onSpec: (spec: string) => void;
+  onRescanIrs: () => void;
   onError: (message: string) => void;
 };
 
 function PedalCard({
   pedal,
   readouts,
+  irs,
   sampleRate,
   index,
   count,
@@ -156,8 +170,14 @@ function PedalCard({
   onMove,
   onRemove,
   onEditor,
+  onSpec,
+  onRescanIrs,
   onError,
 }: CardProps) {
+  // A cabinet picks its impulse response; the choice lives in its spec.
+  const cabinetIr =
+    pedal.spec === "cab" ? "" : pedal.spec.startsWith("cab:") ? pedal.spec.slice(4) : null;
+  const irId = useId();
   // Knob values live here between status pushes, since set_param is
   // not echoed back. A push does carry them, and may bring values a
   // plugin changed on its own (its editor, a preset), so it wins.
@@ -228,6 +248,45 @@ function PedalCard({
           </svg>
         </Button>
       </header>
+      {cabinetIr !== null ? (
+        <div className="grid gap-1">
+          <label htmlFor={irId} className="font-bold text-[11px] uppercase tracking-[0.08em]">
+            Impulse
+          </label>
+          <span className="relative">
+            <select
+              id={irId}
+              className="surface-lcd min-h-11 w-full appearance-none truncate py-0 pr-8 pl-2 font-lcd text-base"
+              value={cabinetIr}
+              onChange={(e) => onSpec(`cab:${e.target.value}`)}
+            >
+              {cabinetIr === "" || !irs.some((ir) => ir.id === cabinetIr) ? (
+                <option value={cabinetIr}>
+                  {cabinetIr === "" ? "None" : `${cabinetIr} (not installed)`}
+                </option>
+              ) : null}
+              {irs.map((ir) => (
+                <option key={ir.id} value={ir.id}>
+                  {ir.name}
+                </option>
+              ))}
+            </select>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 16 16"
+              className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 fill-lcd-fg"
+            >
+              <path d="M2 5l6 6 6-6z" />
+            </svg>
+          </span>
+          <Button
+            onClick={onRescanIrs}
+            title="Look for impulse responses added to ~/Music/Cantina/IRs"
+          >
+            Rescan
+          </Button>
+        </div>
+      ) : null}
       <PedalReadout pedal={pedal} values={readouts} />
       {pedal.hasEditor ? (
         <Button
