@@ -151,28 +151,31 @@ impl Halfband {
 }
 
 /// A fixed delay that pads a lower factor to the latency of the
-/// highest.
-#[derive(Debug, Clone)]
+/// highest. Sized for the longest padding in place, so changing the
+/// factor on the audio thread allocates nothing.
+#[derive(Debug, Clone, Copy)]
 struct Pad {
-    buffer: Vec<f32>,
+    buffer: [f32; LATENCY],
+    length: usize,
     at: usize,
 }
 
 impl Pad {
     fn new(samples: usize) -> Self {
         Self {
-            buffer: vec![0.0; samples],
+            buffer: [0.0; LATENCY],
+            length: samples.min(LATENCY),
             at: 0,
         }
     }
 
     fn process(&mut self, block: &mut [f32]) {
-        if self.buffer.is_empty() {
+        if self.length == 0 {
             return;
         }
         for s in block {
             std::mem::swap(&mut self.buffer[self.at], s);
-            self.at = (self.at + 1) % self.buffer.len();
+            self.at = (self.at + 1) % self.length;
         }
     }
 }
@@ -263,7 +266,7 @@ impl Oversampler {
         for stage in self.up.iter_mut().chain(self.down.iter_mut()) {
             stage.reset();
         }
-        self.pad = Pad::new(self.pad.buffer.len());
+        self.pad = Pad::new(self.pad.length);
     }
 
     /// Runs `shape` over `block` at the oversampled rate, in place.

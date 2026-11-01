@@ -17,6 +17,10 @@
 //! Drums are here too: the [`kit`] module defines the kit format and the
 //! [`Sampler`] plays one. The sequencer that decides when to hit a pad
 //! lives in the engine crate, next to the tempo map.
+//!
+//! User-designed pedals are the [`pedal`] module: a JSON graph of the
+//! primitives above, compiled into a [`PedalProcessor`] that is
+//! real-time safe by construction.
 
 mod amp;
 mod biquad;
@@ -35,6 +39,7 @@ pub mod kit;
 pub mod lfo;
 mod modulation;
 pub mod oversample;
+pub mod pedal;
 pub mod pitch;
 mod processor;
 mod readout;
@@ -61,6 +66,7 @@ pub use kit::{Kit, KitError, LoadedKit, Sample, KIT_VERSION};
 pub use lfo::{Lfo, Shape};
 pub use modulation::{Phaser, SweptDelay, Tremolo};
 pub use oversample::Oversampler;
+pub use pedal::{compile, PedalDef, PedalError, PedalProcessor, PEDAL_VERSION};
 pub use processor::{
     Buffer, Chain, Handle, ParamId, ParamInfo, Processor, StateError, Transport, Unit, MAX_CHANNELS,
 };
