@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "./components/Button";
 import { Designer } from "./components/Designer";
+import { EngineControl } from "./components/EngineControl";
 import { Lcd } from "./components/Lcd";
-import { Led } from "./components/Led";
-import { Meter } from "./components/Meter";
 import { Mixer } from "./components/Mixer";
 import { Notice } from "./components/Notice";
 import { PluginBrowser } from "./components/PluginBrowser";
@@ -173,70 +172,50 @@ export function App() {
   return (
     <Window
       title="Cantina"
-      controls={
-        <Button
-          aria-label="Settings"
-          aria-haspopup="dialog"
-          aria-expanded={settingsOpen}
-          onClick={() => setSettingsOpen(true)}
-          className="px-2"
-        >
-          <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
-            <path d="M8 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm6.6 2-1.5-.3a5.3 5.3 0 0 0-.5-1.2l.9-1.3-1.7-1.7-1.3.9a5.3 5.3 0 0 0-1.2-.5L9 1.4H7l-.3 1.5a5.3 5.3 0 0 0-1.2.5l-1.3-.9-1.7 1.7.9 1.3a5.3 5.3 0 0 0-.5 1.2L1.4 7v2l1.5.3c.1.4.3.8.5 1.2l-.9 1.3 1.7 1.7 1.3-.9c.4.2.8.4 1.2.5L7 14.6h2l.3-1.5c.4-.1.8-.3 1.2-.5l1.3.9 1.7-1.7-.9-1.3c.2-.4.4-.8.5-1.2l1.5-.3V7z" />
-          </svg>
-        </Button>
+      start={
+        status ? (
+          <ProjectBar
+            project={status.project}
+            onOpenProjects={() => setProjectsOpen(true)}
+            onStatus={setStatus}
+            onError={setError}
+          />
+        ) : null
+      }
+      end={
+        <>
+          <EngineControl
+            status={status}
+            busy={busy}
+            input={frame.input}
+            output={frame.output}
+            onToggle={toggle}
+          />
+          <Button
+            aria-label="Settings"
+            aria-haspopup="dialog"
+            aria-expanded={settingsOpen}
+            onClick={() => setSettingsOpen(true)}
+            className="px-2"
+          >
+            <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
+              <path d="M8 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm6.6 2-1.5-.3a5.3 5.3 0 0 0-.5-1.2l.9-1.3-1.7-1.7-1.3.9a5.3 5.3 0 0 0-1.2-.5L9 1.4H7l-.3 1.5a5.3 5.3 0 0 0-1.2.5l-1.3-.9-1.7 1.7.9 1.3a5.3 5.3 0 0 0-.5 1.2L1.4 7v2l1.5.3c.1.4.3.8.5 1.2l-.9 1.3 1.7 1.7 1.3-.9c.4.2.8.4 1.2.5L7 14.6h2l.3-1.5c.4-.1.8-.3 1.2-.5l1.3.9 1.7-1.7-.9-1.3c.2-.4.4-.8.5-1.2l1.5-.3V7z" />
+            </svg>
+          </Button>
+        </>
       }
     >
-      <main ref={main} className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto p-window">
+      <main ref={main} className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto p-window">
         {status?.notice ? <Notice message={status.notice} onDismiss={dismiss} /> : null}
         {status?.project.recovery ? (
           <Recovery recovery={status.project.recovery} onStatus={setStatus} onError={setError} />
         ) : null}
-
-        <section
-          aria-labelledby="engine-title"
-          className="grid gap-2 md:grid-cols-[auto_1fr_auto] md:items-center"
-        >
-          <div className="flex items-center gap-2">
-            <h2 id="engine-title" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
-              Engine
-            </h2>
-            <Led on={running} label="Engine" />
-          </div>
-          <div className="grid gap-1">
-            <Lcd aria-live="polite" className="text-base">
-              {status === null
-                ? "..."
-                : running
-                  ? `${status.inputName ?? "?"} → ${status.outputName ?? "?"} · ${status.sampleRate / 1000} kHz · ${status.bufferFrames} frames${
-                      status.latency.compensationFrames > 0
-                        ? ` · comp ${ms(status.latency.compensationFrames, status.sampleRate)}`
-                        : ""
-                    }`
-                  : "engine stopped"}
-            </Lcd>
-            {status?.latency.warn ? (
-              <Lcd role="status" error className="text-base">
-                Plugins delay playback by {ms(status.latency.compensationFrames, status.sampleRate)}
-                , above the {status.latency.warnMs} ms you set. Live monitoring is not delayed.
-              </Lcd>
-            ) : null}
-            <Meter label="In" level={frame.input} />
-            <Meter label="Out" level={frame.output} />
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="transport"
-              onClick={toggle}
-              disabled={status === null || busy}
-              aria-pressed={running}
-            >
-              {busy ? "…" : running ? "Stop engine" : "Start engine"}
-            </Button>
-            <Button onClick={() => setSettingsOpen(true)}>Devices…</Button>
-          </div>
-        </section>
-
+        {status?.latency.warn ? (
+          <Lcd role="status" error className="text-base">
+            Plugins delay playback by {ms(status.latency.compensationFrames, status.sampleRate)},
+            above the {status.latency.warnMs} ms you set. Live monitoring is not delayed.
+          </Lcd>
+        ) : null}
         {problem ? (
           <Lcd role="alert" error>
             {problem}
@@ -244,16 +223,9 @@ export function App() {
         ) : null}
 
         {status && transport ? (
-          <section aria-labelledby="project-title" className="grid gap-3">
-            <h2 id="project-title" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
-              Project
-            </h2>
-            <ProjectBar
-              project={status.project}
-              onOpenProjects={() => setProjectsOpen(true)}
-              onStatus={setStatus}
-              onError={setError}
-            />
+          // Grouped on purpose: a horizontally scrolling child placed
+          // straight into the scrolling grid above collapses to nothing.
+          <div className="grid gap-3">
             <Transport
               transport={transport}
               tracks={status.project.tracks}
@@ -307,11 +279,17 @@ export function App() {
                 onError={setError}
               />
             ) : null}
-          </section>
+          </div>
         ) : null}
       </main>
       {settingsOpen && status ? (
-        <Settings status={status} onClose={closeSettings} onStatusChange={setStatus} />
+        <Settings
+          status={status}
+          busy={busy}
+          onToggleEngine={toggle}
+          onClose={closeSettings}
+          onStatusChange={setStatus}
+        />
       ) : null}
       {projectsOpen && status ? (
         <Projects

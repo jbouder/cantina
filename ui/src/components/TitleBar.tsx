@@ -2,18 +2,24 @@ import type { ReactNode } from "react";
 
 type Props = {
   title: string;
-  /** Controls at the right end, such as the settings button. */
-  children?: ReactNode;
+  /** Controls at the left end: the project cluster. */
+  start?: ReactNode;
+  /** Controls at the right end: the engine cluster and settings. */
+  end?: ReactNode;
 };
 
-/** The strip across the top of a window: grips, the title and its buttons. */
-export function TitleBar({ title, children }: Props) {
+/**
+ * The strip across the top of a window: the project at the left end,
+ * grips, the title, grips, and the engine and settings at the right end.
+ */
+export function TitleBar({ title, start, end }: Props) {
   return (
-    <header className="surface-titlebar flex min-h-[30px] shrink-0 items-center gap-2 py-1 pr-1 pl-2">
+    <header className="surface-titlebar flex min-h-[30px] shrink-0 items-center gap-2 px-1 py-1">
+      {start ? <div className="flex min-w-0 shrink items-center gap-1">{start}</div> : null}
       <span aria-hidden="true" className="titlebar-grip" />
       <h1 className="title-text m-0 whitespace-nowrap font-normal text-[1.05rem]">{title}</h1>
       <span aria-hidden="true" className="titlebar-grip" />
-      {children}
+      {end ? <div className="flex shrink-0 items-center gap-1">{end}</div> : null}
     </header>
   );
 }

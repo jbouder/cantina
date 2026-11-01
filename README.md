@@ -46,9 +46,10 @@ change. Stop it with `Ctrl-C` in that terminal.
 
 On first launch:
 
-- **Start engine** opens the audio devices. macOS asks for microphone
-  permission the first time; grant it or there is no input. Pick devices,
-  sample rate and buffer size under **Devices…**; they are remembered in
+- **Engine** in the title bar opens the audio devices. macOS asks for
+  microphone permission the first time; grant it or there is no input.
+  Pick devices, sample rate and buffer size in **Settings** (the gear);
+  they are remembered in
   `~/Library/Application Support/com.jbouder.cantina/settings.json`.
 - A project called `Untitled` is created in `~/Music/Cantina/` with one
   track carrying the stock gain and overdrive, so playing makes a sound
