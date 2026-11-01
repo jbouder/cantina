@@ -122,6 +122,17 @@ fn cases() -> Vec<Case> {
         name: "overdrive-hot".into(),
         processor: hot,
     });
+    // Each drive on its second curve, without oversampling, so the
+    // references also cover the plain path.
+    for name in ["overdrive", "distortion", "fuzz"] {
+        let mut p = stock(name).unwrap();
+        p.set_param(3, 1.0);
+        p.set_param(4, 0.0);
+        cases.push(Case {
+            name: format!("{name}-alt"),
+            processor: p,
+        });
+    }
     // A gate that the fixtures' quiet tails fall below.
     let mut gate = stock("gate").unwrap();
     gate.set_param(0, -20.0);
@@ -268,6 +279,40 @@ fn fixtures_are_deterministic_and_bounded() {
         assert!(samples.iter().any(|s| *s != 0.0), "{name} is silent");
     }
     assert_eq!(fixtures()[2].1, sweep());
+}
+
+/// Times each drive over a minute of audio at every oversampling factor
+/// and prints the cost as a share of real time. The numbers are
+/// recorded in `docs/pedals.md`; the assertion only guards against a
+/// drive becoming unusable.
+#[test]
+fn drives_cost_is_measured_at_every_factor() {
+    let seconds = 10;
+    let input = vec![sine()
+        .into_iter()
+        .cycle()
+        .take(seconds * SAMPLE_RATE as usize)
+        .collect::<Vec<f32>>()];
+    let renderer = Renderer::new(SAMPLE_RATE, BLOCK);
+    for name in ["overdrive", "distortion", "fuzz"] {
+        for (index, label) in ["off", "2x", "4x", "8x"].iter().enumerate() {
+            let mut processor = stock(name).unwrap();
+            processor.set_param(4, index as f32);
+            let start = Instant::now();
+            renderer.render(processor.as_mut(), &input);
+            let took = start.elapsed().as_secs_f64();
+            let share = took / seconds as f64;
+            eprintln!(
+                "{name:<11} {label:<4} {:.2} ms per second of audio ({:.2}% of real time)",
+                share * 1000.0,
+                share * 100.0
+            );
+            assert!(
+                share < 0.25,
+                "{name} at {label} takes {share:.2} of real time"
+            );
+        }
+    }
 }
 
 #[test]

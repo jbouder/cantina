@@ -20,26 +20,29 @@
 
 mod biquad;
 mod compressor;
+mod drive;
 mod envelope;
 mod gain;
 mod gate;
 pub mod kit;
-mod overdrive;
+pub mod oversample;
 pub mod pitch;
 mod processor;
 mod readout;
 mod render;
 mod sampler;
+mod shaper;
 mod smooth;
 mod tuner;
 
 pub use biquad::Biquad;
 pub use compressor::Compressor;
+pub use drive::{Distortion, Drive, Fuzz, Overdrive, Voicing};
 pub use envelope::Envelope;
 pub use gain::Gain;
 pub use gate::NoiseGate;
 pub use kit::{Kit, KitError, LoadedKit, Sample, KIT_VERSION};
-pub use overdrive::Overdrive;
+pub use oversample::Oversampler;
 pub use processor::{
     Buffer, Chain, Handle, ParamId, ParamInfo, Processor, StateError, Unit, MAX_CHANNELS,
 };
@@ -63,7 +66,15 @@ pub fn linear_to_db(linear: f32) -> f32 {
 }
 
 /// Names of the stock processors [`stock`] can build.
-pub const STOCK_NAMES: &[&str] = &["tuner", "gate", "compressor", "gain", "overdrive"];
+pub const STOCK_NAMES: &[&str] = &[
+    "tuner",
+    "gate",
+    "compressor",
+    "overdrive",
+    "distortion",
+    "fuzz",
+    "gain",
+];
 
 /// Builds a stock processor by name, unprepared and at default settings.
 pub fn stock(name: &str) -> Option<Box<dyn Processor>> {
@@ -71,8 +82,10 @@ pub fn stock(name: &str) -> Option<Box<dyn Processor>> {
         "tuner" => Some(Box::new(Tuner::default())),
         "gate" => Some(Box::new(NoiseGate::default())),
         "compressor" => Some(Box::new(Compressor::default())),
-        "gain" => Some(Box::new(Gain::default())),
         "overdrive" => Some(Box::new(Overdrive::default())),
+        "distortion" => Some(Box::new(Distortion::default())),
+        "fuzz" => Some(Box::new(Fuzz::default())),
+        "gain" => Some(Box::new(Gain::default())),
         _ => None,
     }
 }
