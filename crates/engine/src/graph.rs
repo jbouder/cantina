@@ -22,7 +22,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
-use cantina_dsp::{Buffer, ParamId, ParamInfo, Processor, MAX_CHANNELS};
+use cantina_dsp::{Buffer, ParamId, ParamInfo, Processor, Transport, MAX_CHANNELS};
 
 use crate::runtime::RuntimeStats;
 use crate::tempo::TempoMap;
@@ -173,7 +173,13 @@ impl Node for ProcessorNode {
         self.inner.reset();
     }
 
-    fn process(&mut self, _ctx: &BlockContext, buffer: &mut Buffer) {
+    fn process(&mut self, ctx: &BlockContext, buffer: &mut Buffer) {
+        let ticks = ctx.tempo.samples_to_ticks(ctx.position, ctx.sample_rate);
+        self.inner.set_transport(&Transport {
+            bpm: ctx.tempo.tempo_at(ticks.max(0.0) as u64),
+            beats: ticks / crate::tempo::PPQ as f64,
+            playing: ctx.playing,
+        });
         self.inner.process(buffer);
     }
 }

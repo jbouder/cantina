@@ -97,6 +97,21 @@ impl Biquad {
         );
     }
 
+    /// A notch: removes `frequency`, narrower with higher `q`.
+    pub fn set_notch(&mut self, sample_rate: f32, frequency: f32, q: f32) {
+        let (_, cos, alpha) = Self::prewarp(sample_rate, frequency, q);
+        self.set_normalized(1.0, -2.0 * cos, 1.0, 1.0 + alpha, -2.0 * cos, 1.0 - alpha);
+    }
+
+    /// Takes another filter's coefficients, keeping this one's state.
+    pub fn set_coefficients_from(&mut self, other: &Biquad) {
+        self.b0 = other.b0;
+        self.b1 = other.b1;
+        self.b2 = other.b2;
+        self.a1 = other.a1;
+        self.a2 = other.a2;
+    }
+
     /// Clears the delay state. Call when a stream restarts.
     pub fn reset(&mut self) {
         self.z1 = 0.0;

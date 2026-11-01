@@ -15,6 +15,8 @@ function format(value: number, unit: string) {
 }
 
 const LABEL = "font-bold text-[11px] uppercase tracking-[0.08em]";
+/** Positions on a log-mapped slider. */
+const LOG_STEPS = 1000;
 
 /**
  * One pedal parameter: a labelled fader with a readout, or for a switch
@@ -73,7 +75,14 @@ export function Fader({ param, value, onChange }: Props) {
     );
   }
   const span = param.max - param.min;
+  // A frequency over a wide range moves in octaves, not hertz, so the
+  // slider works in the log domain.
+  const log = param.unit === "Hz" && param.min > 0 && param.max / param.min >= 16;
   const step = param.unit === "Hz" ? 1 : span > 50 ? 0.5 : 0.1;
+  const toSlider = (v: number) =>
+    log ? (Math.log(v / param.min) / Math.log(param.max / param.min)) * LOG_STEPS : v;
+  const fromSlider = (t: number) =>
+    log ? Math.round(param.min * (param.max / param.min) ** (t / LOG_STEPS)) : t;
   return (
     <div className="grid gap-0.5">
       <div className="flex items-baseline justify-between gap-2">
@@ -91,12 +100,15 @@ export function Fader({ param, value, onChange }: Props) {
         id={id}
         type="range"
         className="fader"
-        min={param.min}
-        max={param.max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
+        min={log ? 0 : param.min}
+        max={log ? LOG_STEPS : param.max}
+        step={log ? 1 : step}
+        value={toSlider(value)}
+        onChange={(e) => onChange(fromSlider(Number(e.target.value)))}
         onDoubleClick={() => onChange(param.default)}
+        aria-valuemin={param.min}
+        aria-valuemax={param.max}
+        aria-valuenow={value}
         aria-valuetext={format(value, param.unit)}
       />
     </div>

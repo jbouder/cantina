@@ -87,6 +87,27 @@ impl ParamInfo {
     }
 }
 
+/// Where the transport is, for processors that follow the tempo: a
+/// synced LFO, a delay at a note value. The engine sets it on every
+/// processor before each block.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Transport {
+    pub bpm: f64,
+    /// Position in quarter-note beats from the start of the timeline.
+    pub beats: f64,
+    pub playing: bool,
+}
+
+impl Default for Transport {
+    fn default() -> Self {
+        Self {
+            bpm: 120.0,
+            beats: 0.0,
+            playing: false,
+        }
+    }
+}
+
 /// Why a state blob could not be loaded.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StateError {
@@ -203,6 +224,10 @@ pub trait Processor: Send {
 
     /// Clears delay lines and filter memory without touching parameters.
     fn reset(&mut self) {}
+
+    /// Where the transport is for the block about to be processed. On
+    /// the audio thread, before each `process`; most pedals ignore it.
+    fn set_transport(&mut self, _transport: &Transport) {}
 
     /// Processes a block in place.
     fn process(&mut self, buffer: &mut Buffer);

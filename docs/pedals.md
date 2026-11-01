@@ -159,3 +159,54 @@ with `--release -- --nocapture`). On an Apple Silicon MacBook Pro at
 As a share of real time, so a stereo drive at 8× costs under 0.7% of
 one core; a board of six is a few percent. The overdrive's `tanh` is
 what makes it the dearest without oversampling. The default is 4×.
+
+## Following the transport
+
+Pedals that keep time (the modulation pedals' oscillators, the delay)
+need the tempo and where the transport is. `Processor::set_transport`
+hands every processor a `Transport` (tempo in BPM, the position in
+quarter-note beats, whether the transport is playing) on the audio
+thread before each block; the graph fills it from the tempo map at the
+block's position, so a tempo change on the timeline reaches every pedal
+on the next block. Most pedals ignore it.
+
+## EQ
+
+`eq`. A four-band parametric equaliser, each band a biquad on both
+channels with a **type** (Peak, Low shelf, High shelf, Low cut, High
+cut, Notch), **Freq** (20 Hz to 20 kHz; the fader moves in octaves),
+**Gain** (±18 dB, ignored by the cuts and the notch) and **Q**. The
+defaults are a low shelf at 100 Hz, peaks at 400 Hz and 1.6 kHz and a
+high shelf at 5 kHz, all flat. Coefficients are recomputed on the next
+block after a knob moves, keeping the filter state, so a sweep does
+not click (tested). The designs are the audio EQ cookbook's, in
+`crates/dsp/src/biquad.rs`; a test checks every type acts where it says.
+
+## Chorus, flanger, phaser and tremolo
+
+All four run an `Lfo` (`crates/dsp/src/lfo.rs`: sine, triangle,
+square, saw or sample-and-hold random) at a **Rate** in hertz, or when
+**Sync** is on at a **Note** value (whole note to 1/32, with dotted and
+triplet values) from the transport's tempo. While the transport plays
+the oscillator's phase is locked to the timeline, so a cycle starts on
+the beat and a tempo change is followed on the next block; stopped, it
+free-runs at the tempo. The stereo channels read the oscillator a
+quarter cycle apart, except the tremolo, which pumps both together.
+
+- **Chorus** (`chorus`) and **flanger** (`flanger`) are one pedal
+  (`SweptDelay`) with different sweeps: a delay line read at a
+  modulated fractional delay (12 to 20 ms for the chorus, 1 to 5 ms
+  for the flanger), fed back (up to 70% and 95%) and mixed with the
+  dry signal. **Depth** sets how far the delay swings, **Feedback** and
+  **Mix** what you expect. Without a sweep the flanger is a comb
+  filter, and the test looks for its notches in white noise.
+- **Phaser** (`phaser`): four first-order allpass stages per channel,
+  swept from 300 Hz up to four and a half octaves by the depth, with
+  feedback around the cascade and a dry mix. Four stages put notches at
+  0.41 and 2.41 times the corner frequency (where the shift reaches
+  180° and 540°); the test finds them.
+- **Tremolo** (`tremolo`): the level pumped by the oscillator with a
+  **Shape** of sine, triangle or square. Each shape is read where it
+  peaks, so a synced tremolo is loudest on the beat and dips between;
+  the test syncs to an eighth note at 90 bpm and checks the dips land
+  8000 samples after each beat.
