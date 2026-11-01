@@ -4,6 +4,8 @@ import { Button } from "./Button";
 type Props = {
   title: string;
   onClose: () => void;
+  /** A wider panel, for a list with details beside each entry. */
+  wide?: boolean;
   children: ReactNode;
 };
 
@@ -12,7 +14,7 @@ type Props = {
  * modal dialog: focus moves in on open, Escape and the scrim close it,
  * and focus returns to the opener when it goes away.
  */
-export function Sheet({ title, onClose, children }: Props) {
+export function Sheet({ title, onClose, wide = false, children }: Props) {
   const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
 
@@ -46,7 +48,7 @@ export function Sheet({ title, onClose, children }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="surface-panel relative w-full max-w-md overflow-hidden"
+        className={`surface-panel relative w-full overflow-hidden ${wide ? "max-w-2xl" : "max-w-md"}`}
       >
         <header className="surface-titlebar flex min-h-[30px] items-center gap-2 py-1 pr-1 pl-3">
           <h2 id={titleId} className="title-text m-0 flex-1 font-normal text-[1.05rem]">

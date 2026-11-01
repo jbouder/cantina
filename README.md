@@ -54,9 +54,10 @@ On first launch:
 - A project called `Untitled` is created in `~/Music/Cantina/` with one
   track carrying the stock gain and overdrive, so playing makes a sound
   as soon as a track is armed.
-- **Plugins…** on a track opens the plugin browser; the first time, it
-  scans the installed Audio Units and CLAP bundles in a separate process
-  and caches the list next to the settings file.
+- The **+** slot at the end of a pedalboard opens the picker: stock
+  pedals, your own, and the installed plugins. The first time, it scans
+  the installed Audio Units and CLAP bundles in a separate process and
+  caches the list next to the settings file.
 
 For a release build, which embeds the UI and needs no Vite:
 

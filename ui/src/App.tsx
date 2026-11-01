@@ -6,7 +6,7 @@ import { Editor, isEditorTab } from "./components/Editor";
 import { EngineControl } from "./components/EngineControl";
 import { Lcd } from "./components/Lcd";
 import { Notice } from "./components/Notice";
-import { PluginBrowser } from "./components/PluginBrowser";
+import { PedalPicker } from "./components/PedalPicker";
 import { ProjectBar } from "./components/ProjectBar";
 import { Projects } from "./components/Projects";
 import { Recovery } from "./components/Recovery";
@@ -69,14 +69,14 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [frame, setFrame] = useState<MeterFrame>(IDLE);
-  // In a browser `?settings`, `?projects` and `?plugins` open the
+  // In a browser `?settings`, `?projects` and `?picker` open the
   // sheets, so screenshots can show them.
   const [settingsOpen, setSettingsOpen] = useState(() => params?.has("settings") ?? false);
   const [projectsOpen, setProjectsOpen] = useState(() => params?.has("projects") ?? false);
-  const [pluginsOpen, setPluginsOpen] = useState(() => params?.has("plugins") ?? false);
+  const [pickerOpen, setPickerOpen] = useState(() => params?.has("picker") ?? false);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const closeProjects = useCallback(() => setProjectsOpen(false), []);
-  const closePlugins = useCallback(() => setPluginsOpen(false), []);
+  const closePicker = useCallback(() => setPickerOpen(false), []);
   // In a browser `?drums` adds a drum track to the stand-in and selects it.
   const [selectedTrack, setSelectedTrack] = useState<number | null>(() =>
     params?.has("drums") ? 10 : null,
@@ -349,7 +349,7 @@ export function App() {
                 readouts={readouts}
                 irs={status.irs}
                 initialTab={initialTab}
-                onBrowsePlugins={() => setPluginsOpen(true)}
+                onAdd={() => setPickerOpen(true)}
                 onDesign={(pedal) => design(pedal, selected.id)}
                 onStatus={setStatus}
                 onError={setError}
@@ -387,12 +387,14 @@ export function App() {
           onError={setError}
         />
       ) : null}
-      {pluginsOpen && status && selected ? (
-        <PluginBrowser
+      {pickerOpen && status && selected ? (
+        <PedalPicker
           track={selected.id}
           trackName={selected.name}
+          kinds={status.pedalKinds}
           plugins={status.plugins}
-          onClose={closePlugins}
+          onClose={closePicker}
+          onDesign={() => design(null, selected.id)}
           onStatus={setStatus}
         />
       ) : null}

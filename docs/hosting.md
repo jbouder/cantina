@@ -232,6 +232,7 @@ failures, and sources that went away are dropped. A full rescan hands it
 everything. The first launch, with no cache, scans when the UI first asks
 for the list.
 
-In the app: the **Plugins…** button on a track opens the browser, grouped
-by format and vendor, with Add, Rescan and Full rescan, and the failed
-plugins listed underneath with why.
+In the app: the **+** slot at the end of a pedalboard opens the picker
+(`ui/src/components/PedalPicker.tsx`), whose Plugins section lists them
+by format and vendor with Rescan and Full rescan, and the failed plugins
+under a disclosure with why. Choosing one adds it to the end of the chain.

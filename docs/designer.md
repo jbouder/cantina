@@ -2,10 +2,10 @@
 
 The designer edits a pedal in the pedal format
 ([pedal-format.md](pedal-format.md)) while it runs in a chain, so every
-change is heard on the input as it is made. **Design…** on a chain
-starts a new pedal (an input wired to an output) at the end of the
-chain and opens it; **Edit…** on a designed pedal's card opens that
-one. Any stock pedal that ships in the format can be loaded as a
+change is heard on the input as it is made. **New design…** in the
+pedal picker (the **+** slot at the end of a chain) starts a new pedal
+(an input wired to an output) at the end of the chain and opens it;
+**Edit…** on a designed pedal's card opens that one. Any stock pedal that ships in the format can be loaded as a
 starting point from **Start from**.
 
 ## What is on screen
@@ -71,8 +71,8 @@ project that refers to a pedal it has no copy of plays it as a
 pass-through named *(missing)* rather than losing the chain.
 
 **Export…** in the designer writes the definition to a file of your
-choosing; **Import…** on a chain, or dropping a `.pedal.json` on the
-window, copies the file into the library (validated; under the next
+choosing; **Import a file…** in the picker, or dropping a `.pedal.json`
+on the window, copies the file into the library (validated; under the next
 free id if a different pedal already holds its name) and adds it to
 the selected track's chain. The file logic is `src-tauri/src/pedals.rs`,
 with tests for the ids, the round trip and the import rules.
