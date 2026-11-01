@@ -98,7 +98,7 @@ export function Meter({ label, level, vertical = false, mini = false }: Props) {
       }
     >
       <span
-        className={`font-bold uppercase tracking-[0.1em] ${mini ? "text-[10px]" : "text-[11px]"}`}
+        className={`font-bold uppercase tracking-[0.1em] ${mini ? "text-[10px] text-title-text" : "text-[11px]"}`}
       >
         {label}
       </span>
