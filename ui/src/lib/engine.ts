@@ -375,6 +375,21 @@ function toggle(name: string, on: boolean): ParamInfo {
   return { ...p(name, "", 0, 1, on ? 1 : 0), toggle: true };
 }
 
+function choice(name: string, choices: string[], def: number): ParamInfo {
+  return { ...p(name, "", 0, choices.length - 1, def), choices };
+}
+
+/** The five knobs every drive pedal has. */
+function drive(driveMax: number, driveDefault: number, level: number, curves: string[]) {
+  return [
+    p("Drive", "dB", 0, driveMax, driveDefault),
+    p("Tone", "Hz", 500, 8000, 3000),
+    p("Level", "dB", -24, 6, level),
+    choice("Curve", curves, 0),
+    choice("Oversampling", ["Off", "2×", "4×", "8×"], 2),
+  ];
+}
+
 /** The stock pedals, as `crates/dsp` describes them. */
 const MOCK_STOCK: Record<string, { name: string; params: ParamInfo[]; readouts: string[] }> = {
   tuner: {
@@ -404,16 +419,22 @@ const MOCK_STOCK: Record<string, { name: string; params: ParamInfo[]; readouts: 
     ],
     readouts: ["Reduction"],
   },
-  gain: { name: "Gain", params: [p("Gain", "dB", -60, 24, 0)], readouts: [] },
   overdrive: {
     name: "Overdrive",
-    params: [
-      p("Drive", "dB", 0, 40, 20),
-      p("Tone", "Hz", 500, 8000, 3000),
-      p("Level", "dB", -24, 6, -6),
-    ],
+    params: drive(40, 20, -6, ["Soft", "Asymmetric", "Hard"]),
     readouts: [],
   },
+  distortion: {
+    name: "Distortion",
+    params: drive(60, 30, -12, ["Hard", "Soft", "Fold"]),
+    readouts: [],
+  },
+  fuzz: {
+    name: "Fuzz",
+    params: drive(60, 40, -12, ["Silicon", "Germanium", "Octave"]),
+    readouts: [],
+  },
+  gain: { name: "Gain", params: [p("Gain", "dB", -60, 24, 0)], readouts: [] },
 };
 
 function mockPedal(id: number, spec: string): PedalInfo {

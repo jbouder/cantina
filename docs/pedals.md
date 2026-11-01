@@ -1,6 +1,6 @@
 # Stock pedals
 
-The pedals that ship with Cantina live in `crates/dsp`, one module each,
+The pedals that ship with Cantina live in `crates/dsp`
 as `Processor`s (see the trait in `crates/dsp/src/processor.rs`). This
 page is what each one does, what its knobs mean, and the design choices
 behind it. Every pedal has golden-file tests (`crates/dsp/tests/golden`)
@@ -89,3 +89,73 @@ The tests pin the curve (10 dB over at 4:1 is 7.5 dB of reduction, the
 knee is continuous), the settled output of a steady tone, that nothing
 below the threshold is touched, and that the attack reaches 90% in a
 few blocks while the release takes hundreds.
+
+## Drives: overdrive, distortion and fuzz
+
+`overdrive`, `distortion`, `fuzz`. One core (`crates/dsp/src/drive.rs`)
+with a **voicing** each: a highpass to keep the low end out of the
+clipper, an optional mid boost, the drive gain, the waveshaper run
+through the oversampler, a highpass to remove the offset a lopsided
+curve leaves, a tone lowpass, and the level. Each has the same five
+knobs: **Drive** (dB), **Tone** (500 to 8000 Hz lowpass), **Level**
+(dB), **Curve** and **Oversampling**.
+
+| Pedal | Drive | Curves | Before the clipper |
+| --- | --- | --- | --- |
+| Overdrive | 0–40 dB | Soft (`tanh`), Asymmetric, Hard | highpass 80 Hz |
+| Distortion | 0–60 dB, +6 dB fixed | Hard, Soft, Fold | highpass 60 Hz, +6 dB at 900 Hz |
+| Fuzz | 0–60 dB, +12 dB fixed | Silicon, Germanium, Octave | highpass 40 Hz |
+
+The curves are in `crates/dsp/src/shaper.rs`. *Soft* rounds off
+gently; *Hard* clips flat; *Asymmetric* is soft on top and harder and
+lower underneath, like a mismatched diode pair, for even harmonics;
+*Fold* folds the wave back on itself past full scale, so the harmonics
+keep changing as a note dies; *Silicon* is huge gain into a near
+square; *Germanium* is softer and lopsided with a bias that makes it
+sputter as a note decays; *Octave* rectifies before clipping so the
+fundamental doubles. A test checks every curve stays within ±1 and
+that no two curves, or pedals, render the same.
+
+The overdrive keeps the M0 pedal's first three parameters in the same
+order, so a project saved before this carries its Drive, Tone and
+Level over and gets the defaults for the rest.
+
+### Oversampling
+
+Anything nonlinear creates harmonics without end; the ones above half
+the sample rate fold back as aliases that do not belong to the note.
+The oversampler (`crates/dsp/src/oversample.rs`) runs the waveshaper at
+2×, 4× or 8× the rate so those harmonics land where a lowpass can
+remove them on the way back down. Each doubling is a halfband FIR
+stage (31, 21 and 17 taps, Kaiser-windowed), zero-stuffing and
+filtering up, filtering and dropping every other sample down. Halfband
+filters have every other tap at zero, and in polyphase form the
+interpolator's even outputs are a plain delay, so a stage costs about
+a quarter of its length per sample.
+
+The filters are linear phase, so the round trip is a fixed delay. The
+stages are sized so it is a whole number of samples at every factor
+(15 at 2×, 20 at 4×, 22 at 8×), and lower factors are padded to 22, so
+every drive reports **22 samples of latency** (0.46 ms at 48 kHz)
+whatever its setting: switching factors never moves the signal in time
+and the chain's compensation never changes. The test clips a 5 kHz tone
+hard and measures the energy at 3, 7 and 13 kHz, where its harmonics
+fold back to at 48 kHz: 8× cuts them by 40 to 58 dB and leaves the
+15 kHz harmonic that belongs. Off is available for the cheapest path.
+
+### Cost
+
+`drives_cost_is_measured_at_every_factor` in `crates/dsp/tests/golden.rs`
+renders ten seconds through each drive and prints the cost (run it
+with `--release -- --nocapture`). On an Apple Silicon MacBook Pro at
+48 kHz with 64-frame blocks, per pedal and channel:
+
+| Pedal | Off | 2× | 4× | 8× |
+| --- | --- | --- | --- | --- |
+| Overdrive | 0.15% | 0.23% | 0.29% | 0.34% |
+| Distortion | 0.05% | 0.10% | 0.17% | 0.30% |
+| Fuzz | 0.06% | 0.11% | 0.19% | 0.32% |
+
+As a share of real time, so a stereo drive at 8× costs under 0.7% of
+one core; a board of six is a few percent. The overdrive's `tanh` is
+what makes it the dearest without oversampling. The default is 4×.

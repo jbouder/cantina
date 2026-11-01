@@ -53,6 +53,50 @@ impl Biquad {
         self.set_normalized(b0, b1, b0, 1.0 + alpha, -2.0 * cos, 1.0 - alpha);
     }
 
+    /// A peaking (bell) boost or cut of `gain_db` around `frequency`.
+    pub fn set_peaking(&mut self, sample_rate: f32, frequency: f32, gain_db: f32, q: f32) {
+        let a = 10f32.powf(gain_db / 40.0);
+        let (_, cos, alpha) = Self::prewarp(sample_rate, frequency, q);
+        self.set_normalized(
+            1.0 + alpha * a,
+            -2.0 * cos,
+            1.0 - alpha * a,
+            1.0 + alpha / a,
+            -2.0 * cos,
+            1.0 - alpha / a,
+        );
+    }
+
+    /// A low shelf: `gain_db` below `frequency`, flat above.
+    pub fn set_lowshelf(&mut self, sample_rate: f32, frequency: f32, gain_db: f32, q: f32) {
+        let a = 10f32.powf(gain_db / 40.0);
+        let (_, cos, alpha) = Self::prewarp(sample_rate, frequency, q);
+        let beta = 2.0 * a.sqrt() * alpha;
+        self.set_normalized(
+            a * ((a + 1.0) - (a - 1.0) * cos + beta),
+            2.0 * a * ((a - 1.0) - (a + 1.0) * cos),
+            a * ((a + 1.0) - (a - 1.0) * cos - beta),
+            (a + 1.0) + (a - 1.0) * cos + beta,
+            -2.0 * ((a - 1.0) + (a + 1.0) * cos),
+            (a + 1.0) + (a - 1.0) * cos - beta,
+        );
+    }
+
+    /// A high shelf: `gain_db` above `frequency`, flat below.
+    pub fn set_highshelf(&mut self, sample_rate: f32, frequency: f32, gain_db: f32, q: f32) {
+        let a = 10f32.powf(gain_db / 40.0);
+        let (_, cos, alpha) = Self::prewarp(sample_rate, frequency, q);
+        let beta = 2.0 * a.sqrt() * alpha;
+        self.set_normalized(
+            a * ((a + 1.0) + (a - 1.0) * cos + beta),
+            -2.0 * a * ((a - 1.0) + (a + 1.0) * cos),
+            a * ((a + 1.0) + (a - 1.0) * cos - beta),
+            (a + 1.0) - (a - 1.0) * cos + beta,
+            2.0 * ((a - 1.0) - (a + 1.0) * cos),
+            (a + 1.0) - (a - 1.0) * cos - beta,
+        );
+    }
+
     /// Clears the delay state. Call when a stream restarts.
     pub fn reset(&mut self) {
         self.z1 = 0.0;
@@ -127,6 +171,39 @@ mod tests {
         let high = rms_at(&mut f, 48_000.0, 10_000.0);
         assert!((low - BUTTERWORTH_Q).abs() < 0.02, "low band rms {low}");
         assert!(high < 0.01, "high band rms {high}");
+    }
+
+    #[test]
+    fn peaking_and_shelves_boost_where_they_say() {
+        let mut peak = Biquad::identity();
+        peak.set_peaking(48_000.0, 1_000.0, 6.0, 1.0);
+        let at = rms_at(&mut peak, 48_000.0, 1_000.0);
+        let away = rms_at(&mut peak, 48_000.0, 100.0);
+        assert!(
+            (20.0 * (at / BUTTERWORTH_Q).log10() - 6.0).abs() < 0.2,
+            "{at}"
+        );
+        assert!((away - BUTTERWORTH_Q).abs() < 0.02, "{away}");
+
+        let mut low = Biquad::identity();
+        low.set_lowshelf(48_000.0, 500.0, -12.0, BUTTERWORTH_Q);
+        let below = rms_at(&mut low, 48_000.0, 50.0);
+        let above = rms_at(&mut low, 48_000.0, 8_000.0);
+        assert!(
+            (20.0 * (below / BUTTERWORTH_Q).log10() + 12.0).abs() < 0.3,
+            "{below}"
+        );
+        assert!((above - BUTTERWORTH_Q).abs() < 0.02, "{above}");
+
+        let mut high = Biquad::identity();
+        high.set_highshelf(48_000.0, 4_000.0, 9.0, BUTTERWORTH_Q);
+        let below = rms_at(&mut high, 48_000.0, 200.0);
+        let above = rms_at(&mut high, 48_000.0, 15_000.0);
+        assert!((below - BUTTERWORTH_Q).abs() < 0.02, "{below}");
+        assert!(
+            (20.0 * (above / BUTTERWORTH_Q).log10() - 9.0).abs() < 0.3,
+            "{above}"
+        );
     }
 
     #[test]
