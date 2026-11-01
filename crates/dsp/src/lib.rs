@@ -60,7 +60,7 @@ pub use gate::NoiseGate;
 pub use kit::{Kit, KitError, LoadedKit, Sample, KIT_VERSION};
 pub use lfo::{Lfo, Shape};
 pub use oversample::Oversampler;
-pub use pedal::{compile, PedalDef, PedalError, PedalProcessor, PEDAL_VERSION};
+pub use pedal::{compile, PedalDef, PedalError, PedalProcessor, Problem, PEDAL_VERSION};
 pub use processor::{
     Buffer, Chain, Handle, ParamId, ParamInfo, Processor, StateError, Transport, Unit, MAX_CHANNELS,
 };

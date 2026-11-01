@@ -1,0 +1,524 @@
+[
+  {
+    "kind": "input",
+    "label": "Input",
+    "summary": "The signal coming into the pedal. Exactly one.",
+    "source": true,
+    "control": false,
+    "sums": false,
+    "fields": []
+  },
+  {
+    "kind": "output",
+    "label": "Output",
+    "summary": "The signal leaving the pedal. Exactly one.",
+    "source": false,
+    "control": false,
+    "sums": false,
+    "fields": []
+  },
+  {
+    "kind": "gain",
+    "label": "Gain",
+    "summary": "Scales the signal, in decibels or by a multiplier, smoothly.",
+    "source": false,
+    "control": false,
+    "sums": false,
+    "fields": [
+      {
+        "name": "db",
+        "label": "Gain",
+        "summary": "Gain in decibels; eased in the linear domain",
+        "kind": {
+          "type": "number",
+          "min": -96.0,
+          "max": 96.0,
+          "default": 0.0,
+          "unit": "dB"
+        },
+        "modulatable": true,
+        "smoothed": true
+      },
+      {
+        "name": "linear",
+        "label": "Multiplier",
+        "summary": "A plain multiplier instead of decibels; set one or the other",
+        "kind": {
+          "type": "number",
+          "min": 0.0,
+          "max": 16.0,
+          "default": 1.0,
+          "unit": ""
+        },
+        "modulatable": true,
+        "smoothed": true
+      },
+      {
+        "name": "smooth",
+        "label": "Smoothing",
+        "summary": "Seconds a parameter change takes to settle; 0 applies it on the next block",
+        "kind": {
+          "type": "number",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.005,
+          "unit": "s"
+        },
+        "modulatable": false,
+        "smoothed": false
+      }
+    ]
+  },
+  {
+    "kind": "biquad",
+    "label": "Filter",
+    "summary": "A second-order filter: lowpass, highpass, peak, shelf or notch.",
+    "source": false,
+    "control": false,
+    "sums": false,
+    "fields": [
+      {
+        "name": "type",
+        "label": "Type",
+        "summary": "The design: a cut, a bell, a shelf or a notch",
+        "kind": {
+          "type": "name",
+          "options": [
+            "lowpass",
+            "highpass",
+            "peak",
+            "lowshelf",
+            "highshelf",
+            "notch"
+          ],
+          "default": 0
+        },
+        "modulatable": false,
+        "smoothed": false
+      },
+      {
+        "name": "freq",
+        "label": "Frequency",
+        "summary": "Corner or centre frequency",
+        "kind": {
+          "type": "number",
+          "min": 20.0,
+          "max": 20000.0,
+          "default": 1000.0,
+          "unit": "Hz"
+        },
+        "modulatable": true,
+        "smoothed": true
+      },
+      {
+        "name": "gain",
+        "label": "Gain",
+        "summary": "Boost or cut for a peak or shelf; the cuts and the notch ignore it",
+        "kind": {
+          "type": "number",
+          "min": -24.0,
+          "max": 24.0,
+          "default": 0.0,
+          "unit": "dB"
+        },
+        "modulatable": false,
+        "smoothed": true
+      },
+      {
+        "name": "q",
+        "label": "Q",
+        "summary": "Width: 0.7071 is a flat Butterworth cut",
+        "kind": {
+          "type": "number",
+          "min": 0.1,
+          "max": 10.0,
+          "default": 0.70710677,
+          "unit": ""
+        },
+        "modulatable": false,
+        "smoothed": true
+      },
+      {
+        "name": "smooth",
+        "label": "Smoothing",
+        "summary": "Seconds a parameter change takes to settle; 0 applies it on the next block",
+        "kind": {
+          "type": "number",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "unit": "s"
+        },
+        "modulatable": false,
+        "smoothed": false
+      }
+    ]
+  },
+  {
+    "kind": "waveshaper",
+    "label": "Waveshaper",
+    "summary": "Clips or folds the signal through a curve, oversampled so the harmonics do not alias.",
+    "source": false,
+    "control": false,
+    "sums": false,
+    "fields": [
+      {
+        "name": "curve",
+        "label": "Curve",
+        "summary": "The transfer curve; what it does past full scale is the character",
+        "kind": {
+          "type": "name",
+          "options": [
+            "soft",
+            "hard",
+            "asymmetric",
+            "fold",
+            "silicon",
+            "germanium",
+            "octave"
+          ],
+          "default": 0
+        },
+        "modulatable": false,
+        "smoothed": false
+      },
+      {
+        "name": "oversample",
+        "label": "Oversampling",
+        "summary": "1, 2, 4 or 8 times the rate; anything above 1 adds 22 samples of latency, the same at every factor",
+        "kind": {
+          "type": "number",
+          "min": 1.0,
+          "max": 8.0,
+          "default": 4.0,
+          "unit": "×"
+        },
+        "modulatable": false,
+        "smoothed": false
+      }
+    ]
+  },
+  {
+    "kind": "delay",
+    "label": "Delay",
+    "summary": "A delay line with feedback and a dry/wet mix; bind the time to an lfo for chorus and flanging.",
+    "source": false,
+    "control": false,
+    "sums": false,
+    "fields": [
+      {
+        "name": "time",
+        "label": "Time",
+        "summary": "Delay in milliseconds; a change slides the read head, like tape",
+        "kind": {
+          "type": "number",
+          "min": 0.1,
+          "max": 10000.0,
+          "default": 300.0,
+          "unit": "ms"
+        },
+        "modulatable": true,
+        "smoothed": true
+      },
+      {
+        "name": "feedback",
+        "label": "Feedback",
+        "summary": "How much of the delayed signal goes round again",
+        "kind": {
+          "type": "number",
+          "min": 0.0,
+          "max": 0.99,
+          "default": 0.0,
+          "unit": ""
+        },
+        "modulatable": false,
+        "smoothed": true
+      },
+      {
+        "name": "mix",
+        "label": "Mix",
+        "summary": "Dry at 0, the delayed signal alone at 1",
+        "kind": {
+          "type": "number",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "unit": ""
+        },
+        "modulatable": false,
+        "smoothed": true
+      },
+      {
+        "name": "max",
+        "label": "Longest time",
+        "summary": "The line's length; memory is reserved for this at prepare",
+        "kind": {
+          "type": "number",
+          "min": 1.0,
+          "max": 10000.0,
+          "default": 2000.0,
+          "unit": "ms"
+        },
+        "modulatable": false,
+        "smoothed": false
+      },
+      {
+        "name": "smooth",
+        "label": "Smoothing",
+        "summary": "Seconds a parameter change takes to settle; 0 applies it on the next block",
+        "kind": {
+          "type": "number",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.02,
+          "unit": "s"
+        },
+        "modulatable": false,
+        "smoothed": false
+      }
+    ]
+  },
+  {
+    "kind": "lfo",
+    "label": "LFO",
+    "summary": "A low-frequency oscillator, free or synced to the tempo. Drives other nodes' fields; it carries no audio.",
+    "source": true,
+    "control": true,
+    "sums": false,
+    "fields": [
+      {
+        "name": "rate",
+        "label": "Rate",
+        "summary": "Cycles per second when not synced",
+        "kind": {
+          "type": "number",
+          "min": 0.01,
+          "max": 50.0,
+          "default": 1.0,
+          "unit": "Hz"
+        },
+        "modulatable": false,
+        "smoothed": false
+      },
+      {
+        "name": "shape",
+        "label": "Shape",
+        "summary": "The wave",
+        "kind": {
+          "type": "name",
+          "options": [
+            "sine",
+            "triangle",
+            "square",
+            "saw",
+            "random"
+          ],
+          "default": 0
+        },
+        "modulatable": false,
+        "smoothed": false
+      },
+      {
+        "name": "sync",
+        "label": "Sync",
+        "summary": "Lock to the transport at the note value instead of the rate",
+        "kind": {
+          "type": "bool",
+          "default": false
+        },
+        "modulatable": false,
+        "smoothed": false
+      },
+      {
+        "name": "note",
+        "label": "Note",
+        "summary": "Cycle length when synced, in note values",
+        "kind": {
+          "type": "name",
+          "options": [
+            "1/1",
+            "1/2",
+            "1/2T",
+            "1/4",
+            "1/4D",
+            "1/4T",
+            "1/8",
+            "1/8D",
+            "1/8T",
+            "1/16",
+            "1/16T",
+            "1/32"
+          ],
+          "default": 3
+        },
+        "modulatable": false,
+        "smoothed": false
+      },
+      {
+        "name": "depth",
+        "label": "Depth",
+        "summary": "Scales the output; bindings see 0 at no depth",
+        "kind": {
+          "type": "number",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "unit": ""
+        },
+        "modulatable": false,
+        "smoothed": true
+      },
+      {
+        "name": "phase",
+        "label": "Phase",
+        "summary": "Where in the cycle the wave is read, in cycles",
+        "kind": {
+          "type": "number",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "unit": ""
+        },
+        "modulatable": false,
+        "smoothed": false
+      },
+      {
+        "name": "spread",
+        "label": "Stereo spread",
+        "summary": "How far ahead the right channel reads, in cycles",
+        "kind": {
+          "type": "number",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.0,
+          "unit": ""
+        },
+        "modulatable": false,
+        "smoothed": false
+      },
+      {
+        "name": "unipolar",
+        "label": "Unipolar",
+        "summary": "Run from 0 to 1 instead of -1 to 1, so a map's ends are the wave's",
+        "kind": {
+          "type": "bool",
+          "default": false
+        },
+        "modulatable": false,
+        "smoothed": false
+      },
+      {
+        "name": "smooth",
+        "label": "Smoothing",
+        "summary": "Seconds a parameter change takes to settle; 0 applies it on the next block",
+        "kind": {
+          "type": "number",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.02,
+          "unit": "s"
+        },
+        "modulatable": false,
+        "smoothed": false
+      }
+    ]
+  },
+  {
+    "kind": "allpass",
+    "label": "Allpass",
+    "summary": "A cascade of allpass stages with feedback: flat in level, it shifts phase, and mixed with the dry signal makes the notches of a phaser.",
+    "source": false,
+    "control": false,
+    "sums": false,
+    "fields": [
+      {
+        "name": "stages",
+        "label": "Stages",
+        "summary": "First-order allpasses in a row; each pair makes a notch when mixed with the dry signal",
+        "kind": {
+          "type": "number",
+          "min": 1.0,
+          "max": 16.0,
+          "default": 4.0,
+          "unit": ""
+        },
+        "modulatable": false,
+        "smoothed": false
+      },
+      {
+        "name": "freq",
+        "label": "Frequency",
+        "summary": "Where the phase shift is centred",
+        "kind": {
+          "type": "number",
+          "min": 20.0,
+          "max": 20000.0,
+          "default": 1000.0,
+          "unit": "Hz"
+        },
+        "modulatable": true,
+        "smoothed": true
+      },
+      {
+        "name": "feedback",
+        "label": "Feedback",
+        "summary": "The cascade's output fed back to its input, which deepens the notches",
+        "kind": {
+          "type": "number",
+          "min": 0.0,
+          "max": 0.95,
+          "default": 0.0,
+          "unit": ""
+        },
+        "modulatable": false,
+        "smoothed": true
+      },
+      {
+        "name": "mix",
+        "label": "Mix",
+        "summary": "Dry at 0, the shifted signal alone at 1; a phaser sits at 0.5",
+        "kind": {
+          "type": "number",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "unit": ""
+        },
+        "modulatable": false,
+        "smoothed": true
+      },
+      {
+        "name": "smooth",
+        "label": "Smoothing",
+        "summary": "Seconds a parameter change takes to settle; 0 applies it on the next block",
+        "kind": {
+          "type": "number",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.02,
+          "unit": "s"
+        },
+        "modulatable": false,
+        "smoothed": false
+      }
+    ]
+  },
+  {
+    "kind": "mix",
+    "label": "Mix",
+    "summary": "Sums everything connected to it. Put gains in front to weight them.",
+    "source": false,
+    "control": false,
+    "sums": true,
+    "fields": []
+  },
+  {
+    "kind": "split",
+    "label": "Split",
+    "summary": "Passes the signal through, as a junction to fan it out from.",
+    "source": false,
+    "control": false,
+    "sums": false,
+    "fields": []
+  }
+]

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "./components/Button";
+import { Designer } from "./components/Designer";
 import { Lcd } from "./components/Lcd";
 import { Led } from "./components/Led";
 import { Meter } from "./components/Meter";
@@ -15,6 +16,7 @@ import { TrackPanel } from "./components/TrackPanel";
 import { Transport } from "./components/Transport";
 import { Window } from "./components/Window";
 import {
+  designerNew,
   dismissNotice,
   type EngineStatus,
   engineStart,
@@ -60,6 +62,12 @@ export function App() {
   const [selectedTrack, setSelectedTrack] = useState<number | null>(() =>
     params?.has("drums") ? 10 : null,
   );
+  // The designed pedal open in the designer. In a browser `?design=<stock>`
+  // puts one on the guitar track and opens it.
+  const [designing, setDesigning] = useState<number | null>(() =>
+    params?.has("design") ? 19 : null,
+  );
+  const closeDesigner = useCallback(() => setDesigning(null), []);
 
   // In a browser `?scroll=<px>` scrolls the page, so screenshots can
   // show what is below the fold.
@@ -112,11 +120,32 @@ export function App() {
     dismissNotice().then(setStatus, (e) => setError(String(e)));
   }, []);
 
+  // Opens the designer on a pedal, or starts a new design at the end
+  // of the selected track's chain and opens that.
+  const design = useCallback((pedal: number | null, track: number) => {
+    if (pedal !== null) {
+      setDesigning(pedal);
+      return;
+    }
+    designerNew(track).then(
+      (next) => {
+        setStatus(next);
+        const chain = next.project.tracks.find((t) => t.id === track)?.chain ?? [];
+        setDesigning(chain[chain.length - 1]?.id ?? null);
+      },
+      (e) => setError(String(e)),
+    );
+  }, []);
+
   const running = status?.running ?? false;
   // The selected track, or the first one when the selection is gone.
   const tracks = status?.project.tracks ?? [];
   const readouts = useMemo(() => readoutsByPedal(tracks, frame.readouts), [tracks, frame.readouts]);
   const selected = tracks.find((t) => t.id === selectedTrack) ?? tracks[0] ?? null;
+  const designed =
+    designing === null
+      ? null
+      : (tracks.flatMap((t) => t.chain).find((p) => p.id === designing) ?? null);
   const problem = error ?? status?.error ?? null;
   // The transport flags in the frame are fresher than the last status push.
   const transport = status
@@ -255,6 +284,7 @@ export function App() {
                 readouts={readouts}
                 irs={status.irs}
                 onBrowsePlugins={() => setPluginsOpen(true)}
+                onDesign={(pedal) => design(pedal, selected.id)}
                 onStatus={setStatus}
                 onError={setError}
               />
@@ -271,6 +301,16 @@ export function App() {
           dirty={status.project.dirty}
           onClose={closeProjects}
           onStatus={setStatus}
+        />
+      ) : null}
+      {designed && status ? (
+        <Designer
+          key={designed.id}
+          pedal={designed}
+          kinds={status.pedalKinds}
+          onClose={closeDesigner}
+          onStatus={setStatus}
+          onError={setError}
         />
       ) : null}
       {pluginsOpen && status && selected ? (

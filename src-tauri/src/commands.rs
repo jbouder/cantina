@@ -7,7 +7,7 @@ use cantina_project::Tempo;
 use tauri::ipc::{Channel, InvokeResponseBody, Response};
 use tauri::State;
 
-use crate::engine::{DeviceEntry, EngineState, EngineStatus};
+use crate::engine::{DesignerResult, DeviceEntry, Engine, EngineState, EngineStatus};
 use crate::settings::AudioSettings;
 
 fn fail(e: anyhow::Error) -> String {
@@ -505,6 +505,53 @@ pub fn pattern_audition(
 #[tauri::command]
 pub fn latency_warning_set(engine: State<'_, EngineState>, ms: f32) -> EngineStatus {
     engine.lock().latency_warning_set(ms)
+}
+
+// ----- the designer -----
+
+/// Starts a new design at the end of a track's chain.
+#[tauri::command]
+pub fn designer_new(engine: State<'_, EngineState>, track: u64) -> Result<EngineStatus, String> {
+    engine.lock().designer_new(track).map_err(fail)
+}
+
+/// Replaces a designed pedal's definition and values; problems come
+/// back instead of a change when the definition has any.
+#[tauri::command]
+pub fn designer_update(
+    engine: State<'_, EngineState>,
+    id: u64,
+    definition: serde_json::Value,
+    values: Vec<f32>,
+) -> Result<DesignerResult, String> {
+    engine
+        .lock()
+        .designer_update(id, definition, values)
+        .map_err(fail)
+}
+
+/// The definition behind a designed pedal.
+#[tauri::command]
+pub fn pedal_definition(
+    engine: State<'_, EngineState>,
+    id: u64,
+) -> Result<serde_json::Value, String> {
+    engine.lock().pedal_definition(id).map_err(fail)
+}
+
+/// A stock pedal's definition, to start a design from.
+#[tauri::command]
+pub fn pedal_stock_definition(
+    engine: State<'_, EngineState>,
+    name: String,
+) -> Result<serde_json::Value, String> {
+    engine.lock().pedal_stock_definition(&name).map_err(fail)
+}
+
+/// Every problem with a definition; empty when it would compile.
+#[tauri::command]
+pub fn pedal_check(definition: serde_json::Value) -> Vec<cantina_dsp::Problem> {
+    Engine::pedal_check(definition)
 }
 
 // ----- editor windows -----

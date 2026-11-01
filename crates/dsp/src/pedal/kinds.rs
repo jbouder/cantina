@@ -3,10 +3,13 @@
 //! file against it, and the designer draws its node palette and side
 //! panel from it.
 
+use serde::Serialize;
+
 use crate::lfo::NOTE_NAMES;
 
 /// A node kind.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KindInfo {
     /// The `kind` a file uses.
     pub kind: &'static str,
@@ -22,7 +25,8 @@ pub struct KindInfo {
 }
 
 /// One field of a kind.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FieldInfo {
     pub name: &'static str,
     pub label: &'static str,
@@ -35,7 +39,8 @@ pub struct FieldInfo {
 }
 
 /// What a field takes.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum FieldKind {
     Number {
         min: f32,
@@ -488,6 +493,27 @@ impl KindInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The catalog as the UI reads it: `ui/src/lib/pedal-kinds.json`
+    /// is written from here so the designer's palette and side panel
+    /// come from the one source. Regenerate with
+    /// `UPDATE_KINDS=1 cargo test -p cantina-dsp kinds_json`.
+    #[test]
+    fn kinds_json_for_the_ui_is_current() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../ui/src/lib/pedal-kinds.json");
+        let mut text = serde_json::to_string_pretty(kinds()).unwrap();
+        text.push('\n');
+        if std::env::var_os("UPDATE_KINDS").is_some() {
+            std::fs::write(&path, &text).unwrap();
+            return;
+        }
+        let on_disk = std::fs::read_to_string(&path).unwrap_or_default();
+        assert_eq!(
+            on_disk, text,
+            "ui/src/lib/pedal-kinds.json is stale; run UPDATE_KINDS=1 cargo test -p cantina-dsp kinds_json"
+        );
+    }
 
     #[test]
     fn kinds_are_unique_and_fields_within_a_kind_are_too() {

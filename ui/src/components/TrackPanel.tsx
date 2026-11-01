@@ -38,6 +38,7 @@ type Props = {
   readouts: Map<number, number[]>;
   irs: IrInfo[];
   onBrowsePlugins: () => void;
+  onDesign: (pedal: number | null) => void;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
 };
@@ -63,6 +64,7 @@ export function TrackPanel({
   readouts,
   irs,
   onBrowsePlugins,
+  onDesign,
   onStatus,
   onError,
 }: Props) {
@@ -185,6 +187,7 @@ export function TrackPanel({
         readouts={readouts}
         irs={irs}
         onBrowsePlugins={onBrowsePlugins}
+        onDesign={onDesign}
         onStatus={onStatus}
         onError={onError}
       />

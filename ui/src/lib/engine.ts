@@ -1,6 +1,24 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import ampDef from "../../../pedals/amp.pedal.json";
+import chorusDef from "../../../pedals/chorus.pedal.json";
+import distortionDef from "../../../pedals/distortion.pedal.json";
+import eqDef from "../../../pedals/eq.pedal.json";
+import flangerDef from "../../../pedals/flanger.pedal.json";
+import fuzzDef from "../../../pedals/fuzz.pedal.json";
+import overdriveDef from "../../../pedals/overdrive.pedal.json";
+import phaserDef from "../../../pedals/phaser.pedal.json";
+import tremoloDef from "../../../pedals/tremolo.pedal.json";
 import { decodeFrame, encodeFrame } from "./frame";
+import {
+  disconnect,
+  empty,
+  type ParamDef,
+  type PedalDef,
+  type Problem,
+  paramRange,
+  validate,
+} from "./pedal";
 
 /** What the shell reports about the engine. Mirrors `EngineStatus` in src-tauri. */
 export interface EngineStatus {
@@ -39,6 +57,13 @@ export interface PedalKindInfo {
   stock: boolean;
   /** Defined in the pedal format, so the designer can open it as a starting point. */
   designable: boolean;
+}
+
+/** What the designer gets back from an update. Mirrors `DesignerResult` in src-tauri. */
+export interface DesignerResult {
+  status: EngineStatus;
+  /** What stopped the definition from being used; empty when it was. */
+  problems: Problem[];
 }
 
 /** An installed kit. Mirrors `KitInfo` in src-tauri. */
@@ -573,7 +598,51 @@ const MOCK_STOCK: Record<string, { name: string; params: ParamInfo[]; readouts: 
   gain: { name: "Gain", params: [p("Gain", "dB", -60, 24, 0)], readouts: [] },
 };
 
+/** The stock definitions, as the shell serves them. */
+const MOCK_DEFS: Record<string, PedalDef> = {
+  overdrive: overdriveDef as unknown as PedalDef,
+  distortion: distortionDef as unknown as PedalDef,
+  fuzz: fuzzDef as unknown as PedalDef,
+  eq: eqDef as unknown as PedalDef,
+  chorus: chorusDef as unknown as PedalDef,
+  flanger: flangerDef as unknown as PedalDef,
+  phaser: phaserDef as unknown as PedalDef,
+  tremolo: tremoloDef as unknown as PedalDef,
+  amp: ampDef as unknown as PedalDef,
+};
+
+/** Pedals designed in the stand-in, by the id in their `pedal:<id>` spec. */
+const mockDesigns = new Map<string, PedalDef>();
+
+/** A parameter as the shell describes a designed pedal's. */
+function paramFromDef(def: ParamDef, value?: number): ParamInfo {
+  const [min, max] = paramRange(def);
+  return {
+    name: def.label || def.id,
+    unit: def.choices?.length || def.toggle ? "" : (def.unit ?? ""),
+    min,
+    max,
+    default: def.default,
+    value: value ?? def.default,
+    toggle: def.toggle ?? false,
+    choices: [...(def.choices ?? [])],
+  };
+}
+
 function mockPedal(id: number, spec: string): PedalInfo {
+  if (spec.startsWith("pedal:")) {
+    const def = mockDesigns.get(spec.slice(6)) ?? empty("New pedal");
+    return {
+      id,
+      spec,
+      name: def.name,
+      params: def.params.map((p) => paramFromDef(p)),
+      hasEditor: false,
+      editorOpen: false,
+      latencyFrames: 0,
+      readouts: [],
+    };
+  }
   if (spec.startsWith("au:")) {
     // Apple's AUDelay, as the shell describes it.
     return {
@@ -611,12 +680,22 @@ function mockPedal(id: number, spec: string): PedalInfo {
 
 /**
  * The guitar track's chain: `?chain=tuner,gate,compressor` names stock
- * pedals in order; `?plugin` appends the stand-in plugin.
+ * pedals in order; `?plugin` appends the stand-in plugin;
+ * `?design=overdrive` (or `new`) appends a designed pedal started from
+ * that stock pedal, with `?broken` leaving its tone unwired so the
+ * designer shows problems.
  */
 function mockGuitarChain(): PedalInfo[] {
   const specs = mockParams?.get("chain")?.split(",").filter(Boolean) ?? ["gain", "overdrive"];
   const chain = specs.map((spec, i) => mockPedal(i === 0 ? 2 : i === 1 ? 3 : 30 + i, spec));
   if (mockParams?.has("plugin")) chain.push(mockPedal(9, "au:aufx:dely:appl"));
+  const design = mockParams?.get("design");
+  if (design) {
+    let def = structuredClone(MOCK_DEFS[design] ?? empty("New pedal"));
+    if (mockParams?.has("broken")) def = disconnect(def, "tone", "level");
+    mockDesigns.set("draft-19", def);
+    chain.push(mockPedal(19, "pedal:draft-19"));
+  }
   return chain;
 }
 
@@ -1553,6 +1632,61 @@ function mockPedalById(id: number): PedalInfo | undefined {
     if (p) return p;
   }
   return undefined;
+}
+
+// ----- the designer -----
+
+/** Starts a new design at the end of a track's chain. */
+export async function designerNew(track: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("designer_new", { track });
+  const key = `draft-${mockNextId}`;
+  mockDesigns.set(key, empty("New pedal"));
+  mockTrack(track).chain.push(mockPedal(mockNextId++, `pedal:${key}`));
+  return mockEdit("add pedal");
+}
+
+/**
+ * Replaces a designed pedal's definition and parameter values. A
+ * definition with problems changes nothing: the last valid pedal keeps
+ * playing and the problems come back to show.
+ */
+export async function designerUpdate(
+  id: number,
+  definition: PedalDef,
+  values: number[],
+): Promise<DesignerResult> {
+  if (inTauri) return invoke<DesignerResult>("designer_update", { id, definition, values });
+  const problems = validate(definition);
+  if (problems.length > 0) return { status: mockStatus(), problems };
+  const pedal = mockPedalById(id);
+  if (!pedal || !pedal.spec.startsWith("pedal:")) throw new Error(`pedal ${id} is not a design`);
+  mockDesigns.set(pedal.spec.slice(6), structuredClone(definition));
+  pedal.name = definition.name;
+  pedal.params = definition.params.map((p, i) => paramFromDef(p, values[i]));
+  return { status: mockEdit("change pedal knobs"), problems: [] };
+}
+
+/** The definition behind a designed pedal. */
+export async function pedalDefinition(id: number): Promise<PedalDef> {
+  if (inTauri) return invoke<PedalDef>("pedal_definition", { id });
+  const pedal = mockPedalById(id);
+  const def = pedal && mockDesigns.get(pedal.spec.slice(6));
+  if (!def) throw new Error(`pedal ${id} is not a design`);
+  return structuredClone(def);
+}
+
+/** A stock pedal's definition, to start a design from. */
+export async function pedalStockDefinition(name: string): Promise<PedalDef> {
+  if (inTauri) return invoke<PedalDef>("pedal_stock_definition", { name });
+  const def = MOCK_DEFS[name];
+  if (!def) throw new Error(`${name} is not a stock pedal in the pedal format`);
+  return structuredClone(def);
+}
+
+/** Every problem with a definition; empty when it would compile. */
+export async function pedalCheck(definition: PedalDef): Promise<Problem[]> {
+  if (inTauri) return invoke<Problem[]>("pedal_check", { definition });
+  return validate(definition);
 }
 
 /** Opens a plugin's native editor window, or brings it to the front. */

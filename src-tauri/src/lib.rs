@@ -88,6 +88,11 @@ pub fn run() {
             commands::pattern_clip_split,
             commands::editor_open,
             commands::editor_close,
+            commands::designer_new,
+            commands::designer_update,
+            commands::pedal_definition,
+            commands::pedal_stock_definition,
+            commands::pedal_check,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Cantina shell")

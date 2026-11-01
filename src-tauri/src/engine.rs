@@ -26,7 +26,10 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, bail, Context, Result};
-use cantina_dsp::{Cabinet, Handle, LoadedKit, ParamInfo, Processor, Readout, Unit, STOCK_NAMES};
+use cantina_dsp::{
+    Cabinet, Handle, LoadedKit, ParamInfo, PedalDef, PedalError, Problem, Processor, Readout, Unit,
+    STOCK_NAMES,
+};
 use cantina_engine::strip::{GAIN, MUTE, PAN};
 use cantina_engine::{
     device, ir, kit, plan, processors, wav, Controller, Delay, DeviceEvent, DeviceId, Endpoint,
@@ -85,6 +88,15 @@ pub struct EngineStatus {
     /// The pattern looping on a drum track for editing, if any. Not
     /// part of the project.
     pub audition: Option<AuditionStatus>,
+}
+
+/// What the designer gets back from an update: the status, and the
+/// problems that stopped the definition from being used, if any.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DesignerResult {
+    pub status: EngineStatus,
+    pub problems: Vec<Problem>,
 }
 
 /// A kind of pedal the picker offers. Mirrors `PedalKindInfo` in the UI.
@@ -561,6 +573,7 @@ struct SyncContext<'a> {
     catalog: &'a mut Catalog,
     kits: &'a mut Kits,
     irs: &'a mut Irs,
+    designs: &'a Designs,
     audition: Option<(TrackId, PatternId)>,
     audio_dir: &'a Path,
     states: &'a PluginStates,
@@ -645,6 +658,7 @@ impl Live {
             catalog,
             kits,
             irs,
+            designs,
             audition,
             audio_dir,
             states,
@@ -705,7 +719,7 @@ impl Live {
                 let live_pedal = match live.pedals.iter().position(|p| p.id == pedal.id) {
                     Some(i) => live.pedals.remove(i),
                     None => {
-                        let mut processor = build_processor(irs, &pedal.spec, CHANNELS)?;
+                        let mut processor = build_processor(irs, designs, &pedal.spec, CHANNELS)?;
                         catalog.learn(&pedal.spec, processor.as_ref());
                         if let Some((spec, state)) = states.get(&pedal.id) {
                             if *spec == pedal.spec {
@@ -1089,14 +1103,30 @@ impl Kits {
     }
 }
 
+/// User-designed pedals by id: what a `pedal:<id>` spec compiles. The
+/// designer puts drafts here; saving and loading them is the next step.
+type Designs = HashMap<String, PedalDef>;
+
 /// Builds a processor for a spec: a cabinet with its impulse response
-/// loaded (`cab:<id>`), or whatever the engine's `processors` make.
-fn build_processor(irs: &mut Irs, spec: &str, channels: usize) -> Result<Box<dyn Processor>> {
+/// loaded (`cab:<id>`), a designed pedal compiled from its definition
+/// (`pedal:<id>`), or whatever the engine's `processors` make.
+fn build_processor(
+    irs: &mut Irs,
+    designs: &Designs,
+    spec: &str,
+    channels: usize,
+) -> Result<Box<dyn Processor>> {
     if let Some(id) = spec.strip_prefix("cab:") {
         let impulse = irs.load(id)?;
         let mut cab = Cabinet::default();
         cab.set_impulse(&impulse.samples, impulse.sample_rate);
         return Ok(Box::new(cab));
+    }
+    if let Some(id) = spec.strip_prefix("pedal:") {
+        let def = designs
+            .get(id)
+            .with_context(|| format!("no pedal design {id:?}"))?;
+        return Ok(Box::new(cantina_dsp::compile(def)?));
     }
     processors::create(spec, channels)
 }
@@ -1184,12 +1214,17 @@ impl Catalog {
     }
 
     /// What `spec` builds, building one to find out the first time.
-    fn get(&mut self, spec: &str, irs: &mut Irs) -> Result<&PedalKind> {
+    fn get(&mut self, spec: &str, irs: &mut Irs, designs: &Designs) -> Result<&PedalKind> {
         if !self.0.contains_key(spec) {
-            let processor = build_processor(irs, spec, 1)?;
+            let processor = build_processor(irs, designs, spec, 1)?;
             self.learn(spec, processor.as_ref());
         }
         Ok(&self.0[spec])
+    }
+
+    /// Drops what was learned about `spec`, for a design that changed.
+    fn forget(&mut self, spec: &str) {
+        self.0.remove(spec);
     }
 
     fn describe(&self, pedal: &Pedal) -> PedalInfo {
@@ -1251,6 +1286,9 @@ pub struct Engine {
     catalog: Catalog,
     kits: Kits,
     irs: Irs,
+    /// Pedals designed this session, by the id in their `pedal:<id>`
+    /// spec.
+    designs: Designs,
     /// The pattern looping on a drum track for editing. Session state,
     /// not part of the project.
     audition: Option<(TrackId, PatternId)>,
@@ -1339,6 +1377,7 @@ impl Engine {
             editors: MainThreadCell(HashMap::new()),
             open_editors: HashSet::new(),
             catalog: Catalog::default(),
+            designs: HashMap::new(),
             kits,
             irs,
             audition: None,
@@ -1870,6 +1909,7 @@ impl Engine {
                 catalog: &mut self.catalog,
                 kits: &mut self.kits,
                 irs: &mut self.irs,
+                designs: &self.designs,
                 audition: self.audition,
                 audio_dir: &audio_dir,
                 states: &self.plugin_states,
@@ -2751,7 +2791,7 @@ impl Engine {
             ("cab", Some(first)) => format!("cab:{first}"),
             _ => spec.to_string(),
         };
-        let kind = self.catalog.get(&spec, &mut self.irs)?;
+        let kind = self.catalog.get(&spec, &mut self.irs, &self.designs)?;
         let pedal = Pedal {
             id: PedalId(self.project.fresh_id()),
             spec: spec.clone(),
@@ -2785,7 +2825,7 @@ impl Engine {
             .pedal(id)
             .with_context(|| format!("no pedal {id}"))?;
         let spec = pedal.spec.clone();
-        let kind = self.catalog.get(&spec, &mut self.irs)?;
+        let kind = self.catalog.get(&spec, &mut self.irs, &self.designs)?;
         let info = kind
             .params
             .get(param)
@@ -2796,6 +2836,126 @@ impl Engine {
             param,
             value,
         })
+    }
+
+    // ----- the designer -----
+
+    /// Starts a new design: an empty pedal (input wired to output) at
+    /// the end of a track's chain, which the designer then edits with
+    /// the signal running through it.
+    pub fn designer_new(&mut self, track: u64) -> Result<EngineStatus> {
+        let key = format!("draft-{}", self.project.fresh_id());
+        self.designs
+            .insert(key.clone(), PedalDef::empty("New pedal"));
+        self.chain_add(track, &format!("pedal:{key}"), None)
+    }
+
+    /// The definition behind a designed pedal in a chain.
+    pub fn pedal_definition(&self, id: u64) -> Result<serde_json::Value> {
+        let (_, pedal) = self
+            .project
+            .pedal(PedalId(id))
+            .with_context(|| format!("no pedal {id}"))?;
+        let key = pedal
+            .spec
+            .strip_prefix("pedal:")
+            .with_context(|| format!("{} is not a designed pedal", pedal.spec))?;
+        let def = self
+            .designs
+            .get(key)
+            .with_context(|| format!("no pedal design {key:?}"))?;
+        Ok(serde_json::to_value(def)?)
+    }
+
+    /// A stock pedal's definition, for the designer to start from.
+    pub fn pedal_stock_definition(&self, name: &str) -> Result<serde_json::Value> {
+        let def = cantina_dsp::stock_definition(name)
+            .with_context(|| format!("{name} is not a stock pedal in the pedal format"))?;
+        Ok(serde_json::to_value(def)?)
+    }
+
+    /// Every problem with a definition, with the node and field named;
+    /// empty when it would compile.
+    pub fn pedal_check(definition: serde_json::Value) -> Vec<Problem> {
+        match serde_json::from_value::<PedalDef>(definition) {
+            Ok(def) => def
+                .validate()
+                .err()
+                .map(|e| e.problems())
+                .unwrap_or_default(),
+            Err(e) => PedalError::Json(e.to_string()).problems(),
+        }
+    }
+
+    /// Replaces a designed pedal's definition and parameter values and
+    /// rebuilds its node, so the change is heard on the next block. A
+    /// definition with problems changes nothing: the last valid pedal
+    /// keeps playing and the problems come back for the designer to
+    /// show.
+    pub fn designer_update(
+        &mut self,
+        id: u64,
+        definition: serde_json::Value,
+        values: Vec<f32>,
+    ) -> Result<DesignerResult> {
+        let id = PedalId(id);
+        let (_, pedal) = self
+            .project
+            .pedal(id)
+            .with_context(|| format!("no pedal {id}"))?;
+        let spec = pedal.spec.clone();
+        let current = pedal.values.clone();
+        let key = spec
+            .strip_prefix("pedal:")
+            .with_context(|| format!("{spec} is not a designed pedal"))?
+            .to_string();
+        let problems = |engine: &Self, problems: Vec<Problem>| DesignerResult {
+            status: engine.status(),
+            problems,
+        };
+        let def: PedalDef = match serde_json::from_value(definition) {
+            Ok(def) => def,
+            Err(e) => {
+                return Ok(problems(self, PedalError::Json(e.to_string()).problems()));
+            }
+        };
+        let compiled = match cantina_dsp::compile(&def) {
+            Ok(compiled) => compiled,
+            Err(e) => return Ok(problems(self, e.problems())),
+        };
+        let mut values = values;
+        values.resize(compiled.params().len(), 0.0);
+        for (value, info) in values.iter_mut().zip(compiled.params()) {
+            if !value.is_finite() {
+                *value = info.default;
+            }
+            *value = info.clamp(*value);
+        }
+        self.designs.insert(key, def);
+        self.catalog.forget(&spec);
+        self.catalog.get(&spec, &mut self.irs, &self.designs)?;
+        if values != current {
+            self.apply_quietly(Command::SetPedalValues { id, values })?;
+        }
+        self.rebuild_pedal(id)?;
+        Ok(DesignerResult {
+            status: self.publish(),
+            problems: Vec::new(),
+        })
+    }
+
+    /// Drops a pedal's live node so the next sync builds it again from
+    /// its spec and values.
+    fn rebuild_pedal(&mut self, id: PedalId) -> Result<()> {
+        if let Some(live) = &mut self.live {
+            for track in &mut live.tracks {
+                if let Some(i) = track.pedals.iter().position(|p| p.id == id) {
+                    let pedal = track.pedals.remove(i);
+                    live.controller.graph_mut().remove(pedal.node)?;
+                }
+            }
+        }
+        self.sync()
     }
 
     pub fn audio_settings(&self) -> AudioSettings {
