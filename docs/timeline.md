@@ -47,6 +47,18 @@ through the same code: they are converted from ticks to samples for the
 lane and back for the `pattern_clip_*` commands (see
 [drums.md](drums.md)), and a clip only lands on a track of its own kind.
 
+## Track headers
+
+The column beside the lanes is the mixer: each track's header has its
+name (click to select it for the editor below), the arm light or the
+kit mark, mute and solo, a gain fader with its readout, a pan fader, and
+a thin post-fader meter (`ui/src/components/TrackHeader.tsx`). The master
+strip is pinned under the tracks with gain, mute and the output meter.
+Double-click a fader to reset it. Gain and pan send at most one value per
+control per animation frame while dragging, and are not echoed back in
+the status, so the header keeps the value it last sent until a status
+push carries a different one.
+
 ## The grid
 
 The grid comes from the project's tempo: samples per beat is

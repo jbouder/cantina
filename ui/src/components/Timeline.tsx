@@ -17,17 +17,19 @@ import {
   clipSplit,
   clipTrim,
   type EngineStatus,
+  type Level,
   type PatternInfo,
   patternClipAdd,
   patternClipMove,
   patternClipRemove,
   patternClipSplit,
   patternClipTrim,
+  SILENT,
+  type Strip,
   type Tempo,
   type TrackStatus,
   trackAdd,
   trackAddDrums,
-  trackArm,
   transportLocate,
 } from "../lib/engine";
 import { loadPeaks, peaksFor, usePeaksVersion } from "../lib/peakStore";
@@ -56,7 +58,7 @@ import {
   zoomAround,
 } from "../lib/timeline";
 import { Button } from "./Button";
-import { Led } from "./Led";
+import { MasterHeader, TrackHeader } from "./TrackHeader";
 
 /** The drag type a pattern chip carries from the drum grid. */
 export const PATTERN_DRAG = "application/x-cantina-pattern";
@@ -88,6 +90,10 @@ type Props = {
   selectedTrack: number | null;
   /** Whether a drum track can be added: at least one kit is installed. */
   hasKits: boolean;
+  /** Post-fader levels per track, in track order, and the master. */
+  levels: Level[];
+  master: Strip;
+  masterLevel: Level;
   /** The transport strip, drawn above the lanes with the view's controls. */
   strip: (controls: TimelineControls) => ReactNode;
   onSelectTrack: (id: number) => void;
@@ -129,7 +135,7 @@ function readTokens(el: HTMLElement): Tokens {
   return out;
 }
 
-const LABEL_WIDTH = 160;
+const LABEL_WIDTH = 288;
 
 /**
  * Tracks and clips on a canvas. Drag a clip to move it (across tracks
@@ -149,6 +155,9 @@ export function Timeline({
   running,
   selectedTrack,
   hasKits,
+  levels,
+  master,
+  masterLevel,
   strip,
   onSelectTrack,
   onStatus,
@@ -171,6 +180,7 @@ export function Timeline({
 
   const grid = useMemo(() => gridFor(tempo, sampleRate, view.spp), [tempo, sampleRate, view.spp]);
   const height = RULER_HEIGHT + Math.max(1, tracks.length) * TRACK_HEIGHT;
+  const anySolo = tracks.some((t) => t.strip.solo);
   const playhead = position * sampleRate;
   // What each lane holds: audio clips in samples, or a drum track's
   // pattern clips converted from ticks so the same hit testing and drag
@@ -615,53 +625,28 @@ export function Timeline({
         style={{ gridTemplateColumns: `${LABEL_WIDTH}px 1fr` }}
       >
         <div className="grid content-start" style={{ paddingTop: RULER_HEIGHT }}>
-          {tracks.map((t) => (
-            <div
+          {tracks.map((t, i) => (
+            <TrackHeader
               key={t.id}
-              style={{ height: TRACK_HEIGHT }}
-              className={`flex items-center gap-1 border-tl-grid border-b px-1 ${t.id === selectedTrack ? "bg-tl-lane" : ""}`}
-            >
-              <button
-                type="button"
-                aria-pressed={t.id === selectedTrack}
-                onClick={() => onSelectTrack(t.id)}
-                className="min-h-11 min-w-0 flex-1 truncate border-0 bg-transparent px-1 text-left font-bold text-[11px] text-lcd-fg uppercase tracking-[0.08em]"
-              >
-                {t.name}
-              </button>
-              {t.kit ? (
-                <span
-                  role="img"
-                  aria-label="Drum track"
-                  title={t.kit.name}
-                  className="grid size-11 shrink-0 place-items-center text-lcd-fg"
-                >
-                  <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
-                    <path d="M8 2c3.3 0 6 1.1 6 2.5v6C14 12.9 11.3 14 8 14s-6-1.1-6-3.5v-6C2 3.1 4.7 2 8 2zm0 1.5c-2.8 0-4.5.8-4.5 1s1.7 1 4.5 1 4.5-.8 4.5-1-1.7-1-4.5-1z" />
-                  </svg>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  aria-pressed={t.armed}
-                  aria-label={`Arm ${t.name}`}
-                  onClick={() => run(trackArm(t.id, !t.armed))}
-                  className="grid size-11 shrink-0 place-items-center border-0 bg-transparent"
-                >
-                  <Led on={t.recording || t.armed} tone="record" label="Armed" />
-                </button>
-              )}
-            </div>
+              track={t}
+              selected={t.id === selectedTrack}
+              silenced={t.strip.mute || (anySolo && !t.strip.solo)}
+              level={levels[i] ?? SILENT}
+              onSelect={() => onSelectTrack(t.id)}
+              onStatus={onStatus}
+              onError={onError}
+            />
           ))}
-          <div className="grid gap-1 p-1">
-            <Button onClick={() => run(trackAdd())} className="w-full">
+          <MasterHeader master={master} level={masterLevel} onStatus={onStatus} onError={onError} />
+          <div className="grid grid-cols-2 gap-1 p-1">
+            <Button onClick={() => run(trackAdd())} className="min-w-0 px-1">
               Add track
             </Button>
             <Button
               onClick={() => run(trackAddDrums())}
               disabled={!hasKits}
               title={hasKits ? "A track that plays drum patterns" : "No drum kits are installed"}
-              className="w-full"
+              className="min-w-0 px-1"
             >
               Add drums
             </Button>

@@ -3,7 +3,6 @@ import { Button } from "./components/Button";
 import { Designer } from "./components/Designer";
 import { EngineControl } from "./components/EngineControl";
 import { Lcd } from "./components/Lcd";
-import { Mixer } from "./components/Mixer";
 import { Notice } from "./components/Notice";
 import { PluginBrowser } from "./components/PluginBrowser";
 import { ProjectBar } from "./components/ProjectBar";
@@ -267,6 +266,9 @@ export function App() {
               running={running}
               selectedTrack={selected?.id ?? null}
               hasKits={status.kits.length > 0}
+              levels={frame.tracks}
+              master={status.project.master}
+              masterLevel={frame.output}
               strip={(controls) => (
                 <Transport
                   transport={transport}
@@ -281,14 +283,6 @@ export function App() {
                 />
               )}
               onSelectTrack={setSelectedTrack}
-              onStatus={setStatus}
-              onError={setError}
-            />
-            <Mixer
-              tracks={status.project.tracks}
-              master={status.project.master}
-              levels={frame.tracks}
-              masterLevel={frame.output}
               onStatus={setStatus}
               onError={setError}
             />
