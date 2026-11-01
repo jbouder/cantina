@@ -198,7 +198,7 @@
 @utility fader {
   appearance: none;
   width: 100%;
-  height: 44px;
+  height: 28px;
   margin: 0;
   background: transparent;
   cursor: pointer;
@@ -210,9 +210,9 @@
   }
   &::-webkit-slider-thumb {
     appearance: none;
-    width: 18px;
-    height: 28px;
-    margin-top: -11px;
+    width: 14px;
+    height: 22px;
+    margin-top: -8px;
     border-radius: var(--button-radius);
     background: var(--button-bg);
     box-shadow: var(--button-shadow);

@@ -312,7 +312,7 @@ export function DrumGrid({
                   id={`${id}-name`}
                   // biome-ignore lint/a11y/noAutofocus: the field appears on request, under the pointer
                   autoFocus
-                  className="surface-lcd min-h-11 w-40 px-2 font-lcd text-lg"
+                  className="surface-lcd min-h-8 w-40 px-2 font-lcd text-base"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   onBlur={rename}
@@ -392,7 +392,7 @@ export function DrumGrid({
                   run(patternSetLength(pattern.id, v));
                 }
               }}
-              className="surface-lcd min-h-11 w-20 px-2 text-center font-lcd text-lg tabular-nums"
+              className="surface-lcd min-h-8 w-20 px-2 text-center font-lcd text-base tabular-nums"
             />
             <span className="text-ink-dim">{lengthLabel(pattern, tempo)}</span>
           </span>

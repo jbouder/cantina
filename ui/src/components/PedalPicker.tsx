@@ -169,7 +169,7 @@ export function PedalPicker({
         autoComplete="off"
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
-        className="surface-lcd min-h-11 w-full px-3 font-lcd text-lg placeholder:text-lcd-dim"
+        className="surface-lcd min-h-8 w-full px-3 font-lcd text-base placeholder:text-lcd-dim"
       />
       {error ? (
         <Lcd role="alert" error className="text-base">
@@ -207,7 +207,7 @@ export function PedalPicker({
             <Button
               disabled={plugins.scanning}
               onClick={() => run(pluginRescan(false))}
-              className="min-h-9 px-2"
+              className="min-h-7 px-2"
             >
               Rescan
             </Button>
@@ -215,7 +215,7 @@ export function PedalPicker({
               disabled={plugins.scanning}
               onClick={() => run(pluginRescan(true))}
               title="Examine every plugin again, not just new and changed ones"
-              className="min-h-9 px-2"
+              className="min-h-7 px-2"
             >
               Full rescan
             </Button>

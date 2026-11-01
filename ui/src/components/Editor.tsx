@@ -122,9 +122,9 @@ export function Editor({
   return (
     <section
       aria-labelledby={headingId}
-      className="surface-panel grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]"
+      className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]"
     >
-      <header className="flex flex-wrap items-center gap-2 px-3 pt-2">
+      <header className="flex flex-wrap items-center gap-2 pb-2">
         {editing ? (
           <form onSubmit={rename} className="flex min-w-48 flex-1 items-center gap-2">
             <label htmlFor={`${headingId}-input`} className="sr-only">
@@ -134,7 +134,7 @@ export function Editor({
               id={`${headingId}-input`}
               // biome-ignore lint/a11y/noAutofocus: the field appears on request, under the pointer
               autoFocus
-              className="surface-lcd min-h-11 min-w-0 flex-1 px-2 font-lcd text-lg"
+              className="surface-lcd min-h-8 min-w-0 flex-1 px-2 font-lcd text-base"
               value={name}
               onChange={(e) => setName(e.target.value)}
               onBlur={rename}
@@ -149,7 +149,7 @@ export function Editor({
         ) : (
           <h3
             id={headingId}
-            className="m-0 flex min-w-0 flex-1 items-center gap-2 truncate font-bold text-[11px] uppercase tracking-[0.1em]"
+            className="m-0 flex min-w-0 flex-1 items-center gap-2 truncate font-bold text-sm uppercase tracking-[0.1em]"
           >
             {track.kit ? (
               <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 shrink-0 fill-current">
@@ -160,7 +160,7 @@ export function Editor({
               type="button"
               onClick={() => setEditing(true)}
               title="Rename"
-              className="min-h-11 truncate border-0 bg-transparent p-0 text-left font-bold text-[11px] text-inherit uppercase tracking-[0.1em]"
+              className="min-h-8 truncate border-0 bg-transparent p-0 text-left font-bold text-inherit text-sm uppercase tracking-[0.1em]"
             >
               {track.name}
             </button>
@@ -219,7 +219,7 @@ export function Editor({
         role="tabpanel"
         id={`panel-${tab}`}
         aria-labelledby={`tab-${tab}`}
-        className="min-h-0 overflow-auto p-3"
+        className="min-h-0 overflow-auto"
       >
         {tab === "beats" && track.kit ? (
           <DrumGrid

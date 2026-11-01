@@ -72,7 +72,7 @@ export function Projects({ current, dirty, onClose, onStatus }: Props) {
                 type="button"
                 aria-current={n === current ? "true" : undefined}
                 onClick={() => open(n)}
-                className={`flex min-h-11 w-full items-center border-0 bg-transparent px-2 text-left font-lcd text-lg text-lcd-fg ${n === current ? "bg-select" : ""}`}
+                className={`flex min-h-9 w-full items-center border-0 bg-transparent px-2 text-left font-lcd text-lg text-lcd-fg ${n === current ? "bg-select" : ""}`}
               >
                 <span className="lcd-text flex-1 truncate">{n}</span>
                 {confirm === n ? (
