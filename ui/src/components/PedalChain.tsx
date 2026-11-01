@@ -1,11 +1,9 @@
 import { type DragEvent, useCallback, useEffect, useId, useRef, useState } from "react";
 import {
-  chainAdd,
   chainMove,
   chainRemove,
   chainSetParam,
   chainSetSpec,
-  chooseImportPaths,
   type EngineStatus,
   editorClose,
   editorOpen,
@@ -14,17 +12,13 @@ import {
   ms,
   type PedalInfo,
   type PedalKindInfo,
-  pedalImport,
 } from "../lib/engine";
 import { Button } from "./Button";
 import { Fader } from "./Fader";
 import { Led } from "./Led";
 import { PedalReadout } from "./PedalReadout";
-import { Select } from "./Select";
 
 type Props = {
-  /** The track whose chain this is. */
-  track: number;
   chain: PedalInfo[];
   sampleRate: number;
   /** The stock pedals the picker offers. */
@@ -33,10 +27,10 @@ type Props = {
   readouts: Map<number, number[]>;
   /** The cabinet impulse responses installed. */
   irs: IrInfo[];
-  /** Opens the plugin browser for this track. */
-  onBrowsePlugins: () => void;
-  /** Opens the designer on a designed pedal, or starts a new design. */
-  onDesign: (pedal: number | null) => void;
+  /** Opens the picker, which adds at the end of this chain. */
+  onAdd: () => void;
+  /** Opens the designer on a designed pedal. */
+  onDesign: (pedal: number) => void;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
 };
@@ -61,36 +55,22 @@ function Badge({ children, title }: { children: string; title: string }) {
 
 /**
  * The pedals in order, each with its knobs. Reorder by dragging a card
- * or with the arrow keys on its grip; add a stock pedal from the picker
- * at the end, or a third-party plugin from the browser.
+ * or with the arrow keys on its grip; the free slot at the end opens the
+ * picker.
  */
 export function PedalChain({
-  track,
   chain,
   sampleRate,
   kinds,
   readouts,
   irs,
-  onBrowsePlugins,
+  onAdd,
   onDesign,
   onStatus,
   onError,
 }: Props) {
   const [dragging, setDragging] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
-  const [kind, setKind] = useState(kinds[0]?.spec ?? "gain");
-  const stock = kinds.filter((k) => k.stock);
-  const library = kinds.filter((k) => !k.stock);
-  const chosen = kinds.find((k) => k.spec === kind);
-
-  const importFiles = () => {
-    chooseImportPaths().then(
-      (paths) => {
-        for (const path of paths) run(pedalImport(path, track));
-      },
-      (e) => onError(String(e)),
-    );
-  };
 
   const run = useCallback(
     (action: Promise<EngineStatus>) => {
@@ -149,65 +129,21 @@ export function PedalChain({
             No pedals: the signal goes straight through.
           </li>
         ) : null}
+        <li className="flex">
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            onClick={onAdd}
+            title="Add a stock pedal, one of yours, a plugin, a new design or a file"
+            className="grid min-h-40 w-48 shrink-0 cursor-pointer content-start justify-items-center gap-1 rounded-control border-2 border-frame-hi border-dashed bg-transparent p-3 pt-10 text-ink-dim hover:border-ink hover:text-ink"
+          >
+            <span aria-hidden="true" className="font-lcd text-5xl leading-none">
+              +
+            </span>
+            <span className="font-bold text-[11px] uppercase tracking-[0.1em]">Add a pedal</span>
+          </button>
+        </li>
       </ol>
-      <div className="flex items-end gap-2">
-        <Select
-          id={`pedal-kind-${track}`}
-          label="Add a pedal"
-          value={kind}
-          onChange={(e) => setKind(e.target.value)}
-        >
-          <optgroup label="Stock">
-            {stock.map((k) => (
-              <option key={k.spec} value={k.spec}>
-                {k.name}
-              </option>
-            ))}
-          </optgroup>
-          {library.length > 0 ? (
-            <optgroup label="Your pedals">
-              {library.map((k) => (
-                <option key={k.spec} value={k.spec}>
-                  {k.name}
-                </option>
-              ))}
-            </optgroup>
-          ) : null}
-        </Select>
-        {chosen ? (
-          <span className="flex min-h-11 items-center">
-            <Badge
-              title={
-                !chosen.stock
-                  ? "From your library, in the pedal format"
-                  : chosen.designable
-                    ? "Ships with Cantina, written in the pedal format: the designer can open it"
-                    : "Ships with Cantina, built in"
-              }
-            >
-              {!chosen.stock ? "yours" : chosen.designable ? "stock · json" : "stock"}
-            </Badge>
-          </span>
-        ) : null}
-        <Button onClick={() => run(chainAdd(track, kind))}>Add</Button>
-        <Button aria-haspopup="dialog" onClick={onBrowsePlugins}>
-          Plugins…
-        </Button>
-        <Button
-          aria-haspopup="dialog"
-          onClick={() => onDesign(null)}
-          title="Start a new pedal at the end of the chain and open the designer on it"
-        >
-          Design…
-        </Button>
-        <Button
-          aria-haspopup="dialog"
-          onClick={importFiles}
-          title="Copy a .pedal.json file into your library and add it to this chain; dropping one on the window does the same"
-        >
-          Import…
-        </Button>
-      </div>
     </div>
   );
 }

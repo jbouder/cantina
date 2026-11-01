@@ -44,8 +44,9 @@ type Props = {
   irs: IrInfo[];
   /** The tab to open on; the track's kind picks one when unset. */
   initialTab?: EditorTab | undefined;
-  onBrowsePlugins: () => void;
-  onDesign: (pedal: number | null) => void;
+  /** Opens the picker, which adds at the end of the chain. */
+  onAdd: () => void;
+  onDesign: (pedal: number) => void;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
 };
@@ -72,7 +73,7 @@ export function Editor({
   readouts,
   irs,
   initialTab,
-  onBrowsePlugins,
+  onAdd,
   onDesign,
   onStatus,
   onError,
@@ -234,13 +235,12 @@ export function Editor({
           />
         ) : tab === "pedalboard" ? (
           <PedalChain
-            track={track.id}
             chain={track.chain}
             sampleRate={sampleRate}
             kinds={kinds}
             readouts={readouts}
             irs={irs}
-            onBrowsePlugins={onBrowsePlugins}
+            onAdd={onAdd}
             onDesign={onDesign}
             onStatus={onStatus}
             onError={onError}
