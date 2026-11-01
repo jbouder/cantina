@@ -79,9 +79,8 @@ defaults, so set only what differs):
 
 ### What every skin must keep
 
-- **Sizes are the component's.** Transport keys are 44 px (`size="lg"`
-  on `Button`), every other key and display 32 px; a skin changes their
-  material, never their size. Round keys are fine at either.
+- **Sizes are the component's.** Every key and display is 32 px; a skin
+  changes their material, never their size. Round keys are fine.
 - **Visible focus.** `:focus-visible` draws `2px solid var(--focus)` with an
   offset. Pick a `--focus` that contrasts with both the frame and the
   buttons; on light frames (Brushed metal, Toxic) that means a dark or
