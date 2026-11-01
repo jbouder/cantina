@@ -18,6 +18,31 @@ import { Meter } from "./Meter";
 const key = (on: boolean) =>
   `${on ? "surface-button" : "surface-pbutton"} grid size-7 shrink-0 place-items-center border-0 p-0 font-bold text-[11px] uppercase leading-none`;
 
+/** A speaker with a cross: the mute key's glyph. */
+function MuteGlyph() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
+      <path d="M1.5 5.5h3L9 2v12L4.5 10.5h-3z" />
+      <path
+        d="M10.75 5.75l4 4m0-4l-4 4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** Headphones: the solo key's glyph. */
+function SoloGlyph() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
+      <path d="M8 2a6 6 0 0 0-6 6v4.5A1.5 1.5 0 0 0 3.5 14H5V8.5H3.5V8a4.5 4.5 0 0 1 9 0v.5H11V14h1.5a1.5 1.5 0 0 0 1.5-1.5V8a6 6 0 0 0-6-6z" />
+    </svg>
+  );
+}
+
 type Props = {
   track: TrackStatus;
   selected: boolean;
@@ -85,22 +110,26 @@ export function TrackHeader({
         <button
           type="button"
           aria-pressed={track.strip.mute}
-          aria-label={`Mute ${track.name}`}
-          title="Mute"
+          aria-label={`${track.strip.mute ? "Unmute" : "Mute"} ${track.name}`}
+          title={`${track.strip.mute ? "Unmute" : "Mute"} ${track.name}`}
           onClick={() => run(stripMute(track.id, !track.strip.mute))}
           className={key(track.strip.mute)}
         >
-          M
+          <MuteGlyph />
         </button>
         <button
           type="button"
           aria-pressed={track.strip.solo}
-          aria-label={`Solo ${track.name}`}
-          title="Solo"
+          aria-label={`${track.strip.solo ? "Unsolo" : "Solo"} ${track.name}`}
+          title={
+            track.strip.solo
+              ? `Unsolo ${track.name}`
+              : `Solo ${track.name}: hear only the soloed tracks`
+          }
           onClick={() => run(stripSolo(track.id, !track.strip.solo))}
           className={key(track.strip.solo)}
         >
-          S
+          <SoloGlyph />
         </button>
       </div>
       <StripControls
@@ -137,12 +166,12 @@ export function MasterHeader({ master, level, onStatus, onError }: MasterProps) 
         <button
           type="button"
           aria-pressed={master.mute}
-          aria-label="Mute master"
-          title="Mute"
+          aria-label={master.mute ? "Unmute master" : "Mute master"}
+          title={master.mute ? "Unmute master" : "Mute master"}
           onClick={() => run(stripMute(null, !master.mute))}
           className={key(master.mute)}
         >
-          M
+          <MuteGlyph />
         </button>
       </div>
       <StripControls
