@@ -4,6 +4,8 @@ use std::any::Any;
 use std::borrow::Cow;
 use std::fmt;
 
+use crate::readout::Readout;
+
 /// Most channels a stock processor allocates state for. Plugins may have
 /// more; the hosting crate handles that.
 pub const MAX_CHANNELS: usize = 2;
@@ -18,7 +20,13 @@ pub enum Unit {
     Decibels,
     Hertz,
     Seconds,
+    Milliseconds,
     Percent,
+    /// Off or on: 0 or 1, shown as a switch.
+    Toggle,
+    /// One of a fixed list, by index: 0 is the first name. The range is
+    /// 0 to one less than the number of names.
+    Choice(&'static [&'static str]),
 }
 
 /// Describes one parameter. Values are plain `f32` in the stated range;
@@ -45,8 +53,37 @@ impl ParamInfo {
         }
     }
 
+    /// A switch, off by default unless `on`.
+    pub const fn toggle(name: &'static str, on: bool) -> Self {
+        Self::new(name, Unit::Toggle, 0.0, 1.0, if on { 1.0 } else { 0.0 })
+    }
+
+    /// A pick from `names`, starting at index `default`.
+    pub const fn choice(
+        name: &'static str,
+        names: &'static [&'static str],
+        default: usize,
+    ) -> Self {
+        Self::new(
+            name,
+            Unit::Choice(names),
+            0.0,
+            (names.len() - 1) as f32,
+            default as f32,
+        )
+    }
+
     pub fn clamp(&self, value: f32) -> f32 {
-        value.clamp(self.min, self.max)
+        let clamped = value.clamp(self.min, self.max);
+        match self.unit {
+            Unit::Toggle | Unit::Choice(_) => clamped.round(),
+            _ => clamped,
+        }
+    }
+
+    /// The index a choice or toggle value stands for.
+    pub fn index(&self, value: f32) -> usize {
+        self.clamp(value) as usize
     }
 }
 
@@ -206,6 +243,15 @@ pub trait Processor: Send {
     fn handle(&mut self) -> Option<Box<dyn Handle>> {
         None
     }
+
+    /// Values this processor measures for its display, if it has any:
+    /// a tuner's pitch, a compressor's gain reduction. The processor
+    /// writes them from `process`; the returned clone shares the cells,
+    /// so it can be read at display rate from any thread. Most pedals
+    /// have none.
+    fn readout(&self) -> Option<Readout> {
+        None
+    }
 }
 
 /// The UI-thread side of a plugin whose audio side is in a running
@@ -339,6 +385,21 @@ mod tests {
             b.set_state(&blob[1..]),
             Err(StateError::WrongLength { .. })
         ));
+    }
+
+    #[test]
+    fn choices_and_toggles_round_to_an_index() {
+        let shape = ParamInfo::choice("Shape", &["Sine", "Triangle", "Square"], 1);
+        assert_eq!(shape.min, 0.0);
+        assert_eq!(shape.max, 2.0);
+        assert_eq!(shape.default, 1.0);
+        assert_eq!(shape.clamp(1.4), 1.0);
+        assert_eq!(shape.clamp(1.6), 2.0);
+        assert_eq!(shape.index(9.0), 2);
+        let sync = ParamInfo::toggle("Sync", true);
+        assert_eq!(sync.default, 1.0);
+        assert_eq!(sync.index(0.49), 0);
+        assert_eq!(sync.index(0.5), 1);
     }
 
     #[test]

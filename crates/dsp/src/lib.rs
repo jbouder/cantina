@@ -19,24 +19,35 @@
 //! lives in the engine crate, next to the tempo map.
 
 mod biquad;
+mod compressor;
+mod envelope;
 mod gain;
+mod gate;
 pub mod kit;
 mod overdrive;
+pub mod pitch;
 mod processor;
+mod readout;
 mod render;
 mod sampler;
 mod smooth;
+mod tuner;
 
 pub use biquad::Biquad;
+pub use compressor::Compressor;
+pub use envelope::Envelope;
 pub use gain::Gain;
+pub use gate::NoiseGate;
 pub use kit::{Kit, KitError, LoadedKit, Sample, KIT_VERSION};
 pub use overdrive::Overdrive;
 pub use processor::{
     Buffer, Chain, Handle, ParamId, ParamInfo, Processor, StateError, Unit, MAX_CHANNELS,
 };
+pub use readout::Readout;
 pub use render::Renderer;
 pub use sampler::{Sampler, Trigger, MAX_TRIGGERS, MAX_VOICES};
 pub use smooth::Smoother;
+pub use tuner::Tuner;
 
 /// Converts decibels to a linear amplitude multiplier.
 #[inline]
@@ -52,11 +63,14 @@ pub fn linear_to_db(linear: f32) -> f32 {
 }
 
 /// Names of the stock processors [`stock`] can build.
-pub const STOCK_NAMES: &[&str] = &["gain", "overdrive"];
+pub const STOCK_NAMES: &[&str] = &["tuner", "gate", "compressor", "gain", "overdrive"];
 
 /// Builds a stock processor by name, unprepared and at default settings.
 pub fn stock(name: &str) -> Option<Box<dyn Processor>> {
     match name.to_ascii_lowercase().as_str() {
+        "tuner" => Some(Box::new(Tuner::default())),
+        "gate" => Some(Box::new(NoiseGate::default())),
+        "compressor" => Some(Box::new(Compressor::default())),
         "gain" => Some(Box::new(Gain::default())),
         "overdrive" => Some(Box::new(Overdrive::default())),
         _ => None,

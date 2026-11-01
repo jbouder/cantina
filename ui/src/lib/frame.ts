@@ -1,13 +1,14 @@
 /*
  * The binary frame the engine streams at display rate. One format carries
- * the meters now and the analysis stream (spectrum, waveform, beat) in M8.
+ * the meters and pedal readouts now and the analysis stream (spectrum,
+ * waveform, beat) in M8.
  * Layout in docs/frames.md; the encoder is src-tauri/src/frame.rs and the
  * two must agree. Little-endian throughout; the 48-byte header is a
  * multiple of four so the body can be viewed as Float32Arrays in place.
  */
 
 export const FRAME_MAGIC = "CNTF";
-export const FRAME_VERSION = 1;
+export const FRAME_VERSION = 2;
 export const HEADER_LEN = 48;
 
 const FLAG_PLAYING = 1 << 0;
@@ -35,6 +36,11 @@ export interface Frame {
   meters: Float32Array;
   spectrum: Float32Array;
   waveform: Float32Array;
+  /**
+   * Every pedal readout in the graph, in track and chain order; the
+   * status says which pedal owns how many (see readouts.ts).
+   */
+  readouts: Float32Array;
 }
 
 /**
@@ -65,7 +71,9 @@ export function decodeFrame(buffer: ArrayBuffer): Frame {
   const meterCount = view.getUint16(24, true);
   const spectrumBins = view.getUint16(26, true);
   const waveformSamples = view.getUint16(28, true);
-  const need = HEADER_LEN + 4 * (meterCount * 2 + spectrumBins + waveformSamples);
+  // Version 1 left this field reserved as zero.
+  const readoutCount = view.getUint16(30, true);
+  const need = HEADER_LEN + 4 * (meterCount * 2 + spectrumBins + waveformSamples + readoutCount);
   if (buffer.byteLength < need) {
     throw new Error(`frame body is short: ${buffer.byteLength} of ${need} bytes`);
   }
@@ -75,6 +83,8 @@ export function decodeFrame(buffer: ArrayBuffer): Frame {
   const spectrum = new Float32Array(buffer, at, spectrumBins);
   at += spectrumBins * 4;
   const waveform = new Float32Array(buffer, at, waveformSamples);
+  at += waveformSamples * 4;
+  const readouts = new Float32Array(buffer, at, readoutCount);
   return {
     sequence: view.getUint32(8, true),
     dropped: view.getUint32(12, true),
@@ -93,21 +103,24 @@ export function decodeFrame(buffer: ArrayBuffer): Frame {
     meters,
     spectrum,
     waveform,
+    readouts,
   };
 }
 
 /** Writes a frame. The browser stand-in and the tests use it; the app only decodes. */
 export function encodeFrame(
-  frame: Omit<Frame, "meters" | "spectrum" | "waveform"> & {
+  frame: Omit<Frame, "meters" | "spectrum" | "waveform" | "readouts"> & {
     meters: ArrayLike<number>;
     spectrum?: ArrayLike<number>;
     waveform?: ArrayLike<number>;
+    readouts?: ArrayLike<number>;
   },
 ): ArrayBuffer {
   const spectrum = frame.spectrum ?? [];
   const waveform = frame.waveform ?? [];
+  const readouts = frame.readouts ?? [];
   const buffer = new ArrayBuffer(
-    HEADER_LEN + 4 * (frame.meters.length + spectrum.length + waveform.length),
+    HEADER_LEN + 4 * (frame.meters.length + spectrum.length + waveform.length + readouts.length),
   );
   const view = new DataView(buffer);
   for (let i = 0; i < 4; i++) view.setUint8(i, FRAME_MAGIC.charCodeAt(i));
@@ -123,13 +136,13 @@ export function encodeFrame(
   view.setUint16(24, frame.meters.length / 2, true);
   view.setUint16(26, spectrum.length, true);
   view.setUint16(28, waveform.length, true);
-  view.setUint16(30, 0, true);
+  view.setUint16(30, readouts.length, true);
   view.setFloat32(32, frame.beat?.bpm ?? 0, true);
   view.setFloat32(36, frame.beat?.phase ?? 0, true);
   view.setUint32(40, frame.beat?.bar ?? 0, true);
   view.setUint32(44, frame.beat?.beat ?? 0, true);
   let at = HEADER_LEN;
-  for (const lane of [frame.meters, spectrum, waveform]) {
+  for (const lane of [frame.meters, spectrum, waveform, readouts]) {
     for (let i = 0; i < lane.length; i++) {
       view.setFloat32(at, lane[i] ?? 0, true);
       at += 4;

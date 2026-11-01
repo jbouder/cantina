@@ -13,6 +13,7 @@ import {
 import { Button } from "./Button";
 import { Fader } from "./Fader";
 import { Led } from "./Led";
+import { PedalReadout } from "./PedalReadout";
 import { Select } from "./Select";
 
 type Props = {
@@ -21,6 +22,8 @@ type Props = {
   chain: PedalInfo[];
   sampleRate: number;
   kinds: string[];
+  /** The latest frame's pedal readouts by pedal id (see readouts.ts). */
+  readouts: Map<number, number[]>;
   /** Opens the plugin browser for this track. */
   onBrowsePlugins: () => void;
   onStatus: (status: EngineStatus) => void;
@@ -41,6 +44,7 @@ export function PedalChain({
   chain,
   sampleRate,
   kinds,
+  readouts,
   onBrowsePlugins,
   onStatus,
   onError,
@@ -79,6 +83,7 @@ export function PedalChain({
           >
             <PedalCard
               pedal={pedal}
+              readouts={readouts.get(pedal.id)}
               sampleRate={sampleRate}
               index={index}
               count={chain.length}
@@ -125,6 +130,7 @@ export function PedalChain({
 
 type CardProps = {
   pedal: PedalInfo;
+  readouts: number[] | undefined;
   sampleRate: number;
   index: number;
   count: number;
@@ -140,6 +146,7 @@ type CardProps = {
 
 function PedalCard({
   pedal,
+  readouts,
   sampleRate,
   index,
   count,
@@ -219,6 +226,7 @@ function PedalCard({
           </svg>
         </Button>
       </header>
+      <PedalReadout pedal={pedal} values={readouts} />
       {pedal.hasEditor ? (
         <Button
           aria-pressed={pedal.editorOpen}

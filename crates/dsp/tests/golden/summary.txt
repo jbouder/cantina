@@ -1,6 +1,18 @@
 Golden renders: 48 kHz, 64-frame blocks, 12 000 frames per fixture.
 Regenerate with UPDATE_GOLDEN=1 cargo test -p cantina-dsp --test golden
 
+tuner_impulse                peak  1.00000  rms  0.00913  nonzero 0..1
+tuner_sine                   peak  0.50000  rms  0.35355  nonzero 1..12000
+tuner_sweep                  peak  0.50000  rms  0.35352  nonzero 1..12000
+tuner_square                 peak  1.00000  rms  0.63246  nonzero 0..4800
+gate_impulse                 peak  0.02062  rms  0.00019  nonzero 0..1
+gate_sine                    peak  0.50000  rms  0.35248  nonzero 2..12000
+gate_sweep                   peak  0.50000  rms  0.35309  nonzero 7..12000
+gate_square                  peak  1.00000  rms  0.62773  nonzero 0..4800
+compressor_impulse           peak  0.99641  rms  0.00910  nonzero 0..1
+compressor_sine              peak  0.47829  rms  0.11700  nonzero 1..12000
+compressor_sweep             peak  0.37843  rms  0.11951  nonzero 1..12000
+compressor_square            peak  0.99641  rms  0.16548  nonzero 0..4800
 gain_impulse                 peak  1.00000  rms  0.00913  nonzero 0..1
 gain_sine                    peak  0.50000  rms  0.35355  nonzero 1..12000
 gain_sweep                   peak  0.50000  rms  0.35352  nonzero 1..12000
@@ -17,3 +29,11 @@ overdrive-hot_impulse        peak  0.86923  rms  0.06977  nonzero 0..1848
 overdrive-hot_sine           peak  1.08924  rms  0.86795  nonzero 1..12000
 overdrive-hot_sweep          peak  1.09054  rms  0.68148  nonzero 1..12000
 overdrive-hot_square         peak  1.08629  rms  0.65209  nonzero 0..7348
+gate-tight_impulse           peak  0.00000  rms  0.00000  nonzero -..-
+gate-tight_sine              peak  0.50000  rms  0.35228  nonzero 15..12000
+gate-tight_sweep             peak  0.50000  rms  0.35258  nonzero 52..12000
+gate-tight_square            peak  1.00000  rms  0.62759  nonzero 2..4800
+compressor-squash_impulse    peak  1.87140  rms  0.01708  nonzero 0..1
+compressor-squash_sine       peak  0.49858  rms  0.06323  nonzero 1..12000
+compressor-squash_sweep      peak  0.17959  rms  0.06126  nonzero 1..12000
+compressor-squash_square     peak  1.87140  rms  0.07861  nonzero 0..4800

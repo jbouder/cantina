@@ -272,10 +272,11 @@ impl Layout {
 
 fn unit_label(unit: Unit) -> &'static str {
     match unit {
-        Unit::Generic => "",
+        Unit::Generic | Unit::Toggle | Unit::Choice(_) => "",
         Unit::Decibels => "dB",
         Unit::Hertz => "Hz",
         Unit::Seconds => "s",
+        Unit::Milliseconds => "ms",
         Unit::Percent => "%",
     }
 }

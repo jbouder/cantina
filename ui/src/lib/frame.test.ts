@@ -23,6 +23,25 @@ describe("frame", () => {
     expect(Array.from(frame.meters)).toEqual([0.5, 0.25, 0.75, 0.125]);
     expect(frame.spectrum.length).toBe(0);
     expect(frame.waveform.length).toBe(0);
+    expect(frame.readouts.length).toBe(0);
+  });
+
+  it("carries pedal readouts after the waveform", () => {
+    const frame = decodeFrame(
+      encodeFrame({
+        sequence: 0,
+        dropped: 0,
+        position: 0,
+        playing: false,
+        recording: false,
+        beat: null,
+        meters: [0.5, 0.25],
+        waveform: [1, -1],
+        readouts: [440, 0.9, -6.5],
+      }),
+    );
+    expect(Array.from(frame.waveform)).toEqual([1, -1]);
+    expect(Array.from(frame.readouts)).toEqual([440, Math.fround(0.9), -6.5]);
   });
 
   it("carries spectrum, waveform and beat for the analysis stream", () => {
@@ -62,17 +81,19 @@ describe("frame", () => {
         meters: [0.5, 0.25, 0.75, 0.1],
         spectrum: [1, 2, 3],
         waveform: [-1, 1],
+        readouts: [440, 0.9],
       }),
     );
     expect(String.fromCharCode(...b.subarray(0, 4))).toBe("CNTF");
-    expect(b[4]).toBe(1); // version
+    expect(b[4]).toBe(2); // version
     expect(b[6]).toBe(0b101); // playing | beat
     expect(b[8]).toBe(7); // sequence
     expect(b[12]).toBe(2); // dropped
     expect(b[24]).toBe(2); // meter count
     expect(b[26]).toBe(3); // spectrum bins
     expect(b[28]).toBe(2); // waveform samples
-    expect(b.length).toBe(48 + 4 * 9);
+    expect(b[30]).toBe(2); // readouts
+    expect(b.length).toBe(48 + 4 * 11);
   });
 
   it("rejects buffers that are not frames", () => {

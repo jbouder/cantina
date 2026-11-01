@@ -32,6 +32,8 @@ type Props = {
   tempo: Tempo;
   position: number;
   playing: boolean;
+  /** The latest frame's pedal readouts by pedal id. */
+  readouts: Map<number, number[]>;
   onBrowsePlugins: () => void;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
@@ -55,6 +57,7 @@ export function TrackPanel({
   tempo,
   position,
   playing,
+  readouts,
   onBrowsePlugins,
   onStatus,
   onError,
@@ -175,6 +178,7 @@ export function TrackPanel({
         chain={track.chain}
         sampleRate={sampleRate}
         kinds={kinds}
+        readouts={readouts}
         onBrowsePlugins={onBrowsePlugins}
         onStatus={onStatus}
         onError={onError}
