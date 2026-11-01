@@ -58,12 +58,7 @@ export function ProjectBar({ project, onOpenProjects, onStatus, onError }: Props
           <path d="M10 3l5 4.5L10 12V9H6a3 3 0 0 0 0 6h3v2H6A5 5 0 0 1 6 7h4z" />
         </svg>
       </Button>
-      <Button
-        variant="transport"
-        size="md"
-        disabled={!project.dirty}
-        onClick={() => run(projectSave())}
-      >
+      <Button variant="transport" disabled={!project.dirty} onClick={() => run(projectSave())}>
         Save
       </Button>
       <Button aria-haspopup="dialog" onClick={onOpenProjects}>
