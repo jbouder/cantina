@@ -13,8 +13,6 @@ type Props = {
   level: Level;
   /** Stands the meter up, for a mixer strip. */
   vertical?: boolean;
-  /** A small one for the title bar: a short bar and a small readout. */
-  mini?: boolean;
   /** Just a thin bar, for a track header; the label goes to assistive tech only. */
   bare?: boolean;
 };
@@ -29,7 +27,7 @@ function position(db: number): number {
  * assistive tech; the drawn bar is decoration. Ballistics run here at
  * display rate; the engine only sends what it measured.
  */
-export function Meter({ label, level, vertical = false, mini = false, bare = false }: Props) {
+export function Meter({ label, level, vertical = false, bare = false }: Props) {
   const [peakDb, setPeakDb] = useState(FLOOR);
   const hold = useRef({ db: FLOOR, since: 0 });
 
@@ -113,19 +111,9 @@ export function Meter({ label, level, vertical = false, mini = false, bare = fal
   }
 
   return (
-    <div
-      className={
-        mini
-          ? "grid grid-cols-[auto_4.5rem_3rem] items-center gap-1"
-          : "grid grid-cols-[2.5rem_1fr_3.5rem] items-center gap-2"
-      }
-    >
-      <span
-        className={`font-bold uppercase tracking-[0.1em] ${mini ? "text-[10px] text-title-text" : "text-[11px]"}`}
-      >
-        {label}
-      </span>
-      <span className={`relative block ${mini ? "h-2.5" : "h-4"}`}>
+    <div className="grid grid-cols-[2.5rem_1fr_3.5rem] items-center gap-2">
+      <span className="font-bold text-[11px] uppercase tracking-[0.1em]">{label}</span>
+      <span className="relative block h-4">
         {bar}
         <span aria-hidden="true" className="surface-lcd absolute inset-0 block overflow-hidden">
           <span
@@ -139,7 +127,7 @@ export function Meter({ label, level, vertical = false, mini = false, bare = fal
         </span>
       </span>
       <span
-        className={`surface-lcd px-1 text-right font-lcd leading-tight tabular-nums ${mini ? "text-xs" : "text-base"} ${clipping ? "text-lcd-error" : ""}`}
+        className={`surface-lcd px-1 text-right font-lcd text-base leading-tight tabular-nums ${clipping ? "text-lcd-error" : ""}`}
       >
         <span className="lcd-text">{readout}</span>
       </span>

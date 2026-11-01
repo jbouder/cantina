@@ -5,6 +5,7 @@ import { Divider } from "./components/Divider";
 import { Editor, isEditorTab } from "./components/Editor";
 import { EngineControl } from "./components/EngineControl";
 import { Lcd } from "./components/Lcd";
+import { Meter } from "./components/Meter";
 import { Notice } from "./components/Notice";
 import { PedalPicker } from "./components/PedalPicker";
 import { ProjectBar } from "./components/ProjectBar";
@@ -250,13 +251,7 @@ export function App() {
       }
       end={
         <>
-          <EngineControl
-            status={status}
-            busy={busy}
-            input={frame.input}
-            output={frame.output}
-            onToggle={toggle}
-          />
+          <EngineControl status={status} busy={busy} onToggle={toggle} />
           <Button
             aria-label="Settings"
             aria-haspopup="dialog"
@@ -268,6 +263,12 @@ export function App() {
               <path d="M8 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm6.6 2-1.5-.3a5.3 5.3 0 0 0-.5-1.2l.9-1.3-1.7-1.7-1.3.9a5.3 5.3 0 0 0-1.2-.5L9 1.4H7l-.3 1.5a5.3 5.3 0 0 0-1.2.5l-1.3-.9-1.7 1.7.9 1.3a5.3 5.3 0 0 0-.5 1.2L1.4 7v2l1.5.3c.1.4.3.8.5 1.2l-.9 1.3 1.7 1.7 1.3-.9c.4.2.8.4 1.2.5L7 14.6h2l.3-1.5c.4-.1.8-.3 1.2-.5l1.3.9 1.7-1.7-.9-1.3c.2-.4.4-.8.5-1.2l1.5-.3V7z" />
             </svg>
           </Button>
+        </>
+      }
+      meters={
+        <>
+          <Meter label="In" level={frame.input} />
+          <Meter label="Out" level={frame.output} />
         </>
       }
     >

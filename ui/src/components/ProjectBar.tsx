@@ -16,7 +16,7 @@ type Props = {
 };
 
 /**
- * The project cluster in the title bar: the open project's name, whether
+ * The project cluster in the toolbar under the title: the open project's name, whether
  * it has unsaved edits, Undo, Redo, Save and the picker.
  */
 export function ProjectBar({ project, onOpenProjects, onStatus, onError }: Props) {
@@ -26,7 +26,7 @@ export function ProjectBar({ project, onOpenProjects, onStatus, onError }: Props
       <Lcd
         aria-live="polite"
         title={`${project.name} · ${project.sampleRate / 1000} kHz`}
-        className="min-w-24 max-w-56 truncate text-base"
+        className="min-w-64 max-w-96 truncate text-base"
       >
         {project.name}
         {project.dirty ? (
