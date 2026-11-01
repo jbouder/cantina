@@ -180,7 +180,8 @@ queues, `realfft` for analysis, `hound` and `symphonia` for audio files,
 
 One issue per pull request. Each milestone has a demo you can play. A
 M10 Docs milestone runs alongside them: the Astro site goes up first, then each
-milestone lands its guides and references on it.
+milestone lands its guides and references on it. M11 Layout was the UX
+redesign that ran before M8 Stage; M12 AI runs alongside M8.
 
 ### M0 Spike: can this work?
 
@@ -270,8 +271,30 @@ Findings in `docs/spike.md`.
 - Signing, notarization, DMG, auto-update.
 - Contributing guide, first release.
 
+### M12 AI
+
+Everything Cantina reads as JSON can be written by a coding agent, checked
+without the app, and picked up by the app.
+
+- JSON Schemas for pedals, kits, patterns and projects, generated from the
+  Rust types and tested against the stock files.
+- `cantina` CLI: `check` a file against the schema and the app's rules,
+  `render` a pedal or a pattern offline through the real processors and
+  report peak, RMS, DC and latency, `kinds` for the node catalog.
+- Patterns as standalone `*.pattern.json` files with import and export.
+- Kit recipes: synthesise a complete kit's samples and `kit.json` from JSON.
+- A Claude Code skill, `cantina-author`, with generated references, worked
+  examples and the design rules the stock pedals follow; evals whose
+  outputs must pass `cantina check`, run in CI.
+- Library folders the app watches, so an agent-written file appears in the
+  picker without a restart and a broken one says why.
+- A guide to authoring with an agent, plus generated schema and CLI
+  reference pages on the docs site.
+
 ### Later
 
+- An MCP server so an agent can load a pedal or pattern into the running
+  app, audition it and read the meters.
 - MIDI input and virtual instruments.
 - Neural Amp Modeler files as a processor.
 - Plugin sandboxing out of process.
