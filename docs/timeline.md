@@ -28,8 +28,8 @@ response, or from a synthesized pluck in a browser.
 - **Split**: Alt-click a clip at the pointer, or press S with a clip
   selected to split it at the playhead. The right part is a new clip.
 - **Delete**: Delete or Backspace with a clip selected, or the clip's
-  button in the track panel below the timeline, which lists the selected
-  track's clips for the keyboard and assistive tech.
+  button on the Clips tab of the editor below the timeline, which lists
+  the selected track's clips for the keyboard and assistive tech.
 - **Nudge**: the arrow keys move the selected clip by one grid step, or
   scroll the view when nothing is selected.
 - **Playhead**: click the ruler. It snaps when snapping is on.
@@ -46,6 +46,18 @@ canvas without touching the project. Pattern clips on drum tracks go
 through the same code: they are converted from ticks to samples for the
 lane and back for the `pattern_clip_*` commands (see
 [drums.md](drums.md)), and a clip only lands on a track of its own kind.
+
+## The window
+
+The arrangement (the transport strip and the lanes) sits above the
+editor for the selected track, with a draggable divider between them
+(`ui/src/components/Divider.tsx`; the arrows move it from the keyboard,
+and the session remembers it). Neither pane scrolls the page: the lanes
+scroll when there are more tracks than fit, the editor scrolls its own
+content. The editor (`ui/src/components/Editor.tsx`) has the track's name
+(click to rename), move and remove, and tabs: Pedalboard and Clips for an
+audio track, Beats first for a drum track. In a browser `?tab=` opens one
+for a screenshot.
 
 ## Track headers
 

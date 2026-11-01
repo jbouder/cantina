@@ -618,10 +618,10 @@ export function Timeline({
   };
 
   return (
-    <div className="grid gap-2">
+    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-2">
       {strip(controls)}
       <div
-        className="surface-lcd grid overflow-hidden"
+        className="surface-lcd grid min-h-0 content-start overflow-x-hidden overflow-y-auto"
         style={{ gridTemplateColumns: `${LABEL_WIDTH}px 1fr` }}
       >
         <div className="grid content-start" style={{ paddingTop: RULER_HEIGHT }}>

@@ -214,7 +214,7 @@ plays the edit.
 
 ## The grid
 
-The drum grid is the track panel of a drum track (`ui/src/components/DrumGrid.tsx`):
+The drum grid is the Beats tab of the editor for a drum track (`ui/src/components/DrumGrid.tsx`):
 the kit picker, the pattern picker with New, Rename and Remove, the
 resolution, the length (in steps, with its musical size alongside) and
 the swing, then the grid itself, a table of pads against steps with beat
