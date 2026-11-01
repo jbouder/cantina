@@ -108,7 +108,7 @@ export function PedalChain({
 
   return (
     <div className="grid gap-2">
-      <ol className="m-0 flex list-none gap-2 overflow-x-auto p-0 pb-1">
+      <ol className="m-0 flex list-none items-stretch gap-2 overflow-x-auto p-0 pb-1">
         {chain.map((pedal, index) => (
           <li
             key={pedal.id}
@@ -118,7 +118,7 @@ export function PedalChain({
             }}
             onDragLeave={() => setOver((o) => (o === index ? null : o))}
             onDrop={(e) => onDrop(e, index)}
-            className={over === index && dragging !== pedal.id ? "outline-2 outline-focus" : ""}
+            className={`flex ${over === index && dragging !== pedal.id ? "outline-2 outline-focus" : ""}`}
           >
             <PedalCard
               pedal={pedal}
@@ -297,7 +297,7 @@ function PedalCard({
         onDragStart();
       }}
       onDragEnd={onDragEnd}
-      className={`surface-panel grid shrink-0 gap-2 p-3 ${wide ? "w-96" : "w-48"} ${dragging ? "opacity-50" : ""}`}
+      className={`surface-panel grid shrink-0 content-start gap-2 p-3 ${wide ? "w-96" : "w-48"} ${dragging ? "opacity-50" : ""}`}
     >
       <header className="flex items-center gap-1">
         <button

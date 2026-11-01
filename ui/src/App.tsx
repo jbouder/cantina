@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "./components/Button";
 import { Designer } from "./components/Designer";
+import { Divider } from "./components/Divider";
+import { Editor, isEditorTab } from "./components/Editor";
 import { EngineControl } from "./components/EngineControl";
 import { Lcd } from "./components/Lcd";
 import { Notice } from "./components/Notice";
@@ -10,7 +12,6 @@ import { Projects } from "./components/Projects";
 import { Recovery } from "./components/Recovery";
 import { Settings } from "./components/Settings";
 import { Timeline } from "./components/Timeline";
-import { TrackPanel } from "./components/TrackPanel";
 import { Transport } from "./components/Transport";
 import { Window } from "./components/Window";
 import {
@@ -48,6 +49,21 @@ const IDLE: MeterFrame = {
 
 const params = inTauri ? null : new URLSearchParams(window.location.search);
 
+const SPLIT_KEY = "cantina.split";
+/** Room for the strip, the ruler, two tracks and the master at the default window. */
+const DEFAULT_SPLIT = 352;
+const MIN_PANE = 160;
+
+function loadSplit(): number {
+  try {
+    const saved = Number(window.sessionStorage.getItem(SPLIT_KEY));
+    if (Number.isFinite(saved) && saved >= MIN_PANE) return saved;
+  } catch {
+    // Storage can be unavailable; the default is fine.
+  }
+  return DEFAULT_SPLIT;
+}
+
 export function App() {
   const [status, setStatus] = useState<EngineStatus | null>(null);
   const [busy, setBusy] = useState(false);
@@ -74,13 +90,31 @@ export function App() {
   // Where a dropped pedal file goes: the selected track's chain.
   const dropTarget = useRef<number | null>(null);
 
-  // In a browser `?scroll=<px>` scrolls the page, so screenshots can
-  // show what is below the fold.
-  const main = useRef<HTMLElement>(null);
+  // The arrangement's height; the divider under it moves it and the
+  // session remembers it. In a browser `?tab=<beats|pedalboard|clips>`
+  // opens the editor on a tab, so screenshots can show each.
+  const [split, setSplit] = useState(() => loadSplit());
+  const body = useRef<HTMLDivElement>(null);
+  const [bodyHeight, setBodyHeight] = useState(720);
   useEffect(() => {
-    const scroll = params?.get("scroll");
-    if (scroll && main.current && status) main.current.scrollTop = Number(scroll);
-  }, [status]);
+    const el = body.current;
+    if (!el) return;
+    const measure = () => setBodyHeight(el.clientHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const changeSplit = useCallback((value: number) => {
+    setSplit(value);
+    try {
+      window.sessionStorage.setItem(SPLIT_KEY, String(Math.round(value)));
+    } catch {
+      // Not remembered this time; the split still applies.
+    }
+  }, []);
+  const tabParam = params?.get("tab");
+  const initialTab = isEditorTab(tabParam) ? tabParam : undefined;
 
   useEffect(() => {
     engineStatus().then(setStatus, (e) => setError(String(e)));
@@ -194,6 +228,8 @@ export function App() {
       ? null
       : (tracks.flatMap((t) => t.chain).find((p) => p.id === designing) ?? null);
   const problem = error ?? status?.error ?? null;
+  // The split never leaves the editor less than a pane's worth.
+  const arrangeHeight = Math.min(split, Math.max(MIN_PANE, bodyHeight - MIN_PANE));
   // The transport flags in the frame are fresher than the last status push.
   const transport = status
     ? { ...status.transport, playing: frame.playing, recording: frame.recording }
@@ -235,7 +271,7 @@ export function App() {
         </>
       }
     >
-      <main ref={main} className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto p-window">
+      <main className="flex min-h-0 flex-1 flex-col gap-3 p-window">
         {status?.notice ? <Notice message={status.notice} onDismiss={dismiss} /> : null}
         {status?.project.recovery ? (
           <Recovery recovery={status.project.recovery} onStatus={setStatus} onError={setError} />
@@ -253,41 +289,51 @@ export function App() {
         ) : null}
 
         {status && transport ? (
-          // Grouped on purpose: a horizontally scrolling child placed
-          // straight into the scrolling grid above collapses to nothing.
-          <div className="grid gap-3">
-            <Timeline
-              tracks={status.project.tracks}
-              patterns={status.project.patterns}
-              sampleRate={status.project.sampleRate}
-              tempo={status.project.tempo}
-              position={frame.position}
-              playing={transport.playing}
-              running={running}
-              selectedTrack={selected?.id ?? null}
-              hasKits={status.kits.length > 0}
-              levels={frame.tracks}
-              master={status.project.master}
-              masterLevel={frame.output}
-              strip={(controls) => (
-                <Transport
-                  transport={transport}
-                  tracks={status.project.tracks}
-                  tempo={status.project.tempo}
-                  running={running}
-                  position={frame.position}
-                  auditioning={status.audition !== null}
-                  timeline={controls}
-                  onStatus={setStatus}
-                  onError={setError}
-                />
-              )}
-              onSelectTrack={setSelectedTrack}
-              onStatus={setStatus}
-              onError={setError}
+          <div
+            ref={body}
+            className="grid min-h-0 flex-1"
+            style={{ gridTemplateRows: `${arrangeHeight}px auto minmax(0, 1fr)` }}
+          >
+            <div className="min-h-0">
+              <Timeline
+                tracks={status.project.tracks}
+                patterns={status.project.patterns}
+                sampleRate={status.project.sampleRate}
+                tempo={status.project.tempo}
+                position={frame.position}
+                playing={transport.playing}
+                running={running}
+                selectedTrack={selected?.id ?? null}
+                hasKits={status.kits.length > 0}
+                levels={frame.tracks}
+                master={status.project.master}
+                masterLevel={frame.output}
+                strip={(controls) => (
+                  <Transport
+                    transport={transport}
+                    tracks={status.project.tracks}
+                    tempo={status.project.tempo}
+                    running={running}
+                    position={frame.position}
+                    auditioning={status.audition !== null}
+                    timeline={controls}
+                    onStatus={setStatus}
+                    onError={setError}
+                  />
+                )}
+                onSelectTrack={setSelectedTrack}
+                onStatus={setStatus}
+                onError={setError}
+              />
+            </div>
+            <Divider
+              value={arrangeHeight}
+              min={MIN_PANE}
+              max={Math.max(MIN_PANE, bodyHeight - MIN_PANE)}
+              onChange={changeSplit}
             />
             {selected ? (
-              <TrackPanel
+              <Editor
                 key={selected.id}
                 track={selected}
                 index={status.project.tracks.indexOf(selected)}
@@ -302,12 +348,15 @@ export function App() {
                 playing={transport.playing}
                 readouts={readouts}
                 irs={status.irs}
+                initialTab={initialTab}
                 onBrowsePlugins={() => setPluginsOpen(true)}
                 onDesign={(pedal) => design(pedal, selected.id)}
                 onStatus={setStatus}
                 onError={setError}
               />
-            ) : null}
+            ) : (
+              <div />
+            )}
           </div>
         ) : null}
       </main>
