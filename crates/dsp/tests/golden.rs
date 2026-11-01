@@ -173,6 +173,22 @@ fn cases() -> Vec<Case> {
             processor: p,
         });
     }
+    // A short delay so the quarter-second fixtures show repeats, and
+    // a reverb at full wet with a quick decay.
+    let mut delay = stock("delay").unwrap();
+    delay.set_param(0, 50.0);
+    delay.set_param(3, 60.0);
+    cases.push(Case {
+        name: "delay-short".into(),
+        processor: delay,
+    });
+    let mut room = stock("reverb").unwrap();
+    room.set_param(1, 0.5);
+    room.set_param(4, 100.0);
+    cases.push(Case {
+        name: "reverb-wet".into(),
+        processor: room,
+    });
     cases
 }
 

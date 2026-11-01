@@ -494,6 +494,30 @@ const MOCK_STOCK: Record<string, { name: string; params: ParamInfo[]; readouts: 
     ],
     readouts: [],
   },
+  delay: {
+    name: "Delay",
+    params: [
+      p("Time", "ms", 1, 2000, 375),
+      toggle("Sync", false),
+      choice("Note", NOTES, 3),
+      p("Feedback", "%", 0, 100, 35),
+      p("Tone", "Hz", 500, 12000, 4000),
+      p("Mix", "%", 0, 100, 35),
+      choice("Mode", ["Mono", "Stereo", "Ping-pong"], 0),
+    ],
+    readouts: [],
+  },
+  reverb: {
+    name: "Reverb",
+    params: [
+      p("Size", "%", 0, 100, 50),
+      p("Decay", "s", 0.1, 20, 2),
+      p("Damping", "%", 0, 100, 50),
+      p("Pre-delay", "ms", 0, 200, 10),
+      p("Mix", "%", 0, 100, 30),
+    ],
+    readouts: [],
+  },
   gain: { name: "Gain", params: [p("Gain", "dB", -60, 24, 0)], readouts: [] },
 };
 
