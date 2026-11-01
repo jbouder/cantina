@@ -36,6 +36,9 @@ response, or from a synthesized pluck in a browser.
 - **Zoom**: pinch or Ctrl-wheel around the pointer, the − and + buttons or
   keys, Fit to see every clip. Swipe sideways to scroll. While rolling,
   the view pages to keep the playhead on screen.
+- **Transport**: Space plays or stops, R records when a track is armed,
+  anywhere but in a field or on a button. The strip above the lanes has
+  the keys, one clock in bars and time, the tempo, snap and zoom.
 
 Each edit becomes one command (`clip_move`, `clip_trim`, `clip_split`,
 `clip_remove`) when the pointer is released; the drag is previewed on the
@@ -50,8 +53,8 @@ The grid comes from the project's tempo: samples per beat is
 `sampleRate · 60 / bpm`, a bar is `numerator` beats. The division shown
 and snapped to is the finest of sixteenth, eighth, beat, bar, 2, 4, 8, 16
 or 32 bars whose lines are at least 18 pixels apart at the current zoom;
-the toolbar says which. Snap can be toggled off. The tempo is editable in
-the toolbar and is a command like any other edit.
+the transport strip says which. Snap can be toggled off. The tempo is
+editable in the strip and is a command like any other edit.
 
 ## Colors
 

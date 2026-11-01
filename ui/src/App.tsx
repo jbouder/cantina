@@ -31,6 +31,9 @@ import {
   projectRedo,
   projectUndo,
   SILENT,
+  transportPlay,
+  transportRecord,
+  transportStop,
 } from "./lib/engine";
 import { readoutsByPedal } from "./lib/readouts";
 
@@ -104,16 +107,44 @@ export function App() {
   );
 
   // Cmd-Z and Shift-Cmd-Z anywhere but inside a text field, where the
-  // field's own undo applies.
+  // field's own undo applies. Space plays or stops and R records, except
+  // on a control that uses those keys itself.
+  const keys = useRef({ status, frame });
+  keys.current = { status, frame };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z" || e.altKey) return;
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName;
-      if (tag === "INPUT" && (target as HTMLInputElement).type === "text") return;
-      if (tag === "TEXTAREA" || target?.isContentEditable) return;
-      e.preventDefault();
-      (e.shiftKey ? projectRedo() : projectUndo()).then(setStatus, (err) => setError(String(err)));
+      const typing =
+        (tag === "INPUT" && (target as HTMLInputElement).type === "text") ||
+        tag === "TEXTAREA" ||
+        target?.isContentEditable;
+      const report = (action: Promise<EngineStatus>) =>
+        action.then(setStatus, (err) => setError(String(err)));
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !e.altKey) {
+        if (typing) return;
+        e.preventDefault();
+        report(e.shiftKey ? projectRedo() : projectUndo());
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey || typing) return;
+      if (tag === "INPUT" || tag === "SELECT" || tag === "BUTTON") return;
+      const { status: s, frame: f } = keys.current;
+      if (!s?.running) return;
+      if (e.key === " ") {
+        e.preventDefault();
+        const rolling = f.playing || f.recording;
+        const hasClips =
+          s.audition !== null ||
+          s.project.tracks.some((t) => t.clips.length > 0 || t.patternClips.length > 0);
+        if (rolling) report(transportStop());
+        else if (hasClips) report(transportPlay());
+      } else if (e.key === "r" || e.key === "R") {
+        if (f.playing || f.recording) return;
+        if (!s.project.tracks.some((t) => t.armed && !t.kit)) return;
+        e.preventDefault();
+        report(transportRecord());
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -226,15 +257,6 @@ export function App() {
           // Grouped on purpose: a horizontally scrolling child placed
           // straight into the scrolling grid above collapses to nothing.
           <div className="grid gap-3">
-            <Transport
-              transport={transport}
-              tracks={status.project.tracks}
-              running={running}
-              position={frame.position}
-              auditioning={status.audition !== null}
-              onStatus={setStatus}
-              onError={setError}
-            />
             <Timeline
               tracks={status.project.tracks}
               patterns={status.project.patterns}
@@ -245,6 +267,19 @@ export function App() {
               running={running}
               selectedTrack={selected?.id ?? null}
               hasKits={status.kits.length > 0}
+              strip={(controls) => (
+                <Transport
+                  transport={transport}
+                  tracks={status.project.tracks}
+                  tempo={status.project.tempo}
+                  running={running}
+                  position={frame.position}
+                  auditioning={status.audition !== null}
+                  timeline={controls}
+                  onStatus={setStatus}
+                  onError={setError}
+                />
+              )}
               onSelectTrack={setSelectedTrack}
               onStatus={setStatus}
               onError={setError}
