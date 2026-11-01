@@ -25,8 +25,10 @@ import {
   inTauri,
   type MeterFrame,
   ms,
+  onFileDrop,
   onMeters,
   onStatus,
+  pedalImport,
   projectRedo,
   projectUndo,
   SILENT,
@@ -68,6 +70,8 @@ export function App() {
     params?.has("design") ? 19 : null,
   );
   const closeDesigner = useCallback(() => setDesigning(null), []);
+  // Where a dropped pedal file goes: the selected track's chain.
+  const dropTarget = useRef<number | null>(null);
 
   // In a browser `?scroll=<px>` scrolls the page, so screenshots can
   // show what is below the fold.
@@ -86,6 +90,19 @@ export function App() {
       stopMeters();
     };
   }, []);
+
+  // A .pedal.json dropped on the window is imported into the library
+  // and added to the selected track's chain.
+  useEffect(
+    () =>
+      onFileDrop((paths) => {
+        const track = dropTarget.current;
+        for (const path of paths.filter((p) => p.endsWith(".pedal.json"))) {
+          pedalImport(path, track ?? undefined).then(setStatus, (e) => setError(String(e)));
+        }
+      }),
+    [],
+  );
 
   // Cmd-Z and Shift-Cmd-Z anywhere but inside a text field, where the
   // field's own undo applies.
@@ -142,6 +159,7 @@ export function App() {
   const tracks = status?.project.tracks ?? [];
   const readouts = useMemo(() => readoutsByPedal(tracks, frame.readouts), [tracks, frame.readouts]);
   const selected = tracks.find((t) => t.id === selectedTrack) ?? tracks[0] ?? null;
+  dropTarget.current = selected?.id ?? null;
   const designed =
     designing === null
       ? null

@@ -5,6 +5,7 @@ import {
   chainRemove,
   chainSetParam,
   chainSetSpec,
+  chooseImportPaths,
   type EngineStatus,
   editorClose,
   editorOpen,
@@ -13,6 +14,7 @@ import {
   ms,
   type PedalInfo,
   type PedalKindInfo,
+  pedalImport,
 } from "../lib/engine";
 import { Button } from "./Button";
 import { Fader } from "./Fader";
@@ -78,7 +80,17 @@ export function PedalChain({
   const [over, setOver] = useState<number | null>(null);
   const [kind, setKind] = useState(kinds[0]?.spec ?? "gain");
   const stock = kinds.filter((k) => k.stock);
+  const library = kinds.filter((k) => !k.stock);
   const chosen = kinds.find((k) => k.spec === kind);
+
+  const importFiles = () => {
+    chooseImportPaths().then(
+      (paths) => {
+        for (const path of paths) run(pedalImport(path, track));
+      },
+      (e) => onError(String(e)),
+    );
+  };
 
   const run = useCallback(
     (action: Promise<EngineStatus>) => {
@@ -152,17 +164,28 @@ export function PedalChain({
               </option>
             ))}
           </optgroup>
+          {library.length > 0 ? (
+            <optgroup label="Your pedals">
+              {library.map((k) => (
+                <option key={k.spec} value={k.spec}>
+                  {k.name}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
         </Select>
-        {chosen?.stock ? (
+        {chosen ? (
           <span className="flex min-h-11 items-center">
             <Badge
               title={
-                chosen.designable
-                  ? "Ships with Cantina, written in the pedal format: the designer can open it"
-                  : "Ships with Cantina, built in"
+                !chosen.stock
+                  ? "From your library, in the pedal format"
+                  : chosen.designable
+                    ? "Ships with Cantina, written in the pedal format: the designer can open it"
+                    : "Ships with Cantina, built in"
               }
             >
-              {chosen.designable ? "stock · json" : "stock"}
+              {!chosen.stock ? "yours" : chosen.designable ? "stock · json" : "stock"}
             </Badge>
           </span>
         ) : null}
@@ -176,6 +199,13 @@ export function PedalChain({
           title="Start a new pedal at the end of the chain and open the designer on it"
         >
           Design…
+        </Button>
+        <Button
+          aria-haspopup="dialog"
+          onClick={importFiles}
+          title="Copy a .pedal.json file into your library and add it to this chain; dropping one on the window does the same"
+        >
+          Import…
         </Button>
       </div>
     </div>
