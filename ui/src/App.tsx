@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "./components/Button";
 import { Lcd } from "./components/Lcd";
 import { Led } from "./components/Led";
@@ -29,6 +29,7 @@ import {
   projectUndo,
   SILENT,
 } from "./lib/engine";
+import { readoutsByPedal } from "./lib/readouts";
 
 const IDLE: MeterFrame = {
   input: SILENT,
@@ -37,6 +38,7 @@ const IDLE: MeterFrame = {
   position: 0,
   playing: false,
   recording: false,
+  readouts: [],
 };
 
 const params = inTauri ? null : new URLSearchParams(window.location.search);
@@ -113,6 +115,7 @@ export function App() {
   const running = status?.running ?? false;
   // The selected track, or the first one when the selection is gone.
   const tracks = status?.project.tracks ?? [];
+  const readouts = useMemo(() => readoutsByPedal(tracks, frame.readouts), [tracks, frame.readouts]);
   const selected = tracks.find((t) => t.id === selectedTrack) ?? tracks[0] ?? null;
   const problem = error ?? status?.error ?? null;
   // The transport flags in the frame are fresher than the last status push.
@@ -249,6 +252,7 @@ export function App() {
                 tempo={status.project.tempo}
                 position={frame.position}
                 playing={transport.playing}
+                readouts={readouts}
                 onBrowsePlugins={() => setPluginsOpen(true)}
                 onStatus={setStatus}
                 onError={setError}

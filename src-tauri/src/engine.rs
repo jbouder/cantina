@@ -26,7 +26,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, bail, Context, Result};
-use cantina_dsp::{Handle, LoadedKit, ParamInfo, Unit, STOCK_NAMES};
+use cantina_dsp::{Handle, LoadedKit, ParamInfo, Readout, Unit, STOCK_NAMES};
 use cantina_engine::strip::{GAIN, MUTE, PAN};
 use cantina_engine::{
     device, kit, plan, processors, wav, Controller, Delay, DeviceEvent, DeviceId, Endpoint,
@@ -262,26 +262,52 @@ pub struct PedalInfo {
     pub editor_open: bool,
     /// Frames of delay this pedal adds.
     pub latency_frames: usize,
+    /// Names of the values the pedal measures for its display, in the
+    /// order they appear in the frame's readout section.
+    pub readouts: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ParamOut {
     pub name: String,
-    /// A unit suffix for display: "dB", "Hz", "s", "%" or "".
+    /// A unit suffix for display: "dB", "Hz", "s", "ms", "%" or "".
     pub unit: &'static str,
     pub min: f32,
     pub max: f32,
     pub default: f32,
     pub value: f32,
+    /// A switch: the value is 0 or 1.
+    pub toggle: bool,
+    /// For a pick from a list, the names; the value is an index.
+    pub choices: Vec<String>,
+}
+
+impl ParamOut {
+    fn new(p: &ParamInfo, value: f32) -> Self {
+        Self {
+            name: p.name.to_string(),
+            unit: unit_label(p.unit),
+            min: p.min,
+            max: p.max,
+            default: p.default,
+            value,
+            toggle: p.unit == Unit::Toggle,
+            choices: match p.unit {
+                Unit::Choice(names) => names.iter().map(|n| n.to_string()).collect(),
+                _ => Vec::new(),
+            },
+        }
+    }
 }
 
 fn unit_label(unit: Unit) -> &'static str {
     match unit {
-        Unit::Generic => "",
+        Unit::Generic | Unit::Toggle | Unit::Choice(_) => "",
         Unit::Decibels => "dB",
         Unit::Hertz => "Hz",
         Unit::Seconds => "s",
+        Unit::Milliseconds => "ms",
         Unit::Percent => "%",
     }
 }
@@ -348,6 +374,7 @@ impl EngineState {
 pub struct PedalKind {
     pub name: String,
     pub params: Vec<ParamInfo>,
+    pub readouts: Vec<String>,
 }
 
 impl PedalKind {
@@ -360,18 +387,12 @@ impl PedalKind {
                 .params
                 .iter()
                 .enumerate()
-                .map(|(i, p)| ParamOut {
-                    name: p.name.to_string(),
-                    unit: unit_label(p.unit),
-                    min: p.min,
-                    max: p.max,
-                    default: p.default,
-                    value: pedal.values.get(i).copied().unwrap_or(p.default),
-                })
+                .map(|(i, p)| ParamOut::new(p, pedal.values.get(i).copied().unwrap_or(p.default)))
                 .collect(),
             has_editor: false,
             editor_open: false,
             latency_frames: 0,
+            readouts: self.readouts.clone(),
         }
     }
 }
@@ -461,6 +482,8 @@ struct LivePedal {
     handle: Option<Box<dyn Handle>>,
     /// Latency as last reported, in frames.
     latency: usize,
+    /// The pedal's display values, shared with the audio thread.
+    readout: Option<Readout>,
 }
 
 impl LiveTrack {
@@ -502,6 +525,10 @@ struct SyncContext<'a> {
 /// per track in the project's order. Replaced whole on each sync.
 type Meters = Arc<Mutex<Vec<MeterHandle>>>;
 
+/// The pedal readouts the pump reads, in track and chain order, as the
+/// status lists them. Replaced whole on each sync.
+type Readouts = Arc<Mutex<Vec<Readout>>>;
+
 /// What is running while the stream is open.
 struct Live {
     stream: Stream,
@@ -518,6 +545,7 @@ struct Live {
     input_levels: MeterHandle,
     output_levels: MeterHandle,
     meters: Meters,
+    readouts: Readouts,
     input: DeviceId,
     output: DeviceId,
     input_name: String,
@@ -647,6 +675,7 @@ impl Live {
                             processor.set_param(param, *value);
                         }
                         let handle = processor.handle();
+                        let readout = processor.readout();
                         let node = graph.add_processor(processor);
                         let latency = graph.node(node).map_or(0, |n| n.latency);
                         LivePedal {
@@ -654,6 +683,7 @@ impl Live {
                             node,
                             handle,
                             latency,
+                            readout,
                         }
                     }
                 };
@@ -692,6 +722,13 @@ impl Live {
         let mut meters = vec![self.input_levels.clone(), self.output_levels.clone()];
         meters.extend(self.tracks.iter().map(|t| t.levels.clone()));
         *self.meters.lock().unwrap_or_else(|e| e.into_inner()) = meters;
+        let readouts: Vec<Readout> = self
+            .tracks
+            .iter()
+            .flat_map(|t| t.pedals.iter())
+            .filter_map(|p| p.readout.clone())
+            .collect();
+        *self.readouts.lock().unwrap_or_else(|e| e.into_inner()) = readouts;
         if problems.is_empty() {
             Ok(())
         } else {
@@ -1028,6 +1065,10 @@ impl Catalog {
         self.0.entry(spec.to_string()).or_insert_with(|| PedalKind {
             name: processor.name().to_string(),
             params: processor.params().to_vec(),
+            readouts: processor
+                .readout()
+                .map(|r| r.names().iter().map(|n| n.to_string()).collect())
+                .unwrap_or_default(),
         });
     }
 
@@ -1051,6 +1092,7 @@ impl Catalog {
                 has_editor: false,
                 editor_open: false,
                 latency_frames: 0,
+                readouts: Vec::new(),
             },
         }
     }
@@ -1222,6 +1264,7 @@ impl Engine {
             self.app.clone(),
             Arc::clone(&self.meter_subscribers),
             Arc::new(Mutex::new(vec![input, output])),
+            Arc::new(Mutex::new(Vec::new())),
             controller.transport().clock(),
             48_000.0,
             Arc::clone(&self.transport_state),
@@ -2898,10 +2941,12 @@ impl Engine {
             input_levels.clone(),
             output_levels.clone(),
         ]));
+        let readouts: Readouts = Arc::new(Mutex::new(Vec::new()));
         spawn_meter_pump(
             self.app.clone(),
             Arc::clone(&self.meter_subscribers),
             Arc::clone(&meters),
+            Arc::clone(&readouts),
             controller.transport().clock(),
             sample_rate,
             Arc::clone(&self.transport_state),
@@ -2920,6 +2965,7 @@ impl Engine {
             input_levels,
             output_levels,
             meters,
+            readouts,
             input,
             output,
             input_name: device::name(input)?,
@@ -3136,6 +3182,7 @@ fn spawn_meter_pump(
     app: AppHandle,
     subscribers: Arc<Mutex<Vec<Subscriber>>>,
     meters: Meters,
+    readouts: Readouts,
     clock: cantina_engine::TransportClock,
     sample_rate: f64,
     state: Arc<TransportState>,
@@ -3148,7 +3195,7 @@ fn spawn_meter_pump(
             let period = Duration::from_secs(1) / METER_RATE;
             let mut sequence = 0u32;
             let mut bytes = Vec::new();
-            let mut send = |meters: &[f32], playing: bool, recording: bool| {
+            let mut send = |meters: &[f32], readouts: &[f32], playing: bool, recording: bool| {
                 let frame = Frame {
                     sequence,
                     dropped: dropped.load(Ordering::Relaxed),
@@ -3159,6 +3206,7 @@ fn spawn_meter_pump(
                     meters,
                     spectrum: &[],
                     waveform: &[],
+                    readouts,
                 };
                 sequence = sequence.wrapping_add(1);
                 let mut subs = subscribers.lock().unwrap_or_else(|e| e.into_inner());
@@ -3174,6 +3222,7 @@ fn spawn_meter_pump(
                 });
             };
             let mut levels = Vec::new();
+            let mut values = Vec::new();
             let mut frames = 0u32;
             while !stop.load(Ordering::Relaxed) {
                 thread::sleep(period);
@@ -3190,8 +3239,13 @@ fn spawn_meter_pump(
                     levels.push(l.peak.max(r.peak));
                     levels.push(l.rms.max(r.rms));
                 }
+                values.clear();
+                for readout in readouts.lock().unwrap_or_else(|e| e.into_inner()).iter() {
+                    values.extend(readout.values());
+                }
                 send(
                     &levels,
+                    &values,
                     clock.is_playing(),
                     state.recording.load(Ordering::Relaxed),
                 );
@@ -3202,7 +3256,7 @@ fn spawn_meter_pump(
             for v in levels.iter_mut() {
                 *v = 0.0;
             }
-            send(&levels, false, false);
+            send(&levels, &[], false, false);
         })
         .expect("spawning the meter pump thread");
 }

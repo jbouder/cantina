@@ -236,16 +236,25 @@ export interface PedalInfo {
   editorOpen: boolean;
   /** Frames of delay this pedal adds. */
   latencyFrames: number;
+  /**
+   * Names of the values the pedal measures for its display, in the
+   * order they appear in a frame's readouts (see readouts.ts).
+   */
+  readouts: string[];
 }
 
 export interface ParamInfo {
   name: string;
-  /** "dB", "Hz", "s", "%" or "". */
+  /** "dB", "Hz", "s", "ms", "%" or "". */
   unit: string;
   min: number;
   max: number;
   default: number;
   value: number;
+  /** A switch: the value is 0 or 1. */
+  toggle: boolean;
+  /** For a pick from a list, the names; the value is an index. */
+  choices: string[];
 }
 
 /** Which devices to open and how. `null` follows the system default. */
@@ -286,6 +295,8 @@ export interface MeterFrame {
   position: number;
   playing: boolean;
   recording: boolean;
+  /** Every pedal readout, flat; `readoutsByPedal` splits them up. */
+  readouts: ArrayLike<number>;
 }
 
 /** True inside the Tauri web view, false in a plain browser tab. */
@@ -348,22 +359,64 @@ const MOCK_RATE = 48000;
 /** The stand-in scanned ten minutes ago. */
 const MOCK_SCANNED_AT = Math.floor(Date.now() / 1000) - 600;
 
+/** A fader parameter as the shell describes it. */
+function p(
+  name: string,
+  unit: string,
+  min: number,
+  max: number,
+  def: number,
+  value = def,
+): ParamInfo {
+  return { name, unit, min, max, default: def, value, toggle: false, choices: [] };
+}
+
+function toggle(name: string, on: boolean): ParamInfo {
+  return { ...p(name, "", 0, 1, on ? 1 : 0), toggle: true };
+}
+
+/** The stock pedals, as `crates/dsp` describes them. */
+const MOCK_STOCK: Record<string, { name: string; params: ParamInfo[]; readouts: string[] }> = {
+  tuner: {
+    name: "Tuner",
+    params: [p("Reference", "Hz", 415, 466, 440), toggle("Mute", false)],
+    readouts: ["Pitch", "Clarity"],
+  },
+  gate: {
+    name: "Gate",
+    params: [
+      p("Threshold", "dB", -80, 0, -50),
+      p("Attack", "ms", 0.1, 100, 1),
+      p("Hold", "ms", 0, 1000, 50),
+      p("Release", "ms", 1, 2000, 100),
+    ],
+    readouts: ["Open"],
+  },
+  compressor: {
+    name: "Compressor",
+    params: [
+      p("Threshold", "dB", -60, 0, -20),
+      p("Ratio", "", 1, 20, 4),
+      p("Attack", "ms", 0.1, 200, 10),
+      p("Release", "ms", 10, 2000, 100),
+      p("Knee", "dB", 0, 24, 6),
+      p("Makeup", "dB", 0, 24, 0),
+    ],
+    readouts: ["Reduction"],
+  },
+  gain: { name: "Gain", params: [p("Gain", "dB", -60, 24, 0)], readouts: [] },
+  overdrive: {
+    name: "Overdrive",
+    params: [
+      p("Drive", "dB", 0, 40, 20),
+      p("Tone", "Hz", 500, 8000, 3000),
+      p("Level", "dB", -24, 6, -6),
+    ],
+    readouts: [],
+  },
+};
+
 function mockPedal(id: number, spec: string): PedalInfo {
-  if (spec === "overdrive") {
-    return {
-      id,
-      spec,
-      name: "Overdrive",
-      params: [
-        { name: "Drive", unit: "dB", min: 0, max: 40, default: 20, value: 20 },
-        { name: "Tone", unit: "Hz", min: 500, max: 8000, default: 3000, value: 3000 },
-        { name: "Level", unit: "dB", min: -24, max: 6, default: -6, value: -6 },
-      ],
-      hasEditor: false,
-      editorOpen: false,
-      latencyFrames: 0,
-    };
-  }
   if (spec.startsWith("au:")) {
     // Apple's AUDelay, as the shell describes it.
     return {
@@ -371,25 +424,39 @@ function mockPedal(id: number, spec: string): PedalInfo {
       spec,
       name: "AUDelay",
       params: [
-        { name: "Dry/Wet Mix", unit: "%", min: 0, max: 100, default: 50, value: 35 },
-        { name: "Delay Time", unit: "s", min: 0, max: 2, default: 1, value: 0.375 },
-        { name: "Feedback", unit: "%", min: -100, max: 100, default: 50, value: 40 },
-        { name: "Lowpass Cutoff", unit: "Hz", min: 10, max: 22050, default: 15000, value: 6500 },
+        p("Dry/Wet Mix", "%", 0, 100, 50, 35),
+        p("Delay Time", "s", 0, 2, 1, 0.375),
+        p("Feedback", "%", -100, 100, 50, 40),
+        p("Lowpass Cutoff", "Hz", 10, 22050, 15000, 6500),
       ],
       hasEditor: true,
       editorOpen: mockParams?.has("editor") ?? false,
       latencyFrames: mockParams?.has("latency") ? MOCK_LATENCY : 0,
+      readouts: [],
     };
   }
+  const kind = MOCK_STOCK[spec] ?? MOCK_STOCK.gain;
   return {
     id,
-    spec: "gain",
-    name: "Gain",
-    params: [{ name: "Gain", unit: "dB", min: -60, max: 24, default: 0, value: 0 }],
+    spec: MOCK_STOCK[spec] ? spec : "gain",
+    name: kind?.name ?? "Gain",
+    params: (kind?.params ?? []).map((q) => ({ ...q })),
     hasEditor: false,
     editorOpen: false,
     latencyFrames: 0,
+    readouts: [...(kind?.readouts ?? [])],
   };
+}
+
+/**
+ * The guitar track's chain: `?chain=tuner,gate,compressor` names stock
+ * pedals in order; `?plugin` appends the stand-in plugin.
+ */
+function mockGuitarChain(): PedalInfo[] {
+  const specs = mockParams?.get("chain")?.split(",").filter(Boolean) ?? ["gain", "overdrive"];
+  const chain = specs.map((spec, i) => mockPedal(i === 0 ? 2 : i === 1 ? 3 : 30 + i, spec));
+  if (mockParams?.has("plugin")) chain.push(mockPedal(9, "au:aufx:dely:appl"));
+  return chain;
 }
 
 /** The stand-in plugin's latency with `?latency`: 32 ms, above the default warning. */
@@ -489,9 +556,7 @@ const mock: EngineStatus = {
         armed: mockParams?.has("armed") ?? false,
         recording: mockParams?.has("recording") ?? false,
         kit: null,
-        chain: mockParams?.has("plugin")
-          ? [mockPedal(2, "gain"), mockPedal(3, "overdrive"), mockPedal(9, "au:aufx:dely:appl")]
-          : [mockPedal(2, "gain"), mockPedal(3, "overdrive")],
+        chain: mockGuitarChain(),
         clips: mockParams?.has("take")
           ? [mockClip(4, "Guitar 1", 0, 12.4), mockClip(5, "Guitar 2", 16, 6.1)]
           : [],
@@ -541,7 +606,7 @@ const mock: EngineStatus = {
       : [],
     master: { gainDb: -1, pan: 0, mute: false, solo: false },
   },
-  pedalKinds: ["gain", "overdrive"],
+  pedalKinds: Object.keys(MOCK_STOCK),
   plugins: {
     scanning: mockParams?.has("scanning") ?? false,
     count: 5,
@@ -1412,6 +1477,7 @@ function publish(buffer: ArrayBuffer) {
     position: frame.position,
     playing: frame.playing,
     recording: frame.recording,
+    readouts: frame.readouts,
   };
   for (const l of meterListeners) l(out);
 }
@@ -1459,6 +1525,27 @@ function openMeterChannel() {
           }),
         ]
       : new Array(4 + mock.project.tracks.length * 2).fill(0);
+    // What each pedal would measure: a tuner hearing an A string a
+    // touch sharp and drifting, a gate open, a compressor working.
+    const readouts = mock.project.tracks.flatMap((track) =>
+      track.chain.flatMap((pedal) =>
+        pedal.readouts.map((name) => {
+          if (!mock.running) return 0;
+          switch (name) {
+            case "Pitch":
+              return 110 * 2 ** ((4 + 6 * Math.sin(t * 0.7)) / 1200);
+            case "Clarity":
+              return 0.95;
+            case "Open":
+              return 1;
+            case "Reduction":
+              return -(3 + 3 * Math.abs(Math.sin(t * 3.7)));
+            default:
+              return 0;
+          }
+        }),
+      ),
+    );
     // No shell to acknowledge, and headless captures never reach an
     // animation frame, so the stand-in publishes directly.
     publish(
@@ -1470,6 +1557,7 @@ function openMeterChannel() {
         recording: mockTransport.recording,
         beat: null,
         meters,
+        readouts,
       }),
     );
   }, 1000 / 60);

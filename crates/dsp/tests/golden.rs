@@ -122,6 +122,26 @@ fn cases() -> Vec<Case> {
         name: "overdrive-hot".into(),
         processor: hot,
     });
+    // A gate that the fixtures' quiet tails fall below.
+    let mut gate = stock("gate").unwrap();
+    gate.set_param(0, -20.0);
+    gate.set_param(2, 10.0);
+    gate.set_param(3, 30.0);
+    cases.push(Case {
+        name: "gate-tight".into(),
+        processor: gate,
+    });
+    // A compressor squashing hard with a fast attack and a lift.
+    let mut squash = stock("compressor").unwrap();
+    squash.set_param(0, -30.0);
+    squash.set_param(1, 10.0);
+    squash.set_param(2, 1.0);
+    squash.set_param(4, 0.0);
+    squash.set_param(5, 6.0);
+    cases.push(Case {
+        name: "compressor-squash".into(),
+        processor: squash,
+    });
     cases
 }
 

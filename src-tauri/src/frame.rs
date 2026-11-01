@@ -1,9 +1,9 @@
 //! The binary frame the engine streams to the UI at display rate.
 //!
-//! One format carries meters now and the analysis stream (spectrum,
-//! waveform, beat) in M8: the header says how much of each the body
-//! holds, so a reader built for meters skips what it does not know. The
-//! layout is documented in `docs/frames.md` and decoded by
+//! One format carries meters and pedal readouts now and the analysis
+//! stream (spectrum, waveform, beat) in M8: the header says how much of
+//! each the body holds, so a reader built for meters skips what it does
+//! not know. The layout is documented in `docs/frames.md` and decoded by
 //! `ui/src/lib/frame.ts`; the two must agree.
 //!
 //! All integers and floats are little-endian. The header is 48 bytes, a
@@ -12,7 +12,7 @@
 
 /// The four bytes every frame starts with.
 pub const MAGIC: [u8; 4] = *b"CNTF";
-pub const VERSION: u16 = 1;
+pub const VERSION: u16 = 2;
 pub const HEADER_LEN: usize = 48;
 
 pub const FLAG_PLAYING: u16 = 1 << 0;
@@ -43,11 +43,18 @@ pub struct Frame<'a> {
     pub meters: &'a [f32],
     pub spectrum: &'a [f32],
     pub waveform: &'a [f32],
+    /// Every pedal readout in the graph, in track and chain order; the
+    /// status says which pedal owns how many.
+    pub readouts: &'a [f32],
 }
 
 impl Frame<'_> {
     pub fn encoded_len(&self) -> usize {
-        HEADER_LEN + 4 * (self.meters.len() + self.spectrum.len() + self.waveform.len())
+        HEADER_LEN
+            + 4 * (self.meters.len()
+                + self.spectrum.len()
+                + self.waveform.len()
+                + self.readouts.len())
     }
 
     /// Writes the frame into `out`, reusing its allocation.
@@ -79,13 +86,13 @@ impl Frame<'_> {
         out.extend_from_slice(&((self.meters.len() / 2) as u16).to_le_bytes());
         out.extend_from_slice(&(self.spectrum.len() as u16).to_le_bytes());
         out.extend_from_slice(&(self.waveform.len() as u16).to_le_bytes());
-        out.extend_from_slice(&0u16.to_le_bytes());
+        out.extend_from_slice(&(self.readouts.len() as u16).to_le_bytes());
         out.extend_from_slice(&beat.bpm.to_le_bytes());
         out.extend_from_slice(&beat.phase.to_le_bytes());
         out.extend_from_slice(&beat.bar.to_le_bytes());
         out.extend_from_slice(&beat.beat.to_le_bytes());
         debug_assert_eq!(out.len(), HEADER_LEN);
-        for lane in [self.meters, self.spectrum, self.waveform] {
+        for lane in [self.meters, self.spectrum, self.waveform, self.readouts] {
             for v in lane {
                 out.extend_from_slice(&v.to_le_bytes());
             }
@@ -131,12 +138,13 @@ mod tests {
             meters: &[0.5, 0.25, 0.75, 0.1],
             spectrum: &[1.0, 2.0, 3.0],
             waveform: &[-1.0, 1.0],
+            readouts: &[440.0, 0.9],
         };
         let b = frame.encode();
         assert_eq!(b.len(), frame.encoded_len());
-        assert_eq!(b.len(), HEADER_LEN + 4 * 9);
+        assert_eq!(b.len(), HEADER_LEN + 4 * 11);
         assert_eq!(&b[0..4], b"CNTF");
-        assert_eq!(u16_at(&b, 4), 1);
+        assert_eq!(u16_at(&b, 4), 2);
         assert_eq!(u16_at(&b, 6), FLAG_PLAYING | FLAG_BEAT);
         assert_eq!(u32_at(&b, 8), 7);
         assert_eq!(u32_at(&b, 12), 2);
@@ -144,6 +152,7 @@ mod tests {
         assert_eq!(u16_at(&b, 24), 2, "two meters");
         assert_eq!(u16_at(&b, 26), 3, "spectrum bins");
         assert_eq!(u16_at(&b, 28), 2, "waveform samples");
+        assert_eq!(u16_at(&b, 30), 2, "readouts");
         assert_eq!(f32_at(&b, 32), 120.0);
         assert_eq!(f32_at(&b, 36), 0.25);
         assert_eq!(u32_at(&b, 40), 3);
@@ -152,6 +161,8 @@ mod tests {
         assert_eq!(f32_at(&b, 48 + 12), 0.1);
         assert_eq!(f32_at(&b, 48 + 16), 1.0);
         assert_eq!(f32_at(&b, 48 + 28), -1.0);
+        assert_eq!(f32_at(&b, 48 + 36), 440.0);
+        assert_eq!(f32_at(&b, 48 + 40), 0.9);
     }
 
     #[test]
@@ -166,10 +177,12 @@ mod tests {
             meters: &[0.0, 0.0, 0.0, 0.0],
             spectrum: &[],
             waveform: &[],
+            readouts: &[],
         };
         let b = frame.encode();
         assert_eq!(b.len(), HEADER_LEN + 16);
         assert_eq!(u16_at(&b, 6), FLAG_RECORDING);
         assert_eq!(u16_at(&b, 26), 0);
+        assert_eq!(u16_at(&b, 30), 0);
     }
 }
