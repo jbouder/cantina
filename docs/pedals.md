@@ -7,6 +7,9 @@ behind it. Every pedal has golden-file tests (`crates/dsp/tests/golden`)
 that pin its output over an impulse, a sine, a sweep and a square burst,
 plus its own tests for the behaviour that matters.
 
+User-designed pedals are a JSON graph of the same primitives; the
+format is in [pedal-format.md](pedal-format.md).
+
 ## Parameters and readouts
 
 Knobs are `ParamInfo`s with a unit. Besides decibels, hertz, seconds and

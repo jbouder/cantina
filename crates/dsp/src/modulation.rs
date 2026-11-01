@@ -261,20 +261,20 @@ const PHASER_MAX_FEEDBACK: f32 = 0.9;
 /// A first-order allpass: flat in level, shifts phase around its
 /// corner frequency.
 #[derive(Debug, Clone, Copy, Default)]
-struct Allpass {
+pub(crate) struct Allpass {
     coefficient: f32,
     x1: f32,
     y1: f32,
 }
 
 impl Allpass {
-    fn set_frequency(&mut self, hz: f32, sample_rate: f32) {
+    pub(crate) fn set_frequency(&mut self, hz: f32, sample_rate: f32) {
         let t = (std::f32::consts::PI * hz / sample_rate).tan();
         self.coefficient = (1.0 - t) / (1.0 + t);
     }
 
     #[inline]
-    fn tick(&mut self, x: f32) -> f32 {
+    pub(crate) fn tick(&mut self, x: f32) -> f32 {
         let y = -self.coefficient * x + self.x1 + self.coefficient * self.y1;
         self.x1 = x;
         self.y1 = y;
