@@ -16,7 +16,7 @@ export function Select({ label, hint, id, className = "", children, ...rest }: P
       <span className="relative">
         <select
           id={id}
-          className={`surface-lcd min-h-11 min-w-48 max-w-64 appearance-none truncate py-0 pr-8 pl-2 font-lcd text-lg ${className}`}
+          className={`surface-lcd min-h-8 min-w-48 max-w-64 appearance-none truncate py-0 pr-8 pl-2 font-lcd text-base ${className}`}
           {...rest}
         >
           {children}

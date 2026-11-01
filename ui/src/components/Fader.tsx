@@ -28,7 +28,7 @@ export function Fader({ param, value, onChange }: Props) {
   if (param.toggle) {
     const on = value >= 0.5;
     return (
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex min-w-0 items-center justify-between gap-2">
         <span id={id} className={LABEL}>
           {param.name}
         </span>
@@ -46,14 +46,14 @@ export function Fader({ param, value, onChange }: Props) {
   }
   if (param.choices.length > 0) {
     return (
-      <div className="grid gap-0.5">
+      <div className="grid min-w-0 gap-0.5">
         <label htmlFor={id} className={LABEL}>
           {param.name}
         </label>
         <span className="relative">
           <select
             id={id}
-            className="surface-lcd min-h-11 w-full appearance-none truncate py-0 pr-8 pl-2 font-lcd text-base"
+            className="surface-lcd min-h-8 w-full appearance-none truncate py-0 pr-8 pl-2 font-lcd text-base"
             value={Math.round(value)}
             onChange={(e) => onChange(Number(e.target.value))}
           >
@@ -84,7 +84,7 @@ export function Fader({ param, value, onChange }: Props) {
   const fromSlider = (t: number) =>
     log ? Math.round(param.min * (param.max / param.min) ** (t / LOG_STEPS)) : t;
   return (
-    <div className="grid gap-0.5">
+    <div className="grid min-w-0 gap-0.5">
       <div className="flex items-baseline justify-between gap-2">
         <label htmlFor={id} className={LABEL}>
           {param.name}

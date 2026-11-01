@@ -16,7 +16,7 @@ export function TextInput({ label, hint, id, className = "", ...rest }: Props) {
       <input
         id={id}
         type="text"
-        className={`surface-lcd min-h-11 min-w-48 max-w-64 px-2 py-0 font-lcd text-lg ${className}`}
+        className={`surface-lcd min-h-8 min-w-48 max-w-64 px-2 py-0 font-lcd text-base ${className}`}
         {...rest}
       />
     </div>

@@ -104,7 +104,10 @@ export function Transport({
         </svg>
         Stop
       </Button>
-      <Lcd aria-label="Position" className="whitespace-nowrap text-center tabular-nums">
+      <Lcd
+        aria-label="Position"
+        className="min-h-11 whitespace-nowrap px-3 py-2 text-center text-xl tabular-nums"
+      >
         {timeline.bars} · {clock(position)}
       </Lcd>
       <span className="flex items-center gap-1 text-sm">
@@ -123,22 +126,22 @@ export function Transport({
           onKeyDown={(e) => {
             if (e.key === "Enter") commitBpm();
           }}
-          className="surface-lcd min-h-11 w-20 px-2 text-center font-lcd text-lg tabular-nums"
+          className="surface-lcd min-h-8 w-20 px-2 text-center font-lcd text-base tabular-nums"
         />
         <span className="whitespace-nowrap text-ink-dim">
           {tempo.numerator}/{tempo.denominator} · grid {timeline.divisionLabel}
         </span>
       </span>
-      <Button aria-pressed={timeline.snapOn} onClick={timeline.toggleSnap}>
+      <Button aria-pressed={timeline.snapOn} onClick={timeline.toggleSnap} size="lg">
         Snap
       </Button>
-      <Button aria-label="Zoom out" onClick={timeline.zoomOut}>
+      <Button aria-label="Zoom out" onClick={timeline.zoomOut} size="lg">
         −
       </Button>
-      <Button aria-label="Zoom in" onClick={timeline.zoomIn}>
+      <Button aria-label="Zoom in" onClick={timeline.zoomIn} size="lg">
         +
       </Button>
-      <Button onClick={timeline.fit} title="Zoom to show every clip">
+      <Button onClick={timeline.fit} title="Zoom to show every clip" size="lg">
         Fit
       </Button>
       <span className="text-ink-dim text-sm">{note}</span>

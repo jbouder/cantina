@@ -55,7 +55,7 @@ function Badge({ children, title }: { children: string; title: string }) {
 
 /**
  * The pedals in order, each with its knobs. Reorder by dragging a card
- * or with the arrow keys on its grip; the free slot at the end opens the
+ * or with the arrow keys on its name; the free slot at the end opens the
  * picker.
  */
 export function PedalChain({
@@ -135,7 +135,7 @@ export function PedalChain({
             aria-haspopup="dialog"
             onClick={onAdd}
             title="Add a stock pedal, one of yours, a plugin, a new design or a file"
-            className="grid min-h-40 w-48 shrink-0 cursor-pointer content-start justify-items-center gap-1 rounded-control border-2 border-frame-hi border-dashed bg-transparent p-3 pt-10 text-ink-dim hover:border-ink hover:text-ink"
+            className="grid min-h-32 w-44 shrink-0 cursor-pointer content-start justify-items-center gap-1 rounded-control border-2 border-frame-hi border-dashed bg-transparent p-2 pt-8 text-ink-dim hover:border-ink hover:text-ink"
           >
             <span aria-hidden="true" className="font-lcd text-5xl leading-none">
               +
@@ -233,35 +233,31 @@ function PedalCard({
         onDragStart();
       }}
       onDragEnd={onDragEnd}
-      className={`surface-panel grid shrink-0 content-start gap-2 p-3 ${wide ? "w-96" : "w-48"} ${dragging ? "opacity-50" : ""}`}
+      className={`surface-panel grid shrink-0 content-start gap-1.5 p-2 ${wide ? "w-88" : "w-44"} ${dragging ? "opacity-50" : ""}`}
     >
-      <header className="flex items-center gap-1">
-        <button
-          type="button"
-          aria-label={`${pedal.name}, position ${index + 1} of ${count}. Use the arrow keys to move it.`}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowLeft" && index > 0) onMove(index - 1);
-            if (e.key === "ArrowRight" && index < count - 1) onMove(index + 1);
-          }}
-          className="surface-pbutton grid size-11 shrink-0 cursor-grab place-items-center border-0 p-0"
-        >
-          <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
-            <path d="M5 3h2v2H5zM9 3h2v2H9zM5 7h2v2H5zM9 7h2v2H9zM5 11h2v2H5zM9 11h2v2H9z" />
-          </svg>
-        </button>
-        <h3 className="m-0 flex-1 truncate font-bold text-[11px] uppercase tracking-[0.1em]">
-          {pedal.name}
-          {kind?.stock ? (
-            <span className="mt-0.5 block">
+      <header className="flex min-w-0 items-center gap-1">
+        <h3 className="m-0 min-w-0 flex-1 font-bold text-[11px] uppercase tracking-[0.1em]">
+          <span className="flex items-center gap-1">
+            <button
+              type="button"
+              aria-label={`${pedal.name}, position ${index + 1} of ${count}. Drag the card or use the arrow keys to move it.`}
+              title="Drag to reorder; the arrow keys move it too"
+              onKeyDown={(e) => {
+                if (e.key === "ArrowLeft" && index > 0) onMove(index - 1);
+                if (e.key === "ArrowRight" && index < count - 1) onMove(index + 1);
+              }}
+              className="min-h-8 min-w-0 flex-1 cursor-grab truncate border-0 bg-transparent p-0 text-left font-bold text-[11px] text-inherit uppercase tracking-[0.1em]"
+            >
+              {pedal.name}
+            </button>
+            {kind?.stock ? (
               <Badge title={kind.designable ? "Stock, in the pedal format" : "Stock, built in"}>
-                {kind.designable ? "stock · json" : "stock"}
+                {kind.designable ? "json" : "stock"}
               </Badge>
-            </span>
-          ) : designed ? (
-            <span className="mt-0.5 block">
+            ) : designed ? (
               <Badge title="Designed here, in the pedal format">yours</Badge>
-            </span>
-          ) : null}
+            ) : null}
+          </span>
           {pedal.latencyFrames > 0 ? (
             <small
               className="block font-normal text-ink-dim normal-case tracking-normal"
@@ -285,7 +281,7 @@ function PedalCard({
           <span className="relative">
             <select
               id={irId}
-              className="surface-lcd min-h-11 w-full appearance-none truncate py-0 pr-8 pl-2 font-lcd text-base"
+              className="surface-lcd min-h-8 w-full appearance-none truncate py-0 pr-8 pl-2 font-lcd text-base"
               value={cabinetIr}
               onChange={(e) => onSpec(`cab:${e.target.value}`)}
             >
@@ -337,7 +333,7 @@ function PedalCard({
           {pedal.editorOpen ? "Editor open" : "Edit…"}
         </Button>
       ) : null}
-      <div className={wide ? "grid grid-cols-2 gap-x-4 gap-y-2" : "contents"}>
+      <div className={wide ? "grid min-w-0 grid-cols-2 gap-x-4 gap-y-2" : "contents"}>
         {pedal.params.map((param, i) => (
           <Fader
             key={`${String(i)}-${param.name}`}

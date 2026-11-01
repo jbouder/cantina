@@ -9,7 +9,7 @@ type Props = HTMLAttributes<HTMLElement> & {
 export function Lcd({ className = "", error = false, children, ...rest }: Props) {
   return (
     <output
-      className={`surface-lcd block px-3 py-2 font-lcd text-xl leading-tight ${error ? "text-lcd-error" : ""} ${className}`}
+      className={`surface-lcd block px-2 py-1 font-lcd text-lg leading-tight ${error ? "text-lcd-error" : ""} ${className}`}
       {...rest}
     >
       <span className="lcd-text">{children}</span>
