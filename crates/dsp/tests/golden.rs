@@ -153,6 +153,26 @@ fn cases() -> Vec<Case> {
         name: "compressor-squash".into(),
         processor: squash,
     });
+    // The EQ with every band doing something.
+    let mut eq = stock("eq").unwrap();
+    eq.set_param(2, -6.0);
+    eq.set_param(6, 4.0);
+    eq.set_param(7, 2.0);
+    eq.set_param(10, -3.0);
+    eq.set_param(14, 5.0);
+    cases.push(Case {
+        name: "eq-shaped".into(),
+        processor: eq,
+    });
+    // Modulation at a brisk rate, so a quarter second shows a cycle.
+    for name in ["chorus", "flanger", "phaser", "tremolo"] {
+        let mut p = stock(name).unwrap();
+        p.set_param(0, 6.0);
+        cases.push(Case {
+            name: format!("{name}-fast"),
+            processor: p,
+        });
+    }
     cases
 }
 

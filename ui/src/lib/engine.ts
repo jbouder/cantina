@@ -379,6 +379,33 @@ function choice(name: string, choices: string[], def: number): ParamInfo {
   return { ...p(name, "", 0, choices.length - 1, def), choices };
 }
 
+const NOTES = [
+  "1/1",
+  "1/2",
+  "1/2T",
+  "1/4",
+  "1/4D",
+  "1/4T",
+  "1/8",
+  "1/8D",
+  "1/8T",
+  "1/16",
+  "1/16T",
+  "1/32",
+];
+
+/** The knobs of a chorus, flanger or phaser. */
+function modulation(rate: number, depth: number, feedback: number) {
+  return [
+    p("Rate", "Hz", 0.05, 10, rate),
+    p("Depth", "%", 0, 100, depth),
+    p("Feedback", "%", 0, 100, feedback),
+    p("Mix", "%", 0, 100, 50),
+    toggle("Sync", false),
+    choice("Note", NOTES, 3),
+  ];
+}
+
 /** The five knobs every drive pedal has. */
 function drive(driveMax: number, driveDefault: number, level: number, curves: string[]) {
   return [
@@ -432,6 +459,39 @@ const MOCK_STOCK: Record<string, { name: string; params: ParamInfo[]; readouts: 
   fuzz: {
     name: "Fuzz",
     params: drive(60, 40, -12, ["Silicon", "Germanium", "Octave"]),
+    readouts: [],
+  },
+  eq: {
+    name: "EQ",
+    params: [
+      [1, 100, 0.7],
+      [0, 400, 1],
+      [0, 1600, 1],
+      [2, 5000, 0.7],
+    ].flatMap(([kind, hz, q], i) => [
+      choice(
+        `Band ${String(i + 1)}`,
+        ["Peak", "Low shelf", "High shelf", "Low cut", "High cut", "Notch"],
+        kind ?? 0,
+      ),
+      p("Freq", "Hz", 20, 20000, hz ?? 1000),
+      p("Gain", "dB", -18, 18, 0),
+      p("Q", "", 0.1, 10, q ?? 1),
+    ]),
+    readouts: [],
+  },
+  chorus: { name: "Chorus", params: modulation(0.8, 50, 0), readouts: [] },
+  flanger: { name: "Flanger", params: modulation(0.3, 70, 50), readouts: [] },
+  phaser: { name: "Phaser", params: modulation(0.5, 70, 30), readouts: [] },
+  tremolo: {
+    name: "Tremolo",
+    params: [
+      p("Rate", "Hz", 0.05, 20, 5),
+      p("Depth", "%", 0, 100, 60),
+      choice("Shape", ["Sine", "Triangle", "Square"], 0),
+      toggle("Sync", false),
+      choice("Note", NOTES, 3),
+    ],
     readouts: [],
   },
   gain: { name: "Gain", params: [p("Gain", "dB", -60, 24, 0)], readouts: [] },

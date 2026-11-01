@@ -165,6 +165,8 @@ function PedalCard({
   useEffect(() => {
     setValues(pedal.params.map((p) => p.value));
   }, [pedal.params]);
+  // A pedal with many knobs (the EQ) gets a double-width card.
+  const wide = pedal.params.length > 8;
   const pending = useRef<Map<number, number>>(new Map());
   const scheduled = useRef(false);
 
@@ -193,7 +195,7 @@ function PedalCard({
         onDragStart();
       }}
       onDragEnd={onDragEnd}
-      className={`surface-panel grid w-48 shrink-0 gap-2 p-3 ${dragging ? "opacity-50" : ""}`}
+      className={`surface-panel grid shrink-0 gap-2 p-3 ${wide ? "w-96" : "w-48"} ${dragging ? "opacity-50" : ""}`}
     >
       <header className="flex items-center gap-1">
         <button
@@ -242,14 +244,16 @@ function PedalCard({
           {pedal.editorOpen ? "Editor open" : "Edit…"}
         </Button>
       ) : null}
-      {pedal.params.map((param, i) => (
-        <Fader
-          key={param.name}
-          param={param}
-          value={values[i] ?? param.value}
-          onChange={(v) => setParam(i, v)}
-        />
-      ))}
+      <div className={wide ? "grid grid-cols-2 gap-x-4 gap-y-2" : "contents"}>
+        {pedal.params.map((param, i) => (
+          <Fader
+            key={`${String(i)}-${param.name}`}
+            param={param}
+            value={values[i] ?? param.value}
+            onChange={(v) => setParam(i, v)}
+          />
+        ))}
+      </div>
     </article>
   );
 }

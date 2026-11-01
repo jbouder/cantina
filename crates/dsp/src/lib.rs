@@ -20,11 +20,15 @@
 
 mod biquad;
 mod compressor;
+mod delay_line;
 mod drive;
 mod envelope;
+mod eq;
 mod gain;
 mod gate;
 pub mod kit;
+pub mod lfo;
+mod modulation;
 pub mod oversample;
 pub mod pitch;
 mod processor;
@@ -37,14 +41,18 @@ mod tuner;
 
 pub use biquad::Biquad;
 pub use compressor::Compressor;
+pub use delay_line::DelayLine;
 pub use drive::{Distortion, Drive, Fuzz, Overdrive, Voicing};
 pub use envelope::Envelope;
+pub use eq::Equalizer;
 pub use gain::Gain;
 pub use gate::NoiseGate;
 pub use kit::{Kit, KitError, LoadedKit, Sample, KIT_VERSION};
+pub use lfo::{Lfo, Shape};
+pub use modulation::{Phaser, SweptDelay, Tremolo};
 pub use oversample::Oversampler;
 pub use processor::{
-    Buffer, Chain, Handle, ParamId, ParamInfo, Processor, StateError, Unit, MAX_CHANNELS,
+    Buffer, Chain, Handle, ParamId, ParamInfo, Processor, StateError, Transport, Unit, MAX_CHANNELS,
 };
 pub use readout::Readout;
 pub use render::Renderer;
@@ -73,6 +81,11 @@ pub const STOCK_NAMES: &[&str] = &[
     "overdrive",
     "distortion",
     "fuzz",
+    "eq",
+    "chorus",
+    "flanger",
+    "phaser",
+    "tremolo",
     "gain",
 ];
 
@@ -85,6 +98,11 @@ pub fn stock(name: &str) -> Option<Box<dyn Processor>> {
         "overdrive" => Some(Box::new(Overdrive::default())),
         "distortion" => Some(Box::new(Distortion::default())),
         "fuzz" => Some(Box::new(Fuzz::default())),
+        "eq" => Some(Box::new(Equalizer::default())),
+        "chorus" => Some(Box::new(SweptDelay::chorus())),
+        "flanger" => Some(Box::new(SweptDelay::flanger())),
+        "phaser" => Some(Box::new(Phaser::default())),
+        "tremolo" => Some(Box::new(Tremolo::default())),
         "gain" => Some(Box::new(Gain::default())),
         _ => None,
     }
