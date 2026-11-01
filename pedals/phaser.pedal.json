@@ -1,0 +1,148 @@
+{
+  "version": 1,
+  "name": "Phaser",
+  "params": [
+    {
+      "id": "rate",
+      "label": "Rate",
+      "unit": "Hz",
+      "min": 0.05,
+      "max": 10,
+      "default": 0.5
+    },
+    {
+      "id": "depth",
+      "label": "Depth",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "default": 70
+    },
+    {
+      "id": "feedback",
+      "label": "Feedback",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "default": 30
+    },
+    {
+      "id": "mix",
+      "label": "Mix",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "default": 50
+    },
+    {
+      "id": "sync",
+      "label": "Sync",
+      "toggle": true,
+      "default": 0
+    },
+    {
+      "id": "note",
+      "label": "Note",
+      "choices": [
+        "1/1",
+        "1/2",
+        "1/2T",
+        "1/4",
+        "1/4D",
+        "1/4T",
+        "1/8",
+        "1/8D",
+        "1/8T",
+        "1/16",
+        "1/16T",
+        "1/32"
+      ],
+      "default": 3
+    }
+  ],
+  "nodes": [
+    {
+      "id": "in",
+      "kind": "input",
+      "pos": [
+        40,
+        160
+      ]
+    },
+    {
+      "id": "lfo",
+      "kind": "lfo",
+      "rate": {
+        "param": "rate"
+      },
+      "sync": {
+        "param": "sync"
+      },
+      "note": {
+        "param": "note"
+      },
+      "depth": {
+        "param": "depth",
+        "map": [
+          0,
+          1
+        ]
+      },
+      "spread": 0.25,
+      "unipolar": true,
+      "pos": [
+        200,
+        320
+      ]
+    },
+    {
+      "id": "stages",
+      "kind": "allpass",
+      "stages": 4,
+      "freq": {
+        "node": "lfo",
+        "map": [
+          300,
+          6788.225
+        ],
+        "log": true
+      },
+      "feedback": {
+        "param": "feedback",
+        "map": [
+          0,
+          0.9
+        ]
+      },
+      "mix": {
+        "param": "mix",
+        "map": [
+          0,
+          1
+        ]
+      },
+      "pos": [
+        360,
+        160
+      ]
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "pos": [
+        520,
+        160
+      ]
+    }
+  ],
+  "edges": [
+    [
+      "in",
+      "stages"
+    ],
+    [
+      "stages",
+      "out"
+    ]
+  ]
+}

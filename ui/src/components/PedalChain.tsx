@@ -12,6 +12,7 @@ import {
   irsRescan,
   ms,
   type PedalInfo,
+  type PedalKindInfo,
 } from "../lib/engine";
 import { Button } from "./Button";
 import { Fader } from "./Fader";
@@ -24,7 +25,8 @@ type Props = {
   track: number;
   chain: PedalInfo[];
   sampleRate: number;
-  kinds: string[];
+  /** The stock pedals the picker offers. */
+  kinds: PedalKindInfo[];
   /** The latest frame's pedal readouts by pedal id (see readouts.ts). */
   readouts: Map<number, number[]>;
   /** The cabinet impulse responses installed. */
@@ -35,8 +37,22 @@ type Props = {
   onError: (message: string) => void;
 };
 
-function titleCase(spec: string) {
-  return spec.charAt(0).toUpperCase() + spec.slice(1);
+/** The kind a pedal in a chain was added as, if it is a stock one. */
+function kindOf(kinds: PedalKindInfo[], spec: string) {
+  const base = spec.startsWith("cab:") ? "cab" : spec;
+  return kinds.find((k) => k.spec === base);
+}
+
+/** A small tag in the frame's lettering: where a pedal comes from. */
+function Badge({ children, title }: { children: string; title: string }) {
+  return (
+    <span
+      title={title}
+      className="surface-lcd shrink-0 px-1 py-0.5 font-lcd text-[11px] uppercase leading-none tracking-[0.08em]"
+    >
+      <span className="lcd-text">{children}</span>
+    </span>
+  );
 }
 
 /**
@@ -57,7 +73,9 @@ export function PedalChain({
 }: Props) {
   const [dragging, setDragging] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
-  const [kind, setKind] = useState(kinds[0] ?? "gain");
+  const [kind, setKind] = useState(kinds[0]?.spec ?? "gain");
+  const stock = kinds.filter((k) => k.stock);
+  const chosen = kinds.find((k) => k.spec === kind);
 
   const run = useCallback(
     (action: Promise<EngineStatus>) => {
@@ -89,6 +107,7 @@ export function PedalChain({
           >
             <PedalCard
               pedal={pedal}
+              kind={kindOf(kinds, pedal.spec)}
               readouts={readouts.get(pedal.id)}
               irs={irs}
               sampleRate={sampleRate}
@@ -122,12 +141,27 @@ export function PedalChain({
           value={kind}
           onChange={(e) => setKind(e.target.value)}
         >
-          {kinds.map((k) => (
-            <option key={k} value={k}>
-              {titleCase(k)}
-            </option>
-          ))}
+          <optgroup label="Stock">
+            {stock.map((k) => (
+              <option key={k.spec} value={k.spec}>
+                {k.name}
+              </option>
+            ))}
+          </optgroup>
         </Select>
+        {chosen?.stock ? (
+          <span className="flex min-h-11 items-center">
+            <Badge
+              title={
+                chosen.designable
+                  ? "Ships with Cantina, written in the pedal format: the designer can open it"
+                  : "Ships with Cantina, built in"
+              }
+            >
+              {chosen.designable ? "stock · json" : "stock"}
+            </Badge>
+          </span>
+        ) : null}
         <Button onClick={() => run(chainAdd(track, kind))}>Add</Button>
         <Button aria-haspopup="dialog" onClick={onBrowsePlugins}>
           Plugins…
@@ -139,6 +173,8 @@ export function PedalChain({
 
 type CardProps = {
   pedal: PedalInfo;
+  /** The stock kind it was added as, if any. */
+  kind: PedalKindInfo | undefined;
   readouts: number[] | undefined;
   irs: IrInfo[];
   sampleRate: number;
@@ -159,6 +195,7 @@ type CardProps = {
 
 function PedalCard({
   pedal,
+  kind,
   readouts,
   irs,
   sampleRate,
@@ -233,6 +270,13 @@ function PedalCard({
         </button>
         <h3 className="m-0 flex-1 truncate font-bold text-[11px] uppercase tracking-[0.1em]">
           {pedal.name}
+          {kind?.stock ? (
+            <span className="mt-0.5 block">
+              <Badge title={kind.designable ? "Stock, in the pedal format" : "Stock, built in"}>
+                {kind.designable ? "stock · json" : "stock"}
+              </Badge>
+            </span>
+          ) : null}
           {pedal.latencyFrames > 0 ? (
             <small
               className="block font-normal text-ink-dim normal-case tracking-normal"

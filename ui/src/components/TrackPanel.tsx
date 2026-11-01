@@ -7,6 +7,7 @@ import {
   type IrInfo,
   type KitInfo,
   type PatternInfo,
+  type PedalKindInfo,
   patternClipRemove,
   type Tempo,
   type TrackStatus,
@@ -25,7 +26,7 @@ type Props = {
   index: number;
   count: number;
   sampleRate: number;
-  kinds: string[];
+  kinds: PedalKindInfo[];
   /** For a drum track: the patterns, kits and audition, and the clock. */
   patterns: PatternInfo[];
   kits: KitInfo[];

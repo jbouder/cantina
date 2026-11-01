@@ -378,7 +378,7 @@ impl Chain {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Gain, Overdrive};
+    use crate::{stock, Gain};
 
     #[test]
     fn buffer_wraps_channels() {
@@ -396,12 +396,12 @@ mod tests {
 
     #[test]
     fn default_state_round_trips_parameters() {
-        let mut a = Overdrive::default();
+        let mut a = stock("overdrive").unwrap();
         a.set_param(0, 33.0);
         a.set_param(1, 1234.0);
         a.set_param(2, -3.0);
         let blob = a.state();
-        let mut b = Overdrive::default();
+        let mut b = stock("overdrive").unwrap();
         b.set_state(&blob).unwrap();
         for id in 0..a.params().len() {
             assert_eq!(a.param(id), b.param(id), "parameter {id}");

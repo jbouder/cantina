@@ -81,7 +81,7 @@ only be bound, not wired with an edge.
 | --- | --- | --- |
 | `input` | | The signal coming into the pedal. |
 | `output` | | The signal leaving. |
-| `gain` | `db` (−60 to 60) **or** `linear` (0 to 16); `smooth` 0.005 | Scales the signal. Both fields are modulatable and smoothed. |
+| `gain` | `db` (−96 to 96) **or** `linear` (0 to 16); `smooth` 0.005 | Scales the signal. Both fields are modulatable and smoothed. |
 | `biquad` | `type` (`lowpass`, `highpass`, `peak`, `lowshelf`, `highshelf`, `notch`); `freq` 20 to 20 000 Hz; `gain` ±24 dB (peak and shelves); `q` 0.1 to 10 (0.7071); `smooth` 0 | The cookbook filters from `biquad.rs`. The coefficients are recomputed when a field changes, keeping the filter state so a sweep does not click. `freq` is modulatable: a swept filter is redesigned every sample. |
 | `waveshaper` | `curve` (`soft`, `hard`, `asymmetric`, `fold`, `silicon`, `germanium`, `octave`); `oversample` 1, 2, 4 or 8 | The curves from `shaper.rs` through the oversampler from `oversample.rs`. At 1 the shaper runs plain with no latency; anything above adds **22 samples**, the same at every factor, so a bound factor can switch without moving the signal in time. |
 | `delay` | `time` 0.1 to 10 000 ms; `feedback` 0 to 0.99; `mix` 0 to 1 (1); `max` ms (2000); `smooth` 0.02 | A delay line with feedback and a dry/wet blend. `time` is modulatable; a change slides the read head, so a bound lfo makes a chorus or a flanger and a knob drag bends the pitch like tape (the stock delay pedal crossfades instead). The line is reserved for `max` at prepare. |
