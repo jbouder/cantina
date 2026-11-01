@@ -189,6 +189,28 @@ fn cases() -> Vec<Case> {
         name: "reverb-wet".into(),
         processor: room,
     });
+    // The amp driven, and a cabinet with a short made-up impulse.
+    let mut amp = stock("amp").unwrap();
+    amp.set_param(0, 30.0);
+    amp.set_param(1, 3.0);
+    amp.set_param(4, 4.0);
+    cases.push(Case {
+        name: "amp-driven".into(),
+        processor: amp,
+    });
+    let mut cab = cantina_dsp::Cabinet::default();
+    let impulse: Vec<f32> = (0..300)
+        .map(|i| {
+            let t = i as f32 / 48_000.0;
+            (-t * 400.0).exp() * (std::f32::consts::TAU * 3000.0 * t).cos()
+                - 0.5 * (-t * 900.0).exp()
+        })
+        .collect();
+    cab.set_impulse(&impulse, 48_000.0);
+    cases.push(Case {
+        name: "cab-synthetic".into(),
+        processor: Box::new(cab),
+    });
     cases
 }
 

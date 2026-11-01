@@ -345,6 +345,22 @@ pub fn kits_rescan(engine: State<'_, EngineState>) -> EngineStatus {
     engine.lock().kits_rescan()
 }
 
+/// Swaps what a pedal is: a cabinet's impulse response.
+#[tauri::command]
+pub fn chain_set_spec(
+    engine: State<'_, EngineState>,
+    id: u64,
+    spec: String,
+) -> Result<EngineStatus, String> {
+    engine.lock().chain_set_spec(id, &spec).map_err(fail)
+}
+
+/// Looks for installed impulse responses again.
+#[tauri::command]
+pub fn irs_rescan(engine: State<'_, EngineState>) -> EngineStatus {
+    engine.lock().irs_rescan()
+}
+
 #[tauri::command]
 pub fn pattern_add(
     engine: State<'_, EngineState>,

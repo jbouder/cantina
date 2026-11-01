@@ -26,13 +26,14 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, bail, Context, Result};
-use cantina_dsp::{Handle, LoadedKit, ParamInfo, Readout, Unit, STOCK_NAMES};
+use cantina_dsp::{Cabinet, Handle, LoadedKit, ParamInfo, Processor, Readout, Unit, STOCK_NAMES};
 use cantina_engine::strip::{GAIN, MUTE, PAN};
 use cantina_engine::{
-    device, kit, plan, processors, wav, Controller, Delay, DeviceEvent, DeviceId, Endpoint,
-    GraphConfig, KitEntry, Meter, MeterHandle, Mute, NodeId, PatternData, Placement, Player,
-    PlayerHandle, Recorder, RecorderHandle, Runtime, Score, Sequencer, SequencerHandle, Stream,
-    StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
+    device, ir, kit, plan, processors, wav, Controller, Delay, DeviceEvent, DeviceId, Endpoint,
+    GraphConfig, Impulse, IrEntry, KitEntry, Meter, MeterHandle, Mute, NodeId, PatternData,
+    Placement, Player, PlayerHandle, Recorder, RecorderHandle, Runtime, Score, Sequencer,
+    SequencerHandle, Stream, StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle,
+    Watcher, MAX_BLOCK_FRAMES,
 };
 use cantina_hosting::scan::{self, PluginList, Scanner};
 use cantina_hosting::{AudioUnitHandle, ClapHandle, Editor};
@@ -79,6 +80,8 @@ pub struct EngineStatus {
     pub latency: LatencyStatus,
     /// The drum kits installed, for a drum track to pick from.
     pub kits: Vec<KitInfo>,
+    /// The cabinet impulse responses installed, for a cabinet pedal.
+    pub irs: Vec<IrInfo>,
     /// The pattern looping on a drum track for editing, if any. Not
     /// part of the project.
     pub audition: Option<AuditionStatus>,
@@ -88,6 +91,14 @@ pub struct EngineStatus {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KitInfo {
+    pub id: String,
+    pub name: String,
+}
+
+/// An installed cabinet impulse response. Mirrors `IrInfo` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IrInfo {
     pub id: String,
     pub name: String,
 }
@@ -478,6 +489,8 @@ impl Source {
 /// shell keeps while the processor runs on the audio thread.
 struct LivePedal {
     id: PedalId,
+    /// What the node was built from; a changed spec means a new node.
+    spec: String,
     node: NodeId,
     handle: Option<Box<dyn Handle>>,
     /// Latency as last reported, in frames.
@@ -516,6 +529,7 @@ struct SyncContext<'a> {
     project: &'a Project,
     catalog: &'a mut Catalog,
     kits: &'a mut Kits,
+    irs: &'a mut Irs,
     audition: Option<(TrackId, PatternId)>,
     audio_dir: &'a Path,
     states: &'a PluginStates,
@@ -599,6 +613,7 @@ impl Live {
             project,
             catalog,
             kits,
+            irs,
             audition,
             audio_dir,
             states,
@@ -642,7 +657,7 @@ impl Live {
             // Pedals that left this chain.
             let mut removed = Vec::new();
             live.pedals.retain(|p| {
-                if track.pedal(p.id).is_some() {
+                if track.pedal(p.id).is_some_and(|q| q.spec == p.spec) {
                     true
                 } else {
                     removed.push(p.node);
@@ -659,7 +674,7 @@ impl Live {
                 let live_pedal = match live.pedals.iter().position(|p| p.id == pedal.id) {
                     Some(i) => live.pedals.remove(i),
                     None => {
-                        let mut processor = processors::create(&pedal.spec, CHANNELS)?;
+                        let mut processor = build_processor(irs, &pedal.spec, CHANNELS)?;
                         catalog.learn(&pedal.spec, processor.as_ref());
                         if let Some((spec, state)) = states.get(&pedal.id) {
                             if *spec == pedal.spec {
@@ -680,6 +695,7 @@ impl Live {
                         let latency = graph.node(node).map_or(0, |n| n.latency);
                         LivePedal {
                             id: pedal.id,
+                            spec: pedal.spec.clone(),
                             node,
                             handle,
                             latency,
@@ -1042,6 +1058,70 @@ impl Kits {
     }
 }
 
+/// Builds a processor for a spec: a cabinet with its impulse response
+/// loaded (`cab:<id>`), or whatever the engine's `processors` make.
+fn build_processor(irs: &mut Irs, spec: &str, channels: usize) -> Result<Box<dyn Processor>> {
+    if let Some(id) = spec.strip_prefix("cab:") {
+        let impulse = irs.load(id)?;
+        let mut cab = Cabinet::default();
+        cab.set_impulse(&impulse.samples, impulse.sample_rate);
+        return Ok(Box::new(cab));
+    }
+    processors::create(spec, channels)
+}
+
+/// The installed cabinet impulse responses: found once, each loaded
+/// the first time a cabinet asks for it and kept for the session.
+#[derive(Default)]
+pub struct Irs {
+    roots: Vec<PathBuf>,
+    entries: Vec<IrEntry>,
+    loaded: HashMap<String, Arc<Impulse>>,
+}
+
+impl Irs {
+    fn discover(roots: Vec<PathBuf>) -> Self {
+        let entries = ir::discover(&roots);
+        Self {
+            roots,
+            entries,
+            loaded: HashMap::new(),
+        }
+    }
+
+    /// Looks again, keeping what is loaded.
+    fn rescan(&mut self) {
+        self.entries = ir::discover(&self.roots);
+    }
+
+    fn entries(&self) -> &[IrEntry] {
+        &self.entries
+    }
+
+    fn entry(&self, id: &str) -> Option<&IrEntry> {
+        self.entries.iter().find(|e| e.id == id)
+    }
+
+    /// The first installed impulse, for a new cabinet.
+    fn first_id(&self) -> Option<&str> {
+        self.entries.first().map(|e| e.id.as_str())
+    }
+
+    /// The impulse, loading it the first time.
+    fn load(&mut self, id: &str) -> Result<Arc<Impulse>> {
+        if let Some(impulse) = self.loaded.get(id) {
+            return Ok(Arc::clone(impulse));
+        }
+        let entry = self
+            .entry(id)
+            .cloned()
+            .with_context(|| format!("no impulse response {id:?} is installed"))?;
+        let impulse = Arc::new(ir::load(&entry.path)?);
+        self.loaded.insert(id.to_string(), Arc::clone(&impulse));
+        Ok(impulse)
+    }
+}
+
 /// The project's clips for one track as the player wants them.
 fn engine_clips(track: &Track, audio_dir: &Path) -> Vec<cantina_engine::Clip> {
     track
@@ -1073,9 +1153,9 @@ impl Catalog {
     }
 
     /// What `spec` builds, building one to find out the first time.
-    fn get(&mut self, spec: &str) -> Result<&PedalKind> {
+    fn get(&mut self, spec: &str, irs: &mut Irs) -> Result<&PedalKind> {
         if !self.0.contains_key(spec) {
-            let processor = processors::create(spec, 1)?;
+            let processor = build_processor(irs, spec, 1)?;
             self.learn(spec, processor.as_ref());
         }
         Ok(&self.0[spec])
@@ -1139,6 +1219,7 @@ pub struct Engine {
     open_editors: HashSet<PedalId>,
     catalog: Catalog,
     kits: Kits,
+    irs: Irs,
     /// The pattern looping on a drum track for editing. Session state,
     /// not part of the project.
     audition: Option<(TrackId, PatternId)>,
@@ -1195,6 +1276,7 @@ impl Engine {
         let projects = Projects::locate(&app);
         let mut kit_problems = Vec::new();
         let kits = Kits::discover(kit_roots(&app, &projects), &mut kit_problems);
+        let irs = Irs::discover(ir_roots(&app, &projects));
         if !kit_problems.is_empty() {
             last_error = Some(format!("kits: {}", kit_problems.join("; ")));
         }
@@ -1227,6 +1309,7 @@ impl Engine {
             open_editors: HashSet::new(),
             catalog: Catalog::default(),
             kits,
+            irs,
             audition: None,
             recording: Vec::new(),
             last_error,
@@ -1315,6 +1398,15 @@ impl Engine {
                 .map(|k| KitInfo {
                     id: k.id.clone(),
                     name: k.name.clone(),
+                })
+                .collect(),
+            irs: self
+                .irs
+                .entries()
+                .iter()
+                .map(|e| IrInfo {
+                    id: e.id.clone(),
+                    name: e.name.clone(),
                 })
                 .collect(),
             audition: self.audition.map(|(track, pattern)| AuditionStatus {
@@ -1746,6 +1838,7 @@ impl Engine {
                 project: &self.project,
                 catalog: &mut self.catalog,
                 kits: &mut self.kits,
+                irs: &mut self.irs,
                 audition: self.audition,
                 audio_dir: &audio_dir,
                 states: &self.plugin_states,
@@ -1812,6 +1905,34 @@ impl Engine {
         self.apply(Command::SetTrackKit {
             id: TrackId(id),
             kit,
+        })
+    }
+
+    /// Looks for impulse responses again, for one dropped in while the
+    /// app runs.
+    pub fn irs_rescan(&mut self) -> EngineStatus {
+        self.irs.rescan();
+        self.publish()
+    }
+
+    /// Swaps what a pedal is. Only a cabinet's impulse (`cab:<id>`) can
+    /// change this way, and the impulse must be installed.
+    pub fn chain_set_spec(&mut self, id: u64, spec: &str) -> Result<EngineStatus> {
+        let Some(ir_id) = spec.strip_prefix("cab:") else {
+            bail!("only a cabinet's impulse response can be swapped");
+        };
+        if self.irs.entry(ir_id).is_none() {
+            bail!("no impulse response {ir_id:?} is installed");
+        }
+        let Some((_, pedal)) = self.project.pedal(PedalId(id)) else {
+            bail!("no pedal {id}");
+        };
+        if !(pedal.spec == "cab" || pedal.spec.starts_with("cab:")) {
+            bail!("{} is not a cabinet", pedal.spec);
+        }
+        self.apply(Command::SetPedalSpec {
+            id: PedalId(id),
+            spec: spec.to_string(),
         })
     }
 
@@ -2594,10 +2715,15 @@ impl Engine {
         spec: &str,
         index: Option<usize>,
     ) -> Result<EngineStatus> {
-        let kind = self.catalog.get(spec)?;
+        // A new cabinet starts on the first impulse installed.
+        let spec = match (spec, self.irs.first_id()) {
+            ("cab", Some(first)) => format!("cab:{first}"),
+            _ => spec.to_string(),
+        };
+        let kind = self.catalog.get(&spec, &mut self.irs)?;
         let pedal = Pedal {
             id: PedalId(self.project.fresh_id()),
-            spec: spec.to_string(),
+            spec: spec.clone(),
             values: kind.params.iter().map(|p| p.default).collect(),
         };
         self.apply(Command::InsertPedal {
@@ -2628,7 +2754,7 @@ impl Engine {
             .pedal(id)
             .with_context(|| format!("no pedal {id}"))?;
         let spec = pedal.spec.clone();
-        let kind = self.catalog.get(&spec)?;
+        let kind = self.catalog.get(&spec, &mut self.irs)?;
         let info = kind
             .params
             .get(param)
@@ -3038,6 +3164,24 @@ fn kit_roots(app: &AppHandle, projects: &Projects) -> Vec<PathBuf> {
                 .join("..")
                 .join("kits"),
         );
+    }
+    roots
+}
+
+/// Where impulse responses live: the user's `IRs` folder next to the
+/// projects, which wins, then the starter set that ships with the app
+/// (`irs/` in the app's resources, or the repository's `irs/` in a
+/// development build), and anything `CANTINA_IRS` names.
+fn ir_roots(app: &AppHandle, projects: &Projects) -> Vec<PathBuf> {
+    let mut roots = vec![projects.irs_dir()];
+    if let Some(extra) = std::env::var_os("CANTINA_IRS") {
+        roots.extend(std::env::split_paths(&extra));
+    }
+    if let Ok(resources) = app.path().resource_dir() {
+        roots.push(resources.join("irs"));
+    }
+    if cfg!(debug_assertions) {
+        roots.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("irs"));
     }
     roots
 }

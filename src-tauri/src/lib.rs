@@ -71,6 +71,8 @@ pub fn run() {
             commands::track_add_drums,
             commands::track_set_kit,
             commands::kits_rescan,
+            commands::chain_set_spec,
+            commands::irs_rescan,
             commands::pattern_add,
             commands::pattern_remove,
             commands::pattern_rename,

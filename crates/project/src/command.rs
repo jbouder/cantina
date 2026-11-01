@@ -104,6 +104,12 @@ pub enum Command {
         id: PedalId,
         to: usize,
     },
+    /// Swaps what a pedal is (a cabinet's impulse response) keeping its
+    /// id, position and values.
+    SetPedalSpec {
+        id: PedalId,
+        spec: String,
+    },
     SetParam {
         pedal: PedalId,
         param: usize,
@@ -229,6 +235,7 @@ impl Command {
             Command::InsertPedal { pedal, .. } => format!("add {}", pedal.spec),
             Command::RemovePedal { .. } => "remove pedal".into(),
             Command::MovePedal { .. } => "move pedal".into(),
+            Command::SetPedalSpec { .. } => "change pedal".into(),
             Command::SetParam { .. } => "change parameter".into(),
             Command::SetTempo { .. } => "change tempo".into(),
             Command::SetGain { track: None, .. } => "change master gain".into(),
@@ -439,6 +446,12 @@ impl Command {
                 let pedal = chain.remove(from);
                 chain.insert(to, pedal);
                 Ok(Command::MovePedal { id: *id, to: from })
+            }
+            Command::SetPedalSpec { id, spec } => {
+                let (track, index) = pedal_index(project, *id)?;
+                let pedal = &mut project.tracks[track].chain[index];
+                let was = std::mem::replace(&mut pedal.spec, spec.clone());
+                Ok(Command::SetPedalSpec { id: *id, spec: was })
             }
             Command::SetParam {
                 pedal,
@@ -1087,6 +1100,26 @@ mod tests {
                 to: 1,
             },
         );
+        let swapped = round_trip(
+            &p,
+            Command::SetPedalSpec {
+                id: PedalId(2),
+                spec: "cab:4x12-modern".into(),
+            },
+        );
+        assert_eq!(swapped.tracks[0].chain[0].spec, "cab:4x12-modern");
+        assert_eq!(
+            swapped.tracks[0].chain[0].values,
+            p.tracks[0].chain[0].values
+        );
+        assert!(matches!(
+            Command::SetPedalSpec {
+                id: PedalId(99),
+                spec: "cab".into()
+            }
+            .apply(&mut p.clone()),
+            Err(CommandError::NoPedal(PedalId(99)))
+        ));
         let set = round_trip(
             &p,
             Command::SetParam {

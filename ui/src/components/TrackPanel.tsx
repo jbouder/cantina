@@ -4,6 +4,7 @@ import {
   clipRemove,
   clock,
   type EngineStatus,
+  type IrInfo,
   type KitInfo,
   type PatternInfo,
   patternClipRemove,
@@ -34,6 +35,7 @@ type Props = {
   playing: boolean;
   /** The latest frame's pedal readouts by pedal id. */
   readouts: Map<number, number[]>;
+  irs: IrInfo[];
   onBrowsePlugins: () => void;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
@@ -58,6 +60,7 @@ export function TrackPanel({
   position,
   playing,
   readouts,
+  irs,
   onBrowsePlugins,
   onStatus,
   onError,
@@ -179,6 +182,7 @@ export function TrackPanel({
         sampleRate={sampleRate}
         kinds={kinds}
         readouts={readouts}
+        irs={irs}
         onBrowsePlugins={onBrowsePlugins}
         onStatus={onStatus}
         onError={onError}

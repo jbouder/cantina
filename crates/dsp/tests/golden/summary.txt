@@ -53,6 +53,14 @@ reverb_impulse               peak  0.70000  rms  0.00683  nonzero 0..12000
 reverb_sine                  peak  0.45420  rms  0.26846  nonzero 1..12000
 reverb_sweep                 peak  0.81237  rms  0.26830  nonzero 1..12000
 reverb_square                peak  1.03414  rms  0.50387  nonzero 0..12000
+amp_impulse                  peak  0.66644  rms  0.00651  nonzero 8..5026
+amp_sine                     peak  0.46573  rms  0.37221  nonzero 11..12000
+amp_sweep                    peak  0.57648  rms  0.36905  nonzero 13..12000
+amp_square                   peak  0.69641  rms  0.26523  nonzero 8..11552
+cab_impulse                  peak  1.00000  rms  0.00913  nonzero 0..1
+cab_sine                     peak  0.50000  rms  0.35355  nonzero 1..12000
+cab_sweep                    peak  0.50000  rms  0.35352  nonzero 1..12000
+cab_square                   peak  1.00000  rms  0.63246  nonzero 0..4800
 gain_impulse                 peak  1.00000  rms  0.00913  nonzero 0..1
 gain_sine                    peak  0.50000  rms  0.35355  nonzero 1..12000
 gain_sweep                   peak  0.50000  rms  0.35352  nonzero 1..12000
@@ -113,3 +121,11 @@ reverb-wet_impulse           peak  0.06265  rms  0.00694  nonzero 1906..12000
 reverb-wet_sine              peak  0.38828  rms  0.13291  nonzero 1907..12000
 reverb-wet_sweep             peak  1.04804  rms  0.28800  nonzero 1907..12000
 reverb-wet_square            peak  2.49523  rms  0.69516  nonzero 1906..12000
+amp-driven_impulse           peak  1.04128  rms  0.01627  nonzero 8..5606
+amp-driven_sine              peak  0.58904  rms  0.41847  nonzero 10..12000
+amp-driven_sweep             peak  0.79535  rms  0.47127  nonzero 11..12000
+amp-driven_square            peak  0.86407  rms  0.35078  nonzero 8..12000
+cab-synthetic_impulse        peak  0.22630  rms  0.00913  nonzero 0..300
+cab-synthetic_sine           peak  0.98840  rms  0.48934  nonzero 1..12000
+cab-synthetic_sweep          peak  3.99186  rms  0.81508  nonzero 1..12000
+cab-synthetic_square         peak  4.65242  rms  2.09783  nonzero 0..5099

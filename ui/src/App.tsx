@@ -253,6 +253,7 @@ export function App() {
                 position={frame.position}
                 playing={transport.playing}
                 readouts={readouts}
+                irs={status.irs}
                 onBrowsePlugins={() => setPluginsOpen(true)}
                 onStatus={setStatus}
                 onError={setError}
