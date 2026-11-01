@@ -2,6 +2,7 @@ import {
   type DragEvent,
   type KeyboardEvent,
   type PointerEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -24,7 +25,6 @@ import {
   patternClipTrim,
   type Tempo,
   type TrackStatus,
-  tempoSet,
   trackAdd,
   trackAddDrums,
   trackArm,
@@ -56,11 +56,24 @@ import {
   zoomAround,
 } from "../lib/timeline";
 import { Button } from "./Button";
-import { Lcd } from "./Lcd";
 import { Led } from "./Led";
 
 /** The drag type a pattern chip carries from the drum grid. */
 export const PATTERN_DRAG = "application/x-cantina-pattern";
+
+/** What the transport strip above the lanes can do to the view. */
+export interface TimelineControls {
+  snapOn: boolean;
+  toggleSnap: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  /** Zooms to show every clip. */
+  fit: () => void;
+  /** The playhead as `bar.beat.sixteenth`. */
+  bars: string;
+  /** What edits snap to, as a label. */
+  divisionLabel: string;
+}
 
 type Props = {
   tracks: TrackStatus[];
@@ -75,6 +88,8 @@ type Props = {
   selectedTrack: number | null;
   /** Whether a drum track can be added: at least one kit is installed. */
   hasKits: boolean;
+  /** The transport strip, drawn above the lanes with the view's controls. */
+  strip: (controls: TimelineControls) => ReactNode;
   onSelectTrack: (id: number) => void;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
@@ -134,6 +149,7 @@ export function Timeline({
   running,
   selectedTrack,
   hasKits,
+  strip,
   onSelectTrack,
   onStatus,
   onError,
@@ -146,7 +162,6 @@ export function Timeline({
   const [selectedClip, setSelectedClip] = useState<number | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const dragRef = useRef<Drag | null>(null);
-  const [bpm, setBpm] = useState(String(tempo.bpm));
   const peaksVersion = usePeaksVersion();
 
   const run = useCallback(
@@ -180,10 +195,6 @@ export function Timeline({
     }
     return null;
   }, [tracks, lanes, selectedClip]);
-
-  useEffect(() => {
-    setBpm(String(tempo.bpm));
-  }, [tempo.bpm]);
 
   // Every clip's file gets a peak cache, built once.
   useEffect(() => {
@@ -573,15 +584,6 @@ export function Timeline({
     e.preventDefault();
   };
 
-  const commitBpm = () => {
-    const value = Number(bpm);
-    if (Number.isFinite(value) && value > 0 && value !== tempo.bpm) {
-      run(tempoSet({ ...tempo, bpm: value }));
-    } else {
-      setBpm(String(tempo.bpm));
-    }
-  };
-
   const divisionLabel =
     grid.division < grid.beat
       ? `1/${Math.round((grid.beat / grid.division) * (4 / 1))}`
@@ -589,55 +591,25 @@ export function Timeline({
         ? "beat"
         : `${Math.round(grid.division / grid.bar)} bar${grid.division > grid.bar ? "s" : ""}`;
 
+  const controls: TimelineControls = {
+    snapOn,
+    toggleSnap: () => setSnapOn((s) => !s),
+    zoomIn: () => setView((v) => zoomAround(v, 0.5, width / 2)),
+    zoomOut: () => setView((v) => zoomAround(v, 2, width / 2)),
+    fit: () => {
+      const end = Math.max(
+        sampleRate * 8,
+        ...lanes.flatMap((clips) => clips.map((c) => c.start + c.length)),
+      );
+      setView(fitView(end, width));
+    },
+    bars: musicalLabel(playhead, grid),
+    divisionLabel,
+  };
+
   return (
     <div className="grid gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button aria-label="Zoom out" onClick={() => setView((v) => zoomAround(v, 2, width / 2))}>
-          −
-        </Button>
-        <Button aria-label="Zoom in" onClick={() => setView((v) => zoomAround(v, 0.5, width / 2))}>
-          +
-        </Button>
-        <Button
-          onClick={() => {
-            const end = Math.max(
-              sampleRate * 8,
-              ...lanes.flatMap((clips) => clips.map((c) => c.start + c.length)),
-            );
-            setView(fitView(end, width));
-          }}
-        >
-          Fit
-        </Button>
-        <Button aria-pressed={snapOn} onClick={() => setSnapOn((s) => !s)}>
-          Snap
-        </Button>
-        <Lcd aria-label="Playhead in bars" className="min-w-24 text-center text-base tabular-nums">
-          {musicalLabel(playhead, grid)}
-        </Lcd>
-        <span className="flex items-center gap-1 text-sm">
-          <label htmlFor="tempo-bpm" className="font-bold text-[11px] uppercase tracking-[0.08em]">
-            Tempo
-          </label>
-          <input
-            id="tempo-bpm"
-            type="number"
-            min={20}
-            max={300}
-            step={1}
-            value={bpm}
-            onChange={(e) => setBpm(e.target.value)}
-            onBlur={commitBpm}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commitBpm();
-            }}
-            className="surface-lcd min-h-11 w-20 px-2 text-center font-lcd text-lg tabular-nums"
-          />
-          <span className="text-ink-dim">
-            bpm · {tempo.numerator}/{tempo.denominator} · grid {divisionLabel}
-          </span>
-        </span>
-      </div>
+      {strip(controls)}
       <div
         className="surface-lcd grid overflow-hidden"
         style={{ gridTemplateColumns: `${LABEL_WIDTH}px 1fr` }}

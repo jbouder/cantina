@@ -1,8 +1,11 @@
+import { useEffect, useState } from "react";
 import {
   clock,
   type EngineStatus,
+  type Tempo,
   type TrackStatus,
   type TransportStatus,
+  tempoSet,
   transportPlay,
   transportRecord,
   transportStop,
@@ -10,26 +13,35 @@ import {
 import { Button } from "./Button";
 import { Lcd } from "./Lcd";
 import { Led } from "./Led";
+import type { TimelineControls } from "./Timeline";
 
 type Props = {
   transport: TransportStatus;
   tracks: TrackStatus[];
+  tempo: Tempo;
   running: boolean;
   /** Timeline position in seconds, from the meter frames. */
   position: number;
   /** True when a drum pattern is looping on a track, which is something to play. */
   auditioning: boolean;
+  /** The timeline's view: snap, zoom and the bar readout. */
+  timeline: TimelineControls;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
 };
 
-/** Record, play and stop for the whole project, with the position. */
+/**
+ * The strip above the lanes: record, play and stop, one clock in bars
+ * and time, the tempo, then snap and zoom for the timeline.
+ */
 export function Transport({
   transport,
   tracks,
+  tempo,
   running,
   position,
   auditioning,
+  timeline,
   onStatus,
   onError,
 }: Props) {
@@ -43,6 +55,20 @@ export function Transport({
     : armed.length === 0
       ? "Arm a track to record"
       : `${armed.map((t) => t.name).join(", ")} armed`;
+
+  const [bpm, setBpm] = useState(String(tempo.bpm));
+  useEffect(() => {
+    setBpm(String(tempo.bpm));
+  }, [tempo.bpm]);
+  const commitBpm = () => {
+    const value = Number(bpm);
+    if (Number.isFinite(value) && value > 0 && value !== tempo.bpm) {
+      run(tempoSet({ ...tempo, bpm: value }));
+    } else {
+      setBpm(String(tempo.bpm));
+    }
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button
@@ -50,6 +76,7 @@ export function Transport({
         aria-pressed={transport.recording}
         disabled={!running || armed.length === 0 || rolling}
         onClick={() => run(transportRecord())}
+        title="Record (R)"
       >
         <Led on={transport.recording} tone="record" label="Recording" />
         Record
@@ -59,6 +86,7 @@ export function Transport({
         aria-pressed={transport.playing && !transport.recording}
         disabled={!running || !hasClips || rolling}
         onClick={() => run(transportPlay())}
+        title="Play (Space)"
       >
         <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-current">
           <path d="M3 2l11 6-11 6z" />
@@ -69,15 +97,50 @@ export function Transport({
         variant="transport"
         disabled={!running || !rolling}
         onClick={() => run(transportStop())}
+        title="Stop (Space)"
       >
         <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-current">
           <path d="M3 3h10v10H3z" />
         </svg>
         Stop
       </Button>
-      <Lcd aria-label="Position" className="min-w-28 text-center tabular-nums">
-        {clock(position)}
+      <Lcd aria-label="Position" className="whitespace-nowrap text-center tabular-nums">
+        {timeline.bars} · {clock(position)}
       </Lcd>
+      <span className="flex items-center gap-1 text-sm">
+        <label htmlFor="tempo-bpm" className="font-bold text-[11px] uppercase tracking-[0.08em]">
+          Tempo
+        </label>
+        <input
+          id="tempo-bpm"
+          type="number"
+          min={20}
+          max={300}
+          step={1}
+          value={bpm}
+          onChange={(e) => setBpm(e.target.value)}
+          onBlur={commitBpm}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitBpm();
+          }}
+          className="surface-lcd min-h-11 w-20 px-2 text-center font-lcd text-lg tabular-nums"
+        />
+        <span className="whitespace-nowrap text-ink-dim">
+          {tempo.numerator}/{tempo.denominator} · grid {timeline.divisionLabel}
+        </span>
+      </span>
+      <Button aria-pressed={timeline.snapOn} onClick={timeline.toggleSnap}>
+        Snap
+      </Button>
+      <Button aria-label="Zoom out" onClick={timeline.zoomOut}>
+        −
+      </Button>
+      <Button aria-label="Zoom in" onClick={timeline.zoomIn}>
+        +
+      </Button>
+      <Button onClick={timeline.fit} title="Zoom to show every clip">
+        Fit
+      </Button>
       <span className="text-ink-dim text-sm">{note}</span>
     </div>
   );
