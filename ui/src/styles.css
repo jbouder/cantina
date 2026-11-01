@@ -223,6 +223,35 @@
   }
 }
 
+/* The same, slimmer, for a track header where the row is short. */
+@utility fader-slim {
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  &::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: var(--control-radius);
+    background: var(--track);
+    box-shadow: var(--fader-track-shadow);
+  }
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 12px;
+    height: 18px;
+    margin-top: -7px;
+    border-radius: var(--button-radius);
+    background: var(--button-bg);
+    box-shadow: var(--button-shadow);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
 @utility title-text {
   font-family: var(--font-lcd);
   color: var(--title-text);

@@ -15,6 +15,8 @@ type Props = {
   vertical?: boolean;
   /** A small one for the title bar: a short bar and a small readout. */
   mini?: boolean;
+  /** Just a thin bar, for a track header; the label goes to assistive tech only. */
+  bare?: boolean;
 };
 
 function position(db: number): number {
@@ -27,7 +29,7 @@ function position(db: number): number {
  * assistive tech; the drawn bar is decoration. Ballistics run here at
  * display rate; the engine only sends what it measured.
  */
-export function Meter({ label, level, vertical = false, mini = false }: Props) {
+export function Meter({ label, level, vertical = false, mini = false, bare = false }: Props) {
   const [peakDb, setPeakDb] = useState(FLOOR);
   const hold = useRef({ db: FLOOR, since: 0 });
 
@@ -63,6 +65,27 @@ export function Meter({ label, level, vertical = false, mini = false }: Props) {
       className="sr-only"
     />
   );
+
+  if (bare) {
+    return (
+      <span className="relative block h-1.5 w-full">
+        {bar}
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 block overflow-hidden rounded-control bg-track"
+        >
+          <span
+            className="surface-meter absolute inset-0 block"
+            style={{ clipPath: `inset(0 ${(1 - rmsPos) * 100}% 0 0)` }}
+          />
+          <span
+            className={`absolute top-0 bottom-0 block w-0.5 ${clipping ? "bg-vol-hi" : "bg-ink"}`}
+            style={{ left: `calc(${peakPos * 100}% - 1px)` }}
+          />
+        </span>
+      </span>
+    );
+  }
 
   if (vertical) {
     return (
