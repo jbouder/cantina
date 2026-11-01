@@ -33,6 +33,8 @@ type Props = {
   irs: IrInfo[];
   /** Opens the plugin browser for this track. */
   onBrowsePlugins: () => void;
+  /** Opens the designer on a designed pedal, or starts a new design. */
+  onDesign: (pedal: number | null) => void;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
 };
@@ -68,6 +70,7 @@ export function PedalChain({
   readouts,
   irs,
   onBrowsePlugins,
+  onDesign,
   onStatus,
   onError,
 }: Props) {
@@ -124,6 +127,7 @@ export function PedalChain({
               onEditor={(open) => run(open ? editorOpen(pedal.id) : editorClose(pedal.id))}
               onSpec={(spec) => run(chainSetSpec(pedal.id, spec))}
               onRescanIrs={() => run(irsRescan())}
+              onDesign={() => onDesign(pedal.id)}
               onError={onError}
             />
           </li>
@@ -166,6 +170,13 @@ export function PedalChain({
         <Button aria-haspopup="dialog" onClick={onBrowsePlugins}>
           Plugins…
         </Button>
+        <Button
+          aria-haspopup="dialog"
+          onClick={() => onDesign(null)}
+          title="Start a new pedal at the end of the chain and open the designer on it"
+        >
+          Design…
+        </Button>
       </div>
     </div>
   );
@@ -190,6 +201,8 @@ type CardProps = {
   /** Swaps the pedal's spec: a cabinet's impulse response. */
   onSpec: (spec: string) => void;
   onRescanIrs: () => void;
+  /** Opens the designer on this pedal. */
+  onDesign: () => void;
   onError: (message: string) => void;
 };
 
@@ -209,8 +222,10 @@ function PedalCard({
   onEditor,
   onSpec,
   onRescanIrs,
+  onDesign,
   onError,
 }: CardProps) {
+  const designed = pedal.spec.startsWith("pedal:");
   // A cabinet picks its impulse response; the choice lives in its spec.
   const cabinetIr =
     pedal.spec === "cab" ? "" : pedal.spec.startsWith("cab:") ? pedal.spec.slice(4) : null;
@@ -276,6 +291,10 @@ function PedalCard({
                 {kind.designable ? "stock · json" : "stock"}
               </Badge>
             </span>
+          ) : designed ? (
+            <span className="mt-0.5 block">
+              <Badge title="Designed here, in the pedal format">yours</Badge>
+            </span>
           ) : null}
           {pedal.latencyFrames > 0 ? (
             <small
@@ -332,6 +351,11 @@ function PedalCard({
         </div>
       ) : null}
       <PedalReadout pedal={pedal} values={readouts} />
+      {designed ? (
+        <Button aria-haspopup="dialog" onClick={onDesign} title="Open this pedal in the designer">
+          Edit…
+        </Button>
+      ) : null}
       {pedal.hasEditor ? (
         <Button
           aria-pressed={pedal.editorOpen}

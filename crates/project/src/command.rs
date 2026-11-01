@@ -110,6 +110,12 @@ pub enum Command {
         id: PedalId,
         spec: String,
     },
+    /// Replaces every parameter value of a pedal at once: what the
+    /// designer does when a pedal's parameters change shape.
+    SetPedalValues {
+        id: PedalId,
+        values: Vec<f32>,
+    },
     SetParam {
         pedal: PedalId,
         param: usize,
@@ -236,6 +242,7 @@ impl Command {
             Command::RemovePedal { .. } => "remove pedal".into(),
             Command::MovePedal { .. } => "move pedal".into(),
             Command::SetPedalSpec { .. } => "change pedal".into(),
+            Command::SetPedalValues { .. } => "change pedal knobs".into(),
             Command::SetParam { .. } => "change parameter".into(),
             Command::SetTempo { .. } => "change tempo".into(),
             Command::SetGain { track: None, .. } => "change master gain".into(),
@@ -452,6 +459,20 @@ impl Command {
                 let pedal = &mut project.tracks[track].chain[index];
                 let was = std::mem::replace(&mut pedal.spec, spec.clone());
                 Ok(Command::SetPedalSpec { id: *id, spec: was })
+            }
+            Command::SetPedalValues { id, values } => {
+                if let Some(bad) = values.iter().find(|v| !v.is_finite()) {
+                    return Err(CommandError::Invalid(format!(
+                        "{bad} is not a usable parameter value"
+                    )));
+                }
+                let (track, index) = pedal_index(project, *id)?;
+                let pedal = &mut project.tracks[track].chain[index];
+                let was = std::mem::replace(&mut pedal.values, values.clone());
+                Ok(Command::SetPedalValues {
+                    id: *id,
+                    values: was,
+                })
             }
             Command::SetParam {
                 pedal,
@@ -1119,6 +1140,22 @@ mod tests {
             }
             .apply(&mut p.clone()),
             Err(CommandError::NoPedal(PedalId(99)))
+        ));
+        let reshaped = round_trip(
+            &p,
+            Command::SetPedalValues {
+                id: PedalId(2),
+                values: vec![1.0, 2.0],
+            },
+        );
+        assert_eq!(reshaped.tracks[0].chain[0].values, vec![1.0, 2.0]);
+        assert!(matches!(
+            Command::SetPedalValues {
+                id: PedalId(2),
+                values: vec![f32::NAN],
+            }
+            .apply(&mut p.clone()),
+            Err(CommandError::Invalid(_))
         ));
         let set = round_trip(
             &p,

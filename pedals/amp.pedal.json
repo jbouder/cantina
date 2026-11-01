@@ -2,25 +2,221 @@
   "version": 1,
   "name": "Amp",
   "params": [
-    { "id": "gain", "label": "Gain", "unit": "dB", "min": 0, "max": 40, "default": 15 },
-    { "id": "bass", "label": "Bass", "unit": "dB", "min": -12, "max": 12, "default": 0 },
-    { "id": "mid", "label": "Mid", "unit": "dB", "min": -12, "max": 12, "default": 0 },
-    { "id": "treble", "label": "Treble", "unit": "dB", "min": -12, "max": 12, "default": 0 },
-    { "id": "presence", "label": "Presence", "unit": "dB", "min": -12, "max": 12, "default": 0 },
-    { "id": "level", "label": "Level", "unit": "dB", "min": -24, "max": 12, "default": -6 }
+    {
+      "id": "gain",
+      "label": "Gain",
+      "unit": "dB",
+      "min": 0,
+      "max": 40,
+      "default": 15
+    },
+    {
+      "id": "bass",
+      "label": "Bass",
+      "unit": "dB",
+      "min": -12,
+      "max": 12,
+      "default": 0
+    },
+    {
+      "id": "mid",
+      "label": "Mid",
+      "unit": "dB",
+      "min": -12,
+      "max": 12,
+      "default": 0
+    },
+    {
+      "id": "treble",
+      "label": "Treble",
+      "unit": "dB",
+      "min": -12,
+      "max": 12,
+      "default": 0
+    },
+    {
+      "id": "presence",
+      "label": "Presence",
+      "unit": "dB",
+      "min": -12,
+      "max": 12,
+      "default": 0
+    },
+    {
+      "id": "level",
+      "label": "Level",
+      "unit": "dB",
+      "min": -24,
+      "max": 12,
+      "default": -6
+    }
   ],
   "nodes": [
-    { "id": "in", "kind": "input", "pos": [40, 160] },
-    { "id": "pre", "kind": "biquad", "type": "highpass", "freq": 40, "pos": [200, 160] },
-    { "id": "gain", "kind": "gain", "db": { "param": "gain" }, "smooth": 0.01, "pos": [360, 160] },
-    { "id": "clip", "kind": "waveshaper", "curve": "asymmetric", "oversample": 4, "pos": [520, 160] },
-    { "id": "post", "kind": "biquad", "type": "highpass", "freq": 20, "pos": [680, 160] },
-    { "id": "bass", "kind": "biquad", "type": "lowshelf", "freq": 120, "gain": { "param": "bass" }, "pos": [840, 160] },
-    { "id": "mid", "kind": "biquad", "type": "peak", "freq": 700, "gain": { "param": "mid" }, "q": 0.8, "pos": [1000, 160] },
-    { "id": "treble", "kind": "biquad", "type": "highshelf", "freq": 3000, "gain": { "param": "treble" }, "pos": [1160, 160] },
-    { "id": "presence", "kind": "biquad", "type": "highshelf", "freq": 5000, "gain": { "param": "presence" }, "q": 0.5, "pos": [1320, 160] },
-    { "id": "level", "kind": "gain", "db": { "param": "level" }, "smooth": 0.01, "pos": [1480, 160] },
-    { "id": "out", "kind": "output", "pos": [1640, 160] }
+    {
+      "id": "in",
+      "kind": "input",
+      "pos": [
+        40,
+        160
+      ]
+    },
+    {
+      "id": "pre",
+      "kind": "biquad",
+      "type": "highpass",
+      "freq": 40,
+      "pos": [
+        260,
+        160
+      ]
+    },
+    {
+      "id": "gain",
+      "kind": "gain",
+      "db": {
+        "param": "gain"
+      },
+      "smooth": 0.01,
+      "pos": [
+        480,
+        160
+      ]
+    },
+    {
+      "id": "clip",
+      "kind": "waveshaper",
+      "curve": "asymmetric",
+      "oversample": 4,
+      "pos": [
+        700,
+        160
+      ]
+    },
+    {
+      "id": "post",
+      "kind": "biquad",
+      "type": "highpass",
+      "freq": 20,
+      "pos": [
+        920,
+        160
+      ]
+    },
+    {
+      "id": "bass",
+      "kind": "biquad",
+      "type": "lowshelf",
+      "freq": 120,
+      "gain": {
+        "param": "bass"
+      },
+      "pos": [
+        1140,
+        160
+      ]
+    },
+    {
+      "id": "mid",
+      "kind": "biquad",
+      "type": "peak",
+      "freq": 700,
+      "gain": {
+        "param": "mid"
+      },
+      "q": 0.8,
+      "pos": [
+        1360,
+        160
+      ]
+    },
+    {
+      "id": "treble",
+      "kind": "biquad",
+      "type": "highshelf",
+      "freq": 3000,
+      "gain": {
+        "param": "treble"
+      },
+      "pos": [
+        1580,
+        160
+      ]
+    },
+    {
+      "id": "presence",
+      "kind": "biquad",
+      "type": "highshelf",
+      "freq": 5000,
+      "gain": {
+        "param": "presence"
+      },
+      "q": 0.5,
+      "pos": [
+        1800,
+        160
+      ]
+    },
+    {
+      "id": "level",
+      "kind": "gain",
+      "db": {
+        "param": "level"
+      },
+      "smooth": 0.01,
+      "pos": [
+        2020,
+        160
+      ]
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "pos": [
+        2240,
+        160
+      ]
+    }
   ],
-  "edges": [["in", "pre"], ["pre", "gain"], ["gain", "clip"], ["clip", "post"], ["post", "bass"], ["bass", "mid"], ["mid", "treble"], ["treble", "presence"], ["presence", "level"], ["level", "out"]]
+  "edges": [
+    [
+      "in",
+      "pre"
+    ],
+    [
+      "pre",
+      "gain"
+    ],
+    [
+      "gain",
+      "clip"
+    ],
+    [
+      "clip",
+      "post"
+    ],
+    [
+      "post",
+      "bass"
+    ],
+    [
+      "bass",
+      "mid"
+    ],
+    [
+      "mid",
+      "treble"
+    ],
+    [
+      "treble",
+      "presence"
+    ],
+    [
+      "presence",
+      "level"
+    ],
+    [
+      "level",
+      "out"
+    ]
+  ]
 }

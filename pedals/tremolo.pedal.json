@@ -2,28 +2,140 @@
   "version": 1,
   "name": "Tremolo",
   "params": [
-    { "id": "rate", "label": "Rate", "unit": "Hz", "min": 0.05, "max": 20, "default": 5 },
-    { "id": "depth", "label": "Depth", "unit": "%", "min": 0, "max": 100, "default": 60 },
-    { "id": "shape", "label": "Shape", "choices": ["Sine", "Triangle", "Square"], "default": 0 },
-    { "id": "sync", "label": "Sync", "toggle": true, "default": 0 },
-    { "id": "note", "label": "Note", "choices": ["1/1", "1/2", "1/2T", "1/4", "1/4D", "1/4T", "1/8", "1/8D", "1/8T", "1/16", "1/16T", "1/32"], "default": 3 }
+    {
+      "id": "rate",
+      "label": "Rate",
+      "unit": "Hz",
+      "min": 0.05,
+      "max": 20,
+      "default": 5
+    },
+    {
+      "id": "depth",
+      "label": "Depth",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "default": 60
+    },
+    {
+      "id": "shape",
+      "label": "Shape",
+      "choices": [
+        "Sine",
+        "Triangle",
+        "Square"
+      ],
+      "default": 0
+    },
+    {
+      "id": "sync",
+      "label": "Sync",
+      "toggle": true,
+      "default": 0
+    },
+    {
+      "id": "note",
+      "label": "Note",
+      "choices": [
+        "1/1",
+        "1/2",
+        "1/2T",
+        "1/4",
+        "1/4D",
+        "1/4T",
+        "1/8",
+        "1/8D",
+        "1/8T",
+        "1/16",
+        "1/16T",
+        "1/32"
+      ],
+      "default": 3
+    }
   ],
   "nodes": [
-    { "id": "in", "kind": "input", "pos": [40, 160] },
+    {
+      "id": "in",
+      "kind": "input",
+      "pos": [
+        40,
+        160
+      ]
+    },
     {
       "id": "lfo",
       "kind": "lfo",
-      "rate": { "param": "rate" },
-      "shape": { "param": "shape", "values": ["sine", "triangle", "square"] },
-      "sync": { "param": "sync" },
-      "note": { "param": "note" },
-      "depth": { "param": "depth", "map": [0, 1] },
-      "phase": { "param": "shape", "values": [0.75, 0, 0.5] },
+      "rate": {
+        "param": "rate"
+      },
+      "shape": {
+        "param": "shape",
+        "values": [
+          "sine",
+          "triangle",
+          "square"
+        ]
+      },
+      "sync": {
+        "param": "sync"
+      },
+      "note": {
+        "param": "note"
+      },
+      "depth": {
+        "param": "depth",
+        "map": [
+          0,
+          1
+        ]
+      },
+      "phase": {
+        "param": "shape",
+        "values": [
+          0.75,
+          0,
+          0.5
+        ]
+      },
       "unipolar": true,
-      "pos": [200, 320]
+      "pos": [
+        260,
+        340
+      ]
     },
-    { "id": "vca", "kind": "gain", "linear": { "node": "lfo", "map": [1, 0] }, "pos": [360, 160] },
-    { "id": "out", "kind": "output", "pos": [520, 160] }
+    {
+      "id": "vca",
+      "kind": "gain",
+      "linear": {
+        "node": "lfo",
+        "map": [
+          1,
+          0
+        ]
+      },
+      "pos": [
+        260,
+        160
+      ]
+    },
+    {
+      "id": "out",
+      "kind": "output",
+      "pos": [
+        480,
+        160
+      ]
+    }
   ],
-  "edges": [["in", "vca"], ["vca", "out"]]
+  "edges": [
+    [
+      "in",
+      "vca"
+    ],
+    [
+      "vca",
+      "out"
+    ]
+  ]
 }
