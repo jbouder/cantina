@@ -1,0 +1,31 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/pedal.schema.json",
+  "version": 1,
+  "name": "Octave Fuzz",
+  "params": [
+    { "id": "fuzz", "label": "Fuzz", "unit": "dB", "min": 0, "max": 40, "default": 26 },
+    { "id": "octave", "label": "Octave", "unit": "%", "min": 0, "max": 100, "default": 40 },
+    { "id": "tone", "label": "Tone", "unit": "Hz", "min": 700, "max": 6000, "default": 2200 },
+    { "id": "level", "label": "Level", "unit": "dB", "min": -30, "max": 6, "default": -12 }
+  ],
+  "nodes": [
+    { "id": "in", "kind": "input" },
+    { "id": "tight", "kind": "biquad", "type": "highpass", "freq": 100 },
+    { "id": "drive", "kind": "gain", "db": { "param": "fuzz" }, "smooth": 0.01 },
+    { "id": "split", "kind": "split" },
+    { "id": "fuzz", "kind": "waveshaper", "curve": "germanium", "oversample": 8 },
+    { "id": "up", "kind": "waveshaper", "curve": "octave", "oversample": 4 },
+    { "id": "up-level", "kind": "gain", "linear": { "param": "octave", "map": [0, 1] }, "smooth": 0.01 },
+    { "id": "blend", "kind": "mix" },
+    { "id": "dc", "kind": "biquad", "type": "highpass", "freq": 20 },
+    { "id": "tone", "kind": "biquad", "type": "lowpass", "freq": { "param": "tone", "map": [700, 6000], "log": true }, "smooth": 0.01 },
+    { "id": "level", "kind": "gain", "db": { "param": "level" }, "smooth": 0.01 },
+    { "id": "out", "kind": "output" }
+  ],
+  "edges": [
+    ["in", "tight"], ["tight", "drive"], ["drive", "split"],
+    ["split", "fuzz"], ["split", "up"], ["up", "up-level"],
+    ["fuzz", "blend"], ["up-level", "blend"],
+    ["blend", "dc"], ["dc", "tone"], ["tone", "level"], ["level", "out"]
+  ]
+}

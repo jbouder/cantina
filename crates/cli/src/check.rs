@@ -237,8 +237,13 @@ fn check_pattern(
         warnings.push("the pattern has no hits; it plays silence".into());
     }
     let bars = pattern.length as f32 / (pattern.steps_per_beat as f32 * 4.0);
+    let bars = if bars == 1.0 {
+        "1 bar".to_string()
+    } else {
+        format!("{bars} bars")
+    };
     Ok(format!(
-        "pattern {:?}: {} steps at {} per beat ({bars} bars of 4/4), {} rows, {hits} hits",
+        "pattern {:?}: {} steps at {} per beat ({bars} of 4/4), {} rows, {hits} hits",
         pattern.name,
         pattern.length,
         pattern.steps_per_beat,

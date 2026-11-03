@@ -1,0 +1,24 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/pedal.schema.json",
+  "version": 1,
+  "name": "Dark Echo",
+  "params": [
+    { "id": "time", "label": "Time", "unit": "ms", "min": 60, "max": 1200, "default": 375 },
+    { "id": "repeats", "label": "Repeats", "unit": "%", "min": 0, "max": 90, "default": 40 },
+    { "id": "mix", "label": "Mix", "unit": "%", "min": 0, "max": 100, "default": 35 },
+    { "id": "tone", "label": "Tone", "unit": "Hz", "min": 1000, "max": 8000, "default": 3000 }
+  ],
+  "nodes": [
+    { "id": "in", "kind": "input" },
+    { "id": "split", "kind": "split" },
+    { "id": "echo", "kind": "delay", "time": { "param": "time" }, "feedback": { "param": "repeats", "map": [0, 0.9] }, "mix": 1, "max": 1200 },
+    { "id": "dark", "kind": "biquad", "type": "lowpass", "freq": { "param": "tone", "map": [1000, 8000], "log": true } },
+    { "id": "wet", "kind": "gain", "linear": { "param": "mix", "map": [0, 1] } },
+    { "id": "sum", "kind": "mix" },
+    { "id": "out", "kind": "output" }
+  ],
+  "edges": [
+    ["in", "split"], ["split", "echo"], ["echo", "dark"], ["dark", "wet"],
+    ["wet", "sum"], ["split", "sum"], ["sum", "out"]
+  ]
+}
