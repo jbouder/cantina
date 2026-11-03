@@ -1,5 +1,14 @@
 import type { SkinPreview } from "@cantina/skins";
-import { type EngineStatus, latencyWarningSet, ms, routeLabel } from "../lib/engine";
+import { useEffect, useState } from "react";
+import {
+  appVersion,
+  type EngineStatus,
+  latencyWarningSet,
+  ms,
+  routeLabel,
+  type UpdateInfo,
+  updateCheck,
+} from "../lib/engine";
 import { useReduceFlashing } from "../lib/motion";
 import { SKINS, useSkin } from "../skins";
 import { Button } from "./Button";
@@ -15,6 +24,8 @@ type Props = {
   onToggleEngine: () => void;
   onClose: () => void;
   onStatusChange: (status: EngineStatus) => void;
+  /** A newer release was found: the window offers to install it. */
+  onUpdate: (update: UpdateInfo) => void;
 };
 
 const WARN_CHOICES = [5, 10, 20, 50, 100];
@@ -39,11 +50,63 @@ function SkinSwatch({ preview }: { preview: SkinPreview }) {
   );
 }
 
+/** The running version and a button that asks the release feed for a newer one. */
+function Updates({ onUpdate }: { onUpdate: (update: UpdateInfo) => void }) {
+  const [version, setVersion] = useState<string | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  useEffect(() => {
+    appVersion().then(setVersion, () => setVersion(null));
+  }, []);
+  const checkNow = () => {
+    setChecking(true);
+    setResult(null);
+    updateCheck()
+      .then(
+        (found) => {
+          if (found) {
+            setResult(`Cantina ${found.version} is out.`);
+            onUpdate(found);
+          } else {
+            setResult("This is the newest version.");
+          }
+        },
+        (e) => setResult(`Could not check: ${e}`),
+      )
+      .finally(() => setChecking(false));
+  };
+  return (
+    <section aria-labelledby="updates-label" className="grid gap-2">
+      <h3 id="updates-label" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+        Updates
+        <small className="block font-normal text-ink-dim text-xs normal-case tracking-normal">
+          Cantina looks for a new release each time it opens.
+        </small>
+      </h3>
+      <div className="flex items-center gap-2">
+        <Lcd aria-live="polite" className="min-w-0 flex-1 text-base">
+          {result ?? (version ? `Version ${version}` : "Version unknown")}
+        </Lcd>
+        <Button disabled={checking} onClick={checkNow} className="shrink-0">
+          {checking ? "Checking…" : "Check for updates"}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 /**
  * The settings sheet: the engine, audio devices, the latency warning, the
- * skin picker and Reduce flashing.
+ * skin picker, Reduce flashing and updates.
  */
-export function Settings({ status, busy, onToggleEngine, onClose, onStatusChange }: Props) {
+export function Settings({
+  status,
+  busy,
+  onToggleEngine,
+  onClose,
+  onStatusChange,
+  onUpdate,
+}: Props) {
   const [skin, setSkin] = useSkin();
   const [reduceFlashing, setReduceFlashing] = useReduceFlashing();
   const { latency } = status;
@@ -129,6 +192,7 @@ export function Settings({ status, busy, onToggleEngine, onClose, onStatusChange
           </Button>
         </div>
       </section>
+      <Updates onUpdate={onUpdate} />
     </Sheet>
   );
 }

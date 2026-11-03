@@ -12,7 +12,8 @@ type Props = {
 /**
  * A panel that opens over the window for settings and pickers. It is a
  * modal dialog: focus moves in on open, Escape and the scrim close it,
- * and focus returns to the opener when it goes away.
+ * and focus returns to the opener when it goes away. It is never taller
+ * than the window; a long one scrolls.
  */
 export function Sheet({ title, onClose, wide = false, children }: Props) {
   const titleId = useId();
@@ -48,7 +49,7 @@ export function Sheet({ title, onClose, wide = false, children }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`surface-panel relative w-full overflow-hidden ${wide ? "max-w-2xl" : "max-w-md"}`}
+        className={`surface-panel relative flex max-h-full w-full flex-col overflow-hidden ${wide ? "max-w-2xl" : "max-w-md"}`}
       >
         <header className="surface-titlebar flex min-h-[30px] items-center gap-2 py-1 pr-1 pl-3">
           <h2 id={titleId} className="title-text m-0 flex-1 font-normal text-[1.05rem]">
@@ -60,7 +61,9 @@ export function Sheet({ title, onClose, wide = false, children }: Props) {
             </svg>
           </Button>
         </header>
-        <div className="grid gap-3 bg-sheet-bg p-4 text-sheet-ink">{children}</div>
+        <div className="grid min-h-0 gap-3 overflow-y-auto bg-sheet-bg p-4 text-sheet-ink">
+          {children}
+        </div>
       </div>
     </div>
   );
