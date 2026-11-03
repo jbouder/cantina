@@ -1,0 +1,86 @@
+{
+  "$defs": {
+    "PatternRow": {
+      "description": "One pad's steps. `steps` holds exactly the pattern's length of velocities from 0 (no hit) to 1.",
+      "properties": {
+        "pad": {
+          "description": "The pad's id in the kit format.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "steps": {
+          "description": "Velocity per step, 0 for no hit.",
+          "items": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "pad",
+        "steps"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://cantina-docs.vibeproject.workers.dev/schemas/pattern.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A step sequencer pattern as a file of its own: a grid of pads against steps, with a velocity per cell. Pads are named by the ids the kit format uses (`kick`, `snare`, `hh-closed`…), so the pattern plays on any kit with those pads.",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "length": {
+      "description": "Steps in the pattern, which loops after the last.",
+      "format": "uint16",
+      "maximum": 128,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "name": {
+      "description": "Shown in the pattern picker.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "rows": {
+      "default": [],
+      "description": "One row per pad that has hits.",
+      "items": {
+        "$ref": "#/$defs/PatternRow"
+      },
+      "type": "array"
+    },
+    "stepsPerBeat": {
+      "description": "Steps per quarter note: 2 for eighths, 4 for sixteenths, 8 for thirty-seconds; 3 and 6 for triplets.",
+      "enum": [
+        1,
+        2,
+        3,
+        4,
+        6,
+        8
+      ],
+      "format": "uint8",
+      "maximum": 255,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "swing": {
+      "description": "0 is straight; 1 delays every second step by a third of a step, a triplet feel.",
+      "format": "float",
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    }
+  },
+  "required": [
+    "name",
+    "stepsPerBeat",
+    "length",
+    "swing"
+  ],
+  "title": "Cantina drum pattern",
+  "type": "object"
+}

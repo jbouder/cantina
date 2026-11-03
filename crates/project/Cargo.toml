@@ -14,7 +14,19 @@ workspace = true
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
+# Derives the JSON schemas for the project and pattern formats, behind
+# the `schema` feature so the app does not carry it.
+schemars = { version = "1", optional = true }
+
+[features]
+## `cantina_project::schema`: the project and pattern JSON schemas.
+schema = ["dep:schemars"]
 
 [dev-dependencies]
+# The schema test writes all four schemas, the pedal and kit ones included,
+# and validates every stock file against them.
+cantina-dsp = { workspace = true, features = ["schema"] }
+jsonschema = { version = "0.60", default-features = false }
+schemars = "1"
 proptest = "1"
 tempfile = "3"

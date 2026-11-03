@@ -1,0 +1,428 @@
+{
+  "$defs": {
+    "Clip": {
+      "description": "A region of a file in `audio/` placed on the timeline. The file is never modified; trimming a clip changes `offset` and `length`.",
+      "properties": {
+        "file": {
+          "description": "Path relative to the project's `audio/` directory.",
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/$defs/ClipId",
+          "description": "Unique within the project."
+        },
+        "length": {
+          "description": "Frames to play.",
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "name": {
+          "description": "Shown on the clip.",
+          "type": "string"
+        },
+        "offset": {
+          "description": "Frame into the file the clip starts from.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "start": {
+          "description": "Timeline sample the clip starts at.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "file",
+        "start",
+        "offset",
+        "length"
+      ],
+      "type": "object"
+    },
+    "ClipId": {
+      "description": "Identifies a clip.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "Pattern": {
+      "description": "A step sequencer pattern: a grid of pads against steps, with a velocity per cell. Patterns belong to the project and refer to pads by the ids the kit format uses (`kick`, `snare`, `hh-closed`…), so a pattern plays on any drum track whose kit has those pads.",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/PatternId",
+          "description": "Unique within the project."
+        },
+        "length": {
+          "description": "Steps in the pattern, which loops after the last.",
+          "format": "uint16",
+          "maximum": 128,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "name": {
+          "description": "Shown in the pattern picker.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "rows": {
+          "default": [],
+          "description": "One row per pad that has hits.",
+          "items": {
+            "$ref": "#/$defs/PatternRow"
+          },
+          "type": "array"
+        },
+        "stepsPerBeat": {
+          "description": "Steps per quarter note: 2 for eighths, 4 for sixteenths, 8 for thirty-seconds; 3 and 6 for triplets.",
+          "enum": [
+            1,
+            2,
+            3,
+            4,
+            6,
+            8
+          ],
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "swing": {
+          "description": "0 is straight; 1 delays every second step by a third of a step, a triplet feel.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "stepsPerBeat",
+        "length",
+        "swing"
+      ],
+      "type": "object"
+    },
+    "PatternClip": {
+      "description": "A pattern placed on a drum track. Positions are in ticks, so the clip follows the tempo: change the tempo and it stays on its bars. The pattern loops inside the clip; `offset` ticks into the pattern play first, so trimming the front keeps the beats where they were.",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/PatternClipId",
+          "description": "Unique within the project."
+        },
+        "length": {
+          "description": "Ticks long.",
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "offset": {
+          "description": "Ticks into the pattern it starts from.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "pattern": {
+          "$ref": "#/$defs/PatternId",
+          "description": "The pattern it plays."
+        },
+        "start": {
+          "description": "Timeline tick the clip starts at.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "pattern",
+        "start",
+        "offset",
+        "length"
+      ],
+      "type": "object"
+    },
+    "PatternClipId": {
+      "description": "Identifies a pattern clip on a drum track.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "PatternId": {
+      "description": "Identifies a drum pattern.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "PatternRow": {
+      "description": "One pad's steps. `steps` holds exactly the pattern's length of velocities from 0 (no hit) to 1.",
+      "properties": {
+        "pad": {
+          "description": "The pad's id in the kit format.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "steps": {
+          "description": "Velocity per step, 0 for no hit.",
+          "items": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "pad",
+        "steps"
+      ],
+      "type": "object"
+    },
+    "Pedal": {
+      "description": "A pedal in a chain: the spec the engine builds it from (a stock name, `au:…` or `clap:…`), the value of each parameter, in the order the processor lists them, and whether it is bypassed.",
+      "properties": {
+        "bypassed": {
+          "description": "Bypassed, the signal goes round the pedal; it keeps its settings.",
+          "type": "boolean"
+        },
+        "id": {
+          "$ref": "#/$defs/PedalId",
+          "description": "Unique within the project."
+        },
+        "spec": {
+          "description": "What the engine builds: a stock name, `au:…` or `clap:…`.",
+          "type": "string"
+        },
+        "values": {
+          "description": "One value per parameter, in the processor's order.",
+          "items": {
+            "format": "float",
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "spec",
+        "values"
+      ],
+      "type": "object"
+    },
+    "PedalId": {
+      "description": "Identifies a pedal in a track's chain.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "Strip": {
+      "description": "A mixer strip: what a track, or the master, does to its sum.",
+      "properties": {
+        "gainDb": {
+          "default": 0.0,
+          "description": "Gain in decibels.",
+          "format": "float",
+          "type": "number"
+        },
+        "mute": {
+          "default": false,
+          "description": "Silences the strip.",
+          "type": "boolean"
+        },
+        "pan": {
+          "default": 0.0,
+          "description": "-1 is hard left, 1 hard right. Ignored on the master.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": -1,
+          "type": "number"
+        },
+        "solo": {
+          "default": false,
+          "description": "Ignored on the master.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "Tempo": {
+      "description": "Tempo and time signature. One of each for the whole timeline for now; the engine's tempo map can hold changes, and when the UI can edit them this grows into a list.",
+      "properties": {
+        "bpm": {
+          "default": 120.0,
+          "description": "Beats per minute.",
+          "exclusiveMinimum": 0,
+          "format": "double",
+          "type": "number"
+        },
+        "denominator": {
+          "default": 4,
+          "description": "The note value of a beat: 4 for quarter notes.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "numerator": {
+          "default": 4,
+          "description": "Beats in a bar.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "Track": {
+      "description": "A track: an armed input with a chain of pedals, the clips or patterns it plays, and its mixer strip.",
+      "properties": {
+        "armed": {
+          "default": false,
+          "description": "Armed tracks monitor their input and record when the transport records.",
+          "type": "boolean"
+        },
+        "chain": {
+          "default": [],
+          "description": "The pedals the track's input and clips play through, in order.",
+          "items": {
+            "$ref": "#/$defs/Pedal"
+          },
+          "type": "array"
+        },
+        "clips": {
+          "default": [],
+          "description": "Audio on the timeline, for an audio track.",
+          "items": {
+            "$ref": "#/$defs/Clip"
+          },
+          "type": "array"
+        },
+        "id": {
+          "$ref": "#/$defs/TrackId",
+          "description": "Unique within the project."
+        },
+        "kit": {
+          "description": "The drum kit, by id, for a drum track. An audio track has none. A drum track plays patterns through its kit instead of audio from its input and clips.",
+          "pattern": "^[^/\\\\]+$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "Shown in the track header.",
+          "type": "string"
+        },
+        "patternClips": {
+          "description": "Patterns on the timeline, for a drum track.",
+          "items": {
+            "$ref": "#/$defs/PatternClip"
+          },
+          "type": "array"
+        },
+        "strip": {
+          "$ref": "#/$defs/Strip",
+          "default": {
+            "gainDb": 0.0,
+            "mute": false,
+            "pan": 0.0,
+            "solo": false
+          },
+          "description": "The track's mixer strip."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "TrackId": {
+      "description": "Identifies a track.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "$id": "https://cantina-docs.vibeproject.workers.dev/schemas/project.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A whole project. Saved as `project.json` inside a `Name.cantina/` directory next to `audio/`, `plugins/` and `pedals/`.",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "master": {
+      "$ref": "#/$defs/Strip",
+      "default": {
+        "gainDb": 0.0,
+        "mute": false,
+        "pan": 0.0,
+        "solo": false
+      },
+      "description": "The master strip: gain and mute on the sum of the tracks."
+    },
+    "name": {
+      "description": "The project's name, also its directory's.",
+      "type": "string"
+    },
+    "patterns": {
+      "default": [],
+      "description": "Drum patterns, shared by every drum track.",
+      "items": {
+        "$ref": "#/$defs/Pattern"
+      },
+      "type": "array"
+    },
+    "revision": {
+      "default": 0,
+      "description": "Edits applied since the project was created. Commands do not touch it; the shell bumps it with each one and the journal records which revision each line brought the project to, so on open the lines newer than the saved file are known.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "sampleRate": {
+      "description": "The rate every file in `audio/` is at, and the rate the engine must run at to play them.",
+      "exclusiveMinimum": 0,
+      "format": "double",
+      "type": "number"
+    },
+    "tempo": {
+      "$ref": "#/$defs/Tempo",
+      "default": {
+        "bpm": 120.0,
+        "denominator": 4,
+        "numerator": 4
+      },
+      "description": "Tempo and time signature."
+    },
+    "tracks": {
+      "default": [],
+      "description": "Tracks, top to bottom.",
+      "items": {
+        "$ref": "#/$defs/Track"
+      },
+      "type": "array"
+    },
+    "version": {
+      "const": 5,
+      "description": "The format version, `FORMAT_VERSION` when written; older files are upgraded on load.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version",
+    "name",
+    "sampleRate"
+  ],
+  "title": "Cantina project",
+  "type": "object"
+}

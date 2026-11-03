@@ -1,21 +1,23 @@
 //! The JSON schemas for the pedal and drum kit formats, derived from the
-//! types that read them and served by the docs site so editors can
-//! validate files. The derive gives the shape; the limits that live in
-//! validation (counts, ranges, each node kind's fields from the kind
+//! types that read them. The derive gives the shape; the limits that live
+//! in validation (counts, ranges, each node kind's fields from the kind
 //! catalog) are added here from the same constants and catalog.
 //!
-//! `docs/public/schemas/*.schema.json` are written from here. Regenerate
-//! with `UPDATE_SCHEMAS=1 cargo test -p cantina-dsp schemas`.
+//! Behind the `schema` feature. `schemas/*.schema.json` at the root of the
+//! repository are written from here and from `cantina_project::schema`;
+//! regenerate them with `UPDATE_SCHEMAS=1 cargo test -p cantina-project
+//! schemas`. The docs site serves them under `/schemas/`.
 
 use serde_json::{json, Map, Value};
 
 use crate::kit::{Kit, KIT_VERSION, MAX_LAYERS, MAX_PADS};
 use crate::pedal::{kinds, FieldKind, PedalDef, MAX_NODES, MAX_PARAMS, PEDAL_VERSION};
 
-const SITE: &str = "https://cantina-docs.vibeproject.workers.dev/schemas";
+/// Where the docs site serves the schemas; each schema's `$id` is here.
+pub const SITE: &str = "https://cantina-docs.vibeproject.workers.dev/schemas";
 
 /// The schema for a `.pedal.json` file.
-fn pedal() -> Value {
+pub fn pedal() -> Value {
     let mut s = schemars::schema_for!(PedalDef).to_value();
     s["$id"] = json!(format!("{SITE}/pedal.schema.json"));
     s["title"] = json!("Cantina pedal");
@@ -82,7 +84,7 @@ fn pedal() -> Value {
 
 /// Descriptions come from doc comments: one line each, without rustdoc's
 /// link brackets.
-fn tidy(v: &mut Value) {
+pub fn tidy(v: &mut Value) {
     match v {
         Value::Object(m) => {
             for (k, x) in m.iter_mut() {
@@ -108,7 +110,7 @@ fn with_unit(summary: &str, unit: &str) -> String {
 }
 
 /// The schema for a kit's `kit.json`.
-fn kit() -> Value {
+pub fn kit() -> Value {
     let mut s = schemars::schema_for!(Kit).to_value();
     s["$id"] = json!(format!("{SITE}/kit.schema.json"));
     s["title"] = json!("Cantina drum kit");
@@ -132,28 +134,12 @@ fn kit() -> Value {
 mod tests {
     use super::*;
 
-    fn current(name: &str, schema: Value) {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../docs/public/schemas")
-            .join(name);
-        let mut text = serde_json::to_string_pretty(&schema).unwrap();
-        text.push('\n');
-        if std::env::var_os("UPDATE_SCHEMAS").is_some() {
-            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-            std::fs::write(&path, &text).unwrap();
-            return;
-        }
-        let on_disk = std::fs::read_to_string(&path).unwrap_or_default();
-        assert_eq!(
-            on_disk, text,
-            "docs/public/schemas/{name} is stale; run UPDATE_SCHEMAS=1 cargo test -p cantina-dsp schemas"
-        );
-    }
-
     #[test]
-    fn schemas_on_the_site_are_current() {
-        current("pedal.schema.json", pedal());
-        current("kit.schema.json", kit());
+    fn schemas_are_draft_2020_12_with_site_ids() {
+        for (s, name) in [(pedal(), "pedal"), (kit(), "kit")] {
+            assert_eq!(s["$id"], format!("{SITE}/{name}.schema.json"));
+            assert!(s["$schema"].as_str().unwrap().contains("2020-12"));
+        }
     }
 
     #[test]

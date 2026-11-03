@@ -27,6 +27,7 @@ pub type Id = u64;
 macro_rules! id_type {
     ($(#[$meta:meta])* $name:ident) => {
         $(#[$meta])*
+        #[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
         #[derive(
             Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
         )]
@@ -66,6 +67,7 @@ id_type!(
 /// clip follows the tempo: change the tempo and it stays on its bars.
 /// The pattern loops inside the clip; `offset` ticks into the pattern
 /// play first, so trimming the front keeps the beats where they were.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PatternClip {
@@ -92,6 +94,7 @@ impl PatternClip {
 /// velocity per cell. Patterns belong to the project and refer to pads
 /// by the ids the kit format uses (`kick`, `snare`, `hh-closed`…), so a
 /// pattern plays on any drum track whose kit has those pads.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Pattern {
@@ -114,6 +117,7 @@ pub struct Pattern {
 
 /// One pad's steps. `steps` holds exactly the pattern's length of
 /// velocities from 0 (no hit) to 1.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PatternRow {
@@ -219,6 +223,7 @@ impl Pattern {
 /// Tempo and time signature. One of each for the whole timeline for now;
 /// the engine's tempo map can hold changes, and when the UI can edit
 /// them this grows into a list.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Tempo {
@@ -241,6 +246,7 @@ impl Default for Tempo {
 }
 
 /// A mixer strip: what a track, or the master, does to its sum.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Strip {
@@ -267,6 +273,7 @@ impl Default for Strip {
 
 /// A region of a file in `audio/` placed on the timeline. The file is
 /// never modified; trimming a clip changes `offset` and `length`.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Clip {
@@ -294,6 +301,7 @@ impl Clip {
 /// A pedal in a chain: the spec the engine builds it from (a stock name,
 /// `au:…` or `clap:…`), the value of each parameter, in the order the
 /// processor lists them, and whether it is bypassed.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Pedal {
@@ -310,6 +318,7 @@ pub struct Pedal {
 
 /// A track: an armed input with a chain of pedals, the clips or patterns
 /// it plays, and its mixer strip.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Track {
@@ -386,6 +395,7 @@ impl Track {
 
 /// A whole project. Saved as `project.json` inside a `Name.cantina/`
 /// directory next to `audio/`, `plugins/` and `pedals/`.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Project {

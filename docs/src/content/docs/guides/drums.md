@@ -53,6 +53,10 @@ Above the grid:
   The size in bars and beats is shown beside it.
 - **Swing** delays every second step, up to a triplet feel at 100%.
 
+A pattern is saved in the project as JSON; the
+[pattern schema](/schemas/pattern.schema.json) describes it, and the
+[kit format](/reference/kit-format/) describes kits.
+
 **Loop** plays the pattern on its own, from the start of the timeline, while
 the transport plays, and lights the column it is on. Edit as it plays; you
 hear each change on the next pass.

@@ -13,8 +13,15 @@ workspace = true
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Derives the JSON schemas for the pedal and kit formats, behind the
+# `schema` feature so the app does not carry it.
+schemars = { version = "1", optional = true }
+
+[features]
+## `cantina_dsp::schema`: the pedal and kit JSON schemas.
+schema = ["dep:schemars"]
 
 [dev-dependencies]
 hound = "3.5.1"
-# Derives the JSON schemas for the pedal and kit formats, in tests only.
+# The schema derives in unit tests, without the feature.
 schemars = "1"

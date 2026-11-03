@@ -43,8 +43,8 @@ mod readout;
 mod render;
 mod reverb;
 mod sampler;
-#[cfg(test)]
-mod schema;
+#[cfg(any(test, feature = "schema"))]
+pub mod schema;
 mod shaper;
 mod smooth;
 mod tuner;

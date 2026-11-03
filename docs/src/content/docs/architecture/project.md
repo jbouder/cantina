@@ -24,7 +24,10 @@ is pushed.
 ## The model
 
 `project.json` is the `Project` struct in `crates/project/src/model.rs`,
-serialized in camelCase:
+serialized in camelCase. [`project.schema.json`](/schemas/project.schema.json)
+is its JSON Schema (draft 2020-12), generated from the struct with each
+field's doc comment as its description; a file may name it in a
+`"$schema"` field, which the loader ignores:
 
 ```json
 {
@@ -73,6 +76,23 @@ serialized in camelCase:
   such pedal the chains use (drafts included) and read back on open,
   so a song plays the same on its own, whatever the library holds. See
   [designer](/architecture/designer/).
+
+## Schemas
+
+The four formats Cantina reads have JSON Schemas in `schemas/` at the root
+of the repository, served by this site under `/schemas/`:
+[pedal](/schemas/pedal.schema.json), [kit](/schemas/kit.schema.json),
+[pattern](/schemas/pattern.schema.json) and
+[project](/schemas/project.schema.json). They are generated from the serde
+types with `schemars`, behind the `schema` feature of `cantina-dsp` and
+`cantina-project`, plus the limits that live in validation (step counts,
+ranges, each node kind's fields). One test writes them and fails when they
+are stale, and checks every stock pedal, kit and project fixture against
+them:
+
+```sh
+UPDATE_SCHEMAS=1 cargo test -p cantina-project schemas
+```
 
 ## Commands
 
