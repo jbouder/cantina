@@ -1,0 +1,16 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/kit-recipe.schema.json",
+  "version": 1,
+  "name": "Lo-fi Dust",
+  "seed": 33,
+  "pads": [
+    { "id": "kick", "name": "Kick", "voice": "kick", "pitch": 52, "decay": 0.5, "tone": 0.25, "noise": 0.1 },
+    { "id": "snare", "name": "Snare", "voice": "snare", "pitch": 170, "decay": 0.24, "tone": 0.3, "noise": 0.5 },
+    { "id": "clap", "name": "Clap", "voice": "clap", "pitch": 1000, "decay": 0.22, "tone": 0.25, "gainDb": -4 },
+    { "id": "hh-closed", "name": "Closed hat", "voice": "hat", "decay": 0.05, "tone": 0.3, "noise": 0.6, "gainDb": -8, "pan": 0.25, "choke": "hat" },
+    { "id": "hh-open", "name": "Open hat", "voice": "hat", "decay": 0.35, "tone": 0.3, "noise": 0.6, "gainDb": -10, "pan": 0.25, "choke": "hat" },
+    { "id": "tom-lo", "name": "Low tom", "voice": "tom", "pitch": 85, "decay": 0.45, "tone": 0.3, "pan": -0.3 },
+    { "id": "tom-hi", "name": "High tom", "voice": "tom", "pitch": 130, "decay": 0.35, "tone": 0.3, "pan": 0.3 },
+    { "id": "rim", "name": "Rim", "voice": "cowbell", "pitch": 820, "decay": 0.06, "gainDb": -10, "layers": 1 }
+  ]
+}

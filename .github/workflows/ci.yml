@@ -22,6 +22,9 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      # The cantina-author skill's references are generated from the
+      # schemas and the node catalog; this fails when they are stale.
+      - run: node scripts/skill-references.mjs --check
       # Draws every visualizer scene in headless Chrome from recorded frames.
       - run: npm run test:scenes
       # The shell embeds ui/dist at compile time, so the UI builds first.
@@ -34,6 +37,9 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo build --workspace --all-targets
       - run: cargo test --workspace
+      # Every example and fixture of the cantina-author skill checks and
+      # renders cleanly through cantina-cli.
+      - run: scripts/skill-fixtures.sh
       # Every public item is documented (the missing_docs lint), and the
       # docs have no broken or private links.
       - run: cargo doc --workspace --no-deps

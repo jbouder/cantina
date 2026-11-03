@@ -1,0 +1,24 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/pedal.schema.json",
+  "version": 1,
+  "name": "Warm Drive",
+  "params": [
+    { "id": "drive", "label": "Drive", "unit": "dB", "min": 0, "max": 36, "default": 18 },
+    { "id": "tone", "label": "Tone", "unit": "Hz", "min": 800, "max": 6000, "default": 2500 },
+    { "id": "level", "label": "Level", "unit": "dB", "min": -24, "max": 6, "default": -8 }
+  ],
+  "nodes": [
+    { "id": "in", "kind": "input" },
+    { "id": "tight", "kind": "biquad", "type": "highpass", "freq": 120 },
+    { "id": "drive", "kind": "gain", "db": { "param": "drive" }, "smooth": 0.01 },
+    { "id": "clip", "kind": "waveshaper", "curve": "asymmetric", "oversample": 4 },
+    { "id": "dc", "kind": "biquad", "type": "highpass", "freq": 20 },
+    { "id": "tone", "kind": "biquad", "type": "lowpass", "freq": { "param": "tone", "map": [800, 6000], "log": true }, "smooth": 0.01 },
+    { "id": "level", "kind": "gain", "db": { "param": "level" }, "smooth": 0.01 },
+    { "id": "out", "kind": "output" }
+  ],
+  "edges": [
+    ["in", "tight"], ["tight", "drive"], ["drive", "clip"], ["clip", "dc"],
+    ["dc", "tone"], ["tone", "level"], ["level", "out"]
+  ]
+}

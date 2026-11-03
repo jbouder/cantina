@@ -1,0 +1,15 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/kit-recipe.schema.json",
+  "version": 1,
+  "name": "Boom Bap",
+  "seed": 90,
+  "pads": [
+    { "id": "kick", "name": "Kick", "voice": "kick", "pitch": 48, "decay": 0.55, "tone": 0.45, "noise": 0.05 },
+    { "id": "snare", "name": "Snare", "voice": "snare", "pitch": 200, "decay": 0.28, "tone": 0.5, "noise": 0.65 },
+    { "id": "hh-closed", "name": "Closed hat", "voice": "hat", "decay": 0.04, "tone": 0.6, "gainDb": -7, "pan": 0.2, "choke": "hat" },
+    { "id": "hh-open", "name": "Open hat", "voice": "hat", "decay": 0.3, "tone": 0.6, "gainDb": -9, "pan": 0.2, "choke": "hat" },
+    { "id": "tom-lo", "name": "Low tom", "voice": "tom", "pitch": 90, "decay": 0.4, "pan": -0.25 },
+    { "id": "tom-hi", "name": "High tom", "voice": "tom", "pitch": 140, "decay": 0.3, "pan": 0.25 },
+    { "id": "clap", "name": "Clap", "voice": "clap", "decay": 0.3, "gainDb": -2 }
+  ]
+}

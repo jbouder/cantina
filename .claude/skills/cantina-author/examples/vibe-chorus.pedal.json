@@ -1,0 +1,17 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/pedal.schema.json",
+  "version": 1,
+  "name": "Vibe Chorus",
+  "params": [
+    { "id": "rate", "label": "Rate", "unit": "Hz", "min": 0.1, "max": 8, "default": 0.8 },
+    { "id": "depth", "label": "Depth", "unit": "%", "min": 0, "max": 100, "default": 50 },
+    { "id": "mix", "label": "Mix", "unit": "%", "min": 0, "max": 100, "default": 50 }
+  ],
+  "nodes": [
+    { "id": "in", "kind": "input" },
+    { "id": "lfo", "kind": "lfo", "rate": { "param": "rate" }, "depth": { "param": "depth", "map": [0, 1] }, "spread": 0.25, "unipolar": true },
+    { "id": "wobble", "kind": "delay", "time": { "node": "lfo", "map": [8, 18] }, "mix": { "param": "mix", "map": [0, 0.5] }, "max": 20 },
+    { "id": "out", "kind": "output" }
+  ],
+  "edges": [["in", "wobble"], ["wobble", "out"]]
+}
