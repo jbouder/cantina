@@ -55,7 +55,9 @@ function takes(s: Schema | undefined): string {
   if (!s) return "";
   if (s.$ref) {
     const def = s.$ref.split("/").pop() ?? "";
-    return defs[def]?.properties ? `<a href="#${anchor(def)}"><code>${def}</code></a>` : takes(defs[def]);
+    return defs[def]?.properties
+      ? `<a href="#${anchor(def)}"><code>${def}</code></a>`
+      : takes(defs[def]);
   }
   if (s.const !== undefined) return `exactly <code>${esc(JSON.stringify(s.const))}</code>`;
   if (s.enum) return s.enum.map((e) => `<code>${esc(JSON.stringify(e))}</code>`).join(", ");
@@ -69,9 +71,7 @@ function takes(s: Schema | undefined): string {
   const types = [s.type ?? []].flat().filter((t) => t !== "null");
   let text = types.join(" or ");
   if (types.includes("array")) {
-    text = s.prefixItems
-      ? `[${s.prefixItems.map(takes).join(", ")}]`
-      : `list of ${takes(s.items)}`;
+    text = s.prefixItems ? `[${s.prefixItems.map(takes).join(", ")}]` : `list of ${takes(s.items)}`;
   }
   const limits: string[] = [];
   if (s.minimum !== undefined) limits.push(`≥ ${s.minimum}`);
