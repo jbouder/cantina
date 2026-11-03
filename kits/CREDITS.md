@@ -66,3 +66,35 @@ and choke groups) are Cantina's own, under its MIT license.
 | `blip.wav` | `elec_blip` | <https://www.freesound.org/people/looppool/sounds/13121/> |
 | `bell.wav` | `elec_bell` | <https://www.freesound.org/people/looppool/sounds/13116/> |
 | `wood.wav` | `elec_wood` | <https://www.freesound.org/people/looppool/sounds/13135/> |
+
+## Metal (`kits/metal`)
+
+No third-party audio: every sample is synthesised by Cantina from
+[`recipes/metal.recipe.json`](../recipes/metal.recipe.json) with
+`cantina-cli synth-kit recipes/metal.recipe.json kits/metal`, and is under
+Cantina's MIT license. Regenerate the folder that way after changing the
+recipe; a test fails if the two disagree.
+
+| File | Recipe pad |
+| --- | --- |
+| `china.wav` | `china` |
+| `crash-1.wav` | `crash` |
+| `crash-2.wav` | `crash` |
+| `hh-closed-1.wav` | `hh-closed` |
+| `hh-closed-2.wav` | `hh-closed` |
+| `hh-open-1.wav` | `hh-open` |
+| `hh-open-2.wav` | `hh-open` |
+| `kick-1.wav` | `kick` |
+| `kick-2.wav` | `kick` |
+| `kick-3.wav` | `kick` |
+| `ride-1.wav` | `ride` |
+| `ride-2.wav` | `ride` |
+| `snare-1.wav` | `snare` |
+| `snare-2.wav` | `snare` |
+| `snare-3.wav` | `snare` |
+| `tom-hi-1.wav` | `tom-hi` |
+| `tom-hi-2.wav` | `tom-hi` |
+| `tom-lo-1.wav` | `tom-lo` |
+| `tom-lo-2.wav` | `tom-lo` |
+| `tom-mid-1.wav` | `tom-mid` |
+| `tom-mid-2.wav` | `tom-mid` |

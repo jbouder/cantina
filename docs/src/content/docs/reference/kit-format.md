@@ -132,5 +132,7 @@ cargo run -p cantina-cli -- synth-kit recipes/lofi.recipe.json ~/Music/Cantina/K
 Every number but the id and voice is optional and starts at the voice's
 default. The output depends only on the recipe, so a synthesised kit can
 live in git and be regenerated. [`kit-recipe.schema.json`](/schemas/kit-recipe.schema.json)
-is the schema; the stock recipe is `recipes/lofi.recipe.json`. Swap in
-recorded samples later by editing the `kit.json` it wrote.
+is the schema; the stock recipes are `recipes/lofi.recipe.json` and
+`recipes/metal.recipe.json`, the second shipped synthesised as the Metal
+kit in `kits/metal`. Swap in recorded samples later by editing the
+`kit.json` it wrote.

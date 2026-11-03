@@ -405,12 +405,15 @@ mod tests {
             let r = check(&path, &o).unwrap_or_else(|f| panic!("{path:?}: {:?}", f.problems));
             assert_eq!(r.format, Format::Pedal);
         }
-        for kit in ["acoustic", "electronic", "rock"] {
+        for kit in ["acoustic", "electronic", "metal", "rock"] {
             let r = check(&root().join("kits").join(kit), &o).unwrap();
             assert_eq!(r.format, Format::Kit);
         }
-        let r = check(&root().join("recipes/lofi.recipe.json"), &o).unwrap();
-        assert_eq!(r.format, Format::KitRecipe);
+        for recipe in ["lofi", "metal"] {
+            let path = root().join(format!("recipes/{recipe}.recipe.json"));
+            let r = check(&path, &o).unwrap();
+            assert_eq!(r.format, Format::KitRecipe);
+        }
         let r = check(
             &root().join("crates/project/tests/fixtures/v5.json"),
             &CheckOptions {
