@@ -58,6 +58,11 @@ impl Projects {
         self.root.join("Pedals")
     }
 
+    /// Where pattern files go: `Patterns` next to the projects.
+    pub fn patterns_dir(&self) -> PathBuf {
+        self.root.join("Patterns")
+    }
+
     pub fn list(&self) -> Result<Vec<String>> {
         cantina_project::list(&self.root)
             .with_context(|| format!("listing projects in {}", self.root.display()))

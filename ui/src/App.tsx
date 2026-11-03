@@ -18,6 +18,7 @@ import { Timeline } from "./components/Timeline";
 import { Transport } from "./components/Transport";
 import { Window } from "./components/Window";
 import {
+  brokenOf,
   designerNew,
   dismissNotice,
   type EngineStatus,
@@ -30,6 +31,7 @@ import {
   onFileDrop,
   onMeters,
   onStatus,
+  patternImport,
   pedalImport,
   projectRedo,
   projectUndo,
@@ -146,6 +148,9 @@ export function App() {
         const track = dropTarget.current;
         for (const path of paths.filter((p) => p.endsWith(".pedal.json"))) {
           pedalImport(path, track ?? undefined).then(setStatus, (e) => setError(String(e)));
+        }
+        for (const path of paths.filter((p) => p.endsWith(".pattern.json"))) {
+          patternImport(path, track ?? undefined).then(setStatus, (e) => setError(String(e)));
         }
       }),
     [],
@@ -371,6 +376,7 @@ export function App() {
                 kinds={status.pedalKinds}
                 patterns={status.project.patterns}
                 kits={status.kits}
+                library={status.library}
                 audition={status.audition}
                 tempo={status.project.tempo}
                 position={frame.position}
@@ -433,6 +439,7 @@ export function App() {
           track={selected.id}
           trackName={selected.name}
           kinds={status.pedalKinds}
+          broken={brokenOf(status.library, "pedal")}
           plugins={status.plugins}
           onClose={closePicker}
           onDesign={() => design(null, selected.id)}

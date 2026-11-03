@@ -31,8 +31,10 @@ pattern written on one plays on the others. The open hat is cut off by the
 closed one, as on a real kit.
 
 To make your own kit, copy one of the stock kits from `kits/` in the
-repository to `~/Music/Cantina/Kits/`, swap the samples, and press
-**Rescan**. The [kit format](/reference/kit-format/) describes every field.
+repository to `~/Music/Cantina/Kits/` and swap the samples, or describe one
+as a [kit recipe](/reference/kit-format/#kit-recipes) and let
+`cantina-cli synth-kit` make the samples. The
+[kit format](/reference/kit-format/) describes every field.
 
 ## Program a pattern
 
@@ -53,9 +55,54 @@ Above the grid:
   The size in bars and beats is shown beside it.
 - **Swing** delays every second step, up to a triplet feel at 100%.
 
-A pattern is saved in the project as JSON; the
-[pattern schema](/schemas/pattern.schema.json) describes it, and the
-[kit format](/reference/kit-format/) describes kits.
+### Pattern files
+
+A pattern can also live outside a project as `<name>.pattern.json`: the
+same object the project holds, without its id. The
+[pattern schema](/schemas/pattern.schema.json) describes it.
+
+```json
+{
+  "name": "Half-time",
+  "stepsPerBeat": 4,
+  "length": 16,
+  "swing": 0,
+  "rows": [
+    { "pad": "kick", "steps": [1,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0] },
+    { "pad": "snare", "steps": [0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0] },
+    { "pad": "hh-closed", "steps": [0.8,0,0.5,0, 0.8,0,0.5,0, 0.8,0,0.5,0, 0.8,0,0.5,0] }
+  ]
+}
+```
+
+Each row has exactly `length` velocities from 0 (no hit) to 1, and names a
+pad by the id kits use.
+
+- **Export…** writes the pattern shown to a `.pattern.json` file.
+- **Import…** adds pattern files to the project, as does dropping one on
+  the window. An imported pattern gets a new id, and a name already in the
+  project gets a number after it (`Beat 2`). Rows for pads the track's kit
+  does not have are kept, so the pattern still plays them on another kit,
+  and a notice names them.
+
+## Library folders
+
+Cantina watches three folders for files written outside the app, by hand
+or by a coding agent:
+
+| Folder | Holds |
+| --- | --- |
+| `~/Music/Cantina/Kits/` | Kit folders, each with a `kit.json` and its samples |
+| `~/Music/Cantina/Patterns/` | `*.pattern.json` files |
+| `~/Music/Cantina/Pedals/` | `*.pedal.json` files (see [designing pedals](/guides/designer/)) |
+
+A file saved there appears within a second, with no restart and no
+**Rescan**: a kit in the **Kit** list, a pattern in the **Pattern** menu
+under *Import from the library* (choosing it adds it to the project). A
+file that does not load is listed under *Will not load* with the reason,
+and cannot be chosen until it is fixed; `cantina-cli check` gives the same
+reason (see the [command line](/reference/cli/)). A kit that changes on
+disk is read again the next time a track picks it.
 
 **Loop** plays the pattern on its own, from the start of the timeline, while
 the transport plays, and lights the column it is on. Edit as it plays; you

@@ -82,7 +82,9 @@ The comments are for this page; a real `kit.json` has none.
 Cantina looks for kits in `~/Music/Cantina/Kits/`, then in the kits that
 ship with the app, then in any folder the `CANTINA_KITS` environment
 variable names. A kit in your folder replaces a stock kit with the same id.
-**Rescan** in the kit picker finds a kit added while Cantina runs.
+Cantina watches your folder, so a kit added or changed while it runs shows
+up within a second; one that does not load is listed with the reason (see
+[library folders](/guides/drums/#library-folders)).
 
 The stock kits in `kits/` in the repository are working examples: copy one
 to `~/Music/Cantina/Kits/<id>/`, change the samples, and it appears in the
