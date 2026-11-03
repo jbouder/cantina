@@ -76,6 +76,7 @@ impl Projects {
                 id: PedalId(2 + i as u64),
                 spec: spec.to_string(),
                 values: values.to_vec(),
+                bypassed: false,
             });
         }
         project.tracks.push(track);

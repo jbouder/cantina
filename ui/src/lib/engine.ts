@@ -290,6 +290,8 @@ export interface PedalInfo {
    * order they appear in a frame's readouts (see readouts.ts).
    */
   readouts: string[];
+  /** Out of the signal path, settings kept. */
+  bypassed: boolean;
 }
 
 export interface ParamInfo {
@@ -673,6 +675,7 @@ function mockPedal(id: number, spec: string): PedalInfo {
       editorOpen: false,
       latencyFrames: 0,
       readouts: [],
+      bypassed: false,
     };
   }
   if (spec.startsWith("au:")) {
@@ -691,6 +694,7 @@ function mockPedal(id: number, spec: string): PedalInfo {
       editorOpen: mockParams?.has("editor") ?? false,
       latencyFrames: mockParams?.has("latency") ? MOCK_LATENCY : 0,
       readouts: [],
+      bypassed: false,
     };
   }
   // A cabinet's spec carries its impulse: `cab:<id>`; a bare `cab`
@@ -707,6 +711,7 @@ function mockPedal(id: number, spec: string): PedalInfo {
     editorOpen: false,
     latencyFrames: 0,
     readouts: [...(kind?.readouts ?? [])],
+    bypassed: false,
   };
 }
 
@@ -1495,6 +1500,22 @@ export async function patternAudition(
   if (inTauri) return invoke<EngineStatus>("pattern_audition", { track, pattern });
   mock.audition = track !== null && pattern !== null ? { track, pattern } : null;
   return mockStatus();
+}
+
+/** Takes a pedal out of the signal path, or puts it back. */
+export async function pedalSetBypass(id: number, on: boolean): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pedal_set_bypass", { id, on });
+  const pedal = mockPedalById(id);
+  if (!pedal) throw new Error(`no pedal ${id}`);
+  pedal.bypassed = on;
+  return mockEdit(on ? "bypass pedal" : "turn pedal on");
+}
+
+/** Plays the input through one audio track's chain: arms it and disarms the rest. */
+export async function chainSelect(id: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("chain_select", { id });
+  for (const t of mock.project.tracks) if (!t.kit) t.armed = t.id === id;
+  return mockEdit("switch chain");
 }
 
 /** Points the stage's analysis at a track, or the master with `null`. */

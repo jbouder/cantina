@@ -53,7 +53,10 @@ serialized in camelCase:
   `au:…` or `clap:…`) and the value of each parameter in the order the
   processor lists them. Names, units and ranges come from the processor,
   not the file. A third-party plugin's own state is saved next to the
-  file as `plugins/<pedal id>.state`; see [hosting.md](hosting.md).
+  file as `plugins/<pedal id>.state`; see [hosting.md](hosting.md). A
+  pedal with `"bypassed": true` keeps its settings but the signal goes
+  round it; the field is left out when false. The format went to
+  version 5 with it.
 - **Strips** (`strip` on a track, `master` on the project) hold
   `gainDb`, `pan`, `mute` and `solo`. The format went to version 2 when
   they arrived; a version 1 file gets strips at unity.
@@ -140,6 +143,8 @@ the old shape stays there as a fixture and a migration step is added.
 Version 1 to 2 added the strips: `v1.json` has none and must load with
 every strip at unity. Version 2 to 3 added drum tracks and patterns:
 `v2.json` must load with no patterns and every track an audio track.
+Version 4 to 5 added bypass: `v4.json` must load with every pedal on,
+and `v5.json` has a bypassed one.
 
 Saves write `project.json.tmp` and rename it over `project.json`, so a
 crash mid-save leaves the previous file whole.

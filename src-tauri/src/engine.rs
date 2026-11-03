@@ -322,6 +322,8 @@ pub struct PedalInfo {
     /// Names of the values the pedal measures for its display, in the
     /// order they appear in the frame's readout section.
     pub readouts: Vec<String>,
+    /// Out of the signal path, settings kept.
+    pub bypassed: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -450,6 +452,7 @@ impl PedalKind {
             editor_open: false,
             latency_frames: 0,
             readouts: self.readouts.clone(),
+            bypassed: pedal.bypassed,
         }
     }
 }
@@ -543,12 +546,18 @@ struct LivePedal {
     latency: usize,
     /// The pedal's display values, shared with the audio thread.
     readout: Option<Readout>,
+    /// Out of the signal path: the node stays, unwired, with its state.
+    bypassed: bool,
 }
 
 impl LiveTrack {
-    /// Frames the chain delays the signal by.
+    /// Frames the chain delays the signal by. A bypassed pedal adds none.
     fn latency(&self) -> usize {
-        self.pedals.iter().map(|p| p.latency).sum()
+        self.pedals
+            .iter()
+            .filter(|p| !p.bypassed)
+            .map(|p| p.latency)
+            .sum()
     }
 
     fn nodes(&self) -> impl Iterator<Item = NodeId> + '_ {
@@ -776,9 +785,12 @@ impl Live {
                             handle,
                             latency,
                             readout,
+                            bypassed: false,
                         }
                     }
                 };
+                let mut live_pedal = live_pedal;
+                live_pedal.bypassed = pedal.bypassed;
                 pedals.push(live_pedal);
             }
             live.pedals = pedals;
@@ -1001,7 +1013,7 @@ impl Live {
             }
             graph.connect(track.delay, track.bus)?;
             let mut previous = track.bus;
-            for pedal in &track.pedals {
+            for pedal in track.pedals.iter().filter(|p| !p.bypassed) {
                 graph.connect(previous, pedal.node)?;
                 previous = pedal.node;
             }
@@ -1321,6 +1333,7 @@ impl Catalog {
                 editor_open: false,
                 latency_frames: 0,
                 readouts: Vec::new(),
+                bypassed: pedal.bypassed,
             },
         }
     }
@@ -2649,6 +2662,45 @@ impl Engine {
         })
     }
 
+    /// Takes a pedal out of the signal path, or puts it back.
+    pub fn pedal_set_bypass(&mut self, id: u64, on: bool) -> Result<EngineStatus> {
+        self.apply(Command::SetBypass {
+            pedal: PedalId(id),
+            on,
+        })
+    }
+
+    /// Switches the live input to one audio track's chain: arms it and
+    /// disarms every other audio track, as one edit. On stage this is
+    /// how a player moves between a clean and a lead sound.
+    pub fn chain_select(&mut self, id: u64) -> Result<EngineStatus> {
+        let id = TrackId(id);
+        let track = self
+            .project
+            .track(id)
+            .with_context(|| format!("no track {}", id.0))?;
+        if track.is_drums() {
+            bail!(
+                "{} is a drum track and has no input to play through",
+                track.name
+            );
+        }
+        let commands: Vec<Command> = self
+            .project
+            .tracks
+            .iter()
+            .filter(|t| !t.is_drums() && t.armed != (t.id == id))
+            .map(|t| Command::ArmTrack {
+                id: t.id,
+                armed: t.id == id,
+            })
+            .collect();
+        if commands.is_empty() {
+            return Ok(self.status());
+        }
+        self.apply(Command::Batch { commands })
+    }
+
     // ----- clips -----
 
     pub fn clip_remove(&mut self, id: u64) -> Result<EngineStatus> {
@@ -2940,6 +2992,7 @@ impl Engine {
             id: PedalId(self.project.fresh_id()),
             spec: spec.clone(),
             values: kind.params.iter().map(|p| p.default).collect(),
+            bypassed: false,
         };
         self.apply(Command::InsertPedal {
             track: TrackId(track),

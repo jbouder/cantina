@@ -8,6 +8,7 @@ import { Lcd } from "./components/Lcd";
 import { Meter } from "./components/Meter";
 import { Notice } from "./components/Notice";
 import { PedalPicker } from "./components/PedalPicker";
+import { Performance } from "./components/Performance";
 import { ProjectBar } from "./components/ProjectBar";
 import { Projects } from "./components/Projects";
 import { Recovery } from "./components/Recovery";
@@ -77,9 +78,15 @@ export function App() {
   const [projectsOpen, setProjectsOpen] = useState(() => params?.has("projects") ?? false);
   const [pickerOpen, setPickerOpen] = useState(() => params?.has("picker") ?? false);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
-  // In a browser `?stage` opens the stage, and `?scene=<id>` picks its scene.
+  // In a browser `?stage` opens the stage, `?perform` performance mode
+  // (with `?board` its pedalboard), and `?scene=<id>` picks the scene.
   const [stageOpen, setStageOpen] = useState(() => params?.has("stage") ?? false);
   const closeStage = useCallback(() => setStageOpen(false), []);
+  const [performing, setPerforming] = useState(() => params?.has("perform") ?? false);
+  const perform = useCallback(() => {
+    setStageOpen(false);
+    setPerforming(true);
+  }, []);
   const closeProjects = useCallback(() => setProjectsOpen(false), []);
   const closePicker = useCallback(() => setPickerOpen(false), []);
   // In a browser `?drums` adds a drum track to the stand-in and selects it.
@@ -145,8 +152,8 @@ export function App() {
   );
 
   // Cmd-Z and Shift-Cmd-Z anywhere but inside a text field, where the
-  // field's own undo applies. Space plays or stops and R records, except
-  // on a control that uses those keys itself.
+  // field's own undo applies. Space plays or stops, R records and P
+  // performs, except on a control that uses those keys itself.
   const keys = useRef({ status, frame });
   keys.current = { status, frame };
   useEffect(() => {
@@ -167,6 +174,11 @@ export function App() {
       }
       if (e.metaKey || e.ctrlKey || e.altKey || typing) return;
       if (tag === "INPUT" || tag === "SELECT" || tag === "BUTTON") return;
+      if (e.key === "p" || e.key === "P") {
+        e.preventDefault();
+        perform();
+        return;
+      }
       const { status: s, frame: f } = keys.current;
       if (!s?.running) return;
       if (e.key === " ") {
@@ -186,7 +198,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [perform]);
 
   const toggle = useCallback(async () => {
     if (!status || busy) return;
@@ -378,11 +390,15 @@ export function App() {
         ) : null}
       </main>
       {stageOpen && status ? (
-        <StageView
+        <StageView status={status} onClose={closeStage} onPerform={perform} onStatus={setStatus} />
+      ) : null}
+      {performing && status ? (
+        <Performance
           status={status}
-          initialScene={params?.get("scene") ?? undefined}
-          onClose={closeStage}
+          initialBoard={params?.has("board") ?? false}
+          onExit={() => setPerforming(false)}
           onStatus={setStatus}
+          onError={setError}
         />
       ) : null}
       {settingsOpen && status ? (

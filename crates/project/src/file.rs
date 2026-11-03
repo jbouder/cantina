@@ -215,6 +215,9 @@ fn migrate(from: u32, mut value: Value) -> Value {
         // 3 -> 4: patterns on the timeline. A drum track gains
         // `patternClips`, empty in a version 3 file.
         3 => value,
+        // 4 -> 5: bypass. A pedal may carry `bypassed`; a version 4 file
+        // has none, so every pedal is on.
+        4 => value,
         _ => value,
     }
 }
@@ -256,6 +259,7 @@ mod tests {
             id: PedalId(2),
             spec: "overdrive".into(),
             values: vec![20.0, 3000.0, -6.0],
+            bypassed: false,
         });
         t.clips.push(Clip {
             id: ClipId(3),
@@ -414,6 +418,22 @@ mod tests {
         assert_eq!(clips.len(), 2);
         assert_eq!(clips[1].offset, 960);
         assert!(project.pattern_in_use(crate::model::PatternId(7)));
+    }
+
+    #[test]
+    fn a_version_5_file_has_a_bypassed_pedal() {
+        let text = fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/v5.json"),
+        )
+        .unwrap();
+        let project = load_str(&text, Path::new("v5/project.json")).unwrap();
+        let chain = &project.tracks[0].chain;
+        assert!(chain[0].bypassed);
+        assert!(chain.iter().skip(1).all(|p| !p.bypassed));
+        // An unbypassed pedal writes no field, so the file stays as it was.
+        let json = serde_json::to_value(&project).unwrap();
+        assert_eq!(json["tracks"][0]["chain"][0]["bypassed"], true);
+        assert!(json["tracks"][0]["chain"][1].get("bypassed").is_none());
     }
 
     #[test]

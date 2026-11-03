@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 /// The format version this crate writes. The loader upgrades older files;
 /// see `file.rs` for the migrations.
-pub const FORMAT_VERSION: u32 = 4;
+pub const FORMAT_VERSION: u32 = 5;
 
 /// Ticks per quarter note in pattern and pattern clip positions. The
 /// same as the engine's tempo map, so a tick here is a tick there.
@@ -276,14 +276,17 @@ impl Clip {
 }
 
 /// A pedal in a chain: the spec the engine builds it from (a stock name,
-/// `au:…` or `clap:…`) and the value of each parameter, in the order the
-/// processor lists them.
+/// `au:…` or `clap:…`), the value of each parameter, in the order the
+/// processor lists them, and whether it is bypassed.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Pedal {
     pub id: PedalId,
     pub spec: String,
     pub values: Vec<f32>,
+    /// Bypassed, the signal goes round the pedal; it keeps its settings.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub bypassed: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -547,6 +550,7 @@ mod tests {
             id: PedalId(2),
             spec: "gain".into(),
             values: vec![0.0],
+            bypassed: false,
         });
         t.clips.push(Clip {
             id: ClipId(3),
