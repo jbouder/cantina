@@ -22,7 +22,11 @@ fn stock_kits_load_fast_with_the_shared_pads() {
     let kits = kit::discover(&[kits_dir()], &mut problems);
     assert!(problems.is_empty(), "{problems:?}");
     let ids: Vec<&str> = kits.iter().map(|k| k.id.as_str()).collect();
-    assert_eq!(ids, ["acoustic", "electronic", "rock"], "sorted by name");
+    assert_eq!(
+        ids,
+        ["acoustic", "electronic", "metal", "rock"],
+        "sorted by name"
+    );
     for entry in &kits {
         let start = Instant::now();
         let (kit, loaded) =
@@ -65,7 +69,15 @@ fn stock_kits_load_fast_with_the_shared_pads() {
                     entry.id,
                     pad.id
                 );
-                assert_eq!(layer.sample.sample_rate, 44_100.0);
+                // Recorded kits are at 44.1 kHz; synthesised ones at the
+                // recipe rate, 48 kHz.
+                assert!(
+                    [44_100.0, 48_000.0].contains(&layer.sample.sample_rate),
+                    "{}: {} is at {} Hz",
+                    entry.id,
+                    pad.id,
+                    layer.sample.sample_rate
+                );
             }
         }
     }

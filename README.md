@@ -47,7 +47,7 @@ file, so you or a coding agent can write one and the app picks it up.
   Scanning runs in a child process, so a broken plugin cannot take the app
   down.
 - **Drums.** A step sequencer with velocity, swing and pattern length,
-  stock acoustic, rock and electronic kits, and patterns as clips that
+  stock acoustic, rock, electronic and metal kits, and patterns as clips that
   follow the tempo map.
 - **Pedal designer.** Build a pedal as a graph of filters, gains, shapers,
   delays and modulators, hear it live on your input as you wire it, and

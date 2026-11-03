@@ -772,6 +772,7 @@ const mockKits: KitInfo[] = [
   { id: "acoustic", name: "Acoustic" },
   { id: "rock", name: "Tight rock" },
   { id: "electronic", name: "Electronic" },
+  { id: "metal", name: "Metal (synth)" },
 ];
 
 const mockPads: PadInfo[] = [

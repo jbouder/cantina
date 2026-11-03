@@ -18,13 +18,14 @@ can go through a compressor or a reverb.
 
 ## Kits
 
-Pick a kit from **Kit**. Three come with Cantina:
+Pick a kit from **Kit**. Four come with Cantina:
 
 | Kit | Sounds |
 | --- | --- |
 | Acoustic | Kick, snare, closed, pedal and open hats, three toms, crash and ride, each drum with a soft and a hard hit |
 | Tight rock | A heavy kick, a hard snare, closed and short open hats, two toms, crash, ride and cowbell |
 | Electronic | Two kicks, two snares, a clap, hats, two toms and percussion |
+| Metal (synth) | A short, clicky kick and a cracking snare with three velocity layers each for fast doubles, tight hats, three toms, crash, china and ride. Synthesised from `recipes/metal.recipe.json` |
 
 Every kit has the same names for the kick, snare, hats and toms, so a
 pattern written on one plays on the others. The open hat is cut off by the
