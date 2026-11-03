@@ -1,4 +1,5 @@
 import { type EngineStatus, latencyWarningSet, ms, routeLabel } from "../lib/engine";
+import { useReduceFlashing } from "../lib/motion";
 import { SKINS, useSkin } from "../skins";
 import { Button } from "./Button";
 import { DevicePicker } from "./DevicePicker";
@@ -17,9 +18,13 @@ type Props = {
 
 const WARN_CHOICES = [5, 10, 20, 50, 100];
 
-/** The settings sheet: the engine, audio devices, the latency warning and the skin picker. */
+/**
+ * The settings sheet: the engine, audio devices, the latency warning, the
+ * skin picker and Reduce flashing.
+ */
 export function Settings({ status, busy, onToggleEngine, onClose, onStatusChange }: Props) {
   const [skin, setSkin] = useSkin();
+  const [reduceFlashing, setReduceFlashing] = useReduceFlashing();
   const { latency } = status;
   const choices = WARN_CHOICES.includes(latency.warnMs)
     ? WARN_CHOICES
@@ -82,6 +87,24 @@ export function Settings({ status, busy, onToggleEngine, onClose, onStatusChange
               {s.name}
             </Button>
           ))}
+        </div>
+      </section>
+      <section aria-labelledby="motion-label" className="grid gap-2">
+        <h3 id="motion-label" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+          Motion
+          <small className="block font-normal text-ink-dim text-xs normal-case tracking-normal">
+            Stills the stage's flashes and the skin's beat pulse. Your system's reduce motion
+            setting stills the pulse too.
+          </small>
+        </h3>
+        <div className="flex">
+          <Button
+            aria-pressed={reduceFlashing}
+            onClick={() => setReduceFlashing(!reduceFlashing)}
+            variant={reduceFlashing ? "transport" : "panel"}
+          >
+            Reduce flashing
+          </Button>
         </div>
       </section>
     </Sheet>
