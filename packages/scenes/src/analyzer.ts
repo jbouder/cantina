@@ -1,5 +1,5 @@
-import { stepBeat, initialBeatState, type BeatState } from './beat';
-import { createSilentFrame, type AudioFrame } from './frame';
+import { BEAT_DECAY, stepBeat, initialBeatState, type BeatState } from './beat';
+import { createSilentFrame, type AudioFrame, type Tempo } from './frame';
 
 export const BANDS = {
   bass: [20, 250],
@@ -42,7 +42,12 @@ export class FrameAnalyzer {
 
   constructor(private readonly sampleRate: number) {}
 
-  update(time: number): AudioFrame {
+  /**
+   * With a tempo the beat envelope follows the tempo map exactly; without
+   * one it falls back to onsets detected in the bass, which keep learning
+   * either way so the fallback is warm when the transport stops.
+   */
+  update(time: number, tempo: Tempo | null = null): AudioFrame {
     const f = this.frame;
     f.time = time;
     f.rms = waveRms(f.wave);
@@ -51,13 +56,27 @@ export class FrameAnalyzer {
     f.treble = bandLevel(f.freq, BANDS.treble[0], BANDS.treble[1], this.sampleRate);
     const r = stepBeat(this.beatState, f.bass, time);
     this.beatState = r.state;
-    f.beat = r.beat;
+    f.tempo = tempo;
+    if (tempo && tempo.bpm > 0) {
+      f.beat = lockedBeat(tempo);
+      f.downbeat = tempo.beat === 0 ? f.beat : 0;
+    } else {
+      f.beat = r.beat;
+      f.downbeat = 0;
+    }
     return f;
   }
 
   reset(): void {
     this.beatState = initialBeatState;
+    this.frame.tempo = null;
     this.frame.freq.fill(0);
     this.frame.wave.fill(128);
   }
+}
+
+/** 1 on the beat, falling to 0 over BEAT_DECAY seconds, as an onset would. */
+export function lockedBeat(tempo: Tempo): number {
+  const since = (tempo.phase * 60) / tempo.bpm;
+  return Math.max(0, 1 - since / BEAT_DECAY);
 }

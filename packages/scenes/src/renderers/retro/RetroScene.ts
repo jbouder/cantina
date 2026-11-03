@@ -26,6 +26,9 @@ export abstract class RetroScene implements Renderer {
   private rect = { x: 0, y: 0, w: 1, h: 1 };
   private lastPalette = '';
   private lastBeat = 0;
+  /** The last beat and bar seen on the tempo map, as bar * 1024 + beat. */
+  private lastTempoBeat = -1;
+  private lastBar = -1;
 
   init(canvas: HTMLCanvasElement, rc: RenderContext): void {
     this.rc = rc;
@@ -129,9 +132,35 @@ export abstract class RetroScene implements Renderer {
    * several steps can run on the same frame.
    */
   protected beatOnset(frame: AudioFrame): boolean {
-    const onset = frame.beat > this.lastBeat + 0.5;
+    const t = frame.tempo;
+    let onset: boolean;
+    if (t) {
+      // On the grid: the step where the beat number changes.
+      const key = t.bar * 1024 + t.beat;
+      onset = key !== this.lastTempoBeat;
+      this.lastTempoBeat = key;
+    } else {
+      onset = frame.beat > this.lastBeat + 0.5;
+      this.lastTempoBeat = -1;
+    }
     this.lastBeat = frame.beat;
     return onset;
+  }
+
+  /**
+   * True on the first step of a new bar. Only a tempo map knows where bars
+   * are, so it never fires on onsets. Call at most once per step.
+   */
+  protected barOnset(frame: AudioFrame): boolean {
+    const bar = frame.tempo ? frame.tempo.bar : -1;
+    const onset = bar >= 0 && bar !== this.lastBar;
+    this.lastBar = bar;
+    return onset;
+  }
+
+  /** The bar number on the tempo map, or 0 with none. */
+  protected barCount(frame: AudioFrame): number {
+    return frame.tempo?.bar ?? 0;
   }
 
   protected setup(): void {}
