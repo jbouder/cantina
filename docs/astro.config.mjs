@@ -30,6 +30,11 @@ export default defineConfig({
       social: [{ icon: "github", label: "GitHub", href: "https://github.com/jbouder/cantina" }],
       editLink: { baseUrl: "https://github.com/jbouder/cantina/edit/main/docs/" },
       lastUpdated: true,
+      // A light / dark / system switch, dark by default as the app is.
+      components: {
+        ThemeProvider: "./src/components/ThemeProvider.astro",
+        ThemeSelect: "./src/components/ThemeSelect.astro",
+      },
       customCss: [
         "@fontsource/vt323/400.css",
         "./src/generated/theme.css",
