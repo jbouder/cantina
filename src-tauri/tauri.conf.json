@@ -40,7 +40,18 @@
       "icons/icon.icns"
     ],
     "macOS": {
-      "minimumSystemVersion": "13.0"
+      "minimumSystemVersion": "13.0",
+      "signingIdentity": "-",
+      "entitlements": "Entitlements.plist",
+      "hardenedRuntime": true
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU1QzQ0OTYwNjRCOEMwRDcKUldUWHdMaGtZRW5FNVpDS1NabFExWllKeVlycXQ5akNSR0Q4RUhPMEFKbjhWUjA4NllEdkZpY0kK",
+      "endpoints": [
+        "https://github.com/jbouder/cantina/releases/latest/download/latest.json"
+      ]
     }
   }
 }

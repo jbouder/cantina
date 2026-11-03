@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  What the hardened runtime lets Cantina do. Signing (ad hoc, or with a
+  Developer ID for notarization) applies these to the app.
+
+  - audio-input: the guitar comes in through the microphone permission.
+  - disable-library-validation: Audio Units and CLAP plugins are other
+    developers' code, signed by them or not at all, loaded into this
+    process.
+  - allow-jit and allow-unsigned-executable-memory: some plugins
+    generate code at run time; without these they crash on load.
+-->
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+</dict>
+</plist>

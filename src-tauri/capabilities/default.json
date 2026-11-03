@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "What the main window and the stage window may ask the shell for. Cantina's own commands are allowed by default; this lists the core permissions on top: performance mode goes full screen and opens the stage window on a second display, and the main window switches the stage window's scene by event.",
+  "description": "What the main window and the stage window may ask the shell for. Cantina's own commands are allowed by default; this lists the core permissions on top: performance mode goes full screen and opens the stage window on a second display, and the main window switches the stage window's scene by event; the main window checks for, downloads and installs updates and restarts into them.",
   "windows": [
     "main",
     "stage"
@@ -12,6 +12,8 @@
     "core:window:allow-set-fullscreen",
     "core:window:allow-set-focus",
     "core:window:allow-close",
-    "core:webview:allow-create-webview-window"
+    "core:webview:allow-create-webview-window",
+    "updater:default",
+    "process:allow-restart"
   ]
 }

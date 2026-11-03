@@ -17,6 +17,7 @@ import { Settings } from "./components/Settings";
 import { StageView } from "./components/StageView";
 import { Timeline } from "./components/Timeline";
 import { Transport } from "./components/Transport";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { Window } from "./components/Window";
 import {
   brokenOf,
@@ -40,6 +41,8 @@ import {
   transportPlay,
   transportRecord,
   transportStop,
+  type UpdateInfo,
+  updateCheck,
 } from "./lib/engine";
 import { readoutsByPedal } from "./lib/readouts";
 
@@ -73,6 +76,13 @@ function loadSplit(): number {
 export function App() {
   const [status, setStatus] = useState<EngineStatus | null>(null);
   const [busy, setBusy] = useState(false);
+  // A newer release, found at launch or from Settings, until dismissed.
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  useEffect(() => {
+    // Development builds are not releases: nothing to update them to.
+    if (import.meta.env.DEV && inTauri) return;
+    updateCheck().then(setUpdate, () => {});
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [frame, setFrame] = useState<MeterFrame>(IDLE);
   // In a browser `?settings`, `?projects` and `?picker` open the
@@ -316,6 +326,14 @@ export function App() {
     >
       <main className="flex min-h-0 flex-1 flex-col gap-3 p-window">
         {status?.notice ? <Notice message={status.notice} onDismiss={dismiss} /> : null}
+        {update && status ? (
+          <UpdateBanner
+            update={update}
+            dirty={status.project.dirty}
+            recording={frame.recording}
+            onDismiss={() => setUpdate(null)}
+          />
+        ) : null}
         {status?.project.recovery ? (
           <Recovery recovery={status.project.recovery} onStatus={setStatus} onError={setError} />
         ) : null}
@@ -423,6 +441,7 @@ export function App() {
           onToggleEngine={toggle}
           onClose={closeSettings}
           onStatusChange={setStatus}
+          onUpdate={setUpdate}
         />
       ) : null}
       {exportOpen && status ? (

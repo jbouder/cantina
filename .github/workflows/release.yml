@@ -1,0 +1,167 @@
+name: Release
+
+# A tag like v0.1.0 builds a universal macOS app (Apple silicon and
+# Intel), packs it in a DMG, and publishes both to the GitHub release for
+# the tag, with the signed archive and latest.json the in-app updater
+# reads. A pull request that changes how releases are made, or a manual
+# run, builds the same files and keeps them as workflow artifacts without
+# publishing anything.
+#
+# Signing depends on the repository's secrets (docs: Architecture >
+# Releasing):
+#
+# - APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY:
+#   a Developer ID Application certificate. Without them the app is
+#   signed ad hoc, which runs but meets Gatekeeper's warning on first open.
+# - APPLE_ID, APPLE_PASSWORD (app-specific), APPLE_TEAM_ID: notarization,
+#   which needs the certificate too.
+# - TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD: the
+#   updater's key. Without them no update archive or latest.json is made
+#   and installed copies are not offered the release.
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - src-tauri/tauri.conf.json
+      - src-tauri/Entitlements.plist
+      - src-tauri/Info.plist
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  macos:
+    name: Universal macOS app
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: universal
+
+      - name: Version
+        id: version
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::the tag is $GITHUB_REF_NAME but tauri.conf.json says $version"
+            exit 1
+          fi
+
+      # Only the secrets that are set go into the build's environment: the
+      # bundler takes an empty APPLE_CERTIFICATE as a certificate to import.
+      - name: Signing
+        id: signing
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$APPLE_CERTIFICATE" ]; then
+            {
+              echo "APPLE_CERTIFICATE=$APPLE_CERTIFICATE"
+              echo "APPLE_CERTIFICATE_PASSWORD=$APPLE_CERTIFICATE_PASSWORD"
+              echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY"
+            } >> "$GITHUB_ENV"
+            echo "Signing with the Developer ID certificate."
+            if [ -n "$APPLE_ID" ]; then
+              {
+                echo "APPLE_ID=$APPLE_ID"
+                echo "APPLE_PASSWORD=$APPLE_PASSWORD"
+                echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+              } >> "$GITHUB_ENV"
+              echo "Notarizing."
+            else
+              echo "::warning::no APPLE_ID: the app is signed but not notarized"
+            fi
+          else
+            echo "::warning::no Developer ID certificate: the app is signed ad hoc and Gatekeeper will warn on first open"
+          fi
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            {
+              echo "TAURI_SIGNING_PRIVATE_KEY=$TAURI_SIGNING_PRIVATE_KEY"
+              echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
+            } >> "$GITHUB_ENV"
+            echo "updater=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::no updater key: no update archive or latest.json, installed copies will not be offered this release"
+            echo "updater=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        run: |
+          config='{}'
+          if [ "${{ steps.signing.outputs.updater }}" = true ]; then
+            config='{"bundle":{"createUpdaterArtifacts":true}}'
+          fi
+          npm run tauri build -- --target universal-apple-darwin --bundles app,dmg --config "$config"
+
+      - name: Collect
+        id: collect
+        run: |
+          version=${{ steps.version.outputs.version }}
+          bundle=target/universal-apple-darwin/release/bundle
+          mkdir -p dist
+          cp "$bundle"/dmg/*.dmg "dist/Cantina_${version}_universal.dmg"
+          lipo -info "$bundle/macos/Cantina.app/Contents/MacOS/cantina"
+          codesign --verify --deep --strict --verbose=2 "$bundle/macos/Cantina.app"
+          codesign --display --entitlements - "$bundle/macos/Cantina.app"
+          if [ "${{ steps.signing.outputs.updater }}" = true ]; then
+            archive="Cantina_${version}_universal.app.tar.gz"
+            cp "$bundle/macos/Cantina.app.tar.gz" "dist/$archive"
+            cp "$bundle/macos/Cantina.app.tar.gz.sig" "dist/$archive.sig"
+            url="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${version}/${archive}"
+            node -e '
+              const [version, url, sigFile] = process.argv.slice(1);
+              const signature = require("fs").readFileSync(sigFile, "utf8").trim();
+              const platform = { signature, url };
+              const manifest = {
+                version,
+                notes: `Cantina ${version}: https://github.com/${process.env.GITHUB_REPOSITORY}/releases/tag/v${version}`,
+                pub_date: new Date().toISOString(),
+                platforms: { "darwin-aarch64": platform, "darwin-x86_64": platform },
+              };
+              require("fs").writeFileSync("dist/latest.json", JSON.stringify(manifest, null, 2));
+            ' "$version" "$url" "dist/$archive.sig"
+          fi
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cantina-${{ steps.version.outputs.version }}-macos-universal
+          path: dist/
+          if-no-files-found: error
+
+      # A release written ahead of the tag keeps its notes; otherwise one
+      # is made with notes generated from the merged pull requests.
+      - name: Publish
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --title "Cantina ${tag#v}" --generate-notes --verify-tag
+          fi
+          gh release upload "$tag" dist/* --clobber

@@ -1,13 +1,12 @@
 ---
 title: Getting started
-description: Build Cantina, connect an audio interface, arm a track and hear yourself through a pedal chain.
+description: Install Cantina, connect an audio interface, arm a track and hear yourself through a pedal chain.
 sidebar:
   order: 1
 ---
 
-Cantina runs on macOS. This page goes from a fresh checkout to hearing your
-guitar through a pedal chain, in about ten minutes, most of it the first
-build.
+Cantina runs on macOS. This page goes from the download to hearing your
+guitar through a pedal chain, in about ten minutes.
 
 ## What you need
 
@@ -20,9 +19,25 @@ build.
 
 ## Install
 
-There is no packaged release yet, so Cantina is built from source. You need
-[Rust](https://rustup.rs) (make sure `~/.cargo/bin` is on your `PATH`) and
-Node 22 or newer. Then:
+Download `Cantina_<version>_universal.dmg` from the newest
+[release](https://github.com/jbouder/cantina/releases/latest). It runs
+on Apple silicon and Intel Macs. Open the DMG and drag Cantina into
+Applications.
+
+Cantina is not notarized by Apple yet, so the first time you open it
+macOS says it cannot check the app for malicious software. Choose
+**Done**, open **System Settings → Privacy & Security**, scroll to the
+message about Cantina and choose **Open Anyway**. macOS remembers, and
+later opens go straight through. (Or, in Terminal:
+`xattr -dr com.apple.quarantine /Applications/Cantina.app`.)
+
+Cantina looks for a new release each time it opens and offers to install
+it; see **Settings → Updates**.
+
+### Build from source
+
+You need [Rust](https://rustup.rs) (make sure `~/.cargo/bin` is on your
+`PATH`) and Node 22 or newer. Then:
 
 ```sh
 git clone https://github.com/jbouder/cantina.git

@@ -1,7 +1,10 @@
+import { getVersion } from "@tauri-apps/api/app";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { check, type Update } from "@tauri-apps/plugin-updater";
 import ampDef from "../../../pedals/amp.pedal.json";
 import chorusDef from "../../../pedals/chorus.pedal.json";
 import distortionDef from "../../../pedals/distortion.pedal.json";
@@ -2294,4 +2297,64 @@ export async function chooseMixdownPath(project: string): Promise<string | null>
 // shows a track after a bounce.
 if (mockParams?.has("bounce")) {
   setTimeout(() => trackBounce(1).then(mockPublish, () => {}), 0);
+}
+
+// ----- updates -----
+
+/** A newer release than the one running. */
+export interface UpdateInfo {
+  version: string;
+  /** The release notes, when the release has any. */
+  notes: string | null;
+}
+
+/** The release that is running. */
+export async function appVersion(): Promise<string> {
+  if (inTauri) return getVersion();
+  return "0.1.0";
+}
+
+let pendingUpdate: Update | null = null;
+
+/**
+ * Asks the release feed whether a newer version is out. Null when this
+ * is the newest. The update manifest is signed; one that does not verify
+ * is refused.
+ */
+export async function updateCheck(): Promise<UpdateInfo | null> {
+  if (!inTauri) {
+    return mockParams?.has("update")
+      ? { version: "0.2.0", notes: "Faster exports and a new kit." }
+      : null;
+  }
+  pendingUpdate = await check();
+  return pendingUpdate
+    ? { version: pendingUpdate.version, notes: pendingUpdate.body ?? null }
+    : null;
+}
+
+/**
+ * Downloads the update found by `updateCheck`, verifies its signature,
+ * installs it over this copy and restarts into it. `onProgress` hears the
+ * fraction downloaded, or null while the size is unknown.
+ */
+export async function updateInstall(onProgress: (fraction: number | null) => void): Promise<void> {
+  if (!inTauri) {
+    for (let i = 1; i <= 10; i++) {
+      await new Promise((r) => setTimeout(r, 80));
+      onProgress(i / 10);
+    }
+    return;
+  }
+  if (!pendingUpdate) throw new Error("no update to install; check again");
+  let total: number | null = null;
+  let done = 0;
+  await pendingUpdate.downloadAndInstall((event) => {
+    if (event.event === "Started") total = event.data.contentLength ?? null;
+    if (event.event === "Progress") {
+      done += event.data.chunkLength;
+      onProgress(total ? Math.min(1, done / total) : null);
+    }
+  });
+  await relaunch();
 }
