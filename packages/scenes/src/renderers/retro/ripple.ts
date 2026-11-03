@@ -51,6 +51,8 @@ export class RippleScene extends RetroScene {
     const { W, H } = this;
     this.offset = (this.offset + RETRO_STEP * (8 + frame.rms * 120)) % 256;
 
+    // The downbeat drops a stone in the middle, wider than the beat's.
+    if (this.barOnset(frame)) this.drop(W >> 1, H >> 1, 9, 1400 + frame.bass * 1200);
     if (this.beatOnset(frame)) {
       this.drop(8 + ((Math.random() * (W - 16)) | 0), 8 + ((Math.random() * (H - 16)) | 0), 5, 600 + frame.bass * 1200);
     }

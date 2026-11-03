@@ -29,6 +29,9 @@ uniform float uTime;
 uniform vec2 uResolution;
 uniform float uBass, uMid, uTreble, uRms;
 uniform float uBeat;
+// From a tempo map: the downbeat envelope, and the bar number (0 with none).
+uniform float uDownbeat;
+uniform float uBar;
 uniform float uFlash;
 uniform float uTravel;
 uniform sampler2D uFreq;
@@ -47,7 +50,7 @@ uniform vec2 uResolution;
 out vec4 fragColor;
 void main() { fragColor = vec4(texture(uSrc, gl_FragCoord.xy / uResolution).rgb, 1.0); }`;
 
-const UNIFORMS = ['uTime', 'uResolution', 'uBass', 'uMid', 'uTreble', 'uRms', 'uBeat', 'uFlash', 'uTravel', 'uFreq', 'uWave', 'uPrev'] as const;
+const UNIFORMS = ['uTime', 'uResolution', 'uBass', 'uMid', 'uTreble', 'uRms', 'uBeat', 'uDownbeat', 'uBar', 'uFlash', 'uTravel', 'uFreq', 'uWave', 'uPrev'] as const;
 type UniformName = (typeof UNIFORMS)[number];
 
 /**
@@ -138,6 +141,9 @@ export class ShaderScene implements Renderer {
     gl.uniform1f(L.uTreble, this.bands.treble);
     gl.uniform1f(L.uRms, this.bands.rms);
     gl.uniform1f(L.uBeat, frame.beat);
+    gl.uniform1f(L.uDownbeat, frame.downbeat);
+    // Kept small so float precision holds over a long song.
+    gl.uniform1f(L.uBar, (frame.tempo?.bar ?? 0) % 64);
     gl.uniform1f(L.uFlash, flash);
     gl.uniform1f(L.uTravel, this.travel);
     this.bindTex(0, this.freqTex!, L.uFreq);

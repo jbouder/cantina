@@ -74,7 +74,7 @@ export class EngineFrames implements FrameSource {
     const frame = this.analyzer.frame;
     const a = this.latest;
     this.time = performance.now() / 1000;
-    if (!a) return this.analyzer.update(this.time);
+    if (!a) return this.analyzer.update(this.time, null);
     this.fillFreq(frame.freq, a.spectrum);
     const wave = frame.wave;
     const n = a.waveform.length;
@@ -83,7 +83,7 @@ export class EngineFrames implements FrameSource {
       const v = n ? a.waveform[Math.min(n - 1, Math.floor((i * n) / FFT_SIZE))] : 0;
       wave[i] = Math.max(0, Math.min(255, Math.round(128 + 128 * v)));
     }
-    return this.analyzer.update(this.time);
+    return this.analyzer.update(this.time, a.beat);
   }
 
   private fillFreq(freq: Uint8Array, spectrum: ArrayLike<number>): void {
