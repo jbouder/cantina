@@ -104,6 +104,9 @@ and cannot be chosen until it is fixed; `cantina-cli check` gives the same
 reason (see the [command line](/reference/cli/)). A kit that changes on
 disk is read again the next time a track picks it.
 
+A coding agent can write patterns and kits for you; see
+[authoring with an agent](/guides/agents/).
+
 **Loop** plays the pattern on its own, from the start of the timeline, while
 the transport plays, and lights the column it is on. Edit as it plays; you
 hear each change on the next pass.

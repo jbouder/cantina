@@ -96,6 +96,7 @@ export default defineConfig({
             { label: "Drums", slug: "guides/drums" },
             { label: "The stage", slug: "guides/stage" },
             { label: "Skins", slug: "guides/skins" },
+            { label: "Authoring with an agent", slug: "guides/agents" },
           ],
         },
         { label: "Reference", items: [{ autogenerate: { directory: "reference" } }] },
