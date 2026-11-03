@@ -1,0 +1,179 @@
+{
+  "$defs": {
+    "PadRecipe": {
+      "additionalProperties": false,
+      "description": "One pad of a recipe. Every number is optional and starts at the voice's default.",
+      "properties": {
+        "choke": {
+          "description": "Pads in the same choke group cut each other, as in the kit format.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decay": {
+          "description": "Time to fall by 60 dB, in seconds.",
+          "format": "float",
+          "maximum": 4.0,
+          "minimum": 0.005,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "gainDb": {
+          "description": "Gain in decibels.",
+          "format": "float",
+          "maximum": 12.0,
+          "minimum": -60.0,
+          "type": "number"
+        },
+        "id": {
+          "description": "The pad id patterns refer to, such as `kick` or `hh-closed`. Also the stem of its sample files.",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "layers": {
+          "description": "Velocity layers from 1 to 4, split evenly across the range: a soft one at the bottom, the full hit at the top. 2 when missing.",
+          "format": "uint8",
+          "maximum": 4,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "name": {
+          "description": "Display name; the id when missing.",
+          "type": "string"
+        },
+        "noise": {
+          "description": "How much noise is blended with the pitched part, 0 to 1.",
+          "format": "float",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "pan": {
+          "description": "-1 is hard left, 1 hard right.",
+          "format": "float",
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "type": "number"
+        },
+        "pitch": {
+          "description": "The fundamental, in Hz: where a kick or tom settles, a snare's body, a hat's lowest partial, a clap's band, a cowbell's lower tone.",
+          "format": "float",
+          "maximum": 12000.0,
+          "minimum": 20.0,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "tone": {
+          "description": "Brightness from 0 (dark) to 1 (bright): the click on a kick, the noise's colour on a snare, the cut-off of a hat.",
+          "format": "float",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "voice": {
+          "$ref": "#/$defs/Voice",
+          "description": "What it is synthesised as."
+        }
+      },
+      "required": [
+        "id",
+        "voice"
+      ],
+      "type": "object"
+    },
+    "Voice": {
+      "description": "What a pad is synthesised as.",
+      "oneOf": [
+        {
+          "const": "kick",
+          "description": "A sine dropping in pitch with a click on top.",
+          "type": "string"
+        },
+        {
+          "const": "snare",
+          "description": "A pitched body under a burst of bright noise.",
+          "type": "string"
+        },
+        {
+          "const": "hat",
+          "description": "Six detuned square waves and noise, high-passed: closed with a short decay, open with a long one.",
+          "type": "string"
+        },
+        {
+          "const": "clap",
+          "description": "A few bursts of band-limited noise and a short tail.",
+          "type": "string"
+        },
+        {
+          "const": "tom",
+          "description": "A sine with a gentle drop in pitch and a little noise.",
+          "type": "string"
+        },
+        {
+          "const": "cowbell",
+          "description": "Two square waves through a band.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "https://cantina-docs.vibeproject.workers.dev/schemas/kit-recipe.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A kit described as synthesis settings rather than samples.",
+  "properties": {
+    "$schema": {
+      "description": "Ignored; lets an editor find the schema.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "name": {
+      "description": "The kit's name, shown in the kit picker.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "pads": {
+      "description": "The pads, in the order the sequencer shows them.",
+      "items": {
+        "$ref": "#/$defs/PadRecipe"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "type": "array"
+    },
+    "seed": {
+      "default": 0,
+      "description": "Seeds the noise. The same recipe and seed give the same samples.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "version": {
+      "const": 1,
+      "description": "The format version, `RECIPE_VERSION`.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version",
+    "name",
+    "pads"
+  ],
+  "title": "Cantina kit recipe",
+  "type": "object"
+}

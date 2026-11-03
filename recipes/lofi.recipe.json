@@ -1,0 +1,16 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/kit-recipe.schema.json",
+  "version": 1,
+  "name": "Lo-fi (synth)",
+  "seed": 7,
+  "pads": [
+    { "id": "kick", "name": "Kick", "voice": "kick", "pitch": 50, "decay": 0.45, "tone": 0.35 },
+    { "id": "snare", "name": "Snare", "voice": "snare", "pitch": 180, "decay": 0.22, "tone": 0.4, "noise": 0.55 },
+    { "id": "clap", "name": "Clap", "voice": "clap", "decay": 0.25, "tone": 0.4, "gainDb": -3 },
+    { "id": "hh-closed", "name": "Closed hat", "voice": "hat", "decay": 0.045, "tone": 0.45, "gainDb": -6, "pan": 0.25, "choke": "hat" },
+    { "id": "hh-open", "name": "Open hat", "voice": "hat", "decay": 0.35, "tone": 0.45, "gainDb": -8, "pan": 0.25, "choke": "hat" },
+    { "id": "tom-lo", "name": "Low tom", "voice": "tom", "pitch": 95, "decay": 0.45, "pan": -0.3 },
+    { "id": "tom-hi", "name": "High tom", "voice": "tom", "pitch": 150, "decay": 0.35, "pan": 0.3 },
+    { "id": "cowbell", "name": "Cowbell", "voice": "cowbell", "decay": 0.25, "gainDb": -9, "layers": 1 }
+  ]
+}
