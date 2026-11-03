@@ -73,6 +73,8 @@ pub fn run() {
             commands::track_add_drums,
             commands::track_set_kit,
             commands::analysis_set_source,
+            commands::pedal_set_bypass,
+            commands::chain_select,
             commands::kits_rescan,
             commands::chain_set_spec,
             commands::irs_rescan,

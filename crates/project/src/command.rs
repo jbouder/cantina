@@ -121,6 +121,11 @@ pub enum Command {
         param: usize,
         value: f32,
     },
+    /// Takes a pedal out of the signal path, or puts it back.
+    SetBypass {
+        pedal: PedalId,
+        on: bool,
+    },
     SetTempo {
         tempo: Tempo,
     },
@@ -244,6 +249,8 @@ impl Command {
             Command::SetPedalSpec { .. } => "change pedal".into(),
             Command::SetPedalValues { .. } => "change pedal knobs".into(),
             Command::SetParam { .. } => "change parameter".into(),
+            Command::SetBypass { on: true, .. } => "bypass pedal".into(),
+            Command::SetBypass { .. } => "turn pedal on".into(),
             Command::SetTempo { .. } => "change tempo".into(),
             Command::SetGain { track: None, .. } => "change master gain".into(),
             Command::SetGain { .. } => "change gain".into(),
@@ -534,6 +541,15 @@ impl Command {
                 Ok(Command::SetPan {
                     track: *track,
                     pan: was,
+                })
+            }
+            Command::SetBypass { pedal, on } => {
+                let (track, index) = pedal_index(project, *pedal)?;
+                let p = &mut project.tracks[track].chain[index];
+                let was = std::mem::replace(&mut p.bypassed, *on);
+                Ok(Command::SetBypass {
+                    pedal: *pedal,
+                    on: was,
                 })
             }
             Command::SetMute { track, on } => {
@@ -934,6 +950,7 @@ mod tests {
             id: PedalId(2),
             spec: "gain".into(),
             values: vec![0.0],
+            bypassed: false,
         });
         t.clips.push(clip(3, 0, 1000));
         p.tracks.push(t);
@@ -1109,6 +1126,7 @@ mod tests {
                     id: PedalId(5),
                     spec: "overdrive".into(),
                     values: vec![20.0, 3000.0, -6.0],
+                    bypassed: false,
                 },
             },
         );
@@ -1156,6 +1174,22 @@ mod tests {
             }
             .apply(&mut p.clone()),
             Err(CommandError::Invalid(_))
+        ));
+        let bypassed = round_trip(
+            &p,
+            Command::SetBypass {
+                pedal: PedalId(2),
+                on: true,
+            },
+        );
+        assert!(bypassed.tracks[0].chain[0].bypassed);
+        assert!(matches!(
+            Command::SetBypass {
+                pedal: PedalId(99),
+                on: true,
+            }
+            .apply(&mut p.clone()),
+            Err(CommandError::NoPedal(_))
         ));
         let set = round_trip(
             &p,

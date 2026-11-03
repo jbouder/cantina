@@ -1,9 +1,11 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "./App";
+import { StageWindow } from "./components/StageWindow";
 import { onAnalysis } from "./lib/engine";
 import { prefersReducedMotion, reducesFlashing } from "./lib/motion";
 import { reportErrorsToShell } from "./lib/report";
+import { isStageWindow } from "./lib/stage";
 import { applySkin, currentSkin, loadSkin, skinUsesBeat } from "./skins";
 import { createSkinBeat } from "./skins/beat";
 import "./styles.css";
@@ -24,7 +26,5 @@ if (!root) {
 }
 
 ReactDOM.createRoot(root).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
+  <React.StrictMode>{isStageWindow() ? <StageWindow /> : <App />}</React.StrictMode>,
 );

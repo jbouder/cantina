@@ -1,82 +1,36 @@
-import { DEFAULT_SCENE, EngineFrames, getScene, SCENES, Stage } from "@cantina/scenes";
-import { useEffect, useId, useRef, useState } from "react";
-import { analysisSetSource, type EngineStatus, onAnalysis } from "../lib/engine";
-import { reducesFlashing, useReduceFlashing } from "../lib/motion";
+import { useId, useState } from "react";
+import { analysisSetSource, type EngineStatus } from "../lib/engine";
+import { LISTED_SCENES, setScene, useScene } from "../lib/stage";
+import { Button } from "./Button";
 import { Lcd } from "./Lcd";
+import { SceneCanvas } from "./SceneCanvas";
 import { Select } from "./Select";
 import { Sheet } from "./Sheet";
 
 type Props = {
   status: EngineStatus;
-  /** The scene to open on, from `?scene=` in a browser. */
-  initialScene?: string | undefined;
   onClose: () => void;
+  onPerform: () => void;
   onStatus: (s: EngineStatus) => void;
 };
 
-/** The scenes a person can pick: every one but those reachable by id only. */
-const LISTED = SCENES.filter((s) => !s.hidden);
-
 /**
  * The stage: a visualizer scene drawn from the engine's analysis frames,
- * with the scene and the signal it listens to picked underneath.
+ * with the scene and the signal it listens to picked underneath, and the
+ * way into performance mode.
  */
-export function StageView({ status, initialScene, onClose, onStatus }: Props) {
+export function StageView({ status, onClose, onPerform, onStatus }: Props) {
   const ids = useId();
-  const host = useRef<HTMLDivElement>(null);
-  const stage = useRef<Stage | null>(null);
-  const [scene, setScene] = useState(() =>
-    initialScene && getScene(initialScene) ? initialScene : DEFAULT_SCENE.gpu,
-  );
+  const scene = useScene();
   const [problem, setProblem] = useState<string | null>(null);
-  const [reduceFlashing] = useReduceFlashing();
-
-  useEffect(() => {
-    const el = host.current;
-    if (!el) return;
-    const frames = new EngineFrames();
-    const stopAnalysis = onAnalysis((a) => frames.push(a));
-    const s = new Stage(
-      el,
-      frames,
-      {
-        sampleRate: 48_000,
-        quality: 1,
-        reduceFlashing: reducesFlashing(),
-        retroLook: false,
-        palette: "auto",
-        options: {},
-      },
-      { onError: setProblem },
-    );
-    stage.current = s;
-    s.start();
-    return () => {
-      stopAnalysis();
-      s.destroy();
-      stage.current = null;
-    };
-  }, []);
-
-  // Scenes read the context every frame, so a change applies at once.
-  useEffect(() => {
-    if (stage.current) stage.current.rc.reduceFlashing = reduceFlashing;
-  }, [reduceFlashing]);
-
-  useEffect(() => {
-    setProblem(null);
-    stage.current?.setScene(scene).catch((e) => setProblem(String(e)));
-  }, [scene]);
-
   const source = status.analysisSource;
 
   return (
     <Sheet title="Stage" onClose={onClose} wide>
-      <div
-        ref={host}
-        role="img"
-        aria-label={`${getScene(scene)?.name ?? scene} scene`}
-        className="relative aspect-video w-full overflow-hidden rounded-control bg-lcd-bg [&_.viz-layer]:absolute [&_.viz-layer]:inset-0 [&_.viz-layer]:size-full [&_.viz-layer]:transition-opacity [&_.viz-layer]:duration-[400ms]"
+      <SceneCanvas
+        scene={scene}
+        onError={setProblem}
+        className="aspect-video w-full rounded-control bg-lcd-bg"
       />
       {problem ? (
         <Lcd role="alert" error>
@@ -89,7 +43,7 @@ export function StageView({ status, initialScene, onClose, onStatus }: Props) {
         value={scene}
         onChange={(e) => setScene(e.target.value)}
       >
-        {LISTED.map((s) => (
+        {LISTED_SCENES.map((s) => (
           <option key={s.id} value={s.id}>
             {s.name}
           </option>
@@ -114,6 +68,12 @@ export function StageView({ status, initialScene, onClose, onStatus }: Props) {
           </option>
         ))}
       </Select>
+      <div className="flex items-center justify-between gap-3">
+        <small className="text-ink-dim text-xs">P plays full screen from anywhere.</small>
+        <Button variant="transport" onClick={onPerform}>
+          Perform
+        </Button>
+      </div>
     </Sheet>
   );
 }

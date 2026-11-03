@@ -12,6 +12,7 @@ function pedal(id: number, readouts: string[]): PedalInfo {
     editorOpen: false,
     latencyFrames: 0,
     readouts,
+    bypassed: false,
   };
 }
 

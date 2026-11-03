@@ -189,6 +189,7 @@ mod tests {
             id: PedalId(2),
             spec: "overdrive".into(),
             values: vec![20.0, 3000.0, -6.0],
+            bypassed: false,
         });
         t.clips.push(Clip {
             id: ClipId(3),
@@ -532,6 +533,7 @@ mod tests {
                     } else {
                         vec![20.0, 3000.0, -6.0]
                     },
+                    bypassed: false,
                 },
             },
             Op::RemovePedal(i) => Command::RemovePedal {

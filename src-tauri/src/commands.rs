@@ -339,6 +339,22 @@ pub fn track_set_kit(
     engine.lock().track_set_kit(id, kit).map_err(fail)
 }
 
+/// Takes a pedal out of the signal path, or puts it back.
+#[tauri::command]
+pub fn pedal_set_bypass(
+    engine: State<'_, EngineState>,
+    id: u64,
+    on: bool,
+) -> Result<EngineStatus, String> {
+    engine.lock().pedal_set_bypass(id, on).map_err(fail)
+}
+
+/// Plays the input through one audio track's chain, disarming the rest.
+#[tauri::command]
+pub fn chain_select(engine: State<'_, EngineState>, id: u64) -> Result<EngineStatus, String> {
+    engine.lock().chain_select(id).map_err(fail)
+}
+
 /// Points the stage's analysis at a track, or the master with none.
 #[tauri::command]
 pub fn analysis_set_source(
