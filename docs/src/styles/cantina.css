@@ -55,6 +55,18 @@ header.header {
   background: linear-gradient(var(--frame-hi), var(--frame));
 }
 
+/* Search sits at the right, beside the theme keys, rather than over the
+ * content column. */
+@media (min-width: 50rem) {
+  header.header > .header {
+    display: flex;
+  }
+
+  header.header > .header > :nth-child(2) {
+    margin-inline-start: auto;
+  }
+}
+
 /* The site title reads like the project name display in the app. */
 .site-title {
   gap: 0.6rem;
