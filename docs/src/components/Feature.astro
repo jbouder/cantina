@@ -1,0 +1,43 @@
+---
+/** One thing Cantina does: a display-style label over a short paragraph. */
+interface Props {
+  label: string;
+}
+
+const { label } = Astro.props;
+---
+
+<article class="feature">
+  <h3>{label}</h3>
+  <p><slot /></p>
+</article>
+
+<style>
+  .feature {
+    padding: 1.1rem 1.2rem 1.2rem;
+    border-radius: 8px;
+    background: linear-gradient(var(--pbtn-hi), var(--pbtn-lo));
+    border: 1px solid var(--frame-edge);
+    box-shadow: inset 0 1px 0 var(--pbtn-bevel-hi);
+  }
+
+  h3 {
+    display: inline-block;
+    margin: 0 0 0.6rem;
+    padding: 0 0.5rem;
+    font-family: var(--font-lcd);
+    font-weight: 400;
+    font-size: 1.5rem;
+    line-height: 1.3;
+    color: var(--lcd-fg);
+    background: var(--lcd-bg);
+    border-radius: 3px;
+    box-shadow: inset 0 0 6px var(--lcd-glow);
+  }
+
+  p {
+    margin: 0;
+    color: var(--pbtn-ink);
+    line-height: 1.55;
+  }
+</style>

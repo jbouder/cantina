@@ -1,4 +1,7 @@
-# Round-trip latency
+---
+title: "Round-trip latency"
+description: "Round-trip latency: how it is measured, the results so far, and how latency is compensated across tracks."
+---
 
 The number the whole project rests on. The plan's go/no-go is a round trip
 of about 5 ms with a class-compliant interface at a small buffer.

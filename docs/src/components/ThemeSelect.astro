@@ -1,0 +1,140 @@
+---
+/**
+ * A segmented light / dark / system switch in place of Starlight's select.
+ * It keeps Starlight's storage contract (`starlight-theme` in localStorage,
+ * empty for system, nothing stored for the default) and `data-theme` on
+ * <html>, which ThemeProvider.astro's inline script sets before first paint,
+ * so there is no flash. The default is dark: Classic, as the app opens in.
+ */
+import { Icon } from "@astrojs/starlight/components";
+
+const options = [
+  { value: "light", label: "Light", icon: "sun" },
+  { value: "dark", label: "Dark", icon: "moon" },
+  { value: "auto", label: "System", icon: "laptop" },
+] as const;
+---
+
+<cantina-theme-switch>
+  <div class="switch" role="radiogroup" aria-label={Astro.locals.t("themeSelect.accessibleLabel")}>
+    {
+      options.map(({ value, label, icon }) => (
+        <button type="button" role="radio" aria-checked="false" data-theme-value={value} title={label}>
+          <Icon name={icon} size="1rem" />
+          <span class="sr-only">{label}</span>
+        </button>
+      ))
+    }
+  </div>
+</cantina-theme-switch>
+
+<script>
+  type Theme = "auto" | "dark" | "light";
+  const storageKey = "starlight-theme";
+
+  const parseTheme = (theme: unknown): Theme =>
+    theme === "dark" || theme === "light" ? theme : "auto";
+
+  // Nothing stored means the default, dark; an empty string is system.
+  function loadTheme(): Theme {
+    try {
+      const stored = localStorage.getItem(storageKey);
+      return stored === null ? "dark" : parseTheme(stored);
+    } catch {
+      return "dark";
+    }
+  }
+
+  const systemTheme = (): "dark" | "light" =>
+    matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+
+  function apply(theme: Theme): void {
+    document.documentElement.dataset.theme = theme === "auto" ? systemTheme() : theme;
+    for (const button of document.querySelectorAll<HTMLButtonElement>(
+      "cantina-theme-switch [data-theme-value]",
+    )) {
+      const on = button.dataset.themeValue === theme;
+      button.setAttribute("aria-checked", String(on));
+      button.tabIndex = on ? 0 : -1;
+    }
+  }
+
+  function choose(theme: Theme): void {
+    try {
+      localStorage.setItem(storageKey, theme === "auto" ? "" : theme);
+    } catch {}
+    apply(theme);
+  }
+
+  matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
+    if (loadTheme() === "auto") apply("auto");
+  });
+
+  class CantinaThemeSwitch extends HTMLElement {
+    connectedCallback() {
+      apply(loadTheme());
+      const buttons = [...this.querySelectorAll<HTMLButtonElement>("[data-theme-value]")];
+      for (const button of buttons) {
+        button.addEventListener("click", () => choose(parseTheme(button.dataset.themeValue)));
+      }
+      // Radio-group arrow keys: move and select, wrapping at the ends.
+      this.addEventListener("keydown", (event) => {
+        const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+        if (!step) return;
+        event.preventDefault();
+        const current = buttons.findIndex((b) => b.getAttribute("aria-checked") === "true");
+        const next = buttons[(current + step + buttons.length) % buttons.length];
+        choose(parseTheme(next.dataset.themeValue));
+        next.focus();
+      });
+    }
+  }
+  customElements.define("cantina-theme-switch", CantinaThemeSwitch);
+</script>
+
+<style>
+  /* Three panel keys in a recessed slot, the chosen one a lit silver
+     transport key, as the app's segmented keys are. */
+  .switch {
+    display: inline-flex;
+    gap: 0.125rem;
+    padding: 0.125rem;
+    border: 1px solid var(--frame-edge);
+    border-radius: 5px;
+    background: var(--track);
+  }
+
+  button {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: 0;
+    border-radius: 3px;
+    background: linear-gradient(var(--pbtn-hi), var(--pbtn-lo));
+    color: var(--pbtn-ink);
+    cursor: pointer;
+    transition: color 150ms ease;
+  }
+
+  button:hover {
+    color: var(--title-on);
+  }
+
+  button[aria-checked="true"] {
+    background: linear-gradient(var(--silver-hi), var(--silver) 55%, var(--silver-lo));
+    color: var(--glyph);
+  }
+
+  button:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button {
+      transition: none;
+    }
+  }
+</style>

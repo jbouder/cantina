@@ -5,7 +5,7 @@
  * bar, displays, keys, ink, lights, meters, type) in
  * packages/skins/tokens/classic.css, and Cantina's own tokens here.
  * Other skins override any subset under their own `:root[data-skin='…']`
- * block; see docs/skins.md for the recipe. These files and the shared
+ * block; see docs/src/content/docs/notes/skins.md for the recipe. These files and the shared
  * token files are the only place a literal color may appear
  * (scripts/check-colors.mjs enforces it).
  *

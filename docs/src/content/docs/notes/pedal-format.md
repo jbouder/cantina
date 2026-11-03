@@ -1,4 +1,7 @@
-# Pedal format
+---
+title: "Pedal format"
+description: "Design notes on the pedal JSON format and its interpreter in the dsp crate."
+---
 
 A user-designed pedal is a JSON graph of DSP primitives. The format is
 read, checked and compiled by `crates/dsp/src/pedal/` into a

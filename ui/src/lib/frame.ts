@@ -2,7 +2,7 @@
  * The binary frame the engine streams at display rate. One format carries
  * the meters, the pedal readouts and the analysis stream (spectrum,
  * waveform, level, beat) the stage draws from.
- * Layout in docs/frames.md; the encoder is src-tauri/src/frame.rs and the
+ * Layout in docs/src/content/docs/notes/frames.md; the encoder is src-tauri/src/frame.rs and the
  * two must agree. Little-endian throughout; the 48-byte header is a
  * multiple of four so the body can be viewed as Float32Arrays in place.
  */

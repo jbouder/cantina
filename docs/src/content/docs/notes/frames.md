@@ -1,4 +1,7 @@
-# Frames
+---
+title: "Frames"
+description: "The binary frame the engine streams to the UI each display frame: meters, spectrum, waveform and beat."
+---
 
 The engine streams one binary **frame** per displayed frame to the UI
 over a Tauri channel. In M2 a frame carries the input and output meters
@@ -92,7 +95,7 @@ status names its cells, so `readoutsByPedal` in `ui/src/lib/readouts.ts`
 cuts the section up by pedal id: a tuner with two names takes the next
 two values, a gain pedal with none takes nothing. A frame that does not
 add up to the status (one sent across a chain edit) is shown as no
-readouts rather than as the wrong pedal's values. See `docs/pedals.md`
+readouts rather than as the wrong pedal's values. See [pedals](/notes/pedals/)
 for what each pedal publishes.
 
 ## Rate and dropping
@@ -117,9 +120,6 @@ which is why the ack scheme rather than the channel itself bounds the
 queue.
 
 ## Cost
-
-See `docs/meters.md` for the measured CPU use of the UI at idle with the
-stream running.
 
 The scope adds 141 ns to a 128-frame stereo block in a release build,
 0.005% of the 2.67 ms the block lasts at 48 kHz, and 0.4 µs in a dev

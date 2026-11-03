@@ -341,7 +341,7 @@ fn fixtures_are_deterministic_and_bounded() {
 
 /// Times each drive over a minute of audio at every oversampling factor
 /// and prints the cost as a share of real time. The numbers are
-/// recorded in `docs/pedals.md`; the assertion only guards against a
+/// recorded in `docs/src/content/docs/notes/pedals.md`; the assertion only guards against a
 /// drive becoming unusable.
 #[test]
 fn drives_cost_is_measured_at_every_factor() {

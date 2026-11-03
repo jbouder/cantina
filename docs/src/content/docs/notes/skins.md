@@ -1,4 +1,7 @@
-# Skins
+---
+title: "Skins"
+description: "Design notes on the skin system: semantic tokens, materials and the rules every skin keeps."
+---
 
 Six skins ship, ported from the visualizer: **Classic** (gunmetal frame,
 silver transport, green LCD), **Midnight** (rounded navy pod, chrome keys,

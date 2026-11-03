@@ -1,4 +1,7 @@
-# Stock pedals
+---
+title: "Stock pedals"
+description: "The stock pedals: what each one does, its parameters and how it is built."
+---
 
 The pedals that ship with Cantina live in `crates/dsp`
 as `Processor`s (see the trait in `crates/dsp/src/processor.rs`). This
@@ -8,8 +11,8 @@ that pin its output over an impulse, a sine, a sweep and a square burst,
 plus its own tests for the behaviour that matters.
 
 User-designed pedals are a JSON graph of the same primitives; the
-format is in [pedal-format.md](pedal-format.md) and the editor in
-[designer.md](designer.md).
+format is in [pedal-format](/notes/pedal-format/) and the editor in
+[designer](/notes/designer/).
 
 ## Parameters and readouts
 
@@ -22,7 +25,7 @@ entries with the status; the UI never needs to know a pedal's list.
 Some pedals measure things for their display. A processor can return a
 `Readout`: named `f32` cells behind atomics that it writes from
 `process` and that the shell reads at display rate and streams to the
-UI in the same frame as the meters (`docs/frames.md`). The UI draws each
+UI in the same frame as the meters ([frames](/notes/frames/)). The UI draws each
 pedal's readout for its kind (`ui/src/components/PedalReadout.tsx`).
 
 ## Tuner
