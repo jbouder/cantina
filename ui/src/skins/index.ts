@@ -1,28 +1,21 @@
+import { DEFAULT_SKIN, isSkinId, type SkinId } from "@cantina/skins";
 import { useSyncExternalStore } from "react";
 import { inTauri } from "../lib/engine";
 
-/**
- * The skins that ship. Each has a CSS file in this folder. `beat` says
- * the skin reads `--beat`, which is animated only while such a skin is on.
+/*
+ * The skins come from @cantina/skins, shared with music-visualizer: the
+ * list here, and the palette each one draws with through styles.css. The
+ * CSS files in this folder add Cantina's own tokens on top.
  */
-export const SKINS = [
-  { id: "classic", name: "Classic", beat: false },
-  { id: "midnight", name: "Midnight", beat: false },
-  { id: "metal", name: "Brushed metal", beat: false },
-  { id: "hifi", name: "Hi-fi", beat: false },
-  { id: "neon", name: "Neon", beat: true },
-  { id: "toxic", name: "Toxic", beat: false },
-] as const;
-
-export type SkinId = (typeof SKINS)[number]["id"];
-
-export const DEFAULT_SKIN: SkinId = "classic";
+export {
+  DEFAULT_SKIN,
+  isSkinId,
+  SKINS,
+  type SkinId,
+  skinUsesBeat,
+} from "@cantina/skins";
 
 const STORAGE_KEY = "cantina.skin";
-
-export function isSkinId(value: unknown): value is SkinId {
-  return SKINS.some((s) => s.id === value);
-}
 
 /**
  * The skin to show on launch: the one saved last time, or the default. In
@@ -65,11 +58,6 @@ function subscribe(listener: () => void) {
 /** The skin on the document now. */
 export function currentSkin(): SkinId {
   return current;
-}
-
-/** True when the skin's CSS reads `--beat`. */
-export function skinUsesBeat(skin: SkinId): boolean {
-  return SKINS.find((s) => s.id === skin)?.beat ?? false;
 }
 
 /** The current skin, re-rendering when it changes. */

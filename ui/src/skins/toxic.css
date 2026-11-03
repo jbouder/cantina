@@ -3,44 +3,9 @@
  * hazard-stripe title bar. Ported from music-visualizer.
  */
 :root[data-skin="toxic"] {
-  --frame-hi: #e8ff7a;
-  --frame: #8fd400;
-  --frame-mid: #6fb000;
-  --frame-lo: #3e6a00;
-  --frame-edge: #1a2c00;
   --face: #8fd400;
-  --titlebar-hi: #b6f020;
-  --titlebar-lo: #86c800;
-  --title-on: #1a2c00;
-  --title-on-lo: #c8f040;
-  --title-text: #fff23a;
-  --lcd-bg: #0a0a00;
-  --lcd-fg: #fff23a;
-  --lcd-dim: #3a3600;
-  --list-bg: #0a0a00;
-  --list-fg: #fff23a;
-  --select: #4a6a00;
-  --silver-hi: #f6ff8a;
-  --silver: #c8f040;
-  --silver-lo: #9ad400;
-  --glyph: #142200;
-  --ink: #142200;
-  --ink-dim: #1f3300;
-  --led-on: #fff23a;
-  --led-off: #3a3600;
   --led-rec: #ff3c3c;
-  --pbtn-hi: #f6ff8a;
-  --pbtn: #c8f040;
-  --pbtn-lo: #9ad400;
-  --pbtn-bevel-hi: #fff;
-  --pbtn-bevel-lo: #2e4a00;
-  --pbtn-ink: #142200;
-  --sheet-bg: #b6f020;
   --sheet-ink: #142200;
-  --vol-lo: #6fd400;
-  --vol-mid: #fff23a;
-  --vol-hi: #ff6a00;
-  --track: #0a0a00;
 
   /* Timeline. */
   --tl-bg: #0a0a00;
@@ -53,7 +18,6 @@
   --tl-clip-selected: #557400;
   --tl-wave: #e8ff70;
   --tl-playhead: #ff3c3c;
-  --focus: #8a1a00;
   color-scheme: light;
 
   /* A bulbous shell with a highlight along the top. */

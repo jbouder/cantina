@@ -21,6 +21,21 @@ This is the same mechanism as `src/ui/skin.css` in
 [music-visualizer](https://github.com/jbouder/music-visualizer), and the
 six player skins port onto it.
 
+## Shared with music-visualizer
+
+The palette both apps draw with lives in `packages/skins`
+(`@cantina/skins`): one token block per skin in `tokens/<id>.css` for
+the 41 tokens the two apps share (frame, title bar, displays, transport
+and panel keys, ink, lights, meters, sheet, focus and type), and `SKINS`,
+the list with each skin's name, whether it pulses on `--beat`, and a
+preview of its colors that Settings draws as a swatch.
+`ui/src/styles.css` imports `@cantina/skins/tokens.css` first; the files
+in `ui/src/skins/` then add Cantina's own tokens on top (`--face`, the
+timeline, the materials), which stay local, as music-visualizer's
+component rules stay in its app. Change a shared color in the package and
+it changes for every app that imports it. music-visualizer still carries
+its own copy for now; switching it over is a change in that repo.
+
 ## The contract
 
 `ui/src/skins/classic.css` defines every token with a comment per group:
@@ -72,13 +87,16 @@ defaults, so set only what differs):
 
 ## Adding a skin
 
-1. Create `ui/src/skins/<id>.css` with a `:root[data-skin="<id>"]` block.
-   Start from Midnight for a skin that changes shape and material, Neon
-   for one that changes everything, or Toxic for a different title bar.
-   Set the palette first, then the materials that should differ.
-2. Import it in `ui/src/styles.css` next to the others.
-3. Add `{ id: "<id>", name: "<Name>", beat: false }` to `SKINS` in
-   `ui/src/skins/index.ts`, with `beat: true` if the CSS reads `--beat`.
+1. Create `packages/skins/tokens/<id>.css` with a
+   `:root[data-skin="<id>"]` block for the shared palette, and import it
+   in `packages/skins/tokens.css`. Then create `ui/src/skins/<id>.css`
+   for Cantina's own tokens and the materials that should differ. Start
+   from Midnight for a skin that changes shape and material, Neon for one
+   that changes everything, or Toxic for a different title bar.
+2. Import the Cantina file in `ui/src/styles.css` next to the others.
+3. Add the skin to `SKINS` in `packages/skins/index.ts`: its id, name,
+   `beat: true` if the CSS reads `--beat`, and its preview colors, which
+   a test checks against its tokens.
    The picker in Settings, persistence and the `?skin=` screenshot switch
    all read that list.
 4. Run `scripts/screenshot.sh <name> "skin=<id>" "skin=<id>&settings"` and

@@ -1,0 +1,56 @@
+/* Neon: the tokens both apps draw with. */
+:root[data-skin="neon"] {
+  /* Frame: the window chrome around everything. */
+  --frame-hi: #ff4fd8;
+  --frame: #0c0614;
+  --frame-mid: #08040e;
+  --frame-lo: #04020a;
+  --frame-edge: #ff2fb0;
+
+  /* Title bar. */
+  --titlebar-hi: #12081e;
+  --titlebar-lo: #0a0412;
+  --title-on: #ff4fd8;
+  --title-on-lo: #3a0a4a;
+  --title-text: #ffe0fa;
+
+  /* Displays: readouts, meter backplates, lists. */
+  --lcd-bg: #04020a;
+  --lcd-fg: #3cf0ff;
+  --lcd-dim: #10243a;
+  --list-bg: #04020a;
+  --list-fg: #3cf0ff;
+  --select: #6a0a8a;
+
+  /* Transport keys: silver, with a dark glyph. */
+  --silver-hi: #1a0c26;
+  --silver: #0c0614;
+  --silver-lo: #04020a;
+  --glyph: #ff6fe0;
+
+  /* Panel keys, in the frame's own material. */
+  --pbtn-hi: #1e0e2c;
+  --pbtn: #160a22;
+  --pbtn-lo: #10061a;
+  --pbtn-bevel-hi: #ff4fd8;
+  --pbtn-bevel-lo: #04020a;
+  --pbtn-ink: #ffd8f6;
+
+  /* Text on the frame. */
+  --ink: #ffd8f6;
+  --ink-dim: #b08ac0;
+
+  /* Indicator lights. */
+  --led-on: #ff4fd8;
+  --led-off: #3a0a3a;
+
+  /* Level meters and their track. */
+  --vol-lo: #ff2fb0;
+  --vol-mid: #b04fff;
+  --vol-hi: #3cf0ff;
+  --track: #10061a;
+
+  /* Sheets and focus. */
+  --sheet-bg: #07030d;
+  --focus: #3cf0ff;
+}

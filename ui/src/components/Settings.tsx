@@ -1,3 +1,4 @@
+import type { SkinPreview } from "@cantina/skins";
 import { type EngineStatus, latencyWarningSet, ms, routeLabel } from "../lib/engine";
 import { useReduceFlashing } from "../lib/motion";
 import { SKINS, useSkin } from "../skins";
@@ -17,6 +18,26 @@ type Props = {
 };
 
 const WARN_CHOICES = [5, 10, 20, 50, 100];
+
+/**
+ * A skin in miniature, in its own colors whatever skin is on: its frame
+ * with the title stripe, a display with its ink, and a key.
+ */
+function SkinSwatch({ preview }: { preview: SkinPreview }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="relative inline-grid h-4 w-7 shrink-0 grid-cols-[1fr_6px] gap-px overflow-hidden rounded-[2px] p-[2px] pt-[4px]"
+      style={{ background: preview.frame }}
+    >
+      <span className="absolute inset-x-0 top-0 h-[2px]" style={{ background: preview.title }} />
+      <span className="grid place-items-center" style={{ background: preview.lcd }}>
+        <span className="h-px w-3/4" style={{ background: preview.lcdInk }} />
+      </span>
+      <span style={{ background: preview.key }} />
+    </span>
+  );
+}
 
 /**
  * The settings sheet: the engine, audio devices, the latency warning, the
@@ -84,6 +105,7 @@ export function Settings({ status, busy, onToggleEngine, onClose, onStatusChange
               onClick={() => setSkin(s.id)}
               variant={skin === s.id ? "transport" : "panel"}
             >
+              <SkinSwatch preview={s.preview} />
               {s.name}
             </Button>
           ))}

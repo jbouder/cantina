@@ -1,0 +1,13 @@
+{
+  "name": "@cantina/skins",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The six player skins' shared palette tokens and list, for Cantina and music-visualizer",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./tokens.css": "./tokens.css"
+  },
+  "files": ["index.ts", "tokens.css", "tokens"]
+}

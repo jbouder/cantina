@@ -1,0 +1,64 @@
+/* Classic: the tokens both apps draw with. */
+:root,
+:root[data-skin="classic"] {
+  /* Frame: the window chrome around everything. */
+  --frame-hi: #75758f;
+  --frame: #3a3a4e;
+  --frame-mid: #2e2e3e;
+  --frame-lo: #1c1c26;
+  --frame-edge: #08080c;
+
+  /* Title bar. */
+  --titlebar-hi: #2a2a38;
+  --titlebar-lo: #20202c;
+  --title-on: #c9b25e;
+  --title-on-lo: #6b5a22;
+  --title-text: #e8e8f0;
+
+  /* Displays: readouts, meter backplates, lists. */
+  --lcd-bg: #000;
+  --lcd-fg: #00e600;
+  --lcd-dim: #0b3a0b;
+  --lcd-error: #ffb35c;
+  --lcd-glow: color-mix(in srgb, var(--lcd-fg) 50%, transparent);
+  --list-bg: #000;
+  --list-fg: #00e600;
+  --select: #0000c6;
+  --stage: #000;
+
+  /* Transport keys: silver, with a dark glyph. */
+  --silver-hi: #f0f0f5;
+  --silver: #c4c4ce;
+  --silver-lo: #8a8a99;
+  --glyph: #1e1e28;
+
+  /* Panel keys, in the frame's own material. */
+  --pbtn-hi: #4e4e66;
+  --pbtn: #36364a;
+  --pbtn-lo: #2a2a3a;
+  --pbtn-bevel-hi: #6e6e88;
+  --pbtn-bevel-lo: #18181f;
+  --pbtn-ink: var(--ink);
+
+  /* Text on the frame. */
+  --ink: #d6d6e0;
+  --ink-dim: #aeaec0;
+
+  /* Indicator lights. */
+  --led-on: #3cff3c;
+  --led-off: #1d3a1d;
+
+  /* Level meters and their track. */
+  --vol-lo: #1fa31f;
+  --vol-mid: #d8d81f;
+  --vol-hi: #e0301f;
+  --track: #101018;
+
+  /* Sheets and focus. */
+  --sheet-bg: #0c0c14;
+  --focus: #9be7ff;
+
+  /* Type. */
+  --font-lcd: "VT323", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-ui: Tahoma, Verdana, system-ui, -apple-system, "Segoe UI", sans-serif;
+}

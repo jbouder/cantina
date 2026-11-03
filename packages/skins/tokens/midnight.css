@@ -1,0 +1,49 @@
+/* Midnight: the tokens both apps draw with. */
+:root[data-skin="midnight"] {
+  /* Frame: the window chrome around everything. */
+  --frame-hi: #4a5f9a;
+  --frame: #1f2a4d;
+  --frame-mid: #18213d;
+  --frame-lo: #0d1326;
+  --frame-edge: #04060e;
+
+  /* Title bar. */
+  --titlebar-hi: #16203f;
+  --titlebar-lo: #0e1630;
+  --title-on: #6fd8ff;
+  --title-on-lo: #1d4f7a;
+
+  /* Displays: readouts, meter backplates, lists. */
+  --lcd-bg: #020610;
+  --lcd-fg: #4fe0ff;
+  --lcd-dim: #0c2a3a;
+  --list-bg: #020610;
+  --list-fg: #4fe0ff;
+  --select: #1b3f8f;
+
+  /* Transport keys: silver, with a dark glyph. */
+  --silver-hi: #d6e2ff;
+  --silver: #9fb3e0;
+  --silver-lo: #5e74aa;
+  --glyph: #0a1230;
+
+  /* Panel keys, in the frame's own material. */
+  --pbtn-hi: #33467a;
+  --pbtn: #24325a;
+  --pbtn-lo: #1a2547;
+  --pbtn-bevel-hi: #5570b0;
+  --pbtn-bevel-lo: #0a0f20;
+
+  /* Indicator lights. */
+  --led-on: #4fe0ff;
+  --led-off: #0c2a3a;
+
+  /* Level meters and their track. */
+  --vol-lo: #1f6fff;
+  --vol-mid: #4fe0ff;
+  --vol-hi: #e6f8ff;
+  --track: #060a18;
+
+  /* Sheets and focus. */
+  --sheet-bg: #070b18;
+}

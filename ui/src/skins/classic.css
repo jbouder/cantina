@@ -1,81 +1,32 @@
 /*
  * The skin token contract. Every value a component can draw with is
- * defined here for the Classic skin, which is also the fallback when no
- * `data-skin` is set. Other skins override any subset of these under
- * their own `:root[data-skin='…']` block; see docs/skins.md for the
- * recipe. This file and its siblings in ui/src/skins/ are the only place
- * a literal color may appear (scripts/check-colors.mjs enforces it).
+ * defined for the Classic skin, which is also the fallback when no
+ * `data-skin` is set: the palette music-visualizer shares (frame, title
+ * bar, displays, keys, ink, lights, meters, type) in
+ * packages/skins/tokens/classic.css, and Cantina's own tokens here.
+ * Other skins override any subset under their own `:root[data-skin='…']`
+ * block; see docs/skins.md for the recipe. These files and the shared
+ * token files are the only place a literal color may appear
+ * (scripts/check-colors.mjs enforces it).
  *
  * Classic recreates the gunmetal 2000s media-player look: a bevelled
  * frame, silver transport buttons and a green LCD.
  */
 :root,
 :root[data-skin="classic"] {
-  /* Frame: the window chrome around everything. */
-  --frame-hi: #75758f;
-  --frame: #3a3a4e;
-  --frame-mid: #2e2e3e;
-  --frame-lo: #1c1c26;
-  --frame-edge: #08080c;
   /* The flat color the panel face averages to: what text sits on. The
    * contrast check reads it and a plain fill may use it. */
   --face: #343446;
 
-  /* Title bar. */
-  --titlebar-hi: #2a2a38;
-  --titlebar-lo: #20202c;
-  --title-on: #c9b25e;
-  --title-on-lo: #6b5a22;
-  --title-text: #e8e8f0;
-
-  /* Displays: LCD readouts, meters' backplates, lists. */
-  --lcd-bg: #000;
-  --lcd-fg: #00e600;
-  --lcd-dim: #0b3a0b;
-  --lcd-error: #ffb35c;
-  --lcd-glow: color-mix(in srgb, var(--lcd-fg) 50%, transparent);
-  --list-bg: #000;
-  --list-fg: #00e600;
-  --select: #0000c6;
-
-  /* Transport buttons: the silver keys, with a dark glyph on them. */
-  --silver-hi: #f0f0f5;
-  --silver: #c4c4ce;
-  --silver-lo: #8a8a99;
-  --glyph: #1e1e28;
-
-  /* Panel buttons: the smaller keys in the frame's own material. */
-  --pbtn-hi: #4e4e66;
-  --pbtn: #36364a;
-  --pbtn-lo: #2a2a3a;
-  --pbtn-bevel-hi: #6e6e88;
-  --pbtn-bevel-lo: #18181f;
-  --pbtn-ink: var(--ink);
-
-  /* Text on the frame. */
-  --ink: #d6d6e0;
-  --ink-dim: #aeaec0;
-
   /* Indicator lights. */
-  --led-on: #3cff3c;
-  --led-off: #1d3a1d;
   --led-rec: #ff3c3c;
 
   /* Meters: the level gradient and the empty track behind it. */
-  --vol-lo: #1fa31f;
-  --vol-mid: #d8d81f;
-  --vol-hi: #e0301f;
-  --track: #101018;
   --meter-bg: linear-gradient(90deg, var(--vol-lo), var(--vol-mid) 70%, var(--vol-hi));
   --meter-bg-v: linear-gradient(0deg, var(--vol-lo), var(--vol-mid) 70%, var(--vol-hi));
 
   /* Sheets: settings and pickers that open over the frame. */
-  --sheet-bg: #0c0c14;
   --scrim: rgb(0 0 0 / 0.55);
-
-  /* Focus ring and the stage behind the window. */
-  --focus: #9be7ff;
-  --stage: #000;
 
   /* Timeline: the lanes, grid, clips and playhead, read by the canvas. */
   --tl-bg: #0c0c12;
@@ -88,8 +39,6 @@
   --tl-clip-selected: #2a6b2a;
   --tl-wave: #8cff8c;
   --tl-playhead: #ffb35c;
-
-  /* Materials: how the tokens above are composed into surfaces. */
 
   /* The window: the frame that fills the shell. */
   --window-radius: 2px;
@@ -161,10 +110,6 @@
 
   /* Text inside sheets, for skins whose frame ink does not suit them. */
   --sheet-ink: var(--ink);
-
-  /* Type. */
-  --font-lcd: "VT323", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  --font-ui: Tahoma, Verdana, system-ui, -apple-system, "Segoe UI", sans-serif;
 
   /* Beat phase, 0 to 1, driven by the tempo map from M8. Skins may pulse
    * on it; it stays 0 when reduced motion is on. */
