@@ -58,7 +58,7 @@ pub const MAX_NODES: usize = 64;
 pub const MAX_PARAMS: usize = 32;
 
 /// A pedal as its JSON file holds it.
-#[cfg_attr(test, derive(schemars::JsonSchema))]
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PedalDef {
@@ -79,7 +79,7 @@ pub struct PedalDef {
 }
 
 /// A knob the pedal exposes. Nodes read it through a binding.
-#[cfg_attr(test, derive(schemars::JsonSchema))]
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ParamDef {
@@ -110,7 +110,7 @@ pub struct ParamDef {
 }
 
 /// One node of the graph: a primitive and its fields.
-#[cfg_attr(test, derive(schemars::JsonSchema))]
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct NodeDef {
     /// Unique within the pedal; what edges and bindings refer to.
@@ -127,7 +127,7 @@ pub struct NodeDef {
 
 /// A field's value: a number, a name from a list, a switch, or a
 /// binding to a parameter or another node's signal.
-#[cfg_attr(test, derive(schemars::JsonSchema))]
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum Value {
@@ -172,7 +172,7 @@ impl From<bool> for Value {
 
 /// How a field follows a parameter or a signal. Exactly one of
 /// `param` and `node` is set.
-#[cfg_attr(test, derive(schemars::JsonSchema))]
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Binding {
@@ -242,7 +242,7 @@ impl Binding {
 
 /// A number that serializes without a fraction when it has none, so a
 /// file says `"freq": 80` rather than `80.0`.
-#[cfg_attr(test, derive(schemars::JsonSchema))]
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Deserialize)]
 #[serde(transparent)]
 pub struct Num(pub f64);

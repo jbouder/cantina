@@ -4,3 +4,5 @@
 src/generated/
 public/og.png
 public/api/
+# Copied from ../schemas/ by scripts/generate.mjs.
+public/schemas/

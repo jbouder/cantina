@@ -10,6 +10,8 @@ mod file;
 mod history;
 mod journal;
 mod model;
+#[cfg(any(test, feature = "schema"))]
+pub mod schema;
 
 pub use command::{Command, CommandError};
 pub use file::{

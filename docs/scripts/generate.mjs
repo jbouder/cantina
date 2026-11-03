@@ -6,9 +6,11 @@
 //   copied from packages/skins/tokens/. Classic is the dark theme and
 //   Brushed metal the light one; only the selectors change.
 // - public/og.png: the social preview image, drawn in Classic's tokens.
+// - public/schemas/: the JSON schemas, copied from schemas/ at the root,
+//   which the Rust tests generate from the types.
 //
 //   node scripts/generate.mjs
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import sharp from "sharp";
 
@@ -16,6 +18,8 @@ const docs = new URL("..", import.meta.url).pathname;
 const tokens = join(docs, "..", "packages", "skins", "tokens");
 const generated = join(docs, "src", "generated");
 mkdirSync(generated, { recursive: true });
+
+cpSync(join(docs, "..", "schemas"), join(docs, "public", "schemas"), { recursive: true });
 
 /** A skin's token file with its selector swapped for one of the site's themes. */
 function theme(id, selector) {
