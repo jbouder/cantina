@@ -1,0 +1,101 @@
+---
+/**
+ * The skin token reference, read from the skin files themselves: every
+ * token Classic defines, in its groups with the comment that heads each
+ * one, its Classic value, and which other skins set it. Classic defines
+ * every token, so a token added there shows up here by itself.
+ */
+import { SKINS } from "../../../packages/skins/index.ts";
+
+interface Props {
+  /** The shared palette in packages/skins, or Cantina's own tokens in ui/src/skins. */
+  source: "shared" | "cantina";
+}
+
+const shared = import.meta.glob("../../../packages/skins/tokens/*.css", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+const cantina = import.meta.glob("../../../ui/src/skins/*.css", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
+const files = Astro.props.source === "shared" ? shared : cantina;
+const byId = (id: string) =>
+  Object.entries(files).find(([path]) => path.endsWith(`/${id}.css`))?.[1] ?? "";
+
+/** The skin's token block: comments are group heads, declarations are tokens. */
+function groups(css: string) {
+  const body = css.slice(css.indexOf("{") + 1, css.lastIndexOf("}"));
+  const out: { head: string; tokens: { name: string; value: string }[] }[] = [];
+  const parts = body.matchAll(/\/\*([\s\S]*?)\*\/|(--[\w-]+)\s*:\s*([^;]+);/g);
+  for (const m of parts) {
+    const last = out[out.length - 1];
+    if (m[1] !== undefined) {
+      const head = m[1]
+        .replace(/^\s*\*\s?/gm, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      // Two comments in a row head the same group.
+      if (last && last.tokens.length === 0) last.head += ` ${head}`;
+      else out.push({ head, tokens: [] });
+    } else {
+      const value = m[3].replace(/\s+/g, " ").trim();
+      if (last) last.tokens.push({ name: m[2], value });
+      else out.push({ head: "", tokens: [{ name: m[2], value }] });
+    }
+  }
+  return out.filter((g) => g.tokens.length > 0);
+}
+
+const classic = groups(byId("classic"));
+const others = SKINS.filter((s) => s.id !== "classic").map((s) => ({
+  name: s.name,
+  css: byId(s.id),
+}));
+const setBy = (token: string) =>
+  others.filter((o) => new RegExp(`(^|[^\\w-])${token}\\s*:`, "m").test(o.css)).map((o) => o.name);
+---
+
+{
+  classic.map((g) => (
+    <>
+      {g.head && <p class="token-group">{g.head}</p>}
+      <table class="tokens">
+        <thead>
+          <tr>
+            <th>Token</th>
+            <th>Classic</th>
+            <th>Also set by</th>
+          </tr>
+        </thead>
+        <tbody>
+          {g.tokens.map((t) => (
+            <tr>
+              <td>
+                <code>{t.name}</code>
+              </td>
+              <td>
+                <code>{t.value}</code>
+              </td>
+              <td>{setBy(t.name).join(", ") || "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  ))
+}
+
+<style>
+  .token-group {
+    font-weight: 600;
+    margin-top: 1.5rem;
+  }
+  .tokens td:nth-child(2) code {
+    overflow-wrap: anywhere;
+  }
+</style>

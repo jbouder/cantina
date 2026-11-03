@@ -1,15 +1,9 @@
 ---
-title: "Skins"
-description: "Design notes on the skin system: semantic tokens, materials and the rules every skin keeps."
+title: "Skin tokens"
+description: "Every token a skin can set, generated from the skin files: the shared palette, Cantina's own tokens and materials, and the beat."
 ---
 
-Six skins ship, ported from the visualizer: **Classic** (gunmetal frame,
-silver transport, green LCD), **Midnight** (rounded navy pod, chrome keys,
-glass displays), **Brushed metal** (screwed aluminum faceplate, machined
-keys, dot-matrix display), **Hi-fi** (walnut cheeks, champagne panel,
-piano-key transport, VFD), **Neon** (angled cuts, outline buttons, an edge
-that pulses with the beat) and **Toxic** (lime shell, gel buttons,
-hazard-stripe title bar).
+import Tokens from '../../../components/Tokens.astro';
 
 Cantina's UI is drawn entirely through **skin tokens**: CSS custom
 properties defined per skin under `:root[data-skin='…']` in
@@ -20,9 +14,7 @@ typeface; they name a token through a Tailwind utility (`bg-lcd-bg`,
 `ui/src/styles.css`. Switching `data-skin` on `<html>` reskins everything
 live.
 
-This is the same mechanism as `src/ui/skin.css` in
-[music-visualizer](https://github.com/jbouder/music-visualizer), and the
-six player skins port onto it.
+To write a skin, follow the [recipe](/guides/skins/#write-your-own).
 
 ## Shared with music-visualizer
 
@@ -53,7 +45,22 @@ produces no CSS. `scripts/check-colors.mjs` runs as part of `npm run lint`
 and fails on any hex value, `rgb()`-style function or CSS named color
 outside `ui/src/skins/`. Together they are the "no literal colors" rule.
 
-### Material tokens
+## The shared palette
+
+The tokens in `packages/skins/tokens/`, which Cantina and music-visualizer
+both draw with. These tables are read from the skin files when the site is
+built, with the comment that heads each group in Classic's file.
+
+<Tokens source="shared" />
+
+## Cantina's tokens
+
+The tokens in `ui/src/skins/`: the face text sits on, the timeline and the
+materials.
+
+<Tokens source="cantina" />
+
+## Materials
 
 Beyond the palette, a skin shapes the UI with these (all have Classic
 defaults, so set only what differs):
@@ -87,48 +94,6 @@ defaults, so set only what differs):
   says so with `beat: true` in `SKINS`, because the property is animated
   only while a skin that reads it is on. It stays 0 under the system's
   reduced motion and under Reduce flashing in Settings.
-
-## Adding a skin
-
-1. Create `packages/skins/tokens/<id>.css` with a
-   `:root[data-skin="<id>"]` block for the shared palette, and import it
-   in `packages/skins/tokens.css`. Then create `ui/src/skins/<id>.css`
-   for Cantina's own tokens and the materials that should differ. Start
-   from Midnight for a skin that changes shape and material, Neon for one
-   that changes everything, or Toxic for a different title bar.
-2. Import the Cantina file in `ui/src/styles.css` next to the others.
-3. Add the skin to `SKINS` in `packages/skins/index.ts`: its id, name,
-   `beat: true` if the CSS reads `--beat`, and its preview colors, which
-   a test checks against its tokens.
-   The picker in Settings, persistence and the `?skin=` screenshot switch
-   all read that list.
-4. Run `scripts/screenshot.sh <name> "skin=<id>" "skin=<id>&settings"` and
-   look at the result.
-
-### What every skin must keep
-
-- **Sizes are the component's.** Every key and display is 32 px; a skin
-  changes their material, never their size. Round keys are fine.
-- **Visible focus.** `:focus-visible` draws `2px solid var(--focus)` with an
-  offset. Pick a `--focus` that contrasts with both the frame and the
-  buttons; on light frames (Brushed metal, Toxic) that means a dark or
-  saturated ring, not the pale blue Classic uses.
-- **Contrast.** `scripts/check-contrast.mjs`, part of `npm run lint`, reads
-  each skin's tokens and fails below 4.5:1 for text (`--ink` and
-  `--ink-dim` on `--face`, `--glyph` on `--silver`, `--pbtn-ink` on
-  `--pbtn`, `--lcd-fg` and `--lcd-error` on `--lcd-bg`, `--sheet-ink` on
-  `--sheet-bg`, `--title-text` on `--title-bg` or the face) and below 3:1
-  for the focus ring on `--face` and `--sheet-bg`. Gradients cannot be
-  read, so `--face` is the flat color the panel averages to and `--silver`
-  and `--pbtn` the faces of the two kinds of key; keep them honest.
-- **Reduced motion.** Anything that moves on `--beat` must read as static
-  when the property is 0, which it is under `prefers-reduced-motion` and
-  Reduce flashing.
-- **No literal colors outside the skin file.** If a component needs a new
-  color, add a token to Classic first and give it a value in every skin
-  that should differ.
-- **Light frames set `color-scheme: light`** so form controls and scrollbars
-  match. Brushed metal, Hi-fi and Toxic do.
 
 ## Persistence
 

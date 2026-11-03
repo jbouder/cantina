@@ -5,7 +5,7 @@
  * bar, displays, keys, ink, lights, meters, type) in
  * packages/skins/tokens/classic.css, and Cantina's own tokens here.
  * Other skins override any subset under their own `:root[data-skin='…']`
- * block; see docs/src/content/docs/reference/skins.md for the recipe. These files and the shared
+ * block; see docs/src/content/docs/guides/skins.mdx for the recipe. These files and the shared
  * token files are the only place a literal color may appear
  * (scripts/check-colors.mjs enforces it).
  *
@@ -111,7 +111,7 @@
   /* Text inside sheets, for skins whose frame ink does not suit them. */
   --sheet-ink: var(--ink);
 
-  /* Beat phase, 0 to 1, driven by the tempo map from M8. Skins may pulse
+  /* Beat phase, 0 to 1, driven by the tempo map. Skins may pulse
    * on it; it stays 0 when reduced motion is on. */
   --beat: 0;
 

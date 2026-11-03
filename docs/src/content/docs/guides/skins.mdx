@@ -1,0 +1,214 @@
+---
+title: "Skins"
+description: "The six skins Cantina ships with, how to pick one, and a step-by-step recipe for writing your own."
+---
+
+import { Image } from "astro:assets";
+import classic from "../../../assets/skins/classic.png";
+import midnight from "../../../assets/skins/midnight.png";
+import metal from "../../../assets/skins/metal.png";
+import hifi from "../../../assets/skins/hifi.png";
+import neon from "../../../assets/skins/neon.png";
+import toxic from "../../../assets/skins/toxic.png";
+import ember from "../../../assets/skins/recipe-ember.png";
+
+A skin changes the whole studio's look, from the window's material to the
+displays and the timeline. Six ship with Cantina, and a new one is two small
+CSS files and an entry in a list.
+
+## The six skins
+
+<div class="gallery not-content">
+  <figure>
+    <Image src={classic} alt="The studio in Classic" width={1100} />
+    <figcaption><strong>Classic</strong>: gunmetal frame, silver transport, green LCD.</figcaption>
+  </figure>
+  <figure>
+    <Image src={midnight} alt="The studio in Midnight" width={1100} />
+    <figcaption><strong>Midnight</strong>: a rounded navy pod, chrome keys, glass displays.</figcaption>
+  </figure>
+  <figure>
+    <Image src={metal} alt="The studio in Brushed metal" width={1100} />
+    <figcaption><strong>Brushed metal</strong>: a screwed aluminium faceplate, machined keys, a dot-matrix display.</figcaption>
+  </figure>
+  <figure>
+    <Image src={hifi} alt="The studio in Hi-fi" width={1100} />
+    <figcaption><strong>Hi-fi</strong>: walnut cheeks, a champagne panel, piano-key transport, a VFD.</figcaption>
+  </figure>
+  <figure>
+    <Image src={neon} alt="The studio in Neon" width={1100} />
+    <figcaption><strong>Neon</strong>: angled cuts, outline keys, and an edge that pulses with the beat.</figcaption>
+  </figure>
+  <figure>
+    <Image src={toxic} alt="The studio in Toxic" width={1100} />
+    <figcaption><strong>Toxic</strong>: a lime shell, gel buttons, a hazard-stripe title bar.</figcaption>
+  </figure>
+</div>
+
+## Pick a skin
+
+Open **Settings** with the gear and choose under **Skin**. The studio
+changes at once, and the choice is remembered for next time.
+
+Neon's edge pulses on the beat. **Reduce flashing** in Settings stills it,
+and so does the system's *Reduce motion* setting.
+
+## Write your own
+
+This recipe makes **Ember**, a warm brown take on Classic with amber
+displays. A skin only sets the tokens that differ from Classic; everything
+else falls back to Classic's value. The [skin tokens](/reference/skin-tokens/)
+page lists every token.
+
+### 1. The shared palette
+
+Create `packages/skins/tokens/ember.css`. This is the palette Cantina shares
+with music-visualizer: frame, title bar, displays, keys, text, lights and
+focus.
+
+```css
+/* Ember: the tokens both apps draw with. */
+:root[data-skin="ember"] {
+  /* Frame: the window chrome around everything. */
+  --frame-hi: #6e4a3c;
+  --frame: #3a2620;
+  --frame-mid: #2e1e19;
+  --frame-lo: #1a110e;
+  --frame-edge: #080504;
+
+  /* Title bar. */
+  --title-on: #ff8a3d;
+  --title-on-lo: #6b3315;
+
+  /* Displays: readouts, meter backplates, lists. */
+  --lcd-fg: #ffb347;
+  --lcd-dim: #3a2408;
+  --list-fg: #ffb347;
+
+  /* Indicator lights. */
+  --led-on: #ff8a3d;
+  --led-off: #3a1d0e;
+
+  /* Focus. */
+  --focus: #ffd29a;
+}
+```
+
+Then import it at the end of `packages/skins/tokens.css`:
+
+```css
+@import "./tokens/ember.css";
+```
+
+### 2. Cantina's own tokens
+
+Create `ui/src/skins/ember.css` for the tokens only Cantina has: `--face`,
+the flat colour text sits on, and the timeline's colours. Materials such as
+the window's shape and the buttons' finish go here too; this skin keeps
+Classic's.
+
+```css
+/*
+ * Ember: Classic's shape in warm brown, with amber displays. Only the
+ * tokens that differ from Classic are set.
+ */
+:root[data-skin="ember"] {
+  --face: #34221d;
+
+  /* Timeline. */
+  --tl-clip: #4d2a12;
+  --tl-clip-edge: #ff8a3d;
+  --tl-clip-selected: #6b3a18;
+  --tl-wave: #ffc27a;
+}
+```
+
+Import it in `ui/src/styles.css`, after the other skins:
+
+```css
+@import "./skins/ember.css";
+```
+
+### 3. Add it to the list
+
+Add Ember to `SKINS` in `packages/skins/index.ts`. The picker in Settings,
+the saved choice and the screenshot script all read this list. The preview
+colours draw the swatch in Settings, and a test checks that they match the
+skin's tokens: `--frame`, `--title-on`, `--lcd-bg`, `--lcd-fg`, `--silver`
+and `--led-on`, falling back to Classic's.
+
+```ts
+{
+  id: "ember",
+  name: "Ember",
+  beat: false, // true only if the skin's CSS reads --beat
+  preview: {
+    frame: "#3a2620",
+    title: "#ff8a3d",
+    lcd: "#000",
+    lcdInk: "#ffb347",
+    key: "#c4c4ce",
+    led: "#ff8a3d",
+  },
+},
+```
+
+### 4. Check it
+
+```sh
+npm run check
+```
+
+This lints, checks that no colour appears outside the skin files, checks
+every skin's contrast, and runs the tests, including the preview check.
+Then look at it:
+
+```sh
+npm run dev              # open http://localhost:1420/?skin=ember
+scripts/screenshot.sh ember "skin=ember" "skin=ember&settings"
+```
+
+Ember appears in Settings with the others:
+
+<Image src={ember} alt="The studio in the Ember skin made by this recipe" width={1100} />
+
+## What every skin must keep
+
+- **Sizes belong to the components.** Every key and display is 32 px; a skin
+  changes their material, never their size.
+- **Visible focus.** The focus ring is `2px solid var(--focus)`. Pick a
+  `--focus` that stands out on both the frame and the buttons; on a light
+  frame that means a dark or saturated ring.
+- **Contrast.** `npm run check` fails below 4.5:1 for text, such as `--ink`
+  and `--ink-dim` on `--face`, `--glyph` on `--silver`, `--lcd-fg` on
+  `--lcd-bg` and `--sheet-ink` on `--sheet-bg`, and below 3:1 for the focus
+  ring. Gradients cannot be measured, so `--face`, `--silver` and `--pbtn`
+  must be the flat colours the surfaces average to.
+- **Reduced motion.** Anything that moves on `--beat` must look still when
+  it is 0, which it is under *Reduce motion* and Reduce flashing.
+- **No colours outside skin files.** If a component needs a new colour, add
+  a token to Classic first and set it in each skin that should differ.
+- **Light frames set `color-scheme: light`** so form controls and scroll
+  bars match, as Brushed metal, Hi-fi and Toxic do.
+
+<style>{`
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: 1.25rem;
+  }
+  .gallery figure {
+    margin: 0;
+  }
+  .gallery img {
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+    border: 1px solid var(--frame-edge);
+  }
+  .gallery figcaption {
+    font-size: var(--sl-text-sm);
+    margin-top: 0.4rem;
+    color: var(--sl-color-gray-2);
+  }
+`}</style>

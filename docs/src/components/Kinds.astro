@@ -1,0 +1,78 @@
+---
+/**
+ * Every node kind in the pedal format with its fields, drawn from the
+ * kind catalog the designer reads (ui/src/lib/pedal-kinds.json, written
+ * from crates/dsp/src/pedal/kinds.rs), so the reference cannot drift
+ * from what the engine accepts.
+ */
+import kinds from "../../../ui/src/lib/pedal-kinds.json";
+
+type Field = (typeof kinds)[number]["fields"][number];
+
+const num = (n: number) => String(Number(n.toPrecision(6)));
+
+function takes(f: Field): string {
+  const k = f.kind;
+  if (k.type === "number") return `${num(k.min)} to ${num(k.max)}${k.unit ? ` ${k.unit}` : ""}`;
+  if (k.type === "name") return k.options.map((o) => `\`${o}\``).join(", ");
+  return "`true` or `false`";
+}
+
+function fallback(f: Field): string {
+  const k = f.kind;
+  if (k.type === "number") return num(k.default);
+  if (k.type === "name") return k.options[k.default];
+  return String(k.default);
+}
+
+/** Inline code from backticks, the only markup the summaries use. */
+const code = (s: string) =>
+  s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/`([^`]+)`/g, "<code>$1</code>");
+---
+
+{
+  kinds.map((k) => (
+    <section class="kind">
+      <h3 id={`kind-${k.kind}`}>
+        <code>{k.kind}</code>
+      </h3>
+      <p>
+        {k.summary}
+        {k.sums ? " Takes any number of incoming edges." : ""}
+        {k.control ? " Bound to fields, never wired with an edge." : ""}
+      </p>
+      {k.fields.length > 0 && (
+        <table>
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Takes</th>
+              <th>Default</th>
+              <th>What it does</th>
+            </tr>
+          </thead>
+          <tbody>
+            {k.fields.map((f) => (
+              <tr>
+                <td>
+                  <code>{f.name}</code>
+                </td>
+                <td set:html={code(takes(f))} />
+                <td>
+                  <code>{fallback(f)}</code>
+                </td>
+                <td>
+                  {f.summary}.{f.modulatable ? " Can follow a signal." : ""}
+                  {f.smoothed ? " Smoothed." : ""}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  ))
+}

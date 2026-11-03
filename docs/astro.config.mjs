@@ -25,7 +25,7 @@ export default defineConfig({
     "/notes/latency": "/guides/latency/",
     "/notes/pedal-format": "/reference/pedal-format/",
     "/notes/pedals": "/guides/pedals/",
-    "/notes/skins": "/reference/skins/",
+    "/notes/skins": "/guides/skins/",
     "/notes/stage": "/guides/stage/",
     "/notes/timeline": "/guides/recording/",
   },
@@ -70,8 +70,14 @@ export default defineConfig({
           : []),
       ],
       // Fails the build on a broken internal link or heading anchor.
-      // The rustdoc under /api/ is copied in at build time, not a Starlight page.
-      plugins: [starlightLinksValidator({ errorOnRelativeLinks: false, exclude: ["/api/**"] })],
+      // The rustdoc under /api/ and the JSON schemas under /schemas/ are
+      // files, not Starlight pages.
+      plugins: [
+        starlightLinksValidator({
+          errorOnRelativeLinks: false,
+          exclude: ["/api/**", "/schemas/**"],
+        }),
+      ],
       sidebar: [
         {
           label: "Start here",
@@ -89,6 +95,7 @@ export default defineConfig({
             { label: "Designing pedals", slug: "guides/designer" },
             { label: "Drums", slug: "guides/drums" },
             { label: "The stage", slug: "guides/stage" },
+            { label: "Skins", slug: "guides/skins" },
           ],
         },
         { label: "Reference", items: [{ autogenerate: { directory: "reference" } }] },
