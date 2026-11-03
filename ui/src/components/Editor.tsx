@@ -6,6 +6,7 @@ import {
   type EngineStatus,
   type IrInfo,
   type KitInfo,
+  type LibraryStatus,
   type PatternInfo,
   type PedalKindInfo,
   patternClipRemove,
@@ -35,6 +36,7 @@ type Props = {
   /** For a drum track: the patterns, kits and audition, and the clock. */
   patterns: PatternInfo[];
   kits: KitInfo[];
+  library: LibraryStatus;
   audition: AuditionStatus | null;
   tempo: Tempo;
   position: number;
@@ -66,6 +68,7 @@ export function Editor({
   kinds,
   patterns,
   kits,
+  library,
   audition,
   tempo,
   position,
@@ -226,6 +229,7 @@ export function Editor({
             track={track}
             patterns={patterns}
             kits={kits}
+            library={library}
             audition={audition}
             tempo={tempo}
             position={position}

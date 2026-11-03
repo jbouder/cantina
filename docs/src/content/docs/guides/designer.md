@@ -65,3 +65,14 @@ fix it, so a mistake never cuts the sound.
 
 A pedal is a small JSON file; the [pedal format](/reference/pedal-format/)
 reference describes every part and setting.
+
+### Files written outside Cantina
+
+`~/Music/Cantina/Pedals/` is also where to put a pedal written by hand or
+by a coding agent. Cantina watches the folder: a `<id>.pedal.json` saved
+there appears in the picker under *Your pedals* within a second, without a
+restart. A file that does not load is listed under the pedals as *will not
+load*, with the reason, and cannot be added until it is fixed; the reason
+is the one `cantina-cli check` gives (see the
+[command line](/reference/cli/)). A pedal already in a chain keeps the
+copy the project took when it was added.

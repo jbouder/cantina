@@ -10,6 +10,7 @@
 mod commands;
 mod engine;
 mod frame;
+mod library;
 mod pedals;
 mod project;
 mod settings;
@@ -24,6 +25,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             app.manage(EngineState::new(app.handle().clone()));
+            let folders = app.state::<EngineState>().lock().library_folders();
+            library::spawn_watcher(app.handle().clone(), folders);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -104,6 +107,9 @@ pub fn run() {
             commands::pedal_export,
             commands::pedal_import,
             commands::pedals_rescan,
+            commands::pattern_import,
+            commands::pattern_export,
+            commands::library_rescan,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Cantina shell")

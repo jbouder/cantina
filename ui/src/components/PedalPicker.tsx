@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import {
+  type BrokenFile,
   chainAdd,
   chooseImportPaths,
   type EngineStatus,
@@ -22,6 +23,8 @@ type Props = {
   trackName: string;
   /** The stock and library pedals. */
   kinds: PedalKindInfo[];
+  /** Pedal files in the library folder that will not load. */
+  broken: BrokenFile[];
   plugins: PluginsStatus;
   onClose: () => void;
   /** Starts a new design at the end of the chain and opens the designer. */
@@ -85,6 +88,7 @@ export function PedalPicker({
   track,
   trackName,
   kinds,
+  broken,
   plugins,
   onClose,
   onDesign,
@@ -131,6 +135,7 @@ export function PedalPicker({
 
   const stock = kinds.filter((k) => k.stock && matches(filter, k.name));
   const library = kinds.filter((k) => !k.stock && matches(filter, k.name));
+  const brokenShown = broken.filter((b) => matches(filter, b.name, b.reason));
   const found = list ? list.plugins.filter((p) => matches(filter, p.name, p.vendor)) : [];
   const groups = group(found);
   const summary = plugins.scanning
@@ -185,12 +190,22 @@ export function PedalPicker({
             <ul className={KIND_LIST}>{stock.map(kindRow)}</ul>
           </section>
         ) : null}
-        {library.length > 0 ? (
+        {library.length > 0 || brokenShown.length > 0 ? (
           <section aria-labelledby={`${id}-library`} className="mb-1">
             <h3 id={`${id}-library`} className={HEADING}>
               Your pedals
             </h3>
             <ul className={KIND_LIST}>{library.map(kindRow)}</ul>
+            {brokenShown.length > 0 ? (
+              <ul aria-label="Pedal files that will not load" className="m-0 list-none p-0">
+                {brokenShown.map((b) => (
+                  <li key={b.path} className="px-2 py-0.5 font-lcd text-base">
+                    <span className="lcd-text text-lcd-error">{b.name}</span>
+                    <span className="lcd-text text-lcd-dim"> · will not load: {b.reason}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </section>
         ) : null}
         <section aria-labelledby={`${id}-plugins`} className="mb-1">

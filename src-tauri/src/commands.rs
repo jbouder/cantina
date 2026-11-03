@@ -604,6 +604,34 @@ pub fn pedal_import(
 }
 
 /// Looks for pedals in the library again.
+/// Adds a `*.pattern.json` to the project, checked against a track's kit.
+#[tauri::command]
+pub fn pattern_import(
+    engine: State<'_, EngineState>,
+    path: String,
+    track: Option<u64>,
+) -> Result<EngineStatus, String> {
+    engine
+        .lock()
+        .pattern_import(&path, track)
+        .map_err(|e| format!("{e:#}"))
+}
+
+/// Writes a pattern to a `*.pattern.json`.
+#[tauri::command]
+pub fn pattern_export(engine: State<'_, EngineState>, id: u64, path: String) -> Result<(), String> {
+    engine
+        .lock()
+        .pattern_export(id, &path)
+        .map_err(|e| format!("{e:#}"))
+}
+
+/// Scans the library folders again.
+#[tauri::command]
+pub fn library_rescan(engine: State<'_, EngineState>) -> EngineStatus {
+    engine.lock().library_rescan()
+}
+
 #[tauri::command]
 pub fn pedals_rescan(engine: State<'_, EngineState>) -> EngineStatus {
     engine.lock().pedals_rescan()

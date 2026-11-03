@@ -51,6 +51,7 @@ use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::frame::{Analysis as FrameAnalysis, Beat as FrameBeat, Frame};
+use crate::library;
 use crate::pedals::{self, PedalEntry};
 use crate::project::Projects;
 use crate::settings::{AudioSettings, Settings};
@@ -91,6 +92,9 @@ pub struct EngineStatus {
     pub audition: Option<AuditionStatus>,
     /// The track the stage's analysis listens to, or none for the master.
     pub analysis_source: Option<u64>,
+    /// The library folders: where they are, the pattern files in
+    /// `Patterns`, and every file in them that does not load.
+    pub library: library::LibraryStatus,
 }
 
 /// What the designer gets back from an update: the status, and the
@@ -1386,6 +1390,9 @@ pub struct Engine {
     /// library pedals added this session. Written to `pedals/` on save.
     designs: Designs,
     library: Library,
+    /// The user's library folders, and what scanning them last found.
+    folders: library::Folders,
+    library_status: library::LibraryStatus,
     /// The pattern looping on a drum track for editing. Session state,
     /// not part of the project.
     audition: Option<(TrackId, PatternId)>,
@@ -1462,6 +1469,17 @@ impl Engine {
             }
         };
         let journal = Journal::in_dir(&project_dir);
+        let folders = library::Folders {
+            pedals: projects.pedals_dir(),
+            kits: projects.kits_dir(),
+            patterns: projects.patterns_dir(),
+        };
+        // The folders are where files written outside the app go, so they
+        // exist from the first launch.
+        for dir in folders.all() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let library_status = folders.scan();
         let mut engine = Self {
             app,
             live: None,
@@ -1480,6 +1498,8 @@ impl Engine {
             catalog: Catalog::default(),
             designs: HashMap::new(),
             library,
+            folders,
+            library_status,
             kits,
             irs,
             audition: None,
@@ -1584,6 +1604,7 @@ impl Engine {
                 .kits
                 .entries()
                 .iter()
+                .filter(|k| !self.is_broken(&k.path))
                 .map(|k| KitInfo {
                     id: k.id.clone(),
                     name: k.name.clone(),
@@ -1606,7 +1627,113 @@ impl Engine {
                 .analysis_source
                 .filter(|id| self.project.track(*id).is_some())
                 .map(|t| t.0),
+            library: self.library_status.clone(),
         }
+    }
+
+    /// True when the library scan found the file or folder at `path`
+    /// broken, so it is listed as such instead of offered.
+    fn is_broken(&self, path: &Path) -> bool {
+        let path = path.display().to_string();
+        self.library_status.broken.iter().any(|b| b.path == path)
+    }
+
+    /// The library folders, for the watcher.
+    pub fn library_folders(&self) -> library::Folders {
+        self.folders.clone()
+    }
+
+    /// Scans the library folders again: pedals, kits and patterns, with
+    /// broken files listed rather than reported. A kit loaded from the
+    /// user's folder is dropped from the cache so it is read afresh the
+    /// next time a track asks for it.
+    pub fn library_rescan(&mut self) -> EngineStatus {
+        let mut ignored = Vec::new();
+        self.library.rescan(&mut ignored);
+        self.kits.rescan(&mut ignored);
+        let user_kits = self.folders.kits.clone();
+        let stale: Vec<String> = self
+            .kits
+            .entries()
+            .iter()
+            .filter(|k| k.path.starts_with(&user_kits))
+            .map(|k| k.id.clone())
+            .collect();
+        let in_use: HashSet<&str> = self
+            .project
+            .tracks
+            .iter()
+            .filter_map(|t| t.kit.as_deref())
+            .collect();
+        for id in stale {
+            if !in_use.contains(id.as_str()) {
+                self.kits.loaded.remove(&id);
+            }
+        }
+        self.library_status = self.folders.scan();
+        self.publish()
+    }
+
+    /// Adds a pattern file to the project with a fresh id, renamed on a
+    /// clash. Rows for pads the track's kit lacks are kept, and named in
+    /// a notice.
+    pub fn pattern_import(&mut self, path: &str, track: Option<u64>) -> Result<EngineStatus> {
+        let text = std::fs::read_to_string(path).with_context(|| format!("reading {path}"))?;
+        let pads: Option<Vec<String>> = track
+            .and_then(|t| self.project.track(TrackId(t)))
+            .and_then(|t| t.kit.clone())
+            .map(|kit| {
+                self.kit_status(&kit)
+                    .pads
+                    .into_iter()
+                    .map(|p| p.id)
+                    .collect()
+            });
+        let (pattern, missing) = library::import_pattern(&text, &self.project, pads.as_deref())
+            .map_err(|e| anyhow::anyhow!("{path}: {e}"))?;
+        let name = pattern.name.clone();
+        let status = self.apply(Command::InsertPattern {
+            index: usize::MAX,
+            pattern,
+        })?;
+        if missing.is_empty() {
+            return Ok(status);
+        }
+        self.notice = Some(format!(
+            "Imported {name}. This kit has no {} pad{}; {} kept for other kits.",
+            missing.join(", "),
+            if missing.len() == 1 { "" } else { "s" },
+            if missing.len() == 1 {
+                "that row is"
+            } else {
+                "those rows are"
+            }
+        ));
+        self.notice_seq += 1;
+        Ok(self.publish())
+    }
+
+    /// Writes a pattern as a `*.pattern.json` file, adding the suffix
+    /// when the path lacks it.
+    pub fn pattern_export(&self, id: u64, path: &str) -> Result<()> {
+        let pattern = self
+            .project
+            .pattern(PatternId(id))
+            .with_context(|| format!("no pattern {id}"))?;
+        let mut path = PathBuf::from(path);
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        if !name.ends_with(cantina_project::PATTERN_SUFFIX) {
+            let stem = name.trim_end_matches(".json").trim_end_matches(".pattern");
+            path.set_file_name(format!("{stem}{}", cantina_project::PATTERN_SUFFIX));
+        }
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
+        }
+        std::fs::write(&path, cantina_project::pattern_to_json(pattern))
+            .with_context(|| format!("writing {}", path.display()))
     }
 
     fn latency_status(&self) -> LatencyStatus {

@@ -20,13 +20,19 @@ import {
 } from "../lib/drums";
 import {
   type AuditionStatus,
+  brokenOf,
+  choosePatternExportPath,
+  choosePatternImportPaths,
   type EngineStatus,
   type KitInfo,
   kitsRescan,
+  type LibraryStatus,
   type PatternInfo,
   patternAdd,
   patternAudition,
   patternClipAdd,
+  patternExport,
+  patternImport,
   patternRemove,
   patternRename,
   patternSetLength,
@@ -48,6 +54,8 @@ type Props = {
   track: TrackStatus;
   patterns: PatternInfo[];
   kits: KitInfo[];
+  /** The library folders: pattern files to import, and files that will not load. */
+  library: LibraryStatus;
   audition: AuditionStatus | null;
   tempo: Tempo;
   /** Playhead, in seconds. */
@@ -81,6 +89,7 @@ export function DrumGrid({
   track,
   patterns,
   kits,
+  library,
   audition,
   tempo,
   position,
@@ -117,6 +126,38 @@ export function DrumGrid({
   }, [pattern?.id, pattern?.name, pattern?.swing]);
 
   const pads = track.kit?.pads ?? [];
+  const brokenKits = brokenOf(library, "kit");
+  const brokenPatterns = brokenOf(library, "pattern");
+
+  /** Imports pattern files and shows the last one. */
+  const importPaths = (paths: string[]) => {
+    if (paths.length === 0) return;
+    paths
+      .reduce<Promise<EngineStatus | null>>(
+        (done, path) => done.then(() => patternImport(path, track.id)),
+        Promise.resolve(null),
+      )
+      .then(
+        (s) => {
+          if (!s) return;
+          onStatus(s);
+          setChosen(s.project.patterns[s.project.patterns.length - 1]?.id ?? null);
+        },
+        (e) => onError(String(e)),
+      );
+  };
+  const importFiles = () =>
+    choosePatternImportPaths(library.patternsDir).then(importPaths, (e) => onError(String(e)));
+  const exportPattern = () => {
+    if (!pattern) return;
+    choosePatternExportPath(pattern.name, library.patternsDir).then(
+      (path) => {
+        if (path) patternExport(pattern.id, path).catch((e) => onError(String(e)));
+      },
+      (e) => onError(String(e)),
+    );
+  };
+
   const step = pattern
     ? currentStep(position, tempo, pattern, playing && auditioning !== null)
     : null;
@@ -272,6 +313,15 @@ export function DrumGrid({
               {k.name}
             </option>
           ))}
+          {brokenKits.length > 0 ? (
+            <optgroup label="Will not load">
+              {brokenKits.map((b) => (
+                <option key={b.path} value={`broken:${b.path}`} disabled title={b.reason}>
+                  {b.name}: {b.reason}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
         </Select>
         <Button onClick={() => run(kitsRescan())} title="Look for kits installed since launch">
           Rescan
@@ -280,14 +330,39 @@ export function DrumGrid({
           id={`${id}-pattern`}
           label="Pattern"
           value={pattern?.id ?? ""}
-          onChange={(e) => setChosen(Number(e.target.value))}
-          disabled={patterns.length === 0}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value.startsWith("file:")) importPaths([value.slice(5)]);
+            else setChosen(Number(value));
+          }}
+          disabled={
+            patterns.length === 0 && library.patterns.length === 0 && brokenPatterns.length === 0
+          }
         >
+          {patterns.length === 0 ? <option value="">No pattern</option> : null}
           {patterns.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
             </option>
           ))}
+          {library.patterns.length > 0 ? (
+            <optgroup label="Import from the library">
+              {library.patterns.map((p) => (
+                <option key={p.path} value={`file:${p.path}`}>
+                  {p.name}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
+          {brokenPatterns.length > 0 ? (
+            <optgroup label="Will not load">
+              {brokenPatterns.map((b) => (
+                <option key={b.path} value={`broken:${b.path}`} disabled title={b.reason}>
+                  {b.name}: {b.reason}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
         </Select>
         <Button
           onClick={() =>
@@ -301,8 +376,17 @@ export function DrumGrid({
         >
           New
         </Button>
+        <Button
+          onClick={importFiles}
+          title="Add .pattern.json files to the project; files in your Patterns folder are also in the pattern menu"
+        >
+          Import…
+        </Button>
         {pattern ? (
           <>
+            <Button onClick={exportPattern} title="Write this pattern to a .pattern.json file">
+              Export…
+            </Button>
             {editing ? (
               <form onSubmit={rename} className="flex items-center gap-2">
                 <label htmlFor={`${id}-name`} className="sr-only">

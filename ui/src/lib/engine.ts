@@ -12,7 +12,19 @@ import overdriveDef from "../../../pedals/overdrive.pedal.json";
 import phaserDef from "../../../pedals/phaser.pedal.json";
 import tremoloDef from "../../../pedals/tremolo.pedal.json";
 import { type AnalysisFrame, analysisOf, decodeFrame, encodeFrame } from "./frame";
+import {
+  type BrokenFile,
+  brokenOf,
+  type LibraryKind,
+  type LibraryPattern,
+  type LibraryStatus,
+  patternFileName,
+} from "./library";
 import { mockAnalysis, mockBeat } from "./mockAnalysis";
+
+export type { BrokenFile, LibraryKind, LibraryPattern, LibraryStatus };
+export { brokenOf, patternFileName };
+
 import {
   disconnect,
   empty,
@@ -51,6 +63,8 @@ export interface EngineStatus {
   audition: AuditionStatus | null;
   /** The track the stage's analysis listens to, or null for the master. */
   analysisSource: number | null;
+  /** The library folders: where they are, their pattern files, and what will not load. */
+  library: LibraryStatus;
 }
 
 /** A kind of pedal the picker offers. Mirrors `PedalKindInfo` in src-tauri. */
@@ -901,6 +915,43 @@ const mock: EngineStatus = {
   irs: MOCK_IRS,
   audition: mockParams?.has("audition") ? { track: MOCK_DRUMS, pattern: 11 } : null,
   analysisSource: null,
+  library: {
+    pedalsDir: "/Users/you/Music/Cantina/Pedals",
+    kitsDir: "/Users/you/Music/Cantina/Kits",
+    patternsDir: "/Users/you/Music/Cantina/Patterns",
+    patterns: mockParams?.has("library")
+      ? [
+          {
+            name: "Half-time",
+            path: "/Users/you/Music/Cantina/Patterns/Half-time.pattern.json",
+            stepsPerBeat: 4,
+            length: 32,
+          },
+        ]
+      : [],
+    broken: mockParams?.has("broken-files")
+      ? [
+          {
+            kind: "pedal",
+            name: "octave-fuzz.pedal.json",
+            path: "/Users/you/Music/Cantina/Pedals/octave-fuzz.pedal.json",
+            reason: 'invalid pedal: node "mix": nothing is connected to its input',
+          },
+          {
+            kind: "kit",
+            name: "lofi",
+            path: "/Users/you/Music/Cantina/Kits/lofi",
+            reason: 'pad "snare" names "snare-2.wav", which is not in the folder',
+          },
+          {
+            kind: "pattern",
+            name: "Shuffle.pattern.json",
+            path: "/Users/you/Music/Cantina/Patterns/Shuffle.pattern.json",
+            reason: 'the pattern row "kick" has 12 steps, the pattern 16',
+          },
+        ]
+      : [],
+  },
 };
 mockTransport.playing = mock.transport.playing || mock.transport.recording;
 mockTransport.recording = mock.transport.recording;
@@ -1812,6 +1863,48 @@ export async function pedalImport(path: string, track?: number): Promise<EngineS
 export async function pedalsRescan(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("pedals_rescan");
   return mockStatus();
+}
+
+/**
+ * Adds a `.pattern.json` to the project with a fresh id, renamed on a
+ * clash. With a track, rows for pads its kit lacks are kept and named in
+ * a notice.
+ */
+export async function patternImport(path: string, track?: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pattern_import", { path, track: track ?? null });
+  const base = (path.split("/").pop() ?? "Pattern").replace(/\.pattern\.json$/, "");
+  const taken = new Set(mock.project.patterns.map((p) => p.name));
+  let name = base;
+  for (let n = 2; taken.has(name); n++) name = `${base} ${n}`;
+  mock.project.patterns.push({ ...mockPattern(mockNextId++, name) });
+  return mockEdit("import pattern");
+}
+
+/** Writes a pattern to a `.pattern.json` file. */
+export async function patternExport(id: number, path: string): Promise<void> {
+  if (inTauri) return invoke("pattern_export", { id, path });
+  mockPatternById(id);
+}
+
+/** Scans the library folders again; the shell also does this when they change. */
+export async function libraryRescan(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("library_rescan");
+  return mockStatus();
+}
+
+const PATTERN_FILTER = [{ name: "Pattern", extensions: ["json"] }];
+
+/** Asks where to write a pattern file; null when the user cancels. */
+export async function choosePatternExportPath(name: string, dir: string): Promise<string | null> {
+  if (!inTauri) return `${dir}/${patternFileName(name)}`;
+  return saveDialog({ defaultPath: `${dir}/${patternFileName(name)}`, filters: PATTERN_FILTER });
+}
+
+/** Asks for pattern files to import; empty when the user cancels. */
+export async function choosePatternImportPaths(dir: string): Promise<string[]> {
+  if (!inTauri) return [`${dir}/Shuffle.pattern.json`];
+  const chosen = await openDialog({ multiple: true, defaultPath: dir, filters: PATTERN_FILTER });
+  return chosen ?? [];
 }
 
 const PEDAL_FILTER = [{ name: "Pedal", extensions: ["json"] }];
