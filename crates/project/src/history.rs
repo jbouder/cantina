@@ -30,6 +30,7 @@ struct Entry {
     at: Instant,
 }
 
+/// The undo and redo stacks of one open project.
 #[derive(Debug)]
 pub struct History {
     undo: Vec<Entry>,
@@ -44,6 +45,7 @@ impl Default for History {
 }
 
 impl History {
+    /// Empty stacks with the default coalescing window.
     pub fn new() -> Self {
         Self {
             undo: Vec::new(),
@@ -138,30 +140,37 @@ impl History {
         self.redo.last().map(|e| &e.inverse)
     }
 
+    /// The command redo just applied, if the last step was a redo.
     pub fn last_redone(&self) -> Option<&Command> {
         self.undo.last().map(|e| &e.command)
     }
 
+    /// True when there is a step to undo.
     pub fn can_undo(&self) -> bool {
         !self.undo.is_empty()
     }
 
+    /// True when there is a step to redo.
     pub fn can_redo(&self) -> bool {
         !self.redo.is_empty()
     }
 
+    /// What undo would undo, for a menu.
     pub fn undo_label(&self) -> Option<&str> {
         self.undo.last().map(|e| e.label.as_str())
     }
 
+    /// What redo would redo, for a menu.
     pub fn redo_label(&self) -> Option<&str> {
         self.redo.last().map(|e| e.label.as_str())
     }
 
+    /// Steps that can be undone.
     pub fn len(&self) -> usize {
         self.undo.len()
     }
 
+    /// True when nothing can be undone.
     pub fn is_empty(&self) -> bool {
         self.undo.is_empty()
     }

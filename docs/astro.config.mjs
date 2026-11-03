@@ -59,13 +59,16 @@ export default defineConfig({
           : []),
       ],
       // Fails the build on a broken internal link or heading anchor.
-      plugins: [starlightLinksValidator({ errorOnRelativeLinks: false })],
+      // The rustdoc under /api/ is copied in at build time, not a Starlight page.
+      plugins: [starlightLinksValidator({ errorOnRelativeLinks: false, exclude: ["/api/**"] })],
       sidebar: [
         {
           label: "Start here",
           items: [{ label: "Getting started", slug: "guides/getting-started" }],
         },
         { label: "Design notes", items: [{ autogenerate: { directory: "notes" } }] },
+        { label: "Architecture", items: [{ autogenerate: { directory: "architecture" } }] },
+        { label: "API reference", slug: "api" },
       ],
     }),
   ],

@@ -1,0 +1,160 @@
+---
+/**
+ * The five layers, top to bottom, with what crosses between them. Each
+ * layer links to its page; drawn in the skin's frame and display
+ * materials.
+ */
+const layers = [
+  {
+    name: "ui",
+    href: "/architecture/ui/",
+    what: "React and TypeScript: timeline, mixer, pedalboard, drum grid, designer, stage",
+  },
+  {
+    name: "src-tauri",
+    href: "/architecture/shell/",
+    what: "The shell: owns the engine handle, the open project, windows and menus",
+  },
+  {
+    name: "engine",
+    href: "/architecture/engine/",
+    what: "CoreAudio stream, real-time graph runtime, transport and tempo map, lock-free queues, disk streaming, analysis",
+  },
+];
+const below = [
+  {
+    name: "hosting",
+    href: "/architecture/hosting/",
+    what: "Audio Units and CLAP: scan, instantiate, latency, state, editor windows",
+  },
+  {
+    name: "dsp",
+    href: "/architecture/dsp/",
+    what: "Pure processing, no I/O: filters, waveshapers, delays, modulation, convolution, sampler",
+  },
+];
+const project = {
+  name: "project",
+  href: "/architecture/project/",
+  what: "serde model, undo command log, file format, migrations",
+};
+const links = [
+  { down: "commands (Tauri invoke)", up: "state, meters, analysis (binary channel)" },
+  { down: "graph edits, parameter changes", up: "status, frames" },
+];
+---
+
+<figure class="layers not-content" aria-label="Cantina's five layers">
+  {
+    layers.map((layer, i) => (
+      <>
+        <a class="layer" href={layer.href}>
+          <code>{layer.name}</code>
+          <span>{layer.what}</span>
+        </a>
+        {links[i] && (
+          <div class="link" aria-hidden="true">
+            <span>↓ {links[i].down}</span>
+            <span>↑ {links[i].up}</span>
+          </div>
+        )}
+      </>
+    ))
+  }
+  <div class="split">
+    {
+      below.map((layer) => (
+        <a class="layer" href={layer.href}>
+          <code>{layer.name}</code>
+          <span>{layer.what}</span>
+        </a>
+      ))
+    }
+  </div>
+  <a class="layer" href={project.href}>
+    <code>{project.name}</code>
+    <span>{project.what}</span>
+  </a>
+  <figcaption>
+    Commands flow down from the UI and state, meters and frames flow up. Only the engine touches the
+    audio device, and only the audio thread touches the graph while it runs.
+  </figcaption>
+</figure>
+
+<style>
+  .layers {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    display: grid;
+    gap: 0.5rem;
+    border-radius: 12px;
+    background: linear-gradient(var(--frame), var(--frame-lo));
+    border: 1px solid var(--frame-edge);
+    box-shadow: inset 0 1px 0 var(--frame-hi);
+  }
+
+  .layer {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.7rem 0.9rem;
+    border-radius: 6px;
+    text-decoration: none;
+    background: var(--lcd-bg);
+    border: 1px solid var(--frame-edge);
+    box-shadow: inset 0 0 8px var(--lcd-glow);
+  }
+
+  .layer:hover {
+    outline: 1px solid var(--lcd-fg);
+  }
+
+  .layer code {
+    font-family: var(--font-lcd);
+    font-size: 1.5rem;
+    line-height: 1;
+    color: var(--lcd-fg);
+    background: none;
+    border: 0;
+    padding: 0;
+  }
+
+  .layer span {
+    font-size: 0.85rem;
+    color: var(--lcd-fg);
+    opacity: 0.8;
+  }
+
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .link {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+
+  figcaption {
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--ink);
+  }
+
+  @media (max-width: 40rem) {
+    .split {
+      grid-template-columns: 1fr;
+    }
+    .link {
+      flex-direction: column;
+      align-items: center;
+      gap: 0.1rem;
+    }
+  }
+</style>

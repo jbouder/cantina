@@ -3,7 +3,7 @@
 //! One format carries meters, pedal readouts and the analysis stream
 //! (spectrum, waveform, level, beat): the header says how much of each
 //! the body holds, so a reader built for meters skips what it does not
-//! know. The layout is documented in `docs/src/content/docs/notes/frames.md` and decoded by
+//! know. The layout is documented in `docs/src/content/docs/architecture/frames.md` and decoded by
 //! `ui/src/lib/frame.ts`; the two must agree.
 //!
 //! All integers and floats are little-endian. The header is 48 bytes, a

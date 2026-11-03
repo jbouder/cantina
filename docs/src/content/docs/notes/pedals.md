@@ -25,7 +25,7 @@ entries with the status; the UI never needs to know a pedal's list.
 Some pedals measure things for their display. A processor can return a
 `Readout`: named `f32` cells behind atomics that it writes from
 `process` and that the shell reads at display rate and streams to the
-UI in the same frame as the meters ([frames](/notes/frames/)). The UI draws each
+UI in the same frame as the meters ([frames](/architecture/frames/)). The UI draws each
 pedal's readout for its kind (`ui/src/components/PedalReadout.tsx`).
 
 ## Tuner

@@ -1,0 +1,43 @@
+---
+title: "Architecture"
+description: "How Cantina is built, in five layers from the React UI down to the project model, and the rules that keep audio real-time."
+sidebar:
+  label: Overview
+  order: 0
+---
+
+import Layers from '../../../components/Layers.astro';
+
+Cantina is a Rust audio engine under a React UI, joined by a Tauri 2 shell. Each layer is a crate or a folder in the repository, and each has its own page and API reference.
+
+<Layers />
+
+## Layers
+
+| Layer | Where | API |
+| --- | --- | --- |
+| [UI](/architecture/ui/) | `ui/`, `packages/scenes`, `packages/skins` | |
+| [Shell](/architecture/shell/) | `src-tauri/` | |
+| [Engine](/architecture/engine/) | `crates/engine` | [`cantina_engine`](/api/cantina_engine/) |
+| [Hosting](/architecture/hosting/) | `crates/hosting` | [`cantina_hosting`](/api/cantina_hosting/) |
+| [DSP](/architecture/dsp/) | `crates/dsp` | [`cantina_dsp`](/api/cantina_dsp/) |
+| [Project](/architecture/project/) | `crates/project` | [`cantina_project`](/api/cantina_project/) |
+
+## The ideas everything rests on
+
+- **One abstraction for every pedal.** Stock pedals, pedals you design and third-party plugins all implement the same [`Processor`](/architecture/processor/) trait, so the chain, the mixer, automation, latency compensation and the project file never ask which kind they hold.
+- **The audio thread is sacred.** The callback never allocates, locks, blocks or does I/O. Everything reaches it through lock-free queues and atomic graph swaps. See the [real-time rules](/architecture/real-time/).
+- **Non-destructive, with one history.** A project is a directory whose audio files are never modified. Every edit is a command with an inverse, so undo, redo and crash recovery are one mechanism. See [project](/architecture/project/).
+- **Everything a user makes is JSON.** Pedals, kits, patterns and projects are plain files that people and tools can write.
+
+## Why these choices
+
+| Question | Decision | Why |
+| --- | --- | --- |
+| Platform | macOS only | CoreAudio gives a round trip of about 5 ms with a class-compliant interface, aggregate devices for free, and one signed DMG to ship. |
+| Engine language | Rust | Real-time audio needs no garbage collector, no allocation on the audio thread, and a good lock-free ecosystem. |
+| UI | React and TypeScript in Tauri 2 | The visualizer scenes already run in a web view, and Tauri channels carry the binary frames the stage needs. |
+| Plugins | Audio Units, then CLAP; no VST3 | AU covers nearly every commercial Mac plugin. CLAP is MIT licensed with a Rust host library. VST3's licence would force the project's. |
+| User-made pedals | A node graph over DSP primitives, saved as JSON | Real-time safe by construction, shareable, no compiler. |
+| Plugin process model | In process, on the audio thread | What nearly every DAW does. Scanning runs in a child process so a crashing plugin cannot take the app down. |
+| License | MIT | Permissive and simple for contributors, and anyone can reuse the `dsp` crate. |

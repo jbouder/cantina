@@ -6,7 +6,7 @@ description: "The stage: visualizer scenes drawn from engine frames, scene switc
 The stage draws a visualizer scene from what the engine hears. The
 scenes live in `packages/scenes` (see its README); each frame they get
 the spectrum, waveform, level and beat from the analysis stream in
-[frames](/notes/frames/), with the beat from the tempo map while the transport
+[frames](/architecture/frames/), with the beat from the tempo map while the transport
 rolls.
 
 ## The stage sheet
@@ -38,7 +38,7 @@ through. Switching chains arms that track and disarms the others in one
 edit, so a clean and a lead sound are two tracks with their own pedals.
 Below are the live chain's pedals as stomps: the LED is lit while the
 pedal is on, and pressing it bypasses the pedal, which keeps its
-settings. Bypass is saved with the project ([project](/notes/project/)) and is
+settings. Bypass is saved with the project ([project](/architecture/project/)) and is
 undoable like any edit; a bypassed pedal adds no latency.
 
 ## A second display

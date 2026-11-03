@@ -2,14 +2,14 @@
 //!
 //! A [`Graph`] is built and edited on the UI thread: nodes are added,
 //! prepared and wired between the stream input, each other and the stream
-//! output. [`Graph::compile`] turns it into a [`Schedule`], a flat list of
+//! output. `Graph::compile` turns it into a `Schedule`, a flat list of
 //! steps with every buffer preallocated, which the [`Runtime`] swaps in on
 //! the audio thread.
 //!
 //! Nodes are shared between consecutive schedules. An edit that adds a
 //! pedal leaves the others running with their state intact, and only the
 //! removed ones are dropped, on the UI thread, once the old schedule comes
-//! back. Each node lives in a [`NodeSlot`] whose lock is only ever taken by
+//! back. Each node lives in a `NodeSlot` whose lock is only ever taken by
 //! the audio thread: the UI thread touches a node only while no schedule
 //! references it, so the lock is never contended and `try_lock` never
 //! blocks. A failed `try_lock` is counted and the node is bypassed for that
@@ -41,8 +41,11 @@ impl fmt::Display for NodeId {
 /// One end of an edge: the stream input, the stream output or a node.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Endpoint {
+    /// The stream's input: what the interface hears.
     Input,
+    /// The stream's output: what the interface plays.
     Output,
+    /// A node in the graph.
     Node(NodeId),
 }
 
@@ -68,6 +71,7 @@ impl fmt::Display for Endpoint {
 /// timeline position is contiguous: frame `i` is at `position + i`.
 #[derive(Debug, Clone, Copy)]
 pub struct BlockContext<'a> {
+    /// The stream's sample rate.
     pub sample_rate: f64,
     /// Frames in this block.
     pub frames: usize,
@@ -77,6 +81,7 @@ pub struct BlockContext<'a> {
     pub position: u64,
     /// The active loop, if any.
     pub loop_range: Option<LoopRange>,
+    /// The tempo map, for nodes that follow bars and beats.
     pub tempo: &'a TempoMap,
 }
 
@@ -127,18 +132,22 @@ pub struct ProcessorNode {
 }
 
 impl ProcessorNode {
+    /// Wraps a processor as a node.
     pub fn new(processor: Box<dyn Processor>) -> Self {
         Self { inner: processor }
     }
 
+    /// The processor.
     pub fn processor(&self) -> &dyn Processor {
         self.inner.as_ref()
     }
 
+    /// The processor, to change.
     pub fn processor_mut(&mut self) -> &mut dyn Processor {
         self.inner.as_mut()
     }
 
+    /// Unwraps the processor, as when a node leaves the graph.
     pub fn into_processor(self) -> Box<dyn Processor> {
         self.inner
     }
@@ -187,7 +196,9 @@ impl Node for ProcessorNode {
 /// The audio configuration a graph's nodes are prepared for.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GraphConfig {
+    /// The stream's sample rate.
     pub sample_rate: f64,
+    /// The largest block a callback will hand over.
     pub max_block_frames: usize,
     /// Channels every buffer in the graph carries, at most [`MAX_CHANNELS`].
     pub channels: usize,
@@ -197,10 +208,13 @@ pub struct GraphConfig {
 /// thread; this is what the engine knows about it without asking.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NodeInfo {
+    /// The node's name, from its processor.
     pub name: String,
+    /// The node's parameters, from its processor.
     pub params: Vec<ParamInfo>,
     /// Last value set for each parameter, clamped to its range.
     pub values: Vec<f32>,
+    /// Frames of latency the node reports.
     pub latency: usize,
 }
 
@@ -221,17 +235,25 @@ impl NodeSlot {
 /// Why a graph edit or compile was refused.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GraphError {
+    /// The id names no node in the graph.
     UnknownNode(NodeId),
+    /// The edge cannot exist, for the reason given.
     InvalidEdge {
+        /// Where it starts.
         from: Endpoint,
+        /// Where it ends.
         to: Endpoint,
+        /// Why it cannot exist.
         why: &'static str,
     },
     /// The edge would make a cycle.
     Cycle {
+        /// Where it starts.
         from: Endpoint,
+        /// Where it ends.
         to: Endpoint,
     },
+    /// The config asks for more channels than [`MAX_CHANNELS`], or none.
     TooManyChannels(usize),
 }
 
@@ -284,6 +306,7 @@ pub struct Graph {
 }
 
 impl Graph {
+    /// An empty graph for `config`.
     pub fn new(config: GraphConfig) -> Result<Self, GraphError> {
         if config.channels == 0 || config.channels > MAX_CHANNELS {
             return Err(GraphError::TooManyChannels(config.channels));
@@ -296,6 +319,7 @@ impl Graph {
         })
     }
 
+    /// The configuration the graph's nodes are prepared for.
     pub fn config(&self) -> GraphConfig {
         self.config
     }
@@ -406,22 +430,27 @@ impl Graph {
         self.nodes.iter().map(|e| e.id)
     }
 
+    /// Number of nodes.
     pub fn len(&self) -> usize {
         self.nodes.len()
     }
 
+    /// True when the graph has no nodes.
     pub fn is_empty(&self) -> bool {
         self.nodes.is_empty()
     }
 
+    /// True when the graph holds a node with this id.
     pub fn contains(&self, id: NodeId) -> bool {
         self.index_of(id).is_ok()
     }
 
+    /// What the engine knows about a node.
     pub fn node(&self, id: NodeId) -> Option<&NodeInfo> {
         self.index_of(id).ok().map(|i| &self.nodes[i].info)
     }
 
+    /// Every edge, as `(from, to)`.
     pub fn edges(&self) -> &[(Endpoint, Endpoint)] {
         &self.edges
     }

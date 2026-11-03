@@ -18,13 +18,16 @@ use serde::{Deserialize, Serialize};
 use crate::command::Command;
 use crate::model::Project;
 
+/// The journal's file name inside a project directory.
 pub const JOURNAL_FILE: &str = "journal.jsonl";
 
 /// One applied command and the revision it brought the project to.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Entry {
+    /// The project's revision after the command.
     pub revision: u64,
+    /// The command, as applied.
     pub command: Command,
 }
 
@@ -38,17 +41,21 @@ pub struct Journal {
 /// that did not.
 #[derive(Debug, Default, PartialEq)]
 pub struct Read {
+    /// Entries in the order they were written.
     pub entries: Vec<Entry>,
+    /// One line per entry that was skipped, saying why.
     pub warnings: Vec<String>,
 }
 
 impl Journal {
+    /// The journal of the project at `project_dir`; the file need not exist yet.
     pub fn in_dir(project_dir: &Path) -> Self {
         Self {
             path: project_dir.join(JOURNAL_FILE),
         }
     }
 
+    /// Where the journal is written.
     pub fn path(&self) -> &Path {
         &self.path
     }

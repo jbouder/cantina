@@ -10,7 +10,9 @@ use crate::processor::{Buffer, Chain, Processor, MAX_CHANNELS};
 /// would deliver, so block-rate parameter updates behave as they do live.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Renderer {
+    /// The rate to render at.
     pub sample_rate: f64,
+    /// Frames per block.
     pub block_frames: usize,
 }
 
@@ -24,6 +26,7 @@ impl Default for Renderer {
 }
 
 impl Renderer {
+    /// A renderer at `sample_rate` in blocks of `block_frames` (at least 1).
     pub fn new(sample_rate: f64, block_frames: usize) -> Self {
         Self {
             sample_rate,

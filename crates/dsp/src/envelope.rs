@@ -35,15 +35,18 @@ impl Envelope {
         }
     }
 
+    /// Sets the attack and release times.
     pub fn set_times(&mut self, attack_seconds: f32, release_seconds: f32, sample_rate: f32) {
         self.attack = Self::coefficient(attack_seconds, sample_rate);
         self.release = Self::coefficient(release_seconds, sample_rate);
     }
 
+    /// Drops the envelope to zero.
     pub fn reset(&mut self) {
         self.value = 0.0;
     }
 
+    /// The current level.
     pub fn value(&self) -> f32 {
         self.value
     }

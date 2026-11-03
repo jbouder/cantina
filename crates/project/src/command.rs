@@ -20,20 +20,33 @@ use crate::model::{
 /// comes back.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum CommandError {
+    /// The track id names no track.
     #[error("no track {0}")]
     NoTrack(TrackId),
+    /// The clip id names no clip.
     #[error("no clip {0}")]
     NoClip(ClipId),
+    /// The pedal id names no pedal.
     #[error("no pedal {0}")]
     NoPedal(PedalId),
+    /// The pattern id names no pattern.
     #[error("no pattern {0}")]
     NoPattern(PatternId),
+    /// The pattern clip id names no pattern clip.
     #[error("no pattern clip {0}")]
     NoPatternClip(PatternClipId),
+    /// The pedal has fewer parameters than the index asked for.
     #[error("pedal {pedal} has no parameter {param}")]
-    NoParam { pedal: PedalId, param: usize },
+    NoParam {
+        /// The pedal.
+        pedal: PedalId,
+        /// The index that is out of range.
+        param: usize,
+    },
+    /// A command that creates an object carried an id the project already uses.
     #[error("id {0} is already in use")]
     IdInUse(u64),
+    /// The command breaks a rule of the model, said in words.
     #[error("{0}")]
     Invalid(String),
 }
@@ -46,184 +59,279 @@ pub enum Command {
     /// Adds a track at `index` (clamped to the end). The inverse of
     /// `RemoveTrack`, carrying everything the track held.
     InsertTrack {
+        /// Position among the tracks.
         index: usize,
+        /// The track, with its clips and chain.
         track: Track,
     },
+    /// Removes a track and everything on it.
     RemoveTrack {
+        /// The track.
         id: TrackId,
     },
+    /// Renames a track.
     RenameTrack {
+        /// The track.
         id: TrackId,
+        /// The new name.
         name: String,
     },
+    /// Moves a track to index `to` among the tracks (clamped to the end).
     MoveTrack {
+        /// The track.
         id: TrackId,
+        /// Where it goes.
         to: usize,
     },
+    /// Arms or disarms a track for recording.
     ArmTrack {
+        /// The track.
         id: TrackId,
+        /// True to arm.
         armed: bool,
     },
+    /// Adds a clip to a track.
     InsertClip {
+        /// The track it goes on.
         track: TrackId,
+        /// The clip, with its id.
         clip: Clip,
     },
+    /// Removes a clip from the timeline. Its file stays in `audio/`.
     RemoveClip {
+        /// The clip.
         id: ClipId,
     },
     /// Puts a clip at `start` on `track`, which may be another track.
     MoveClip {
+        /// The clip.
         id: ClipId,
+        /// The track it ends up on.
         track: TrackId,
+        /// Timeline sample it starts at.
         start: u64,
     },
     /// Sets a clip's whole geometry. Trimming either edge is a special
     /// case; so is undoing a split.
     TrimClip {
+        /// The clip.
         id: ClipId,
+        /// Timeline sample it starts at.
         start: u64,
+        /// Frame into the file it starts from.
         offset: u64,
+        /// Frames it plays.
         length: u64,
     },
     /// Cuts a clip at timeline sample `at`, strictly inside it. The right
     /// part becomes a new clip with `new_id`.
     SplitClip {
+        /// The clip.
         id: ClipId,
+        /// Timeline sample of the cut.
         at: u64,
+        /// Id of the right-hand part.
         new_id: ClipId,
     },
+    /// Adds a pedal to a track's chain at `index` (clamped to the end).
     InsertPedal {
+        /// The track.
         track: TrackId,
+        /// Position in the chain.
         index: usize,
+        /// The pedal, with its id and values.
         pedal: Pedal,
     },
+    /// Removes a pedal from its chain.
     RemovePedal {
+        /// The pedal.
         id: PedalId,
     },
+    /// Moves a pedal to index `to` in its chain (clamped to the end).
     MovePedal {
+        /// The pedal.
         id: PedalId,
+        /// Where it goes.
         to: usize,
     },
     /// Swaps what a pedal is (a cabinet's impulse response) keeping its
     /// id, position and values.
     SetPedalSpec {
+        /// The pedal.
         id: PedalId,
+        /// The spec it becomes.
         spec: String,
     },
     /// Replaces every parameter value of a pedal at once: what the
     /// designer does when a pedal's parameters change shape.
     SetPedalValues {
+        /// The pedal.
         id: PedalId,
+        /// One value per parameter, in the processor's order.
         values: Vec<f32>,
     },
+    /// Sets one parameter of a pedal.
     SetParam {
+        /// The pedal.
         pedal: PedalId,
+        /// Index of the parameter in the processor's list.
         param: usize,
+        /// The new value, in the parameter's own units.
         value: f32,
     },
     /// Takes a pedal out of the signal path, or puts it back.
     SetBypass {
+        /// The pedal.
         pedal: PedalId,
+        /// True to bypass.
         on: bool,
     },
+    /// Sets the tempo and time signature.
     SetTempo {
+        /// The new tempo.
         tempo: Tempo,
     },
     /// Gain in decibels on a track's strip, or the master's with no track.
     SetGain {
+        /// The track, or none for the master.
         track: Option<TrackId>,
+        /// Gain in decibels.
         db: f32,
     },
+    /// Pans a track.
     SetPan {
+        /// The track.
         track: TrackId,
+        /// -1 is hard left, 1 hard right.
         pan: f32,
     },
     /// Mute on a track's strip, or the master's with no track.
     SetMute {
+        /// The track, or none for the master.
         track: Option<TrackId>,
+        /// True to mute.
         on: bool,
     },
+    /// Solos a track, or takes its solo off.
     SetSolo {
+        /// The track.
         track: TrackId,
+        /// True to solo.
         on: bool,
     },
     /// Changes a drum track's kit. Refused on an audio track.
     SetTrackKit {
+        /// The drum track.
         id: TrackId,
+        /// The kit's id.
         kit: String,
     },
     /// Adds a pattern at `index` (clamped to the end).
     InsertPattern {
+        /// Position among the patterns.
         index: usize,
+        /// The pattern, with its id.
         pattern: Pattern,
     },
+    /// Removes a pattern. Refused while a clip on the timeline plays it.
     RemovePattern {
+        /// The pattern.
         id: PatternId,
     },
+    /// Renames a pattern.
     RenamePattern {
+        /// The pattern.
         id: PatternId,
+        /// The new name.
         name: String,
     },
     /// Sets one cell. A velocity of zero clears it; a row with no hits
     /// left is dropped, and a hit on a pad with no row makes one.
     SetPatternStep {
+        /// The pattern.
         pattern: PatternId,
+        /// The pad's id in the kit format.
         pad: String,
+        /// Step index, from 0.
         step: usize,
+        /// 0 to 1.
         velocity: f32,
     },
     /// Sets the step count. Rows are cut or padded with silence; the
     /// inverse carries the rows as they were.
     SetPatternLength {
+        /// The pattern.
         id: PatternId,
+        /// Steps in the pattern.
         length: u16,
     },
     /// Steps per beat: 1, 2, 3, 4, 6 or 8. The steps keep their
     /// velocities and play faster or slower.
     SetPatternResolution {
+        /// The pattern.
         id: PatternId,
+        /// Steps per quarter note.
         steps_per_beat: u8,
     },
+    /// Sets a pattern's swing.
     SetPatternSwing {
+        /// The pattern.
         id: PatternId,
+        /// 0 is straight, 1 a full triplet feel.
         swing: f32,
     },
     /// Replaces a pattern whole. The inverse of a length change.
     ReplacePattern {
+        /// The pattern as it should be, by its id.
         pattern: Pattern,
     },
     /// Puts a pattern on a drum track. Positions in ticks.
     InsertPatternClip {
+        /// The drum track.
         track: TrackId,
+        /// The clip, with its id.
         clip: PatternClip,
     },
+    /// Removes a pattern clip from the timeline.
     RemovePatternClip {
+        /// The clip.
         id: PatternClipId,
     },
     /// Puts a pattern clip at `start` on `track`, which may be another
     /// drum track.
     MovePatternClip {
+        /// The clip.
         id: PatternClipId,
+        /// The drum track it ends up on.
         track: TrackId,
+        /// Timeline tick it starts at.
         start: u64,
     },
     /// Sets a pattern clip's whole geometry, in ticks.
     TrimPatternClip {
+        /// The clip.
         id: PatternClipId,
+        /// Timeline tick it starts at.
         start: u64,
+        /// Ticks into the pattern it starts from.
         offset: u64,
+        /// Ticks it plays.
         length: u64,
     },
     /// Cuts a pattern clip at tick `at`, strictly inside it. The right
     /// part becomes a new clip with `new_id`.
     SplitPatternClip {
+        /// The clip.
         id: PatternClipId,
+        /// Timeline tick of the cut.
         at: u64,
+        /// Id of the right-hand part.
         new_id: PatternClipId,
     },
     /// Several commands as one edit. Applied in order; the inverse
     /// reverts them in reverse.
     Batch {
+        /// The commands, in the order they apply.
         commands: Vec<Command>,
     },
 }

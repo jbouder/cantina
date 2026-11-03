@@ -31,18 +31,25 @@ pub fn note_beats(index: usize) -> f64 {
     BEATS[index.min(BEATS.len() - 1)]
 }
 
+/// The waveform an [`Lfo`] draws.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Shape {
+    /// A smooth swing.
     #[default]
     Sine,
+    /// Straight ramps up and down.
     Triangle,
+    /// Half a cycle high, half low.
     Square,
+    /// A ramp up that drops back.
     Saw,
     /// A new random level each cycle: sample and hold.
     Random,
 }
 
 impl Shape {
+    /// The shape at an index in a choice parameter: sine, triangle, square,
+    /// saw, random. Out of range is sine.
     pub fn from_index(index: usize) -> Self {
         match index {
             1 => Shape::Triangle,
@@ -98,6 +105,7 @@ impl Default for Lfo {
 }
 
 impl Lfo {
+    /// A sine at rest: it moves once a rate is set.
     pub fn new() -> Self {
         let mut lfo = Self {
             shape: Shape::Sine,
@@ -111,6 +119,7 @@ impl Lfo {
         lfo
     }
 
+    /// Sets the sample rate it ticks at. Off the audio thread.
     pub fn prepare(&mut self, sample_rate: f32) {
         let hz = self.increment * self.sample_rate;
         self.sample_rate = sample_rate;
@@ -126,14 +135,17 @@ impl Lfo {
         self.held = self.next_random();
     }
 
+    /// Changes the waveform without moving the phase.
     pub fn set_shape(&mut self, shape: Shape) {
         self.shape = shape;
     }
 
+    /// The waveform.
     pub fn shape(&self) -> Shape {
         self.shape
     }
 
+    /// Sets the rate in cycles per second.
     pub fn set_rate_hz(&mut self, hz: f32) {
         self.increment = if self.sample_rate > 0.0 {
             hz.max(0.0) / self.sample_rate
@@ -142,6 +154,7 @@ impl Lfo {
         };
     }
 
+    /// The rate in cycles per second.
     pub fn rate_hz(&self) -> f32 {
         self.increment * self.sample_rate
     }
@@ -158,6 +171,7 @@ impl Lfo {
         }
     }
 
+    /// Where in the cycle it is, 0 to 1.
     pub fn phase(&self) -> f32 {
         self.phase
     }

@@ -28,17 +28,23 @@ use clack_plugin::prelude::*;
 use clack_plugin::process::audio::ChannelPair;
 use clack_plugin::stream::{InputStream, OutputStream};
 
+/// The test gain plugin's id.
 pub const ID: &str = "com.cantina.test-gain";
+/// The test gain plugin's name.
 pub const NAME: &str = "Cantina Test Gain";
+/// The vendor both plugins report.
 pub const VENDOR: &str = "Cantina";
 /// A plugin that aborts on instantiation.
 pub const CRASH_ID: &str = "com.cantina.test-crash";
+/// The crashing plugin's name.
 pub const CRASH_NAME: &str = "Cantina Test Crash";
+/// The longest delay the `Delay` parameter allows, in samples.
 pub const MAX_DELAY: usize = 64;
 const GAIN: u32 = 0;
 const DELAY: u32 = 1;
 const CHANNELS: usize = 2;
 
+/// The test gain plugin.
 pub struct TestGain;
 
 /// Parameter values live here so every thread sees the same numbers.
@@ -85,12 +91,14 @@ impl Shared {
 
 impl PluginShared<'_> for Shared {}
 
+/// The plugin's main-thread half.
 pub struct MainThread<'a> {
     shared: &'a Shared,
 }
 
 impl<'a> PluginMainThread<'a, Shared> for MainThread<'a> {}
 
+/// The plugin's audio-thread half.
 pub struct Processor<'a> {
     shared: &'a Shared,
     history: Vec<[f32; MAX_DELAY]>,
@@ -133,10 +141,12 @@ impl Plugin for Crash {
     type MainThread<'a> = ();
 }
 
+/// The bundle's entry point.
 pub struct Entry {
     factory: PluginFactoryWrapper<Factory>,
 }
 
+/// The factory that makes both plugins.
 pub struct Factory {
     gain: PluginDescriptor,
     crash: PluginDescriptor,

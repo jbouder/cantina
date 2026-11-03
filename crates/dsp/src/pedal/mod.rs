@@ -61,10 +61,14 @@ pub const MAX_PARAMS: usize = 32;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PedalDef {
+    /// The format version, [`PEDAL_VERSION`] when written.
     pub version: u32,
+    /// Shown in the pedal picker and on the pedal.
     pub name: String,
+    /// The knobs, in the order the pedal shows them.
     #[serde(default)]
     pub params: Vec<ParamDef>,
+    /// The graph's nodes.
     #[serde(default)]
     pub nodes: Vec<NodeDef>,
     /// `[from, to]` pairs of node ids: audio flows from the first to
@@ -85,10 +89,13 @@ pub struct ParamDef {
     /// `dB`, `Hz`, `s`, `ms`, `%` or nothing.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub unit: String,
+    /// The smallest value.
     #[serde(default, serialize_with = "tidy")]
     pub min: f32,
+    /// The largest value; 1 when missing.
     #[serde(default = "one", serialize_with = "tidy")]
     pub max: f32,
+    /// The value a new pedal starts at.
     #[serde(default, serialize_with = "tidy")]
     pub default: f32,
     /// A pick from a list: the value is the index, the range is set
@@ -103,7 +110,9 @@ pub struct ParamDef {
 /// One node of the graph: a primitive and its fields.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct NodeDef {
+    /// Unique within the pedal; what edges and bindings refer to.
     pub id: String,
+    /// The primitive: one of the kinds [`kinds`] lists.
     pub kind: String,
     /// Where the designer drew it; nothing to the sound.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -118,9 +127,13 @@ pub struct NodeDef {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum Value {
+    /// A number, for a number field.
     Number(f64),
+    /// A switch.
     Bool(bool),
+    /// One of a list of names.
     Name(String),
+    /// Follows a parameter or another node's signal.
     Bound(Binding),
 }
 
@@ -206,6 +219,7 @@ impl Binding {
         }
     }
 
+    /// Interpolates the map exponentially, for frequencies.
     pub fn log(mut self) -> Self {
         self.log = true;
         self
@@ -260,6 +274,7 @@ pub struct Problem {
     /// The field of that node, if one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub field: Option<String>,
+    /// What is wrong, in words.
     pub message: String,
 }
 
@@ -363,16 +378,19 @@ impl PedalDef {
         compile::check(self)
     }
 
+    /// A node by id.
     pub fn node(&self, id: &str) -> Option<&NodeDef> {
         self.nodes.iter().find(|n| n.id == id)
     }
 
+    /// A parameter by id.
     pub fn param(&self, id: &str) -> Option<&ParamDef> {
         self.params.iter().find(|p| p.id == id)
     }
 }
 
 impl NodeDef {
+    /// A node with no fields set, so every field takes its default.
     pub fn new(id: &str, kind: &str) -> Self {
         Self {
             id: id.to_string(),

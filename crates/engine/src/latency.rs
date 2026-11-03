@@ -33,7 +33,9 @@ pub struct ClickTrain {
 pub struct Capture {
     consumer: Consumer<f32>,
     dropped: Arc<AtomicU64>,
+    /// Frames of silence before the first click, which set the noise floor.
     pub lead: usize,
+    /// Frames from one click to the next.
     pub period: usize,
     samples: Vec<f32>,
 }
@@ -105,6 +107,7 @@ impl Capture {
         self.samples.len()
     }
 
+    /// True when nothing has been captured yet.
     pub fn is_empty(&self) -> bool {
         self.samples.is_empty()
     }
@@ -139,14 +142,17 @@ pub struct Measurement {
 }
 
 impl Measurement {
+    /// The shortest round trip measured, in frames.
     pub fn min(&self) -> usize {
         self.delays.iter().copied().min().unwrap_or(0)
     }
 
+    /// The longest round trip measured, in frames.
     pub fn max(&self) -> usize {
         self.delays.iter().copied().max().unwrap_or(0)
     }
 
+    /// The median round trip, in frames: the number to report.
     pub fn median(&self) -> usize {
         let mut sorted = self.delays.clone();
         sorted.sort_unstable();

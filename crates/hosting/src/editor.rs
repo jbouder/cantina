@@ -275,6 +275,7 @@ impl Editor {
         }
     }
 
+    /// True until the window is closed, by the user or by [`Editor::close`].
     pub fn is_open(&self) -> bool {
         self.open
     }

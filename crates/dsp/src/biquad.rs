@@ -46,6 +46,7 @@ impl Biquad {
         self.set_normalized(b0, b1, b0, 1.0 + alpha, -2.0 * cos, 1.0 - alpha);
     }
 
+    /// Sets a second-order highpass at `frequency` with resonance `q`.
     pub fn set_highpass(&mut self, sample_rate: f32, frequency: f32, q: f32) {
         let (_, cos, alpha) = Self::prewarp(sample_rate, frequency, q);
         let b1 = -(1.0 + cos);

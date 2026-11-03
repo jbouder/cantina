@@ -219,6 +219,7 @@ impl Oversampler {
         os
     }
 
+    /// The oversampling factor, a power of two.
     pub fn factor(&self) -> usize {
         self.factor
     }
@@ -262,6 +263,7 @@ impl Oversampler {
         self.reset();
     }
 
+    /// Clears the filters' history.
     pub fn reset(&mut self) {
         for stage in self.up.iter_mut().chain(self.down.iter_mut()) {
             stage.reset();

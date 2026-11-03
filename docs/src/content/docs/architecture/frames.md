@@ -1,13 +1,14 @@
 ---
 title: "Frames"
-description: "The binary frame the engine streams to the UI each display frame: meters, spectrum, waveform and beat."
+description: "The binary frame the shell streams to the UI each display frame: meters, transport, pedal readouts, spectrum, waveform and beat."
+sidebar:
+  order: 5
 ---
 
 The engine streams one binary **frame** per displayed frame to the UI
-over a Tauri channel. In M2 a frame carries the input and output meters
-and the transport state; M6 added the pedal readouts (a tuner's pitch, a
-compressor's gain reduction); in M8 the same frame carries the analysis
-stream (spectrum, waveform, level, beat) for the stage. The encoder is
+over a Tauri channel: the meters, the transport state, the pedal
+readouts (a tuner's pitch, a compressor's gain reduction) and the analysis
+stream (spectrum, waveform, level, beat) the stage draws from. The encoder is
 `src-tauri/src/frame.rs`, the decoder `ui/src/lib/frame.ts`, and both have
 tests pinned to the layout below.
 
@@ -95,7 +96,7 @@ status names its cells, so `readoutsByPedal` in `ui/src/lib/readouts.ts`
 cuts the section up by pedal id: a tuner with two names takes the next
 two values, a gain pedal with none takes nothing. A frame that does not
 add up to the status (one sent across a chain edit) is shown as no
-readouts rather than as the wrong pedal's values. See [pedals](/notes/pedals/)
+readouts rather than as the wrong pedal's values. See [stock pedals](/notes/pedals/)
 for what each pedal publishes.
 
 ## Rate and dropping
@@ -121,9 +122,6 @@ queue.
 
 ## Cost
 
-The scope adds 141 ns to a 128-frame stereo block in a release build,
-0.005% of the 2.67 ms the block lasts at 48 kHz, and 0.4 µs in a dev
-build: it copies samples and does nothing else. The analysis costs the
-pump 23 µs a frame in release (28 µs in dev), 0.14% of a 16.7 ms frame,
-off the audio thread. Measured on a MacBook Pro, 2026-11-02, by timing
-200,000 blocks and 5,000 analyses.
+The scope adds about 0.005% of a 128-frame block's time on the audio
+thread: it copies samples and does nothing else. The analysis runs in
+the shell's pump, off the audio thread, in about 0.15% of a 60 Hz frame.

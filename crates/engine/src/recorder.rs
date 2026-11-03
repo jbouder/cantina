@@ -54,6 +54,7 @@ pub struct RecorderStats {
     pub written_frames: AtomicU64,
     /// Files the writer has finalized.
     pub files_closed: AtomicU64,
+    /// Writes that failed; the take is short by what they held.
     pub write_errors: AtomicU64,
 }
 
@@ -165,6 +166,7 @@ impl Recorder {
         (recorder, handle)
     }
 
+    /// Counters for this recorder, shared with its handle.
     pub fn stats(&self) -> &Arc<RecorderStats> {
         &self.stats
     }
@@ -280,6 +282,7 @@ impl Node for Recorder {
 }
 
 impl RecorderHandle {
+    /// Counters for the recorder, shared with it.
     pub fn stats(&self) -> &Arc<RecorderStats> {
         &self.stats
     }

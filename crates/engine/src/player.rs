@@ -37,6 +37,7 @@ use crate::wav::{self, Reader};
 /// A region of a file placed on the timeline.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Clip {
+    /// The WAV file it plays.
     pub path: PathBuf,
     /// Timeline sample the clip starts at.
     pub start: u64,
@@ -81,6 +82,7 @@ pub struct PlayerStats {
     /// Generation the node last asked for, and the one the disk thread
     /// last rendered. Equal once the disk thread has caught up.
     pub requested_generation: AtomicU64,
+    /// See `requested_generation`.
     pub rendered_generation: AtomicU64,
     /// Frames of the current generation waiting in the ring, as of the
     /// node's last block.
@@ -209,6 +211,7 @@ impl Player {
         (player, handle)
     }
 
+    /// Counters for this player, shared with its handle.
     pub fn stats(&self) -> &Arc<PlayerStats> {
         &self.stats
     }
@@ -378,10 +381,12 @@ impl Node for Player {
 }
 
 impl PlayerHandle {
+    /// Counters for the player, shared with it.
     pub fn stats(&self) -> &Arc<PlayerStats> {
         &self.stats
     }
 
+    /// The clips the player was last given.
     pub fn clips(&self) -> &[Clip] {
         &self.clips
     }

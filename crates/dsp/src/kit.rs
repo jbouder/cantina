@@ -49,8 +49,11 @@ pub const MAX_LAYERS: usize = 16;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Kit {
+    /// The format version, [`KIT_VERSION`] when written.
     pub version: u32,
+    /// Shown in the kit picker.
     pub name: String,
+    /// The pads, in the order the sequencer shows them.
     #[serde(default)]
     pub pads: Vec<Pad>,
 }
@@ -64,6 +67,7 @@ pub struct Pad {
     /// Display name; the id when missing.
     #[serde(default)]
     pub name: String,
+    /// Gain in decibels.
     #[serde(default)]
     pub gain_db: f32,
     /// -1 is hard left, 1 hard right.
@@ -74,6 +78,7 @@ pub struct Pad {
     /// silencing the open one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub choke: Option<String>,
+    /// The pad's samples by velocity, at least one.
     pub layers: Vec<Layer>,
 }
 
@@ -87,6 +92,7 @@ pub struct Layer {
     /// whole range when missing.
     #[serde(default = "full_range")]
     pub velocity: [f32; 2],
+    /// Gain in decibels.
     #[serde(default)]
     pub gain_db: f32,
 }
@@ -103,7 +109,13 @@ pub enum KitError {
     /// The kit is JSON but breaks a rule; the message says which.
     Invalid(String),
     /// A sample could not be provided.
-    Sample { file: String, why: String },
+    /// A sample could not be provided.
+    Sample {
+        /// The file the layer names.
+        file: String,
+        /// What went wrong.
+        why: String,
+    },
 }
 
 impl fmt::Display for KitError {
@@ -136,6 +148,7 @@ impl Kit {
         serde_json::to_string_pretty(self).expect("a kit serializes")
     }
 
+    /// A pad by id.
     pub fn pad(&self, id: &str) -> Option<&Pad> {
         self.pads.iter().find(|p| p.id == id)
     }
@@ -242,6 +255,7 @@ fn check_file(pad: &str, file: &str) -> Result<(), KitError> {
 /// sounds right in a 48 kHz project.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Sample {
+    /// The rate it was recorded at.
     pub sample_rate: f64,
     /// One channel for mono, two for stereo. Every channel is the same
     /// length.
@@ -249,6 +263,7 @@ pub struct Sample {
 }
 
 impl Sample {
+    /// Frames in each channel.
     pub fn frames(&self) -> usize {
         self.channels.first().map_or(0, |c| c.len())
     }
@@ -257,9 +272,11 @@ impl Sample {
 /// A layer with its sample.
 #[derive(Debug, Clone)]
 pub struct LoadedLayer {
+    /// The velocities this layer answers, inclusive, from 0 to 1.
     pub velocity: [f32; 2],
     /// Linear.
     pub gain: f32,
+    /// The sample, shared with every voice playing it.
     pub sample: Arc<Sample>,
 }
 
@@ -267,12 +284,17 @@ pub struct LoadedLayer {
 /// to a number.
 #[derive(Debug, Clone)]
 pub struct LoadedPad {
+    /// Stable identifier patterns refer to.
     pub id: String,
+    /// Display name.
     pub name: String,
+    /// Linear gain.
     pub gain: f32,
+    /// -1 is hard left, 1 hard right.
     pub pan: f32,
     /// Index of the choke group among the kit's groups.
     pub choke: Option<usize>,
+    /// The pad's layers, in the kit's order.
     pub layers: Vec<LoadedLayer>,
 }
 
@@ -306,6 +328,7 @@ impl LoadedPad {
 /// A kit ready to play: every layer's sample is in memory.
 #[derive(Debug, Clone, Default)]
 pub struct LoadedKit {
+    /// Shown in the kit picker.
     pub name: String,
     pads: Vec<LoadedPad>,
     /// Choke group names, indexed by [`LoadedPad::choke`].
@@ -393,10 +416,12 @@ impl LoadedKit {
         })
     }
 
+    /// The pads, in the kit's order.
     pub fn pads(&self) -> &[LoadedPad] {
         &self.pads
     }
 
+    /// Where a pad sits among the pads, which is what a trigger names.
     pub fn pad_index(&self, id: &str) -> Option<usize> {
         self.pads.iter().position(|p| p.id == id)
     }

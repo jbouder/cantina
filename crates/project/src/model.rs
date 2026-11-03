@@ -69,7 +69,9 @@ id_type!(
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PatternClip {
+    /// Unique within the project.
     pub id: PatternClipId,
+    /// The pattern it plays.
     pub pattern: PatternId,
     /// Timeline tick the clip starts at.
     pub start: u64,
@@ -80,6 +82,7 @@ pub struct PatternClip {
 }
 
 impl PatternClip {
+    /// Timeline tick just after the clip.
     pub fn end(&self) -> u64 {
         self.start + self.length
     }
@@ -92,7 +95,9 @@ impl PatternClip {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Pattern {
+    /// Unique within the project.
     pub id: PatternId,
+    /// Shown in the pattern picker.
     pub name: String,
     /// Steps per quarter note: 2 for eighths, 4 for sixteenths, 8 for
     /// thirty-seconds; 3 and 6 for triplets.
@@ -112,7 +117,9 @@ pub struct Pattern {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PatternRow {
+    /// The pad's id in the kit format.
     pub pad: String,
+    /// Velocity per step, 0 for no hit.
     pub steps: Vec<f32>,
 }
 
@@ -139,6 +146,7 @@ impl Pattern {
         self.step_ticks() * self.length.max(1) as u64
     }
 
+    /// The row for a pad, if it has hits.
     pub fn row(&self, pad: &str) -> Option<&PatternRow> {
         self.rows.iter().find(|r| r.pad == pad)
     }
@@ -214,8 +222,11 @@ impl Pattern {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Tempo {
+    /// Beats per minute.
     pub bpm: f64,
+    /// Beats in a bar.
     pub numerator: u8,
+    /// The note value of a beat: 4 for quarter notes.
     pub denominator: u8,
 }
 
@@ -233,9 +244,11 @@ impl Default for Tempo {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Strip {
+    /// Gain in decibels.
     pub gain_db: f32,
     /// -1 is hard left, 1 hard right. Ignored on the master.
     pub pan: f32,
+    /// Silences the strip.
     pub mute: bool,
     /// Ignored on the master.
     pub solo: bool,
@@ -257,7 +270,9 @@ impl Default for Strip {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Clip {
+    /// Unique within the project.
     pub id: ClipId,
+    /// Shown on the clip.
     pub name: String,
     /// Path relative to the project's `audio/` directory.
     pub file: String,
@@ -270,6 +285,7 @@ pub struct Clip {
 }
 
 impl Clip {
+    /// Timeline sample just after the clip.
     pub fn end(&self) -> u64 {
         self.start + self.length
     }
@@ -281,18 +297,25 @@ impl Clip {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Pedal {
+    /// Unique within the project.
     pub id: PedalId,
+    /// What the engine builds: a stock name, `au:…` or `clap:…`.
     pub spec: String,
+    /// One value per parameter, in the processor's order.
     pub values: Vec<f32>,
     /// Bypassed, the signal goes round the pedal; it keeps its settings.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub bypassed: bool,
 }
 
+/// A track: an armed input with a chain of pedals, the clips or patterns
+/// it plays, and its mixer strip.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Track {
+    /// Unique within the project.
     pub id: TrackId,
+    /// Shown in the track header.
     pub name: String,
     /// Armed tracks monitor their input and record when the transport
     /// records.
@@ -303,18 +326,22 @@ pub struct Track {
     /// from its input and clips.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kit: Option<String>,
+    /// The pedals the track's input and clips play through, in order.
     #[serde(default)]
     pub chain: Vec<Pedal>,
+    /// Audio on the timeline, for an audio track.
     #[serde(default)]
     pub clips: Vec<Clip>,
     /// Patterns on the timeline, for a drum track.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pattern_clips: Vec<PatternClip>,
+    /// The track's mixer strip.
     #[serde(default)]
     pub strip: Strip,
 }
 
 impl Track {
+    /// An empty audio track.
     pub fn new(id: TrackId, name: impl Into<String>) -> Self {
         Self {
             id,
@@ -336,18 +363,22 @@ impl Track {
         }
     }
 
+    /// True for a drum track, which has a kit.
     pub fn is_drums(&self) -> bool {
         self.kit.is_some()
     }
 
+    /// A clip on this track.
     pub fn clip(&self, id: ClipId) -> Option<&Clip> {
         self.clips.iter().find(|c| c.id == id)
     }
 
+    /// A pedal in this track's chain.
     pub fn pedal(&self, id: PedalId) -> Option<&Pedal> {
         self.chain.iter().find(|p| p.id == id)
     }
 
+    /// A pattern clip on this track.
     pub fn pattern_clip(&self, id: PatternClipId) -> Option<&PatternClip> {
         self.pattern_clips.iter().find(|c| c.id == id)
     }
@@ -358,13 +389,18 @@ impl Track {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Project {
+    /// The format version, [`FORMAT_VERSION`] when written; older files are
+    /// upgraded on load.
     pub version: u32,
+    /// The project's name, also its directory's.
     pub name: String,
     /// The rate every file in `audio/` is at, and the rate the engine
     /// must run at to play them.
     pub sample_rate: f64,
+    /// Tempo and time signature.
     #[serde(default)]
     pub tempo: Tempo,
+    /// Tracks, top to bottom.
     #[serde(default)]
     pub tracks: Vec<Track>,
     /// Drum patterns, shared by every drum track.
@@ -396,14 +432,17 @@ impl Project {
         }
     }
 
+    /// A track by id.
     pub fn track(&self, id: TrackId) -> Option<&Track> {
         self.tracks.iter().find(|t| t.id == id)
     }
 
+    /// A track by id, to change.
     pub fn track_mut(&mut self, id: TrackId) -> Option<&mut Track> {
         self.tracks.iter_mut().find(|t| t.id == id)
     }
 
+    /// Where a track sits among the tracks.
     pub fn track_index(&self, id: TrackId) -> Option<usize> {
         self.tracks.iter().position(|t| t.id == id)
     }
@@ -418,10 +457,12 @@ impl Project {
         self.tracks.iter().find_map(|t| t.pedal(id).map(|p| (t, p)))
     }
 
+    /// A pattern by id.
     pub fn pattern(&self, id: PatternId) -> Option<&Pattern> {
         self.patterns.iter().find(|p| p.id == id)
     }
 
+    /// A pattern by id, to change.
     pub fn pattern_mut(&mut self, id: PatternId) -> Option<&mut Pattern> {
         self.patterns.iter_mut().find(|p| p.id == id)
     }

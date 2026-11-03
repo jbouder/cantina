@@ -1,53 +1,13 @@
 ---
-title: "Plugin hosting"
-description: "Audio Units and CLAP plugins as processors: scanning, the handle split, latency, state and editor windows."
+title: "Hosting"
+description: "Audio Units and CLAP plugins as processors: how each format is wrapped, plugin state in the project, editor windows and the crash-proof scanner."
+sidebar:
+  order: 6
 ---
 
-Third-party plugins are Audio Units and CLAP plugins (VST3 is out for
-good: its license would force the project's). Both end up as a
-`Processor` in a chain, so the chain, the mixer and the project file never
-know they are holding a plugin. The code is `crates/hosting`; this page
-covers what M4 added on top of the M0 wrappers.
+Third-party plugins are Audio Units and CLAP plugins. VST3 is not supported: its licence would force the project's. Both formats end up as a [`Processor`](/architecture/processor/) in a chain, so the chain, the mixer and the project file never know they are holding a plugin. The code is `crates/hosting`; the API is [`cantina_hosting`](/api/cantina_hosting/).
 
-## Two threads, one plugin: the handle
-
-The spike left one decision to M4: a `Processor` is a single object that
-moves between the UI thread and the audio thread with the graph swap,
-while plugin APIs split a plugin into a main-thread half and an
-audio-thread half and expect the host to use both at once (save state,
-show an editor, read parameters) while audio runs. The answer is the
-second of the two options the spike offered: the engine keeps the
-main-thread half on the UI thread and talks to the audio half through
-the queues it already has.
-
-Concretely, `Processor::handle()` returns a `cantina_dsp::Handle` once,
-before the processor goes into a graph. Stock pedals return nothing: all
-there is to them is their parameters, which the engine already tracks.
-A plugin returns the UI-thread side of itself. The shell keeps it next to
-the node id (`LivePedal` in `src-tauri/src/engine.rs`) for as long as the
-pedal is in the chain, and uses it for:
-
-- **state**: `state()` and `set_state()` while the processor runs;
-- **latency**: `latency()` as it is now, since a plugin can change it
-  after it was prepared;
-- **changes the plugin made on its own**: `take_changes()` returns the
-  parameters that moved since the last call, from an editor or a preset
-  loaded inside the plugin. The shell polls every handle a few times a
-  second from the meter pump and records each change as a `SetParam`
-  edit (coalesced like a knob drag), so the generic knobs and undo
-  follow whatever the plugin's own UI does;
-- **the format's own features** through `as_any()`, which is how the
-  editor windows reach the Audio Unit instance or the CLAP GUI
-  extension.
-
-Nothing on a handle is ever called from the audio thread. For an Audio
-Unit the two halves share one `AudioComponentInstance` behind an `Arc`
-(property and parameter calls on an AUv2 instance are safe from another
-thread while it renders, which is how every host works), and the
-instance is disposed when both halves are gone. The processor's own
-`state()` and `set_state()` still exist for a processor that is not in a
-graph, which is how a project loads: the state goes in before the node
-is added.
+Each plugin also returns a [handle](/architecture/processor/#the-handle), its UI-thread side, which the shell uses for state, latency, changes the plugin makes on its own and editor windows. Nothing on a handle is called from the audio thread. For an Audio Unit the two halves share one `AudioComponentInstance` behind an `Arc` (property and parameter calls on an AUv2 instance are safe from another thread while it renders, which is how every host works), and the instance is disposed when both halves are gone. The processor's own `state()` and `set_state()` serve a processor that is not in a graph yet, which is how a project loads: the state goes in before the node is added.
 
 ## Audio Units
 
@@ -139,8 +99,7 @@ which kind it is.
 
 Audio Unit and CLAP editors are native `NSView`s. Each opens in its own
 `NSWindow`, added as a child of the main window so it stays above it and
-moves with it, never embedded in the web view: the plan's rule, since a
-native view inside WebKit's view is a fight nobody wins. The code is
+moves with it, never embedded in the web view. The code is
 `crates/hosting/src/editor.rs`; it runs on the main thread only, which
 AppKit demands, and takes a `MainThreadMarker` as proof.
 

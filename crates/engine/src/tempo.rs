@@ -21,11 +21,14 @@ pub const PPQ: u32 = 960;
 /// A time signature such as 4/4 or 6/8.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TimeSignature {
+    /// Beats in a bar.
     pub numerator: u8,
+    /// The note value of a beat: 4 for quarter notes, 8 for eighths.
     pub denominator: u8,
 }
 
 impl TimeSignature {
+    /// 4/4.
     pub const COMMON: TimeSignature = TimeSignature::new(4, 4);
 
     /// The denominator must be a power of two from 1 to 64.
@@ -46,6 +49,7 @@ impl TimeSignature {
         (PPQ as u64 * 4) / self.denominator as u64
     }
 
+    /// Ticks in one bar.
     pub const fn ticks_per_bar(&self) -> u64 {
         self.ticks_per_beat() * self.numerator as u64
     }
@@ -60,14 +64,18 @@ impl fmt::Display for TimeSignature {
 /// A tempo from `tick` onward, in quarter notes per minute.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TempoChange {
+    /// Tick the tempo starts at.
     pub tick: u64,
+    /// Quarter notes per minute.
     pub bpm: f64,
 }
 
 /// A time signature from `bar` onward. Bars are zero-based.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MeterChange {
+    /// Bar the signature starts at.
     pub bar: u32,
+    /// The signature.
     pub signature: TimeSignature,
 }
 
@@ -75,12 +83,16 @@ pub struct MeterChange {
 /// one-based as `bar.beat.tick`, the way a transport readout does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MusicalPosition {
+    /// Bar.
     pub bar: u32,
+    /// Beat within the bar.
     pub beat: u32,
+    /// Tick within the beat.
     pub tick: u32,
 }
 
 impl MusicalPosition {
+    /// A position from its parts, as the struct holds them.
     pub const fn new(bar: u32, beat: u32, tick: u32) -> Self {
         Self { bar, beat, tick }
     }
@@ -97,6 +109,7 @@ impl fmt::Display for MusicalPosition {
 pub struct Beat {
     /// Timeline sample the beat lands on.
     pub sample: u64,
+    /// The beat's bar and beat.
     pub position: MusicalPosition,
     /// True on the first beat of a bar.
     pub is_downbeat: bool,
@@ -214,6 +227,7 @@ impl TempoMap {
         }
     }
 
+    /// The tempo changes, in order.
     pub fn tempo_changes(&self) -> impl Iterator<Item = TempoChange> + '_ {
         self.tempos.iter().map(|t| TempoChange {
             tick: t.tick,
@@ -221,6 +235,7 @@ impl TempoMap {
         })
     }
 
+    /// The time signature changes, in order.
     pub fn meter_changes(&self) -> impl Iterator<Item = MeterChange> + '_ {
         self.meters.iter().map(|m| MeterChange {
             bar: m.bar,
@@ -240,11 +255,13 @@ impl TempoMap {
 
     // --- ticks and seconds ---
 
+    /// Seconds from the start of the timeline to a tick.
     pub fn ticks_to_seconds(&self, ticks: f64) -> f64 {
         let segment = &self.tempos[self.tempo_index(ticks.max(0.0) as u64)];
         segment.seconds + (ticks - segment.tick as f64) * Self::seconds_per_tick(segment.bpm)
     }
 
+    /// The tick at a time from the start of the timeline.
     pub fn seconds_to_ticks(&self, seconds: f64) -> f64 {
         let i = self
             .tempos
@@ -256,6 +273,7 @@ impl TempoMap {
 
     // --- samples ---
 
+    /// The tick at a timeline sample.
     pub fn samples_to_ticks(&self, samples: u64, sample_rate: f64) -> f64 {
         self.seconds_to_ticks(samples as f64 / sample_rate)
     }
@@ -274,12 +292,14 @@ impl TempoMap {
         self.ticks_to_position(self.samples_to_ticks(samples, sample_rate).round() as u64)
     }
 
+    /// The timeline sample at a musical position.
     pub fn position_to_samples(&self, position: MusicalPosition, sample_rate: f64) -> u64 {
         self.ticks_to_samples(self.position_to_ticks(position) as f64, sample_rate)
     }
 
     // --- ticks and musical positions ---
 
+    /// The musical position of a tick.
     pub fn ticks_to_position(&self, ticks: u64) -> MusicalPosition {
         let i = self
             .meters
