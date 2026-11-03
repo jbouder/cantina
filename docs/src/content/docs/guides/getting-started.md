@@ -1,8 +1,93 @@
 ---
 title: Getting started
-description: Install Cantina, connect an audio interface and hear yourself through a pedal chain.
+description: Build Cantina, connect an audio interface, arm a track and hear yourself through a pedal chain.
+sidebar:
+  order: 1
 ---
 
-This guide is being written. Until it lands, the
-[README](https://github.com/jbouder/cantina#start-the-app) explains how to
-build and start the app.
+Cantina runs on macOS. This page goes from a fresh checkout to hearing your
+guitar through a pedal chain, in about ten minutes, most of it the first
+build.
+
+## What you need
+
+- A Mac on macOS 13 Ventura or later.
+- An audio interface with an instrument input. A class-compliant USB
+  interface is all it takes; the built-in microphone works for trying
+  things out, but not for playing.
+- Headphones or monitors on the interface's output.
+- A cable from your instrument to the interface.
+
+## Install
+
+There is no packaged release yet, so Cantina is built from source. You need
+[Rust](https://rustup.rs) (make sure `~/.cargo/bin` is on your `PATH`) and
+Node 22 or newer. Then:
+
+```sh
+git clone https://github.com/jbouder/cantina.git
+cd cantina
+npm install
+npm run tauri build
+open target/release/bundle/macos/Cantina.app
+```
+
+The first build compiles the whole Rust workspace and takes a few minutes.
+Drag `Cantina.app` into Applications to keep it.
+
+## Pick your interface
+
+Open **Settings** with the gear at the top right. Under **Audio**, choose
+your interface as the **Input** and the **Output**, leave the sample rate at
+48 kHz, and pick a **Buffer size**. Start at 128 frames; once everything
+works, try 64. [Latency](/guides/latency/) explains the trade.
+
+![The Settings sheet, with the input, output, sample rate and buffer size](../../../assets/guides/settings.png)
+
+The first time the engine starts, macOS asks whether Cantina may use the
+microphone. That is how macOS names every audio input, your interface
+included. Allow it, or Cantina hears nothing.
+
+The **Engine** key starts and stops the audio. Its light is on while audio
+is running. Your choices are remembered for next time.
+
+## Arm a track and play
+
+A new project, `Untitled`, opens with a **Guitar** track whose chain is a
+gain into an overdrive. Click the round light beside the track's name to
+arm it; it turns red. An armed track plays your input through its pedals,
+so strum: the **IN** meter moves, and you hear the overdrive.
+
+![The studio with the guitar track armed, two takes on the timeline and its pedalboard below](../../../assets/guides/studio.png)
+
+Nothing moving on the **IN** meter means nothing is reaching Cantina; see
+[Troubleshooting](/guides/troubleshooting/).
+
+## Add pedals
+
+The pedalboard for the selected track sits under the timeline. The dashed
+**Add a pedal** slot at the end opens the picker: the stock pedals, the
+pedals you have designed, and the Audio Unit and CLAP plugins installed on
+your Mac.
+
+![The pedal picker, with the stock pedals and the installed plugins](../../../assets/guides/picker.png)
+
+Pick one and it is added to the end of the chain, already playing. Drag the
+knobs while you play. **×** on a pedal removes it, and every change can be
+undone with the arrows next to the project name, or ⌘Z. The
+[Pedals](/guides/pedals/) guide covers each stock pedal.
+
+## Record
+
+With a track armed, **Record** (or R) starts the transport and records what
+comes in; **Stop** (or Space) ends the take, which lands on the track as a
+clip. Space plays from the playhead. **Save** writes the project to
+`~/Music/Cantina/`, and **Projects…** opens another.
+
+## Next
+
+- [Recording and editing](/guides/recording/): takes, clips, the mixer and
+  the timeline.
+- [Drums](/guides/drums/): add a drum track and program a beat.
+- [Designing pedals](/guides/designer/): build your own pedal from parts.
+- [The stage](/guides/stage/): visualizer scenes and performance mode.

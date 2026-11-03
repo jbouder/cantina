@@ -11,8 +11,8 @@ sidebar:
 
 - **The abstraction**: [`Processor`](/architecture/processor/), `Handle`, `Buffer`, `Chain`, `ParamInfo` and `Transport`.
 - **Building blocks**: `Biquad`, `Allpass`, `DelayLine`, `Envelope`, `Lfo`, `Smoother`, waveshaping `Curve`s, an `Oversampler` for anything nonlinear, a radix-2 FFT and a partitioned `Convolver` with no added latency.
-- **Stock pedals**: `Gain`, `NoiseGate`, `Compressor`, `Tuner`, the drives, `Echo`, `Reverb`, `Cabinet` and more. What each does is on the [stock pedals](/notes/pedals/) page.
-- **User pedals**: the `pedal` module reads a [pedal file](/notes/pedal-format/), checks it and names the node behind every problem, and compiles it into a `PedalProcessor` that allocates nothing while it runs. `pedal::kinds()` lists every node kind and field, which is what the designer's menus and the format reference come from.
+- **Stock pedals**: `Gain`, `NoiseGate`, `Compressor`, `Tuner`, the drives, `Echo`, `Reverb`, `Cabinet` and more. What each does is on the [stock pedals](/architecture/pedals/) page.
+- **User pedals**: the `pedal` module reads a [pedal file](/reference/pedal-format/), checks it and names the node behind every problem, and compiles it into a `PedalProcessor` that allocates nothing while it runs. `pedal::kinds()` lists every node kind and field, which is what the designer's menus and the format reference come from.
 - **Drums**: the `kit` module is the drum kit format, and `Sampler` plays a loaded kit with velocity layers and choke groups. The sequencer that decides when to hit a pad is in the engine, next to the tempo map.
 - **Rendering**: `Renderer` runs a processor over whole signals in blocks, as a stream would, for tests and offline work.
 

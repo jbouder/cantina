@@ -18,6 +18,17 @@ const analytics = process.env.CF_WEB_ANALYTICS_TOKEN;
 export default defineConfig({
   site,
   output: "static",
+  // Where the design notes lived before they became guides and references.
+  redirects: {
+    "/notes/designer": "/guides/designer/",
+    "/notes/drums": "/guides/drums/",
+    "/notes/latency": "/guides/latency/",
+    "/notes/pedal-format": "/reference/pedal-format/",
+    "/notes/pedals": "/guides/pedals/",
+    "/notes/skins": "/reference/skins/",
+    "/notes/stage": "/guides/stage/",
+    "/notes/timeline": "/guides/recording/",
+  },
   // The landing page imports the skin list from packages/skins.
   vite: { server: { fs: { allow: [".."] } } },
   integrations: [
@@ -64,9 +75,23 @@ export default defineConfig({
       sidebar: [
         {
           label: "Start here",
-          items: [{ label: "Getting started", slug: "guides/getting-started" }],
+          items: [
+            { label: "Getting started", slug: "guides/getting-started" },
+            { label: "Troubleshooting", slug: "guides/troubleshooting" },
+            { label: "Latency", slug: "guides/latency" },
+          ],
         },
-        { label: "Design notes", items: [{ autogenerate: { directory: "notes" } }] },
+        {
+          label: "Guides",
+          items: [
+            { label: "Recording and editing", slug: "guides/recording" },
+            { label: "Pedals", slug: "guides/pedals" },
+            { label: "Designing pedals", slug: "guides/designer" },
+            { label: "Drums", slug: "guides/drums" },
+            { label: "The stage", slug: "guides/stage" },
+          ],
+        },
+        { label: "Reference", items: [{ autogenerate: { directory: "reference" } }] },
         { label: "Architecture", items: [{ autogenerate: { directory: "architecture" } }] },
         { label: "API reference", slug: "api" },
       ],

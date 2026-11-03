@@ -1,17 +1,17 @@
 ---
-title: "Stage"
-description: "The stage: visualizer scenes drawn from engine frames, scene switching and performance mode."
+title: "The stage"
+description: "Visualizer scenes that move with what you play, performance mode with a pedalboard over them, and a second display."
 ---
 
-The stage draws a visualizer scene from what the engine hears. The
-scenes live in `packages/scenes` (see its README); each frame they get
-the spectrum, waveform, level and beat from the analysis stream in
-[frames](/architecture/frames/), with the beat from the tempo map while the transport
-rolls.
+The stage draws a visualizer scene from what you play: its spectrum,
+waveform, level and beat. While the transport rolls, the beat comes from
+the project's tempo, so scenes pulse in time.
+
+![Performance mode: a scene full screen, with the chains along the bottom](../../../assets/guides/perform.png)
 
 ## The stage sheet
 
-The Stage key in the title bar opens a sheet with the scene, a scene
+The stage key, the screen beside **Engine**, opens a sheet with the scene, a scene
 picker, and **Listens to**: the master, or one track's post-fader signal.
 The scene is remembered for next time and shared by every place the
 stage is drawn.
@@ -38,7 +38,7 @@ through. Switching chains arms that track and disarms the others in one
 edit, so a clean and a lead sound are two tracks with their own pedals.
 Below are the live chain's pedals as stomps: the LED is lit while the
 pedal is on, and pressing it bypasses the pedal, which keeps its
-settings. Bypass is saved with the project ([project](/architecture/project/)) and is
+settings. Bypass is saved with the project and is
 undoable like any edit; a bypassed pedal adds no latency.
 
 ## A second display
@@ -54,3 +54,7 @@ connect another.
 
 Settings has **Reduce flashing**, remembered for next time, which stills
 the scenes' strobing beat effects and the skin's beat pulse.
+
+The scenes are shared with the music-visualizer project, in
+`packages/scenes`; how they get their data is in
+[frames](/architecture/frames/#analysis).

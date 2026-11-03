@@ -19,7 +19,7 @@ The UI is React and TypeScript in `ui/`, styled with Tailwind v4 over the skin t
 
 ## Skins
 
-Every component is drawn through semantic tokens: CSS custom properties defined per skin under `:root[data-skin='…']`. Components never carry a literal colour, radius, shadow or typeface; they name a token through a Tailwind utility or a material utility (`surface-window`, `surface-button`, `surface-lcd`). `npm run lint` fails on a literal colour outside the skin files and on any skin that falls below the contrast ratios. See [skins](/notes/skins/) for writing one.
+Every component is drawn through semantic tokens: CSS custom properties defined per skin under `:root[data-skin='…']`. Components never carry a literal colour, radius, shadow or typeface; they name a token through a Tailwind utility or a material utility (`surface-window`, `surface-button`, `surface-lcd`). `npm run lint` fails on a literal colour outside the skin files and on any skin that falls below the contrast ratios. See [skins](/reference/skins/) for writing one.
 
 ## The timeline
 

@@ -96,7 +96,7 @@ status names its cells, so `readoutsByPedal` in `ui/src/lib/readouts.ts`
 cuts the section up by pedal id: a tuner with two names takes the next
 two values, a gain pedal with none takes nothing. A frame that does not
 add up to the status (one sent across a chain edit) is shown as no
-readouts rather than as the wrong pedal's values. See [stock pedals](/notes/pedals/)
+readouts rather than as the wrong pedal's values. See [stock pedals](/architecture/pedals/)
 for what each pedal publishes.
 
 ## Rate and dropping

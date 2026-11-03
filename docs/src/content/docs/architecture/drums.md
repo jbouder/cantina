@@ -1,77 +1,16 @@
 ---
 title: "Drums"
-description: "Kits, the sampler and the step sequencer: how beats are made, stored and played."
+description: "How beats are played: the sampler, the drum track's graph, the pattern and pattern clip formats, and the sequencer."
+sidebar:
+  order: 7.4
 ---
 
 Beats in Cantina are a **kit** (sounds) played by a **sampler** (the
 `Processor` that makes the sound) under a **sequencer** (what decides
 when), from **patterns** edited in a step grid and placed on the timeline as
-**pattern clips**. This page covers all of it.
-
-## Kit format
-
-A kit is a folder with a `kit.json` and its samples beside it:
-
-```text
-kits/
-  acoustic/
-    kit.json
-    kick-soft.wav
-    kick-hard.wav
-    snare.wav
-    hh-closed.wav
-    hh-open.wav
-```
-
-The folder's name is the kit's id; a project refers to a kit by that id.
-`kit.json` is:
-
-```json
-{
-  "version": 1,
-  "name": "Acoustic",
-  "pads": [
-    {
-      "id": "kick",
-      "name": "Kick",
-      "layers": [
-        { "file": "kick-soft.wav", "velocity": [0, 0.6] },
-        { "file": "kick-hard.wav", "velocity": [0.6, 1] }
-      ]
-    },
-    { "id": "snare", "name": "Snare", "pan": -0.1, "layers": [{ "file": "snare.wav" }] },
-    { "id": "hh-closed", "name": "Closed hat", "choke": "hat", "pan": 0.3,
-      "layers": [{ "file": "hh-closed.wav" }] },
-    { "id": "hh-open", "name": "Open hat", "choke": "hat", "pan": 0.3, "gainDb": -3,
-      "layers": [{ "file": "hh-open.wav" }] }
-  ]
-}
-```
-
-- **`pads`**: one to 64, each with a unique `id` that patterns refer to
-  (`kick`, `snare`, `hh-closed`… the stock kits share these names so a
-  pattern moves between kits), an optional display `name` (the id when
-  missing), `gainDb` (default 0), `pan` from −1 to 1 (default 0) and an
-  optional `choke` group.
-- **`layers`**: one to 16 per pad, each a `file` next to the kit with the
-  `velocity` range it answers, inclusive, inside 0 to 1 (the whole range
-  when missing), and its own `gainDb`. A hit picks the first layer whose
-  range holds its velocity, or the nearest when none does, so a kit with
-  a soft and a hard kick plays the right one.
-- **Choke groups**: hitting a pad stops every voice still ringing in
-  the same group, the closed hat silencing the open one. The cut is a
-  3 ms fade, never a click. Hitting the same pad again chokes its own
-  earlier hit too; a pad without a group overlaps with itself.
-- **Samples** are WAV, mono or stereo, 16 or 24-bit integer or 32-bit
-  float, at any rate. A sample file name is a plain name next to the
-  kit (`..` and absolute paths are refused), so a kit never reads
-  outside its folder.
-
-The format lives in `crates/dsp/src/kit.rs` (`Kit`, validated by
-`Kit::from_json` with a message that names the pad and the rule), and the
-loader in `crates/engine/src/kit.rs` (`kit::load` reads a folder,
-`kit::discover` lists the kits under a set of folders, user kits
-first so one can override a stock kit of the same id).
+**pattern clips**. This page is how they work; making beats is in the
+[drums guide](/guides/drums/) and the kit files are in the
+[kit format](/reference/kit-format/).
 
 ## The sampler
 
@@ -102,31 +41,6 @@ starts on its frame, at the sample's first value times the velocity, the
 pad's gain and the pan, with silence before the first. Regenerate the
 reference after an intended change with
 `UPDATE_GOLDEN=1 cargo test -p cantina-dsp --test sampler`.
-
-## Stock kits
-
-Three kits ship with the app, in `kits/` at the repository root and in
-the app bundle's resources:
-
-| Kit | Id | Pads |
-| --- | --- | --- |
-| Acoustic | `acoustic` | kick, snare, closed/pedal/open hat, three toms, crash, ride, with soft and hard velocity layers on the drums and cymbals |
-| Tight rock | `rock` | a heavy kick, a hard snare, closed and (short) open hat, two toms, crash, ride, cowbell |
-| Electronic | `electronic` | two kicks, two snares, a clap, hats, two toms, pop, blip, bell, wood |
-
-Every kit has `kick`, `snare`, `hh-closed`, `hh-open`, `tom-hi` and
-`tom-lo`, so a pattern written on one plays on the others; the hats
-choke each other in every kit. The samples are public domain (CC0),
-recorded by their authors on Freesound and gathered by the Sonic Pi
-project; `kits/CREDITS.md` lists every file's source, and a test fails
-if a sample is added without a credit, left unused, or if a kit takes
-more than 200 ms to load (they take a few milliseconds). The kit
-definitions themselves are Cantina's, under the MIT license.
-
-The stock kits are also format examples: copy one to
-`~/Music/Cantina/Kits/<id>/`, change the samples, and it appears in the
-kit picker on the next launch (or **Rescan** in the picker), ahead of a
-stock kit with the same id.
 
 ## Drum tracks
 
@@ -217,26 +131,12 @@ plays the edit.
 
 ## The grid
 
-The drum grid is the Beats tab of the editor for a drum track (`ui/src/components/DrumGrid.tsx`):
-the kit picker, the pattern picker with New, Rename and Remove, the
-resolution, the length (in steps, with its musical size alongside) and
-the swing, then the grid itself, a table of pads against steps with beat
-columns set apart.
-
-- **Click** a cell to toggle it. A new hit is at full velocity.
-- **Drag up or down** on a cell to set its velocity; the fill shows it.
-- **Keyboard**: one cell is in the tab order; the arrows move around,
-  Space or Enter toggles, Shift with up and down nudges the velocity by
-  10%, Home and End jump along the row. Every cell says its pad, step
-  and velocity.
-- **Loop** auditions the pattern: it loops on the track from the start
-  of the timeline while the transport plays, so a pattern can be heard
-  and edited before it is placed. The column under the playhead lights
-  up. Looping is session state, not an edit, and ends when the pattern
-  or the track goes.
-
-The arithmetic (which step the playhead is on, what a drag makes of a
-velocity, the length label) is `ui/src/lib/drums.ts`, tested on its own.
+The drum grid is the Beats tab of a drum track's editor,
+`ui/src/components/DrumGrid.tsx`. Its arithmetic (which step the playhead
+is on, what a drag makes of a velocity, the length label) is
+`ui/src/lib/drums.ts`, tested on its own. Auditioning with **Loop** is
+session state, not an edit: while it is on, the track's score is the
+pattern alone, looping from the start of the timeline.
 
 ## Pattern clips
 
@@ -265,7 +165,7 @@ them.
   button onto the timeline and drop it on a drum track where it should
   start (snapped to the grid). Dropping on an audio track is refused.
 - **Move, trim, split, delete** work as for audio clips (see
-  [timeline](/notes/timeline/)): the timeline converts between samples
+  [timeline](/guides/recording/)): the timeline converts between samples
   and ticks on the way in and out, trimming the front keeps the beats
   where they were by moving the offset, and a pattern clip may grow
   past its pattern's length. A clip dragged onto an audio track stays

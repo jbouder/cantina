@@ -32,7 +32,7 @@
 //! allocation happens there: `process` only ever walks buffers reserved
 //! in `prepare`. The same format describes the stock pedals that are
 //! compositions of these primitives, so a designer can open any of them
-//! as a starting point. The reference is `docs/src/content/docs/notes/pedal-format.md`.
+//! as a starting point. The reference is `docs/src/content/docs/reference/pedal-format.md`.
 //!
 //! [`Processor`]: crate::Processor
 
