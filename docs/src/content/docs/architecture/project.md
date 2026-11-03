@@ -103,8 +103,10 @@ pedals, kits and patterns from outside the app.
 Every edit is a `Command` (`crates/project/src/command.rs`): insert, remove,
 rename, move and arm tracks; insert, remove, move, trim and split clips;
 insert, remove and move pedals; set a parameter; set the tempo; set a
-drum track's kit; insert, remove, rename and edit patterns; and
-`Batch`, several as one edit. `Command::apply` changes the project and
+drum track's kit; insert, remove, rename and edit patterns; replace a
+track whole (`BounceTrack`, what a bounce in place does, whose inverse
+carries the track as it was, chain and all); and `Batch`, several as one
+edit. `Command::apply` changes the project and
 returns the inverse command, so undo is "apply the inverse" and redo is
 "apply the original". A command either applies completely or leaves the
 project untouched: a batch that fails part way reverts what it had done.

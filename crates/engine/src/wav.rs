@@ -87,6 +87,107 @@ pub fn write(path: &Path, sample_rate: f64, channels: &[Vec<f32>]) -> Result<()>
         .with_context(|| format!("finishing {}", path.display()))
 }
 
+/// How samples are stored in a file [`write_as`] makes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SampleFormatOut {
+    /// 16-bit integers, with TPDF dither.
+    Int16,
+    /// 24-bit integers, with TPDF dither.
+    Int24,
+    /// 32-bit IEEE float, written as is.
+    Float32,
+}
+
+impl SampleFormatOut {
+    /// The format for a bit depth: 16, 24 or 32 (float).
+    pub fn from_bits(bits: u16) -> Result<Self> {
+        match bits {
+            16 => Ok(Self::Int16),
+            24 => Ok(Self::Int24),
+            32 => Ok(Self::Float32),
+            _ => bail!("{bits}-bit files are not written; choose 16, 24 or 32"),
+        }
+    }
+
+    /// Bits per sample.
+    pub fn bits(self) -> u16 {
+        match self {
+            Self::Int16 => 16,
+            Self::Int24 => 24,
+            Self::Float32 => 32,
+        }
+    }
+}
+
+/// Writes channel-major `f32` in `format`. Integer formats are dithered
+/// with triangular noise of one least significant bit peak, from a fixed
+/// seed so the same input always writes the same file, and clamped to
+/// full scale. Every channel must be the same length.
+pub fn write_as(
+    path: &Path,
+    sample_rate: f64,
+    channels: &[Vec<f32>],
+    format: SampleFormatOut,
+) -> Result<()> {
+    let frames = channels.first().map_or(0, |c| c.len());
+    if channels.is_empty() || channels.iter().any(|c| c.len() != frames) {
+        bail!("need at least one channel, all the same length");
+    }
+    let bits = format.bits();
+    let spec = WavSpec {
+        channels: channels.len() as u16,
+        sample_rate: sample_rate.round() as u32,
+        bits_per_sample: bits,
+        sample_format: match format {
+            SampleFormatOut::Float32 => SampleFormat::Float,
+            _ => SampleFormat::Int,
+        },
+    };
+    let mut writer =
+        WavWriter::create(path, spec).with_context(|| format!("creating {}", path.display()))?;
+    let mut dither = Dither::new();
+    let full = (1i64 << (bits - 1)) as f64;
+    let (lo, hi) = (-full, full - 1.0);
+    for frame in 0..frames {
+        for channel in channels {
+            let sample = channel[frame];
+            match format {
+                SampleFormatOut::Float32 => writer.write_sample(sample)?,
+                _ => {
+                    let scaled = sample as f64 * full + dither.next();
+                    writer.write_sample(scaled.round().clamp(lo, hi) as i32)?;
+                }
+            }
+        }
+    }
+    writer
+        .finalize()
+        .with_context(|| format!("finishing {}", path.display()))
+}
+
+/// Triangular dither: the sum of two uniform values in ±0.5 LSB, from a
+/// small fixed-seed generator.
+struct Dither(u64);
+
+impl Dither {
+    fn new() -> Self {
+        Self(0x9E37_79B9_7F4A_7C15)
+    }
+
+    fn uniform(&mut self) -> f64 {
+        // xorshift64*
+        self.0 ^= self.0 >> 12;
+        self.0 ^= self.0 << 25;
+        self.0 ^= self.0 >> 27;
+        let x = self.0.wrapping_mul(0x2545_F491_4F6C_DD1D);
+        (x >> 11) as f64 / (1u64 << 53) as f64 - 0.5
+    }
+
+    fn next(&mut self) -> f64 {
+        self.uniform() + self.uniform()
+    }
+}
+
 /// A file open for reading regions as `f32`, whatever it stores.
 pub struct Reader {
     wav: WavReader<BufReader<File>>,
@@ -273,6 +374,44 @@ pub(crate) mod tests {
         assert_eq!(back, channels);
         assert!(write(&path, 48_000.0, &[]).is_err());
         assert!(write(&path, 48_000.0, &[vec![0.0; 2], vec![0.0; 3]]).is_err());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn integer_files_are_dithered_clamped_and_reproducible() {
+        let dir = tempdir();
+        let tone: Vec<f32> = (0..4800)
+            .map(|i| 0.5 * (i as f32 * 0.05).sin())
+            .chain([1.5, -1.5])
+            .collect();
+        for format in [SampleFormatOut::Int16, SampleFormatOut::Int24] {
+            let a = dir.join(format!("a{}.wav", format.bits()));
+            let b = dir.join(format!("b{}.wav", format.bits()));
+            write_as(&a, 44_100.0, std::slice::from_ref(&tone), format).unwrap();
+            write_as(&b, 44_100.0, std::slice::from_ref(&tone), format).unwrap();
+            assert_eq!(std::fs::read(&a).unwrap(), std::fs::read(&b).unwrap());
+            let (info, back) = read_all(&a).unwrap();
+            assert_eq!(info.sample_rate, 44_100);
+            assert_eq!(info.bits_per_sample, format.bits());
+            assert!(!info.float);
+            let lsb = 1.0 / (1u64 << (format.bits() - 1)) as f32;
+            for (x, y) in tone[..4800].iter().zip(&back[0]) {
+                // Rounding plus up to one LSB of dither either way.
+                assert!((x - y).abs() <= 1.5 * lsb + 1e-7, "{x} vs {y}");
+            }
+            assert!(back[0][4800] <= 1.0 && back[0][4800] > 1.0 - 2.0 * lsb);
+            assert_eq!(back[0][4801], -1.0);
+        }
+        let f = dir.join("f.wav");
+        write_as(
+            &f,
+            48_000.0,
+            std::slice::from_ref(&tone),
+            SampleFormatOut::Float32,
+        )
+        .unwrap();
+        assert_eq!(read_all(&f).unwrap().1[0], tone);
+        assert!(SampleFormatOut::from_bits(8).is_err());
         std::fs::remove_dir_all(dir).unwrap();
     }
 

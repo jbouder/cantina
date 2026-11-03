@@ -33,10 +33,10 @@ use cantina_dsp::{
 use cantina_engine::strip::{GAIN, MUTE, PAN};
 use cantina_engine::{
     beat_at, device, ir, kit, plan, processors, wav, Analyzer, Controller, Delay, DeviceEvent,
-    DeviceId, Endpoint, GraphConfig, Impulse, IrEntry, KitEntry, Meter, MeterHandle, Mute, NodeId,
-    PatternData, Placement, Player, PlayerHandle, Recorder, RecorderHandle, Runtime, Scope,
-    ScopeHandle, Score, Sequencer, SequencerHandle, Stream, StreamConfig, Strip, TempoMap,
-    TimeSignature, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
+    DeviceId, Endpoint, GraphConfig, Impulse, IrEntry, KitEntry, Meter, MeterHandle,
+    MusicalPosition, Mute, NodeId, PatternData, Placement, Player, PlayerHandle, Recorder,
+    RecorderHandle, Runtime, Scope, ScopeHandle, Score, Sequencer, SequencerHandle, Stream,
+    StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
 };
 use cantina_hosting::scan::{self, PluginList, Scanner};
 use cantina_hosting::{AudioUnitHandle, ClapHandle, Editor};
@@ -52,6 +52,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::frame::{Analysis as FrameAnalysis, Beat as FrameBeat, Frame};
 use crate::library;
+use crate::mixdown;
 use crate::pedals::{self, PedalEntry};
 use crate::project::Projects;
 use crate::settings::{AudioSettings, Settings};
@@ -429,6 +430,204 @@ impl EngineState {
     pub fn lock(&self) -> MutexGuard<'_, Engine> {
         self.0.lock().unwrap_or_else(|e| e.into_inner())
     }
+
+    /// Renders the mix to a WAV file. The graph is built under the lock;
+    /// the render runs without it, so the app keeps playing and editing
+    /// meanwhile, and what is exported is the project as it was when the
+    /// export began.
+    pub fn mixdown_export(&self, options: ExportOptions) -> Result<ExportResult> {
+        let format = wav::SampleFormatOut::from_bits(options.bits)?;
+        if !matches!(options.sample_rate, 44_100 | 48_000) {
+            bail!("export at 44.1 or 48 kHz");
+        }
+        let _busy = Busy::take()?;
+        let (mut render, range, app) = {
+            let mut engine = self.lock();
+            let range = engine.export_range(options.from_bar, options.to_bar)?;
+            let render = engine.mixdown_render(mixdown::Scope::Mix)?;
+            (render, range, engine.app.clone())
+        };
+        let began = Instant::now();
+        let rendered = render.run(range, options.tail, progress_to(&app, "export"))?;
+        let from = render.sample_rate();
+        drop(render);
+        let to = options.sample_rate as f64;
+        let channels = mixdown::convert_rate(rendered, from, to);
+        let (peak_db, rms_db) = mixdown::levels(&channels);
+        let mut path = PathBuf::from(&options.path);
+        if path
+            .extension()
+            .is_none_or(|e| !e.eq_ignore_ascii_case("wav"))
+        {
+            path.set_extension("wav");
+        }
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
+        }
+        wav::write_as(&path, to, &channels, format)?;
+        let frames = channels.first().map_or(0, Vec::len);
+        Ok(ExportResult {
+            path: path.display().to_string(),
+            seconds: frames as f64 / to,
+            render_seconds: began.elapsed().as_secs_f64(),
+            peak_db,
+            rms_db,
+        })
+    }
+
+    /// Renders one track through its chain to a new file and puts it in
+    /// the track's place as a single clip, as one undoable edit that
+    /// takes the chain off (the undo brings it back). The render runs
+    /// without the lock; if the track changed meanwhile, the bounce is
+    /// dropped and its file removed.
+    pub fn track_bounce(&self, id: u64) -> Result<EngineStatus> {
+        let _busy = Busy::take()?;
+        let id = TrackId(id);
+        let (mut render, range, before, file, clip_name, audio_dir, app) = {
+            let mut engine = self.lock();
+            if !engine.recording.is_empty() {
+                bail!("stop recording before bouncing");
+            }
+            let track = engine
+                .project
+                .track(id)
+                .cloned()
+                .with_context(|| format!("no track {id}"))?;
+            let range = mixdown::track_range(&engine.project, &track)
+                .with_context(|| format!("{} has nothing on it to bounce", track.name))?;
+            let render = engine.mixdown_render(mixdown::Scope::Track(id))?;
+            let audio_dir = cantina_project::audio_dir(&engine.project_dir);
+            let (file, clip_name) = take_name(&audio_dir, &format!("{} bounce", track.name));
+            (
+                render,
+                range,
+                track,
+                file,
+                clip_name,
+                audio_dir,
+                engine.app.clone(),
+            )
+        };
+        let rendered = render.run(range, true, progress_to(&app, "bounce"))?;
+        let rate = render.sample_rate();
+        drop(render);
+        std::fs::create_dir_all(&audio_dir)
+            .with_context(|| format!("creating {}", audio_dir.display()))?;
+        let path = audio_dir.join(&file);
+        wav::write(&path, rate, &rendered)?;
+        let length = rendered.first().map_or(0, Vec::len) as u64;
+
+        let mut engine = self.lock();
+        if engine.project.track(id) != Some(&before) {
+            let _ = std::fs::remove_file(&path);
+            bail!(
+                "{} changed while it was bouncing; bounce it again",
+                before.name
+            );
+        }
+        let clip = Clip {
+            id: ClipId(engine.project.fresh_id()),
+            name: clip_name,
+            file,
+            start: range.start,
+            offset: 0,
+            length,
+        };
+        let track = Track {
+            kit: None,
+            chain: Vec::new(),
+            clips: vec![clip],
+            pattern_clips: Vec::new(),
+            ..before
+        };
+        engine.apply(Command::BounceTrack { track })
+    }
+}
+
+/// What the export sheet asks for.
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportOptions {
+    /// Where to write; `.wav` is added when missing.
+    pub path: String,
+    /// 44100 or 48000.
+    pub sample_rate: u32,
+    /// 16, 24 or 32 (float).
+    pub bits: u16,
+    /// The first bar, counting from 1, or the start of the song.
+    pub from_bar: Option<u32>,
+    /// The last bar, included, or the end of the song.
+    pub to_bar: Option<u32>,
+    /// Render past the end until reverbs and delays have rung out.
+    pub tail: bool,
+}
+
+/// What an export wrote.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportResult {
+    /// The file.
+    pub path: String,
+    /// Its length.
+    pub seconds: f64,
+    /// How long the render took: less than `seconds` is faster than
+    /// real time.
+    pub render_seconds: f64,
+    /// Loudest sample, dBFS.
+    pub peak_db: f32,
+    /// Level over the whole file, dBFS.
+    pub rms_db: f32,
+}
+
+/// The event a render reports its progress on.
+pub const RENDER_PROGRESS_EVENT: &str = "render-progress";
+
+/// Progress of an export or a bounce.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RenderProgress {
+    /// `export` or `bounce`.
+    what: &'static str,
+    /// 0 to 1.
+    fraction: f32,
+}
+
+/// Set by [`cancel_render`]; the running render stops at its next look.
+static CANCEL: AtomicBool = AtomicBool::new(false);
+/// One render at a time.
+static RENDERING: AtomicBool = AtomicBool::new(false);
+
+/// Asks the running export or bounce to stop.
+pub fn cancel_render() {
+    CANCEL.store(true, Ordering::Relaxed);
+}
+
+/// Held while a render runs.
+struct Busy;
+
+impl Busy {
+    fn take() -> Result<Self> {
+        if RENDERING.swap(true, Ordering::AcqRel) {
+            bail!("an export or bounce is already running");
+        }
+        CANCEL.store(false, Ordering::Relaxed);
+        Ok(Busy)
+    }
+}
+
+impl Drop for Busy {
+    fn drop(&mut self) {
+        RENDERING.store(false, Ordering::Release);
+    }
+}
+
+/// Sends a render's progress to the UI, and says whether to go on.
+fn progress_to(app: &AppHandle, what: &'static str) -> impl FnMut(f32) -> bool {
+    let app = app.clone();
+    move |fraction| {
+        let _ = app.emit(RENDER_PROGRESS_EVENT, RenderProgress { what, fraction });
+        !CANCEL.load(Ordering::Relaxed)
+    }
 }
 
 /// What a pedal spec builds: learned by building one once, then cached,
@@ -732,15 +931,19 @@ impl Live {
                 None => Self::create_track(&mut self.controller, track, sample_rate, kits),
             };
             // A drum track whose kit changed gets a new sequencer; the
-            // old one's voices go with it.
-            if let (Some(wanted), Source::Drums { kit: have, .. }) = (&track.kit, &live.source) {
-                if wanted != have {
-                    for node in live.source.nodes() {
-                        self.controller.graph_mut().remove(node)?;
-                    }
-                    live.source =
-                        Self::create_source(&mut self.controller, track, sample_rate, kits);
+            // old one's voices go with it. A bounced drum track is an
+            // audio track now, and undoing the bounce makes it drums
+            // again: either way the source is built anew.
+            let stale = match (&track.kit, &live.source) {
+                (Some(wanted), Source::Drums { kit: have, .. }) => wanted != have,
+                (None, Source::Audio { .. }) => false,
+                _ => true,
+            };
+            if stale {
+                for node in live.source.nodes() {
+                    self.controller.graph_mut().remove(node)?;
                 }
+                live.source = Self::create_source(&mut self.controller, track, sample_rate, kits);
             }
             let graph = self.controller.graph_mut();
             // Pedals that left this chain.
@@ -1043,7 +1246,7 @@ impl Live {
 
 /// What a drum track plays: its pattern clips, or, while a pattern is
 /// auditioned on it, that pattern alone looping from the start.
-fn score_for(
+pub(crate) fn score_for(
     track: &Track,
     project: &Project,
     kit: &LoadedKit,
@@ -1282,7 +1485,7 @@ impl Library {
 }
 
 /// The project's clips for one track as the player wants them.
-fn engine_clips(track: &Track, audio_dir: &Path) -> Vec<cantina_engine::Clip> {
+pub(crate) fn engine_clips(track: &Track, audio_dir: &Path) -> Vec<cantina_engine::Clip> {
     track
         .clips
         .iter()
@@ -1734,6 +1937,66 @@ impl Engine {
         }
         std::fs::write(&path, cantina_project::pattern_to_json(pattern))
             .with_context(|| format!("writing {}", path.display()))
+    }
+
+    // ----- mixdown -----
+
+    /// The timeline an export covers: the whole song, or from the start
+    /// of one bar to the end of another, counting from 1.
+    fn export_range(&self, from_bar: Option<u32>, to_bar: Option<u32>) -> Result<mixdown::Range> {
+        let map = tempo_map(&self.project.tempo);
+        let rate = self.project.sample_rate;
+        let bar = |n: u32| map.position_to_samples(MusicalPosition::new(n, 0, 0), rate);
+        let start = from_bar.map_or(0, |b| bar(b.saturating_sub(1)));
+        let end = match to_bar {
+            Some(b) => bar(b.max(1)),
+            None => mixdown::song_end(&self.project),
+        };
+        if end <= start {
+            bail!(if to_bar.is_none() && from_bar.is_none() {
+                "there is nothing on the timeline to export".to_string()
+            } else {
+                "the range is empty: the last bar must come after the first".to_string()
+            });
+        }
+        Ok(mixdown::Range { start, end })
+    }
+
+    /// Builds the graph for an export or a bounce from the project as it
+    /// is now, with every plugin given the state its live instance has.
+    fn mixdown_render(&mut self, scope: mixdown::Scope) -> Result<mixdown::Render> {
+        self.capture_plugin_states();
+        let audio_dir = cantina_project::audio_dir(&self.project_dir);
+        let (irs, designs, kits, states) = (
+            &mut self.irs,
+            &self.designs,
+            &mut self.kits,
+            &self.plugin_states,
+        );
+        let mut pedal = |p: &Pedal| -> Result<Box<dyn Processor>> {
+            let mut processor = build_processor(irs, designs, &p.spec, CHANNELS)?;
+            if let Some((spec, state)) = states.get(&p.id) {
+                if *spec == p.spec {
+                    processor
+                        .set_state(state)
+                        .map_err(|e| anyhow!("{}: saved state not restored: {e}", p.spec))?;
+                }
+            }
+            for (param, value) in p.values.iter().enumerate() {
+                processor.set_param(param, *value);
+            }
+            Ok(processor)
+        };
+        let mut kit = |id: &str| kits.get(id);
+        mixdown::build(
+            &self.project,
+            scope,
+            mixdown::Parts {
+                audio_dir: &audio_dir,
+                pedal: &mut pedal,
+                kit: &mut kit,
+            },
+        )
     }
 
     fn latency_status(&self) -> LatencyStatus {
@@ -3838,7 +4101,7 @@ fn pedal_roots(app: &AppHandle, projects: &Projects) -> Vec<PathBuf> {
     roots
 }
 
-fn tempo_map(tempo: &Tempo) -> TempoMap {
+pub(crate) fn tempo_map(tempo: &Tempo) -> TempoMap {
     TempoMap::new(
         tempo.bpm,
         TimeSignature::new(tempo.numerator, tempo.denominator),

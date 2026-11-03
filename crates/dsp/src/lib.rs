@@ -42,6 +42,7 @@ mod processor;
 mod readout;
 pub mod recipe;
 mod render;
+pub mod resample;
 mod reverb;
 mod sampler;
 #[cfg(any(test, feature = "schema"))]
@@ -70,6 +71,7 @@ pub use processor::{
 pub use readout::Readout;
 pub use recipe::{synthesize, KitRecipe, PadRecipe, Voice, RECIPE_VERSION};
 pub use render::Renderer;
+pub use resample::resample;
 pub use reverb::Reverb;
 pub use sampler::{Sampler, Trigger, MAX_TRIGGERS, MAX_VOICES};
 pub use shaper::Curve;

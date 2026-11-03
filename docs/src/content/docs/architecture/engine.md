@@ -35,6 +35,38 @@ The `Transport` plays, stops, locates and loops, and cuts a block at the loop wr
 
 The `Player` plays clips from WAV files without touching the disk on the audio thread. A disk thread renders clips into chunks tagged with their timeline position and pushes them through a ring; the node takes the chunk for the block it is asked for and plays silence (counting an underrun) when there is none. A locate or loop change starts a new generation, and the disk thread prefetches across the loop wrap. The `Recorder` does the reverse: the node pushes the input to a ring and a writer thread writes the WAV file.
 
+## Offline rendering
+
+Mixdown export and bounce run the graph without a stream
+(`crates/engine/src/offline.rs`). `Offline` drives a `Runtime` block by
+block and, before each block, waits until every player's disk thread has
+rendered past its end (`PlayerStats::is_ready_through`). The waiting
+happens between blocks on the rendering thread; inside a block the nodes
+run exactly the code they run on the audio thread, so the output is what
+playback produces with a disk that keeps up, as fast as the machine
+allows. A tenth of a second of stopped blocks runs before play, as a
+stream idles before someone presses play, so pedals that move on their
+own are where playback would have them.
+
+The shell builds the graph from the project (`src-tauri/src/mixdown.rs`):
+player or sequencer, compensation delay, bus, pedals, strip and master,
+made the same way as the live graph, without the input, recorder, meters
+and scope, which carry nothing from the timeline to the output. A render
+always rolls from the top of the song and keeps the range asked for, so
+tails from before a range ring into it; the compensated latency is
+rendered past the end and cut from the front. A bounce builds one track
+and stops before its strip. Exports at another rate go through
+`cantina_dsp::resample`, a Kaiser-windowed sinc, and integer files are
+written with TPDF dither from a fixed seed (`wav::write_as`), so the same
+mix always writes the same bytes.
+
+`Offline::set_paced` runs the same graph at a stream's pace without
+waiting for the disk, which is how the tests hold an offline render
+against playback: the shell's mixdown tests check the two are identical
+sample for sample, that a bounced track plays back as its chain did, and
+pin the export of a fixture song in `src-tauri/tests/golden/mixdown.wav`
+(`UPDATE_GOLDEN=1 cargo test -p cantina mixdown` regenerates it).
+
 ## Latency compensation
 
 Not the [round trip](/guides/latency/) through the interface, but what plugins add. Every

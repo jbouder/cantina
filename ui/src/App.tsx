@@ -4,6 +4,7 @@ import { Designer } from "./components/Designer";
 import { Divider } from "./components/Divider";
 import { Editor, isEditorTab } from "./components/Editor";
 import { EngineControl } from "./components/EngineControl";
+import { ExportSheet } from "./components/ExportSheet";
 import { Lcd } from "./components/Lcd";
 import { Meter } from "./components/Meter";
 import { Notice } from "./components/Notice";
@@ -78,6 +79,7 @@ export function App() {
   // sheets, so screenshots can show them.
   const [settingsOpen, setSettingsOpen] = useState(() => params?.has("settings") ?? false);
   const [projectsOpen, setProjectsOpen] = useState(() => params?.has("projects") ?? false);
+  const [exportOpen, setExportOpen] = useState(() => params?.has("export") ?? false);
   const [pickerOpen, setPickerOpen] = useState(() => params?.has("picker") ?? false);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   // In a browser `?stage` opens the stage, `?perform` performance mode
@@ -90,6 +92,7 @@ export function App() {
     setPerforming(true);
   }, []);
   const closeProjects = useCallback(() => setProjectsOpen(false), []);
+  const closeExport = useCallback(() => setExportOpen(false), []);
   const closePicker = useCallback(() => setPickerOpen(false), []);
   // In a browser `?drums` adds a drum track to the stand-in and selects it.
   const [selectedTrack, setSelectedTrack] = useState<number | null>(() =>
@@ -157,7 +160,7 @@ export function App() {
   );
 
   // Cmd-Z and Shift-Cmd-Z anywhere but inside a text field, where the
-  // field's own undo applies. Space plays or stops, R records and P
+  // field's own undo applies; Cmd-E opens the export sheet. Space plays or stops, R records and P
   // performs, except on a control that uses those keys itself.
   const keys = useRef({ status, frame });
   keys.current = { status, frame };
@@ -175,6 +178,11 @@ export function App() {
         if (typing) return;
         e.preventDefault();
         report(e.shiftKey ? projectRedo() : projectUndo());
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "e" && !e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        setExportOpen(true);
         return;
       }
       if (e.metaKey || e.ctrlKey || e.altKey || typing) return;
@@ -265,6 +273,7 @@ export function App() {
           <ProjectBar
             project={status.project}
             onOpenProjects={() => setProjectsOpen(true)}
+            onOpenExport={() => setExportOpen(true)}
             onStatus={setStatus}
             onError={setError}
           />
@@ -414,6 +423,13 @@ export function App() {
           onToggleEngine={toggle}
           onClose={closeSettings}
           onStatusChange={setStatus}
+        />
+      ) : null}
+      {exportOpen && status ? (
+        <ExportSheet
+          projectName={status.project.name}
+          sampleRate={status.project.sampleRate}
+          onClose={closeExport}
         />
       ) : null}
       {projectsOpen && status ? (
