@@ -20,7 +20,12 @@ fn write_kit(recipe: &KitRecipe) -> PathBuf {
     std::fs::create_dir_all(&dir).unwrap();
     let (kit, samples) = synthesize(recipe);
     for s in &samples {
-        wav::write(&dir.join(&s.file), 48_000.0, std::slice::from_ref(&s.samples)).unwrap();
+        wav::write(
+            &dir.join(&s.file),
+            48_000.0,
+            std::slice::from_ref(&s.samples),
+        )
+        .unwrap();
     }
     std::fs::write(dir.join(kit::KIT_FILE), kit.to_json()).unwrap();
     dir
