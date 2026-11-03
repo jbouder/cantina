@@ -11,6 +11,7 @@ mod commands;
 mod engine;
 mod frame;
 mod library;
+mod mixdown;
 mod pedals;
 mod project;
 mod settings;
@@ -110,6 +111,9 @@ pub fn run() {
             commands::pattern_import,
             commands::pattern_export,
             commands::library_rescan,
+            commands::mixdown_export,
+            commands::track_bounce,
+            commands::render_cancel,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Cantina shell")

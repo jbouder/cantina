@@ -11,15 +11,16 @@ import { Lcd } from "./Lcd";
 type Props = {
   project: ProjectStatus;
   onOpenProjects: () => void;
+  onOpenExport: () => void;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
 };
 
 /**
  * The project cluster in the toolbar under the title: the open project's name, whether
- * it has unsaved edits, Undo, Redo, Save and the picker.
+ * it has unsaved edits, Undo, Redo, Save, the picker and Export.
  */
-export function ProjectBar({ project, onOpenProjects, onStatus, onError }: Props) {
+export function ProjectBar({ project, onOpenProjects, onOpenExport, onStatus, onError }: Props) {
   const run = (action: Promise<EngineStatus>) => action.then(onStatus, (e) => onError(String(e)));
   return (
     <>
@@ -63,6 +64,9 @@ export function ProjectBar({ project, onOpenProjects, onStatus, onError }: Props
       </Button>
       <Button aria-haspopup="dialog" onClick={onOpenProjects}>
         Projects…
+      </Button>
+      <Button aria-haspopup="dialog" title="Export a mixdown (⌘E)" onClick={onOpenExport}>
+        Export…
       </Button>
     </>
   );

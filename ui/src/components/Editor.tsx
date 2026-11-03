@@ -12,12 +12,14 @@ import {
   patternClipRemove,
   type Tempo,
   type TrackStatus,
+  trackBounce,
   trackMove,
   trackRemove,
   trackRename,
 } from "../lib/engine";
 import { Button } from "./Button";
 import { DrumGrid } from "./DrumGrid";
+import { RenderBar, useRenderProgress } from "./ExportSheet";
 import { PedalChain } from "./PedalChain";
 
 /** The editor's tabs; a drum track has Beats, an audio track does not. */
@@ -89,6 +91,18 @@ export function Editor({
     initialTab && tabs.includes(initialTab) ? initialTab : track.kit ? "beats" : "pedalboard",
   );
   const headingId = `track-${track.id}-title`;
+  const [bouncing, setBouncing] = useState(false);
+  const bounceProgress = useRenderProgress("bounce");
+  const hasContent = track.kit ? track.patternClips.length > 0 : track.clips.length > 0;
+  // A bounced drum track has no Beats tab any more.
+  const shown: EditorTab = tabs.includes(tab) ? tab : "pedalboard";
+
+  const bounce = () => {
+    setBouncing(true);
+    trackBounce(track.id)
+      .then(onStatus, (e) => onError(String(e)))
+      .finally(() => setBouncing(false));
+  };
 
   useEffect(() => {
     setName(track.name);
@@ -103,7 +117,7 @@ export function Editor({
   };
 
   const onTabKey = (e: KeyboardEvent<HTMLButtonElement>) => {
-    const at = tabs.indexOf(tab);
+    const at = tabs.indexOf(shown);
     const next =
       e.key === "ArrowRight"
         ? tabs[(at + 1) % tabs.length]
@@ -176,10 +190,10 @@ export function Editor({
               key={t}
               id={`tab-${t}`}
               role="tab"
-              aria-selected={tab === t}
+              aria-selected={shown === t}
               aria-controls={`panel-${t}`}
-              tabIndex={tab === t ? 0 : -1}
-              variant={tab === t ? "transport" : "panel"}
+              tabIndex={shown === t ? 0 : -1}
+              variant={shown === t ? "transport" : "panel"}
               onClick={() => setTab(t)}
               onKeyDown={onTabKey}
             >
@@ -187,6 +201,21 @@ export function Editor({
             </Button>
           ))}
         </div>
+        {bouncing ? (
+          <RenderBar label={`Bouncing ${track.name}`} fraction={bounceProgress ?? 0} />
+        ) : (
+          <Button
+            disabled={!hasContent || track.recording}
+            title={
+              hasContent
+                ? `Render ${track.name} through its ${track.kit ? "kit and " : ""}pedals to one clip in its place. Undo brings them back.`
+                : `${track.name} has nothing on it to bounce`
+            }
+            onClick={bounce}
+          >
+            Bounce
+          </Button>
+        )}
         <Button
           aria-label={`Move ${track.name} up`}
           disabled={index === 0}
@@ -220,11 +249,11 @@ export function Editor({
       </header>
       <div
         role="tabpanel"
-        id={`panel-${tab}`}
-        aria-labelledby={`tab-${tab}`}
+        id={`panel-${shown}`}
+        aria-labelledby={`tab-${shown}`}
         className="min-h-0 overflow-auto"
       >
-        {tab === "beats" && track.kit ? (
+        {shown === "beats" && track.kit ? (
           <DrumGrid
             track={track}
             patterns={patterns}
@@ -237,7 +266,7 @@ export function Editor({
             onStatus={onStatus}
             onError={onError}
           />
-        ) : tab === "pedalboard" ? (
+        ) : shown === "pedalboard" ? (
           <PedalChain
             chain={track.chain}
             sampleRate={sampleRate}

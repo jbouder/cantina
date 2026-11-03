@@ -72,6 +72,8 @@ Each track header is a channel strip:
 The **Master** strip under the tracks has the overall gain, a mute and the
 output meter. Double-click a fader to reset it.
 
+When the mix is done, [export it](/guides/mixdown/) to a WAV file.
+
 ## Projects
 
 A project is a folder in `~/Music/Cantina/` holding its takes, its settings

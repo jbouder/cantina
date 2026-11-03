@@ -87,6 +87,11 @@ pub struct PlayerStats {
     /// Frames of the current generation waiting in the ring, as of the
     /// node's last block.
     pub ready_frames: AtomicU64,
+    /// Timeline sample the disk thread has rendered up to in
+    /// `rendered_generation`: everything before it is in the ring or
+    /// already played. Written before `rendered_generation`, so a reader
+    /// that sees the generation it wants sees this for that generation.
+    pub rendered_through: AtomicU64,
 }
 
 impl PlayerStats {
@@ -94,6 +99,14 @@ impl PlayerStats {
     pub fn is_caught_up(&self) -> bool {
         self.requested_generation.load(Ordering::Acquire)
             == self.rendered_generation.load(Ordering::Acquire)
+    }
+
+    /// True when the disk thread is rendering what the node asked for and
+    /// has rendered every sample before `position`, so a block that ends
+    /// there plays without an underrun. Only meaningful without a loop:
+    /// an offline render asks this before each block.
+    pub fn is_ready_through(&self, position: u64) -> bool {
+        self.is_caught_up() && self.rendered_through.load(Ordering::Acquire) >= position
     }
 }
 
@@ -544,11 +557,12 @@ impl DiskThread {
                 break;
             }
             self.stats.chunks.fetch_add(1, Ordering::Relaxed);
+            pushed = true;
+            head += frames as u64;
+            self.stats.rendered_through.store(head, Ordering::Release);
             self.stats
                 .rendered_generation
                 .store(self.generation, Ordering::Release);
-            pushed = true;
-            head += frames as u64;
             if let Some(range) = self.loop_range {
                 if head == range.end {
                     head = range.start;

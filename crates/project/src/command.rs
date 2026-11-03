@@ -328,6 +328,14 @@ pub enum Command {
         /// Id of the right-hand part.
         new_id: PatternClipId,
     },
+    /// Replaces a track whole, keeping its id and place: what a bounce in
+    /// place does, swapping a track's clips and chain (or a drum track's
+    /// kit and patterns) for one rendered clip. The inverse carries the
+    /// track as it was, chain and all.
+    BounceTrack {
+        /// The track as it should be, by its id.
+        track: Track,
+    },
     /// Several commands as one edit. Applied in order; the inverse
     /// reverts them in reverse.
     Batch {
@@ -380,6 +388,7 @@ impl Command {
             Command::MovePatternClip { .. } => "move pattern clip".into(),
             Command::TrimPatternClip { .. } => "trim pattern clip".into(),
             Command::SplitPatternClip { .. } => "split pattern clip".into(),
+            Command::BounceTrack { track } => format!("bounce {}", track.name),
             Command::Batch { commands } => commands
                 .first()
                 .map_or_else(|| "edit".into(), Command::label),
@@ -808,6 +817,35 @@ impl Command {
                     swing: was,
                 })
             }
+            Command::BounceTrack { track } => {
+                let index = track_index(project, track.id)?;
+                let was = project.tracks.remove(index);
+                let fresh = || -> Result<(), CommandError> {
+                    for clip in &track.clips {
+                        ensure_fresh(project, clip.id.0)?;
+                    }
+                    for clip in &track.pattern_clips {
+                        ensure_fresh(project, clip.id.0)?;
+                        pattern_index(project, clip.pattern)?;
+                    }
+                    for pedal in &track.chain {
+                        ensure_fresh(project, pedal.id.0)?;
+                    }
+                    if track.kit.is_none() && !track.pattern_clips.is_empty() {
+                        return Err(CommandError::Invalid(format!(
+                            "{} is an audio track; patterns go on drum tracks",
+                            track.name
+                        )));
+                    }
+                    Ok(())
+                };
+                if let Err(e) = fresh() {
+                    project.tracks.insert(index, was);
+                    return Err(e);
+                }
+                project.tracks.insert(index, track.clone());
+                Ok(Command::BounceTrack { track: was })
+            }
             Command::ReplacePattern { pattern } => {
                 check_pattern(pattern)?;
                 let index = pattern_index(project, pattern.id)?;
@@ -1125,6 +1163,43 @@ mod tests {
             }
             .apply(&mut p.clone()),
             Err(CommandError::IdInUse(1))
+        );
+    }
+
+    #[test]
+    fn a_bounce_replaces_the_track_and_its_inverse_brings_the_chain_back() {
+        let p = project();
+        let mut bounced = p.tracks[0].clone();
+        bounced.chain.clear();
+        bounced.clips = vec![Clip {
+            name: "Guitar bounce".into(),
+            file: "Guitar-bounce-1.wav".into(),
+            ..clip(9, 0, 1200)
+        }];
+        let command = Command::BounceTrack { track: bounced };
+        assert_eq!(command.label(), "bounce Guitar");
+        let after = round_trip(&p, command);
+        assert_eq!(after.tracks[0].id, TrackId(1));
+        assert!(after.tracks[0].chain.is_empty());
+        assert_eq!(after.tracks[0].clips.len(), 1);
+        assert_eq!(after.tracks[1].name, "Bass");
+        after.validate().unwrap();
+
+        // Ids the rest of the project uses are refused, and nothing moves.
+        let mut clash = p.tracks[0].clone();
+        clash.clips = vec![clip(4, 0, 10)];
+        let mut q = p.clone();
+        assert_eq!(
+            Command::BounceTrack { track: clash }.apply(&mut q),
+            Err(CommandError::IdInUse(4))
+        );
+        assert_eq!(q, p);
+        assert_eq!(
+            Command::BounceTrack {
+                track: Track::new(TrackId(9), "nobody")
+            }
+            .apply(&mut p.clone()),
+            Err(CommandError::NoTrack(TrackId(9)))
         );
     }
 

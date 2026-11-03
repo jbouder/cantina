@@ -656,3 +656,38 @@ pub fn editor_close(engine: State<'_, EngineState>, id: u64) -> EngineStatus {
 pub fn ui_log(level: String, message: String) {
     eprintln!("[ui {level}] {message}");
 }
+
+/// Renders the mix to a WAV file, faster than real time, off the IPC
+/// thread. Progress arrives on the `render-progress` event.
+#[tauri::command]
+pub async fn mixdown_export(
+    app: tauri::AppHandle,
+    options: crate::engine::ExportOptions,
+) -> Result<crate::engine::ExportResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri::Manager;
+        app.state::<EngineState>()
+            .mixdown_export(options)
+            .map_err(fail)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Renders a track through its chain to one new clip in its place, as
+/// one undoable edit. Progress arrives on the `render-progress` event.
+#[tauri::command]
+pub async fn track_bounce(app: tauri::AppHandle, id: u64) -> Result<EngineStatus, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri::Manager;
+        app.state::<EngineState>().track_bounce(id).map_err(fail)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Stops the running export or bounce.
+#[tauri::command]
+pub fn render_cancel() {
+    crate::engine::cancel_render();
+}

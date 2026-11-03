@@ -2168,3 +2168,130 @@ export function clock(seconds: number): string {
   const s = seconds - m * 60;
   return `${String(m).padStart(2, "0")}:${s.toFixed(1).padStart(4, "0")}`;
 }
+
+// ----- mixdown and bounce -----
+
+/** What an export writes and covers. */
+export interface ExportOptions {
+  /** Where to write; `.wav` is added when missing. */
+  path: string;
+  sampleRate: 44100 | 48000;
+  /** 16 or 24-bit integers (dithered), or 32-bit float. */
+  bits: 16 | 24 | 32;
+  /** The first bar, from 1, or null for the start of the song. */
+  fromBar: number | null;
+  /** The last bar, included, or null for the end of the song. */
+  toBar: number | null;
+  /** Render past the end until reverbs and delays have rung out. */
+  tail: boolean;
+}
+
+/** What an export wrote. */
+export interface ExportResult {
+  path: string;
+  seconds: number;
+  /** How long the render took; under `seconds` is faster than real time. */
+  renderSeconds: number;
+  peakDb: number;
+  rmsDb: number;
+}
+
+/** How far an export or a bounce has got. */
+export interface RenderProgress {
+  what: "export" | "bounce";
+  /** 0 to 1. */
+  fraction: number;
+}
+
+const renderListeners = new Set<(p: RenderProgress) => void>();
+
+/** Calls `listener` as a render progresses. Returns a function that stops listening. */
+export function onRenderProgress(listener: (p: RenderProgress) => void): () => void {
+  if (inTauri) {
+    const off = listen<RenderProgress>("render-progress", (e) => listener(e.payload));
+    return () => {
+      off.then((f) => f());
+    };
+  }
+  renderListeners.add(listener);
+  return () => renderListeners.delete(listener);
+}
+
+let mockCancelled = false;
+
+/** The stand-in's render: progress in steps, a little slower than instant. */
+async function mockRender(what: RenderProgress["what"]): Promise<void> {
+  mockCancelled = false;
+  for (let i = 1; i <= 10; i++) {
+    await new Promise((r) => setTimeout(r, 60));
+    if (mockCancelled) throw new Error("cancelled");
+    for (const l of renderListeners) l({ what, fraction: i / 10 });
+  }
+}
+
+/** Renders the mix to a WAV file, faster than real time. */
+export async function mixdownExport(options: ExportOptions): Promise<ExportResult> {
+  if (inTauri) return invoke<ExportResult>("mixdown_export", { options });
+  if (options.fromBar !== null && options.toBar !== null && options.toBar < options.fromBar) {
+    throw new Error("the range is empty: the last bar must come after the first");
+  }
+  await mockRender("export");
+  const path = options.path.toLowerCase().endsWith(".wav") ? options.path : `${options.path}.wav`;
+  return { path, seconds: 32, renderSeconds: 1.4, peakDb: -1.2, rmsDb: -16.8 };
+}
+
+/**
+ * Renders a track through its chain to one new clip in its place, as one
+ * undoable edit; undo brings the chain and the clips back.
+ */
+export async function trackBounce(id: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("track_bounce", { id });
+  const track = mockTrack(id);
+  const rate = mock.project.sampleRate;
+  const tickSamples = (ticks: number) => (ticks / 960) * (60 / mock.project.tempo.bpm) * rate;
+  const spans: [number, number][] = track.kit
+    ? track.patternClips.map((c) => [tickSamples(c.start), tickSamples(c.start + c.length)])
+    : track.clips.map((c) => [c.start, c.start + c.length]);
+  if (spans.length === 0) throw new Error(`${track.name} has nothing on it to bounce`);
+  await mockRender("bounce");
+  const start = Math.round(Math.min(...spans.map((s) => s[0])));
+  const end = Math.round(Math.max(...spans.map((s) => s[1])));
+  const name = `${track.name} bounce 1`;
+  track.clips = [
+    {
+      id: mockNextId++,
+      name,
+      file: `${track.name.replace(/[^A-Za-z0-9]/g, "-")}-bounce-1.wav`,
+      start,
+      offset: 0,
+      // The tail the render lets ring.
+      length: end - start + Math.round(rate * 1.5),
+    },
+  ];
+  track.chain = [];
+  track.kit = null;
+  track.patternClips = [];
+  track.latencyFrames = 0;
+  return mockEdit(`bounce ${track.name}`);
+}
+
+/** Stops the running export or bounce; its promise fails with "cancelled". */
+export async function renderCancel(): Promise<void> {
+  if (inTauri) return invoke("render_cancel");
+  mockCancelled = true;
+}
+
+const WAV_FILTER = [{ name: "WAV audio", extensions: ["wav"] }];
+
+/** Asks where to write a mixdown; null when the user cancels. */
+export async function chooseMixdownPath(project: string): Promise<string | null> {
+  const name = `${project.replace(/[/:]/g, "-")}.wav`;
+  if (!inTauri) return `/Users/you/Music/${name}`;
+  return saveDialog({ defaultPath: name, filters: WAV_FILTER });
+}
+
+// `?bounce` bounces the guitar track as the page opens, so a screenshot
+// shows a track after a bounce.
+if (mockParams?.has("bounce")) {
+  setTimeout(() => trackBounce(1).then(mockPublish, () => {}), 0);
+}
