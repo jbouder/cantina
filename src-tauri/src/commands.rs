@@ -339,6 +339,15 @@ pub fn track_set_kit(
     engine.lock().track_set_kit(id, kit).map_err(fail)
 }
 
+/// Points the stage's analysis at a track, or the master with none.
+#[tauri::command]
+pub fn analysis_set_source(
+    engine: State<'_, EngineState>,
+    track: Option<u64>,
+) -> Result<EngineStatus, String> {
+    engine.lock().analysis_set_source(track).map_err(fail)
+}
+
 /// Looks for installed kits again.
 #[tauri::command]
 pub fn kits_rescan(engine: State<'_, EngineState>) -> EngineStatus {

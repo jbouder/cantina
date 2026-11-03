@@ -32,11 +32,11 @@ use cantina_dsp::{
 };
 use cantina_engine::strip::{GAIN, MUTE, PAN};
 use cantina_engine::{
-    device, ir, kit, plan, processors, wav, Controller, Delay, DeviceEvent, DeviceId, Endpoint,
-    GraphConfig, Impulse, IrEntry, KitEntry, Meter, MeterHandle, Mute, NodeId, PatternData,
-    Placement, Player, PlayerHandle, Recorder, RecorderHandle, Runtime, Score, Sequencer,
-    SequencerHandle, Stream, StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle,
-    Watcher, MAX_BLOCK_FRAMES,
+    beat_at, device, ir, kit, plan, processors, wav, Analyzer, Controller, Delay, DeviceEvent,
+    DeviceId, Endpoint, GraphConfig, Impulse, IrEntry, KitEntry, Meter, MeterHandle, Mute, NodeId,
+    PatternData, Placement, Player, PlayerHandle, Recorder, RecorderHandle, Runtime, Scope,
+    ScopeHandle, Score, Sequencer, SequencerHandle, Stream, StreamConfig, Strip, TempoMap,
+    TimeSignature, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
 };
 use cantina_hosting::scan::{self, PluginList, Scanner};
 use cantina_hosting::{AudioUnitHandle, ClapHandle, Editor};
@@ -50,7 +50,7 @@ use serde::Serialize;
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::frame::Frame;
+use crate::frame::{Analysis as FrameAnalysis, Beat as FrameBeat, Frame};
 use crate::pedals::{self, PedalEntry};
 use crate::project::Projects;
 use crate::settings::{AudioSettings, Settings};
@@ -89,6 +89,8 @@ pub struct EngineStatus {
     /// The pattern looping on a drum track for editing, if any. Not
     /// part of the project.
     pub audition: Option<AuditionStatus>,
+    /// The track the stage's analysis listens to, or none for the master.
+    pub analysis_source: Option<u64>,
 }
 
 /// What the designer gets back from an update: the status, and the
@@ -588,6 +590,18 @@ type Meters = Arc<Mutex<Vec<MeterHandle>>>;
 /// status lists them. Replaced whole on each sync.
 type Readouts = Arc<Mutex<Vec<Readout>>>;
 
+/// What the pump analyses for the stage: the scope's capture, the meter
+/// that measures the same signal, and the tempo map for the beat.
+struct PumpAnalysis {
+    scope: ScopeHandle,
+    /// Frame order: 1 for the master, 2 and up for a track.
+    meter: AtomicU32,
+    tempo: Mutex<TempoMap>,
+    /// Frames from the transport's position to what is heard now, so the
+    /// beat lands with the click rather than a buffer ahead of it.
+    output_latency: u64,
+}
+
 /// What is running while the stream is open.
 struct Live {
     stream: Stream,
@@ -605,6 +619,11 @@ struct Live {
     output_levels: MeterHandle,
     meters: Meters,
     readouts: Readouts,
+    /// Captures what the stage analyses: the master, or one track.
+    scope: NodeId,
+    /// The track the scope listens to; the master when it is gone.
+    analysis_source: Option<TrackId>,
+    analysis: Arc<PumpAnalysis>,
     input: DeviceId,
     output: DeviceId,
     input_name: String,
@@ -615,6 +634,17 @@ struct Live {
 }
 
 impl Live {
+    /// Hands the audio thread a new tempo map, and the pump a copy for
+    /// the beat position.
+    fn set_tempo_map(&mut self, map: TempoMap) {
+        *self
+            .analysis
+            .tempo
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = map.clone();
+        self.transport().set_tempo_map(map);
+    }
+
     fn transport(&mut self) -> &mut TransportHandle {
         self.controller.transport_mut()
     }
@@ -945,6 +975,9 @@ impl Live {
     ///       recorder  delay <- player      meter   output meter
     /// input -> input meter
     /// ```
+    ///
+    /// The scope taps the master, or the strip of the track the stage
+    /// listens to.
     fn wire(&mut self) -> Result<()> {
         let graph = self.controller.graph_mut();
         graph.clear_edges();
@@ -978,6 +1011,15 @@ impl Live {
         }
         graph.connect(self.master, self.output_meter)?;
         graph.connect(self.master, Endpoint::Output)?;
+        let tapped = self
+            .analysis_source
+            .and_then(|id| self.tracks.iter().position(|t| t.id == id));
+        let (from, meter) = match tapped {
+            Some(i) => (self.tracks[i].strip, 2 + i as u32),
+            None => (self.master, 1),
+        };
+        graph.connect(from, self.scope)?;
+        self.analysis.meter.store(meter, Ordering::Relaxed);
         self.controller.commit()?;
         Ok(())
     }
@@ -1334,6 +1376,9 @@ pub struct Engine {
     /// The pattern looping on a drum track for editing. Session state,
     /// not part of the project.
     audition: Option<(TrackId, PatternId)>,
+    /// The track the stage analyses, or none for the master. Session
+    /// state, kept across rebuilds of the stream.
+    analysis_source: Option<TrackId>,
     recording: Vec<Recording>,
     last_error: Option<String>,
     notice: Option<String>,
@@ -1425,6 +1470,7 @@ impl Engine {
             kits,
             irs,
             audition: None,
+            analysis_source: None,
             recording: Vec::new(),
             last_error,
             notice: None,
@@ -1457,11 +1503,18 @@ impl Engine {
             channels: 1,
         })
         .expect("a one-channel graph is valid");
+        let analysis = Arc::new(PumpAnalysis {
+            scope: Scope::new().1,
+            meter: AtomicU32::new(1),
+            tempo: Mutex::new(TempoMap::default()),
+            output_latency: 0,
+        });
         spawn_meter_pump(
             self.app.clone(),
             Arc::clone(&self.meter_subscribers),
             Arc::new(Mutex::new(vec![input, output])),
             Arc::new(Mutex::new(Vec::new())),
+            analysis,
             controller.transport().clock(),
             48_000.0,
             Arc::clone(&self.transport_state),
@@ -1536,6 +1589,10 @@ impl Engine {
                 track: track.0,
                 pattern: pattern.0,
             }),
+            analysis_source: self
+                .analysis_source
+                .filter(|id| self.project.track(*id).is_some())
+                .map(|t| t.0),
         }
     }
 
@@ -1868,8 +1925,7 @@ impl Engine {
         self.history.clear();
         self.sync()?;
         if let Some(live) = &mut self.live {
-            live.transport()
-                .set_tempo_map(tempo_map(&self.project.tempo));
+            live.set_tempo_map(tempo_map(&self.project.tempo));
         }
         outcome.map_err(|e| anyhow!("{e}"))?;
         Ok(self.publish())
@@ -1911,7 +1967,7 @@ impl Engine {
             }
             Command::RenameTrack { .. } | Command::SetTempo { .. } => {
                 if let Command::SetTempo { tempo } = command {
-                    live.transport().set_tempo_map(tempo_map(tempo));
+                    live.set_tempo_map(tempo_map(tempo));
                 }
                 Ok(())
             }
@@ -2022,6 +2078,23 @@ impl Engine {
     }
 
     /// Changes a drum track's kit.
+    /// Points the stage's analysis at a track, or at the master with
+    /// none. A track that is later removed leaves it on the master.
+    pub fn analysis_set_source(&mut self, track: Option<u64>) -> Result<EngineStatus> {
+        let track = track.map(TrackId);
+        if let Some(id) = track {
+            self.project
+                .track(id)
+                .with_context(|| format!("no track {}", id.0))?;
+        }
+        self.analysis_source = track;
+        if let Some(live) = &mut self.live {
+            live.analysis_source = track;
+            live.wire()?;
+        }
+        Ok(self.publish())
+    }
+
     pub fn track_set_kit(&mut self, id: u64, kit: String) -> Result<EngineStatus> {
         if self.kits.entry(&kit).is_none() {
             bail!("no kit {kit:?} is installed");
@@ -2500,8 +2573,7 @@ impl Engine {
             Ok(())
         } else {
             if let Some(live) = &mut self.live {
-                live.transport()
-                    .set_tempo_map(tempo_map(&self.project.tempo));
+                live.set_tempo_map(tempo_map(&self.project.tempo));
             }
             self.sync()
         }
@@ -3422,6 +3494,8 @@ impl Engine {
         let (output_meter, output_levels) = Meter::new();
         let input_meter = graph.add(Box::new(input_meter));
         let output_meter = graph.add(Box::new(output_meter));
+        let (scope, scope_handle) = Scope::new();
+        let scope = graph.add(Box::new(scope));
 
         let stream = Stream::open(
             StreamConfig {
@@ -3444,11 +3518,18 @@ impl Engine {
             output_levels.clone(),
         ]));
         let readouts: Readouts = Arc::new(Mutex::new(Vec::new()));
+        let analysis = Arc::new(PumpAnalysis {
+            scope: scope_handle,
+            meter: AtomicU32::new(1),
+            tempo: Mutex::new(tempo_map(&self.project.tempo)),
+            output_latency: stream.info().output_latency_frames as u64,
+        });
         spawn_meter_pump(
             self.app.clone(),
             Arc::clone(&self.meter_subscribers),
             Arc::clone(&meters),
             Arc::clone(&readouts),
+            Arc::clone(&analysis),
             controller.transport().clock(),
             sample_rate,
             Arc::clone(&self.transport_state),
@@ -3468,6 +3549,9 @@ impl Engine {
             output_levels,
             meters,
             readouts,
+            scope,
+            analysis_source: self.analysis_source,
+            analysis,
             input,
             output,
             input_name: device::name(input)?,
@@ -3715,6 +3799,7 @@ fn spawn_meter_pump(
     subscribers: Arc<Mutex<Vec<Subscriber>>>,
     meters: Meters,
     readouts: Readouts,
+    analysis: Arc<PumpAnalysis>,
     clock: cantina_engine::TransportClock,
     sample_rate: f64,
     state: Arc<TransportState>,
@@ -3727,18 +3812,38 @@ fn spawn_meter_pump(
             let period = Duration::from_secs(1) / METER_RATE;
             let mut sequence = 0u32;
             let mut bytes = Vec::new();
-            let mut send = |meters: &[f32], readouts: &[f32], playing: bool, recording: bool| {
+            let mut analyzer = Analyzer::new(sample_rate);
+            let mut send = |meters: &[f32],
+                            readouts: &[f32],
+                            analyzer: &Analyzer,
+                            playing: bool,
+                            recording: bool| {
+                let beat = playing.then(|| {
+                    let heard = clock.position().saturating_sub(analysis.output_latency);
+                    let tempo = analysis.tempo.lock().unwrap_or_else(|e| e.into_inner());
+                    let b = beat_at(&tempo, heard, sample_rate);
+                    FrameBeat {
+                        bpm: b.bpm,
+                        phase: b.phase,
+                        bar: b.bar,
+                        beat: b.beat,
+                    }
+                });
                 let frame = Frame {
                     sequence,
                     dropped: dropped.load(Ordering::Relaxed),
                     position_seconds: clock.position() as f64 / sample_rate,
                     playing,
                     recording,
-                    beat: None,
+                    beat,
                     meters,
-                    spectrum: &[],
-                    waveform: &[],
+                    spectrum: &analyzer.spectrum,
+                    waveform: &analyzer.waveform,
                     readouts,
+                    analysis: Some(FrameAnalysis {
+                        rms: analyzer.rms,
+                        source: analysis.meter.load(Ordering::Relaxed),
+                    }),
                 };
                 sequence = sequence.wrapping_add(1);
                 let mut subs = subscribers.lock().unwrap_or_else(|e| e.into_inner());
@@ -3775,9 +3880,20 @@ fn spawn_meter_pump(
                 for readout in readouts.lock().unwrap_or_else(|e| e.into_inner()).iter() {
                     values.extend(readout.values());
                 }
+                // The spectrum is worth working out only for a page that
+                // will take the frame.
+                let wanted = subscribers
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .iter()
+                    .any(|sub| !sub.in_flight.load(Ordering::Acquire));
+                if wanted {
+                    analyzer.analyse(&analysis.scope);
+                }
                 send(
                     &levels,
                     &values,
+                    &analyzer,
                     clock.is_playing(),
                     state.recording.load(Ordering::Relaxed),
                 );
@@ -3788,7 +3904,8 @@ fn spawn_meter_pump(
             for v in levels.iter_mut() {
                 *v = 0.0;
             }
-            send(&levels, &[], false, false);
+            analyzer.clear();
+            send(&levels, &[], &analyzer, false, false);
         })
         .expect("spawning the meter pump thread");
 }
