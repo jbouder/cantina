@@ -1,3 +1,6 @@
+/// <reference types="vitest/config" />
+
+import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
@@ -24,5 +27,10 @@ export default defineConfig({
     target: "safari16",
     minify: !process.env.TAURI_ENV_DEBUG,
     sourcemap: Boolean(process.env.TAURI_ENV_DEBUG),
+  },
+  test: {
+    // The app's tests and the shared packages' tests run together.
+    dir: fileURLToPath(new URL(".", import.meta.url)),
+    include: ["ui/src/**/*.test.ts", "packages/*/test/**/*.test.ts"],
   },
 });

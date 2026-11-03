@@ -1,0 +1,12 @@
+{
+  "name": "@cantina/scenes",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Visualizer scenes drawn from one analysis frame per draw, shared by Cantina and music-visualizer",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src", "thumbnails"]
+}
