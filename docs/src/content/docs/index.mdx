@@ -1,0 +1,106 @@
+---
+title: Cantina
+description: A Mac desktop studio for guitar and bass players. Plug in, play through a pedal chain with no perceptible delay, layer tracks, build drum beats, run plugins, design pedals and watch it all on a stage.
+template: splash
+head:
+  - tag: title
+    content: Cantina — a Mac studio for guitar and bass players
+hero:
+  title: Plug in. Play through.
+  image:
+    html: |
+      <div class="transport" aria-hidden="true">
+        <div class="readout"><span>&#9654; 1.1.1 · 00:00.0</span><span class="bpm">120 BPM</span></div>
+        <div class="meter"><b>IN</b><i style="--v:62%"></i><span>-23.3</span></div>
+        <div class="meter"><b>OUT</b><i style="--v:78%"></i><span>-16.5</span></div>
+        <div class="chain"><em>DRIVE</em><em>CHORUS</em><em>TREM</em><em>AMP</em><em>CAB</em></div>
+      </div>
+  tagline: A Mac desktop studio for guitar and bass players. A pedal chain you can't hear the delay of, tracks, drum beats, Audio Unit and CLAP plugins, pedals you design yourself, and a stage of visualizer scenes that lock to the beat. Open source under the MIT license.
+  actions:
+    - text: Get started
+      link: /guides/getting-started/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/jbouder/cantina
+      icon: external
+      variant: secondary
+---
+
+import Feature from '../../components/Feature.astro';
+import Skins from '../../components/Skins.astro';
+import Window from '../../components/Window.astro';
+import studio from '../../assets/studio-classic.png';
+import drums from '../../assets/drums-neon.png';
+import designer from '../../assets/designer.png';
+
+<Window src={studio} alt="Cantina in the Classic skin: two guitar and bass tracks on the timeline, the mixer in the track headers, and a pedalboard of overdrive, chorus, tremolo, amp and cabinet below." eager />
+
+## What it does
+
+<div class="features not-content">
+  <Feature label="PEDALS">
+    Play through a chain of stock pedals in real time: tuner, gate, compressor, three drives, EQ, modulation, delay, reverb, and an amp and cabinet built on impulse responses.
+  </Feature>
+  <Feature label="TRACKS">
+    Record takes onto a canvas timeline, then move, trim and split them. The mixer sits in the track headers and every edit can be undone.
+  </Feature>
+  <Feature label="DRUMS">
+    Program beats on a step grid with velocity and swing, played by a sampler over stock kits. Patterns go on the timeline as clips and follow the tempo map.
+  </Feature>
+  <Feature label="PLUGINS">
+    Audio Units and CLAP plugins go in the same chain as the stock pedals. Their editors open in their own windows, and their latency is compensated across tracks.
+  </Feature>
+  <Feature label="DESIGNER">
+    Build your own pedal as a graph of filters, waveshapers, delays and LFOs while it plays. It is saved as plain JSON you can share.
+  </Feature>
+  <Feature label="STAGE">
+    Visualizer scenes react to what you play and lock to the tempo map's beats and bars. Performance mode puts the stage full screen with a pedalboard over it.
+  </Feature>
+</div>
+
+## Six skins, one studio
+
+The whole UI is drawn through semantic tokens, so a skin can change the shape, material and displays as well as the colour. This site is drawn in them too: Classic in the dark theme and Brushed metal in the light one.
+
+<Skins />
+
+<div class="pair not-content">
+  <Window src={drums} alt="The drum editor in the Neon skin: a step grid for the Acoustic kit, with verse and chorus pattern clips on the drums track." title="Neon" />
+  <Window src={designer} alt="The pedal designer: the overdrive pedal as a graph of nodes, with the tone filter selected and its fields in the side panel." title="Designer" />
+</div>
+
+## Built in the open
+
+Cantina is built one milestone at a time, and each one ships with a demo you can play. The design notes record what was built and why, including what the M0 spike found about latency and the `Processor` trait.
+
+<div class="links not-content">
+  <a class="cantina-key" href="/guides/getting-started/">Getting started</a>
+  <a class="cantina-key" href="/notes/spike/">The M0 spike</a>
+  <a class="cantina-key" href="https://github.com/jbouder/cantina/milestones">Milestones</a>
+</div>
+
+<style>{`
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 1rem;
+  }
+  .pair {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    gap: 1.5rem;
+    margin-top: 2.5rem;
+  }
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .links .cantina-key {
+    padding: 0.65rem 1.1rem;
+    text-decoration: none;
+    color: var(--pbtn-ink);
+    background: linear-gradient(var(--pbtn-hi), var(--pbtn) 55%, var(--pbtn-lo));
+    box-shadow: inset 0 1px 0 var(--pbtn-bevel-hi), 0 2px 0 var(--frame-edge);
+  }
+`}</style>

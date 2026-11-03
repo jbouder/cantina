@@ -49,7 +49,7 @@ pub fn set_audio_settings(engine: State<'_, EngineState>, settings: AudioSetting
     engine.lock().set_audio_settings(settings)
 }
 
-/// Opens the binary frame stream (see `frame.rs` and `docs/frames.md`).
+/// Opens the binary frame stream (see `frame.rs` and `docs/src/content/docs/notes/frames.md`).
 #[tauri::command]
 pub fn subscribe_meters(engine: State<'_, EngineState>, channel: Channel<InvokeResponseBody>) {
     engine.lock().subscribe_meters(channel)

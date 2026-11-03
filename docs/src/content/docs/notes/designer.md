@@ -1,7 +1,10 @@
-# Pedal designer
+---
+title: "Pedal designer"
+description: "How the pedal designer edits a pedal graph on a canvas while it plays in the chain."
+---
 
 The designer edits a pedal in the pedal format
-([pedal-format.md](pedal-format.md)) while it runs in a chain, so every
+([pedal-format](/notes/pedal-format/)) while it runs in a chain, so every
 change is heard on the input as it is made. **New design…** in the
 pedal picker (the **+** slot at the end of a chain) starts a new pedal
 (an input wired to an output) at the end of the chain and opens it;

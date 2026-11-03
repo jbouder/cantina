@@ -1,4 +1,7 @@
-# M0 spike: can this work?
+---
+title: "M0 spike: can this work?"
+description: "The M0 spike: what was built, what was learned about the Processor trait, and what stayed open."
+---
 
 The spike asked two questions. Can CoreAudio give a guitar player a round
 trip they cannot feel, and can one `Processor` trait hold stock pedals,
@@ -10,7 +13,7 @@ This is what was built, what was learned, and what is still open.
 | Issue | Result |
 | --- | --- |
 | #2 Workspace and passthrough | `crates/dsp` and `crates/engine`. A duplex CoreAudio stream: one HAL unit when input and output are the same device, two units with one block held back otherwise. Audio crosses between callbacks on a lock-free ring; nothing in the callbacks allocates, locks, blocks or logs. |
-| #3 Latency measurement | A click train over a loopback cable with onset detection against the noise floor, next to the latency CoreAudio claims. Method and table in [latency.md](latency.md). |
+| #3 Latency measurement | A click train over a loopback cable with onset detection against the noise floor, next to the latency CoreAudio claims. Method and table in [latency](/notes/latency/). |
 | #4 Processor trait | `Processor`, `Buffer`, `Chain`, `Smoother`, `Biquad`, stock `Gain` and `Overdrive`. Parameter changes reach the audio thread over an `rtrb` queue. |
 | #5 Audio Units | `AudioUnitProcessor` over the v2 API: enumerate, find by `aufx:dely:appl` or name, parameters, latency, render. Tested against Apple's AUDelay. |
 | #6 CLAP | `ClapProcessor` over `clack-host`, plus a real CLAP plugin in the workspace as a test fixture. Parameters as events, latency and state extensions. |
@@ -24,7 +27,7 @@ The development machine had only the built-in microphone and speakers,
 which are separate devices on separate clocks, and unattended runs block
 on the microphone permission prompt. No round trip has been measured.
 The tool is ready and the bar is written down in
-[latency.md](latency.md): a median of 6 ms or less at 64 frames on a
+[latency](/notes/latency/): a median of 6 ms or less at 64 frames on a
 class-compliant USB interface, with no underruns over ten clicks.
 
 What CoreAudio will report for such an interface at 64 frames is roughly
@@ -64,7 +67,7 @@ And one thing did not change, but should be decided before M4:
    the UI thread and talk to the audio half through queues. The second is
    closer to how the engine already moves parameters and is the
    recommendation. *M4 took it: see "the handle" in
-   [hosting.md](hosting.md).*
+   [hosting](/notes/hosting/).*
 
 Other findings:
 

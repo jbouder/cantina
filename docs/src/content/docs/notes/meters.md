@@ -1,6 +1,9 @@
-# Meter stream cost
+---
+title: "Meter stream cost"
+description: "What the binary meter stream costs the UI at idle."
+---
 
-What the binary frame stream (`docs/frames.md`) costs the UI at idle, with
+What the binary frame stream ([frames](/notes/frames/)) costs the UI at idle, with
 the engine idle and 60 frames a second flowing. Measured with
 `scripts/measure-ui-cpu.sh`, which launches the release build with
 `CANTINA_SYNTHETIC_METERS=1` (the shell pumps frames with no audio stream

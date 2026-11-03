@@ -1,0 +1,102 @@
+---
+/**
+ * The six skins as small windows, drawn from each skin's preview colors
+ * in packages/skins, so a new or changed skin shows up here by itself.
+ */
+import { SKINS } from "../../../packages/skins/index.ts";
+---
+
+<ul class="skins not-content">
+  {
+    SKINS.map((skin) => (
+      <li
+        style={`--f:${skin.preview.frame};--t:${skin.preview.title};--l:${skin.preview.lcd};--i:${skin.preview.lcdInk};--k:${skin.preview.key};--d:${skin.preview.led}`}
+      >
+        <div class="mini" aria-hidden="true">
+          <span class="title" />
+          <span class="lcd">88:88</span>
+          <span class="keys">
+            <i />
+            <i />
+            <i />
+            <b />
+          </span>
+        </div>
+        <span class="label">{skin.name}</span>
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  .skins {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 1rem;
+  }
+
+  li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    align-items: center;
+  }
+
+  .mini {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 8px;
+    background: var(--f);
+    border: 1px solid var(--frame-edge);
+  }
+
+  .title {
+    height: 5px;
+    border-radius: 2px;
+    background: var(--t);
+  }
+
+  .lcd {
+    font-family: var(--font-lcd);
+    font-size: 1.6rem;
+    line-height: 1.2;
+    text-align: center;
+    color: var(--i);
+    background: var(--l);
+    border-radius: 3px;
+  }
+
+  .keys {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .keys i {
+    flex: 1;
+    height: 12px;
+    border-radius: 2px;
+    background: var(--k);
+  }
+
+  .keys b {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--d);
+  }
+
+  .label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--sl-color-gray-2);
+  }
+</style>

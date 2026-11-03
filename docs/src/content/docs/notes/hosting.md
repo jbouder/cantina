@@ -1,4 +1,7 @@
-# Plugin hosting
+---
+title: "Plugin hosting"
+description: "Audio Units and CLAP plugins as processors: scanning, the handle split, latency, state and editor windows."
+---
 
 Third-party plugins are Audio Units and CLAP plugins (VST3 is out for
 good: its license would force the project's). Both end up as a

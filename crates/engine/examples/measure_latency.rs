@@ -6,7 +6,7 @@
 //!
 //! Connect output 1 of the interface to input 1 with a cable, turn the
 //! input gain to about half, and run. Prints each click's delay, the
-//! median, and a row for docs/latency.md.
+//! median, and a row for docs/src/content/docs/notes/latency.md.
 
 use std::thread;
 use std::time::Duration;
@@ -173,7 +173,7 @@ fn main() -> Result<()> {
         println!("warning: {underruns} underrun frames during the run; try a larger buffer");
     }
     println!();
-    println!("Row for docs/latency.md:");
+    println!("Row for docs/src/content/docs/notes/latency.md:");
     println!(
         "| {in_name} | {} | {} | {} | {:.2} | {} | {:.2} | {:+} |",
         info.sample_rate as u32,

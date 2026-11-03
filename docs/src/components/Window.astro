@@ -1,0 +1,69 @@
+---
+/**
+ * A screenshot inside an app window: the frame, the title bar with its
+ * three lit rules either side of the name, and the picture.
+ */
+import { Image } from "astro:assets";
+import type { ImageMetadata } from "astro";
+
+interface Props {
+  src: ImageMetadata;
+  alt: string;
+  title?: string;
+  eager?: boolean;
+}
+
+const { src, alt, title = "Cantina", eager = false } = Astro.props;
+---
+
+<figure class="window not-content">
+  <div class="bar" aria-hidden="true">
+    <span class="rules"></span>
+    <span class="name">{title}</span>
+    <span class="rules"></span>
+  </div>
+  <Image src={src} alt={alt} widths={[600, 1100, 1600]} sizes="(min-width: 72rem) 64rem, 100vw" loading={eager ? "eager" : "lazy"} />
+</figure>
+
+<style>
+  .window {
+    margin: 0;
+    padding: 0.5rem 0.6rem 0.6rem;
+    border-radius: 12px;
+    background: linear-gradient(var(--frame), var(--frame-lo));
+    border: 1px solid var(--frame-edge);
+    box-shadow:
+      inset 0 1px 0 var(--frame-hi),
+      0 24px 60px -20px var(--frame-edge);
+  }
+
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.2rem 0.4rem 0.55rem;
+  }
+
+  .rules {
+    flex: 1;
+    height: 9px;
+    background: repeating-linear-gradient(var(--title-on) 0 2px, transparent 2px 3.5px);
+    opacity: 0.85;
+  }
+
+  .name {
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--title-text);
+  }
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+    border: 1px solid var(--frame-edge);
+  }
+</style>

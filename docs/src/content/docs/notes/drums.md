@@ -1,4 +1,7 @@
-# Drums
+---
+title: "Drums"
+description: "Kits, the sampler and the step sequencer: how beats are made, stored and played."
+---
 
 Beats in Cantina are a **kit** (sounds) played by a **sampler** (the
 `Processor` that makes the sound) under a **sequencer** (what decides
@@ -262,7 +265,7 @@ them.
   button onto the timeline and drop it on a drum track where it should
   start (snapped to the grid). Dropping on an audio track is refused.
 - **Move, trim, split, delete** work as for audio clips (see
-  [timeline.md](timeline.md)): the timeline converts between samples
+  [timeline](/notes/timeline/)): the timeline converts between samples
   and ticks on the way in and out, trimming the front keeps the beats
   where they were by moving the offset, and a pattern clip may grow
   past its pattern's length. A clip dragged onto an audio track stays

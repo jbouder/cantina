@@ -1,4 +1,7 @@
-# Projects
+---
+title: "Projects"
+description: "The project directory, the model, the command log, undo, autosave and recovery."
+---
 
 A project is a directory. `Song` lives at `~/Music/Cantina/Song.cantina/`:
 
@@ -53,7 +56,7 @@ serialized in camelCase:
   `au:…` or `clap:…`) and the value of each parameter in the order the
   processor lists them. Names, units and ranges come from the processor,
   not the file. A third-party plugin's own state is saved next to the
-  file as `plugins/<pedal id>.state`; see [hosting.md](hosting.md). A
+  file as `plugins/<pedal id>.state`; see [hosting](/notes/hosting/). A
   pedal with `"bypassed": true` keeps its settings but the signal goes
   round it; the field is left out when false. The format went to
   version 5 with it.
@@ -64,13 +67,13 @@ serialized in camelCase:
   project switches the engine to that rate; changing the device rate is
   only allowed while the project has no audio.
 - **Drum tracks** carry a `kit` id and **`patterns`** on the project
-  hold the step grids; see [drums.md](drums.md). The format went to
+  hold the step grids; see [drums](/notes/drums/). The format went to
   version 3 with them.
 - **Designed pedals** have the spec `pedal:<id>`; the definition is
   `pedals/<id>.pedal.json` in the project, written on Save for every
   such pedal the chains use (drafts included) and read back on open,
   so a song plays the same on its own, whatever the library holds. See
-  [designer.md](designer.md).
+  [designer](/notes/designer/).
 
 ## Commands
 
@@ -120,7 +123,7 @@ input, mono, so a take can be played back through a chain that changed
 after the fact. The delay before the bus is latency compensation: each
 track's playback waits for the slowest chain so clips line up at the
 master, while live input, which joins after it, is never delayed (see
-[latency.md](latency.md)). Each strip is gain, pan and mute, every one smoothed on
+[latency](/notes/latency/)). Each strip is gain, pan and mute, every one smoothed on
 the audio thread so a fader move never clicks; its meter is a tap after
 it. Solo is computed in the shell: a solo anywhere mutes every track that
 is not soloed, and solos add up. The master strip has gain and mute. Recording starts a take on every armed track from

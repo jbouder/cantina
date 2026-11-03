@@ -59,7 +59,7 @@ for (const file of walk(uiRoot)) {
   }
 }
 if (failed) {
-  console.error("\nColors belong in ui/src/skins/*.css as tokens. See docs/skins.md.");
+  console.error("\nColors belong in ui/src/skins/*.css as tokens. See docs/src/content/docs/notes/skins.md.");
   process.exit(1);
 }
 console.log("check-colors: no literal colors outside ui/src/skins/");

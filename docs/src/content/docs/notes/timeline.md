@@ -1,4 +1,7 @@
-# Timeline
+---
+title: "Timeline"
+description: "The canvas timeline: tracks, clips, waveform peak caches, the ruler and editing."
+---
 
 The timeline is a Canvas, not DOM: tracks and clips with waveforms, a bar
 and beat ruler, the playhead and the grid are drawn by
@@ -45,7 +48,7 @@ Each edit becomes one command (`clip_move`, `clip_trim`, `clip_split`,
 canvas without touching the project. Pattern clips on drum tracks go
 through the same code: they are converted from ticks to samples for the
 lane and back for the `pattern_clip_*` commands (see
-[drums.md](drums.md)), and a clip only lands on a track of its own kind.
+[drums](/notes/drums/)), and a clip only lands on a track of its own kind.
 
 ## The window
 

@@ -5,8 +5,9 @@ pedal chain with no perceptible delay, layer tracks, build drum beats, run
 third-party plugins, design your own pedals, and watch it all on a stage of
 music visualizer scenes.
 
-Open source under the MIT license. See [PLAN.md](PLAN.md) for the design,
-architecture and milestones, and the
+Open source under the MIT license. The documentation lives at
+**[cantina-docs.vibeproject.workers.dev](https://cantina-docs.vibeproject.workers.dev)**.
+See [PLAN.md](PLAN.md) for the design, architecture and milestones, and the
 [GitHub milestones](https://github.com/jbouder/cantina/milestones) for
 progress.
 
@@ -25,8 +26,8 @@ signals from other nodes) and the pedal's knobs; a broken graph shows
 its problems inline and the last valid pedal keeps playing. Pedals
 save to a library, projects keep their own copies, and single files
 import and export by dialog or by dropping them on the window. See
-[docs/pedal-format.md](docs/pedal-format.md) and
-[docs/designer.md](docs/designer.md). Next: M8 Stage.
+[the pedal format](https://cantina-docs.vibeproject.workers.dev/notes/pedal-format/) and
+[the designer](https://cantina-docs.vibeproject.workers.dev/notes/designer/). Next: M8 Stage.
 
 ## Start the app
 
@@ -125,7 +126,25 @@ cargo run --release -p cantina-engine --example measure_latency -- --in Scarlett
 ```
 
 It plays clicks, times their return and prints a row for
-[docs/latency.md](docs/latency.md).
+[the latency notes](https://cantina-docs.vibeproject.workers.dev/notes/latency/).
+
+## Docs site
+
+The site in `docs/` is [Astro](https://astro.build) with
+[Starlight](https://starlight.astro.build), drawn in the skin tokens from
+`packages/skins`. It is its own npm project and needs Node 22:
+
+```sh
+cd docs
+npm install            # once
+npm run dev            # http://localhost:4321, reloads as pages change
+npm run build          # what CI runs: fails on a broken link or an unindexed page
+```
+
+Pages are Markdown in `docs/src/content/docs/`; every page needs a
+`title` and a `description`. A push to `main` that touches `docs/` or
+`packages/skins/` deploys to Cloudflare Workers, and a pull request gets
+a preview URL as a comment.
 
 ## Layout
 
@@ -138,5 +157,5 @@ crates/clap-fixture  a tiny CLAP plugin the hosting tests load
 src-tauri/      the Tauri 2 shell: owns the engine and the open project, exposes commands to the UI
 ui/             the React and TypeScript app; Tailwind v4 reads the six skins' tokens
 scripts/        developer tools, such as the PR screenshot capture
-docs/           design notes, measurements and screenshots; the Astro site lands here
+docs/           the Astro and Starlight docs site, with the design notes; PR screenshots in docs/screenshots
 ```

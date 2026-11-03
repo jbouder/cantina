@@ -4,6 +4,12 @@
   "files": {
     "includes": [
       "ui/**",
+      "docs/**",
+      "!docs/dist",
+      "!docs/.astro",
+      "!docs/src/generated",
+      "!docs/**/*.md",
+      "!docs/**/*.mdx",
       "*.ts",
       "*.json",
       "!ui/dist",
@@ -41,5 +47,18 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.astro"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedVariables": "off",
+            "noUnusedImports": "off"
+          }
+        }
+      }
+    }
+  ]
 }
