@@ -121,9 +121,6 @@ queue.
 
 ## Cost
 
-See [meters](/notes/meters/) for the measured CPU use of the UI at idle with the
-stream running.
-
 The scope adds 141 ns to a 128-frame stereo block in a release build,
 0.005% of the 2.67 ms the block lasts at 48 kHz, and 0.4 µs in a dev
 build: it copies samples and does nothing else. The analysis costs the
