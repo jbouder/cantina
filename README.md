@@ -66,9 +66,13 @@ file, so you or a coding agent can write one and the app picks it up.
 
 ## Status
 
-In development, with no packaged release yet. Everything above works when
-built from source; signing, notarization, a DMG and auto-update are next, in
-the [M9 Ship](https://github.com/jbouder/cantina/milestones) milestone.
+Released. Download the universal DMG from
+[Releases](https://github.com/jbouder/cantina/releases/latest); the app
+updates itself from there. It is not notarized by Apple yet, so the first
+open needs **Open Anyway** in System Settings → Privacy & Security (the
+[getting started](https://cantina-docs.vibeproject.workers.dev/guides/getting-started/)
+guide walks through it). [CONTRIBUTING.md](CONTRIBUTING.md) is how to
+help.
 
 ## Build from source
 

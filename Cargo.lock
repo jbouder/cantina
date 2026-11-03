@@ -360,7 +360,7 @@ dependencies = [
 
 [[package]]
 name = "cantina"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "cantina-dsp",
@@ -379,7 +379,7 @@ dependencies = [
 
 [[package]]
 name = "cantina-clap-gain"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "clack-extensions",
  "clack-plugin",
@@ -387,7 +387,7 @@ dependencies = [
 
 [[package]]
 name = "cantina-cli"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "cantina-dsp",
@@ -403,7 +403,7 @@ dependencies = [
 
 [[package]]
 name = "cantina-dsp"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "hound",
  "schemars 1.2.3",
@@ -413,7 +413,7 @@ dependencies = [
 
 [[package]]
 name = "cantina-engine"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "cantina-dsp",
@@ -429,7 +429,7 @@ dependencies = [
 
 [[package]]
 name = "cantina-hosting"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "cantina-clap-gain",
@@ -450,7 +450,7 @@ dependencies = [
 
 [[package]]
 name = "cantina-project"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "cantina-dsp",
  "jsonschema",

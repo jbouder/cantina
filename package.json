@@ -1,7 +1,7 @@
 {
   "name": "cantina",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "A Mac desktop studio for guitar and bass players",
   "license": "MIT",
   "type": "module",
