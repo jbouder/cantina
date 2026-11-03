@@ -10,6 +10,7 @@
     "build": "npm run generate && astro build && node scripts/check-search.mjs",
     "preview": "astro preview",
     "check": "npm run generate && astro check",
+    "rustdoc": "scripts/rustdoc.sh",
     "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {

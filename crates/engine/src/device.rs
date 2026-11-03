@@ -33,13 +33,19 @@ pub type DeviceId = AudioObjectID;
 /// What the UI needs to know about a device to offer it in a picker.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeviceInfo {
+    /// CoreAudio's id for the device; changes when it is replugged.
     pub id: DeviceId,
     /// Stable across launches and replugs, unlike the id. What to persist.
     pub uid: String,
+    /// The device's name, as Audio MIDI Setup shows it.
     pub name: String,
+    /// Input channels; zero for an output-only device.
     pub input_channels: u32,
+    /// Output channels; zero for an input-only device.
     pub output_channels: u32,
+    /// The nominal sample rate it runs at now.
     pub sample_rate: f64,
+    /// The I/O buffer size it runs at now, in frames.
     pub buffer_frames: u32,
 }
 
@@ -369,7 +375,9 @@ fn fourcc(status: i32) -> String {
 pub enum DeviceEvent {
     /// A device was plugged in or removed.
     DevicesChanged,
+    /// The system's default input device changed.
     DefaultInputChanged,
+    /// The system's default output device changed.
     DefaultOutputChanged,
     /// The device's nominal sample rate is now this.
     SampleRateChanged(DeviceId, f64),

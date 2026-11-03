@@ -56,10 +56,13 @@ pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 /// that writes to stdout while loading cannot be mistaken for a result.
 const MARK: &str = "@cantina ";
 
+/// A plugin format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Format {
+    /// Audio Units.
     Au,
+    /// CLAP.
     Clap,
 }
 
@@ -78,13 +81,18 @@ impl fmt::Display for Format {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(tag = "format", rename_all = "lowercase")]
 pub enum Source {
+    /// An Audio Unit component.
     Au {
         /// `type:subtype:manufacturer`.
         id: String,
+        /// The name it reports.
         name: String,
+        /// Its version, which changes when it is updated.
         version: u32,
     },
+    /// A CLAP bundle, which may hold several plugins.
     Clap {
+        /// The `.clap` bundle.
         path: PathBuf,
         /// Newest modification time inside the bundle, seconds since
         /// the epoch.
@@ -103,6 +111,7 @@ impl Source {
         }
     }
 
+    /// The format of what this source holds.
     pub fn format(&self) -> Format {
         match self {
             Source::Au { .. } => Format::Au,
@@ -126,17 +135,22 @@ impl Source {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginEntry {
+    /// Audio Unit or CLAP.
     pub format: Format,
     /// The spec the engine builds it from: `au:aufx:dely:appl` or
     /// `clap:<bundle path>#<plugin id>`.
     pub spec: String,
     /// Key of the [`Source`] it came from.
     pub source: String,
+    /// The plugin's name.
     pub name: String,
+    /// Who makes it.
     pub vendor: String,
+    /// Its version, as the plugin reports it.
     pub version: String,
     /// Channels on the main input and output.
     pub inputs: u32,
+    /// See `inputs`.
     pub outputs: u32,
     /// Whether the plugin ships its own editor view.
     pub has_editor: bool,
@@ -146,10 +160,13 @@ pub struct PluginEntry {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Failure {
+    /// Audio Unit or CLAP.
     pub format: Format,
+    /// Key of the [`Source`] that failed.
     pub source: String,
     /// The plugin being examined when it failed, or the source's name.
     pub name: String,
+    /// What went wrong, or that the child crashed.
     pub why: String,
 }
 
@@ -157,10 +174,13 @@ pub struct Failure {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct PluginList {
+    /// Bumped when the cache's shape changes; an older cache is rescanned.
     pub version: u32,
     /// Seconds since the epoch of the last scan; zero before the first.
     pub scanned_at: u64,
+    /// Plugins that loaded.
     pub plugins: Vec<PluginEntry>,
+    /// Sources that failed to load, kept so they are not retried until they change.
     pub failed: Vec<Failure>,
     /// Every source examined, by key, with the fingerprint it had.
     pub sources: BTreeMap<String, Source>,
@@ -195,6 +215,7 @@ impl PluginList {
         Ok(list)
     }
 
+    /// Writes the list as JSON to `path`, creating its directory.
     pub fn save(&self, path: &Path) -> Result<()> {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
@@ -362,6 +383,7 @@ pub fn child_main() -> i32 {
 pub enum Found {
     /// About to instantiate this plugin, so a crash can be pinned on it.
     Examining(String),
+    /// A plugin that loaded.
     Plugin(PluginEntry),
 }
 
@@ -493,6 +515,7 @@ fn port_channels(instance: &mut PluginInstance<CantinaHost>) -> (u32, u32) {
 pub struct Progress {
     /// Sources finished, including the ones reused from the cache.
     pub done: usize,
+    /// Sources to examine in all.
     pub total: usize,
     /// What the child is loading now.
     pub current: String,
@@ -501,6 +524,7 @@ pub struct Progress {
 /// What a scan did, beyond the list.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Outcome {
+    /// The new plugin list.
     pub list: PluginList,
     /// Sources the child examined.
     pub examined: usize,
@@ -514,6 +538,8 @@ pub struct Outcome {
 pub struct Scanner {
     program: PathBuf,
     args: Vec<String>,
+    /// How long a child may go quiet before it is killed and the source it was
+    /// loading recorded as failed.
     pub timeout: Duration,
 }
 

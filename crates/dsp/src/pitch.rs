@@ -33,6 +33,7 @@ const MAX_PEAKS: usize = 96;
 /// A detected pitch.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Pitch {
+    /// The fundamental frequency.
     pub hz: f32,
     /// How periodic the window was, 0 to 1.
     pub clarity: f32,
@@ -86,7 +87,7 @@ fn peak_at(nsdf: &[f32], i: usize) -> (f32, f32) {
 }
 
 /// Picks the period from an NSDF: the first positive peak that comes
-/// within [`PEAK_RATIO`] of the highest. Returns the lag and its value.
+/// within `PEAK_RATIO` of the highest. Returns the lag and its value.
 pub fn pick(nsdf: &[f32]) -> Option<(f32, f32)> {
     let n = nsdf.len();
     let mut peaks = [(0.0f32, 0.0f32); MAX_PEAKS];

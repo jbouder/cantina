@@ -7,7 +7,7 @@
 //! the same [`Readout`]. Each cell is one `f32` behind an atomic, so a
 //! write never blocks and a read sees a whole value, never half of one.
 //! The shell streams every readout in a running graph to the UI in the
-//! same frame as the meters (see `docs/src/content/docs/notes/frames.md`).
+//! same frame as the meters (see `docs/src/content/docs/architecture/frames.md`).
 
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
@@ -35,10 +35,12 @@ impl Readout {
         self.names
     }
 
+    /// Number of cells.
     pub fn len(&self) -> usize {
         self.cells.len()
     }
 
+    /// True when the readout has no cells.
     pub fn is_empty(&self) -> bool {
         self.cells.is_empty()
     }

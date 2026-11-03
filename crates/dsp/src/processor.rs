@@ -16,11 +16,17 @@ pub type ParamId = usize;
 /// How a parameter's value should be displayed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Unit {
+    /// A plain number.
     Generic,
+    /// Decibels.
     Decibels,
+    /// Hertz.
     Hertz,
+    /// Seconds.
     Seconds,
+    /// Milliseconds.
     Milliseconds,
+    /// Percent, 0 to 100.
     Percent,
     /// Off or on: 0 or 1, shown as a switch.
     Toggle,
@@ -36,13 +42,18 @@ pub struct ParamInfo {
     /// Borrowed for stock processors, owned for plugins that report theirs
     /// at load time.
     pub name: Cow<'static, str>,
+    /// How the value is shown.
     pub unit: Unit,
+    /// The smallest value.
     pub min: f32,
+    /// The largest value.
     pub max: f32,
+    /// The value a new processor starts at.
     pub default: f32,
 }
 
 impl ParamInfo {
+    /// A parameter with a static name.
     pub const fn new(name: &'static str, unit: Unit, min: f32, max: f32, default: f32) -> Self {
         Self {
             name: Cow::Borrowed(name),
@@ -73,6 +84,7 @@ impl ParamInfo {
         )
     }
 
+    /// The value held to the range; choices and toggles round to a whole index.
     pub fn clamp(&self, value: f32) -> f32 {
         let clamped = value.clamp(self.min, self.max);
         match self.unit {
@@ -92,9 +104,11 @@ impl ParamInfo {
 /// processor before each block.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Transport {
+    /// Tempo in beats per minute.
     pub bpm: f64,
     /// Position in quarter-note beats from the start of the timeline.
     pub beats: f64,
+    /// True while the transport rolls.
     pub playing: bool,
 }
 
@@ -111,7 +125,14 @@ impl Default for Transport {
 /// Why a state blob could not be loaded.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StateError {
-    WrongLength { expected: usize, found: usize },
+    /// The blob is not the size this processor writes.
+    WrongLength {
+        /// The size it writes.
+        expected: usize,
+        /// The size it was given.
+        found: usize,
+    },
+    /// The blob is the right size but cannot be read, said in words.
     Invalid(String),
 }
 
@@ -142,26 +163,32 @@ impl<'a, 'b> Buffer<'a, 'b> {
         Self { channels, frames }
     }
 
+    /// Frames in each channel.
     pub fn frames(&self) -> usize {
         self.frames
     }
 
+    /// Number of channels.
     pub fn channels(&self) -> usize {
         self.channels.len()
     }
 
+    /// One channel's samples.
     pub fn channel(&self, index: usize) -> &[f32] {
         self.channels[index]
     }
 
+    /// One channel's samples, to change.
     pub fn channel_mut(&mut self, index: usize) -> &mut [f32] {
         self.channels[index]
     }
 
+    /// Every channel, to change.
     pub fn channels_mut(&mut self) -> &mut [&'b mut [f32]] {
         self.channels
     }
 
+    /// Sets every sample of every channel to `value`.
     pub fn fill(&mut self, value: f32) {
         for channel in self.channels.iter_mut() {
             channel.fill(value);
@@ -321,6 +348,7 @@ pub struct Chain {
 }
 
 impl Chain {
+    /// An empty chain.
     pub fn new() -> Self {
         Self::default()
     }
@@ -330,22 +358,27 @@ impl Chain {
         self.processors.push(processor);
     }
 
+    /// Number of processors.
     pub fn len(&self) -> usize {
         self.processors.len()
     }
 
+    /// True when the chain holds no processors.
     pub fn is_empty(&self) -> bool {
         self.processors.is_empty()
     }
 
+    /// A processor by position.
     pub fn get(&self, index: usize) -> Option<&dyn Processor> {
         self.processors.get(index).map(|p| p.as_ref())
     }
 
+    /// A processor by position, to change.
     pub fn get_mut(&mut self, index: usize) -> Option<&mut Box<dyn Processor>> {
         self.processors.get_mut(index)
     }
 
+    /// The processors in order.
     pub fn iter(&self) -> impl Iterator<Item = &dyn Processor> {
         self.processors.iter().map(|p| p.as_ref())
     }
@@ -355,12 +388,14 @@ impl Chain {
         self.processors.iter().map(|p| p.latency()).sum()
     }
 
+    /// Prepares every processor. Off the audio thread.
     pub fn prepare(&mut self, sample_rate: f64, max_block_frames: usize) {
         for p in &mut self.processors {
             p.prepare(sample_rate, max_block_frames);
         }
     }
 
+    /// Resets every processor's state, as after a seek.
     pub fn reset(&mut self) {
         for p in &mut self.processors {
             p.reset();

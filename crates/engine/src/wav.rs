@@ -13,10 +13,15 @@ use hound::{SampleFormat, WavReader, WavSpec, WavWriter};
 /// What a WAV file holds.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WavInfo {
+    /// The file.
     pub path: PathBuf,
+    /// Frames per second.
     pub sample_rate: u32,
+    /// Channels per frame.
     pub channels: u16,
+    /// Bits per sample as stored.
     pub bits_per_sample: u16,
+    /// True for IEEE float samples, false for integers.
     pub float: bool,
     /// Frames per channel.
     pub frames: u64,
@@ -93,6 +98,7 @@ pub struct Reader {
 }
 
 impl Reader {
+    /// Opens a WAV file and reads its header.
     pub fn open(path: &Path) -> Result<Reader> {
         let wav = WavReader::open(path).with_context(|| format!("opening {}", path.display()))?;
         let spec = wav.spec();
@@ -128,6 +134,7 @@ impl Reader {
         })
     }
 
+    /// What the file holds.
     pub fn info(&self) -> &WavInfo {
         &self.info
     }

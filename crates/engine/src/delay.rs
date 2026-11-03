@@ -56,6 +56,7 @@ impl Delay {
         }
     }
 
+    /// The longest delay it can hold, in frames.
     pub fn capacity(&self) -> usize {
         self.capacity
     }

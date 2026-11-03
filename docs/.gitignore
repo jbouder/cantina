@@ -3,3 +3,4 @@
 # Written by scripts/generate.mjs on every dev, build and check.
 src/generated/
 public/og.png
+public/api/

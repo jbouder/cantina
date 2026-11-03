@@ -17,6 +17,8 @@ mod settings;
 use engine::EngineState;
 use tauri::{Manager, RunEvent};
 
+/// Starts the app: builds the Tauri window, manages the engine and project
+/// state, and runs until the window closes.
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())

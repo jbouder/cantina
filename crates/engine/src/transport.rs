@@ -25,19 +25,24 @@ const COMMAND_QUEUE: usize = 64;
 /// A loop between two timeline samples, `start..end`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LoopRange {
+    /// First sample in the loop.
     pub start: u64,
+    /// Sample just after the loop; playback wraps from here to `start`.
     pub end: u64,
 }
 
 impl LoopRange {
+    /// Samples in one pass.
     pub fn len(&self) -> u64 {
         self.end - self.start
     }
 
+    /// True for a loop with no length, which never wraps.
     pub fn is_empty(&self) -> bool {
         self.end <= self.start
     }
 
+    /// True when `sample` is inside the loop.
     pub fn contains(&self, sample: u64) -> bool {
         (self.start..self.end).contains(&sample)
     }
@@ -45,10 +50,15 @@ impl LoopRange {
 
 /// What the UI asks of the transport.
 pub enum TransportCommand {
+    /// Start playing from the current position.
     Play,
+    /// Stop where it is.
     Stop,
+    /// Move to a timeline sample.
     Locate(u64),
+    /// Set or clear the loop.
     SetLoop(Option<LoopRange>),
+    /// Replace the tempo map.
     SetTempoMap(Box<TempoMap>),
 }
 
@@ -65,9 +75,11 @@ struct Shared {
 /// A contiguous run of frames within one block.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Segment {
+    /// Frames in the segment.
     pub frames: usize,
     /// Timeline sample of the segment's first frame.
     pub position: u64,
+    /// True when the timeline moves during it.
     pub playing: bool,
 }
 
@@ -89,6 +101,7 @@ pub struct TransportHandle {
 }
 
 impl Transport {
+    /// A stopped transport at zero and its handle for the UI thread.
     pub fn new(tempo: TempoMap) -> (Transport, TransportHandle) {
         let shared = Arc::new(Shared::default());
         let (producer, consumer) = RingBuffer::new(COMMAND_QUEUE);
@@ -169,18 +182,22 @@ impl Transport {
         self.shared.loop_enabled.store(enabled, Ordering::Relaxed);
     }
 
+    /// The tempo map in use.
     pub fn tempo_map(&self) -> &TempoMap {
         &self.tempo
     }
 
+    /// The active loop, if any.
     pub fn loop_range(&self) -> Option<LoopRange> {
         self.loop_range
     }
 
+    /// True while playing.
     pub fn is_playing(&self) -> bool {
         self.playing
     }
 
+    /// Timeline sample of the next frame.
     pub fn position(&self) -> u64 {
         self.position
     }
@@ -194,6 +211,7 @@ pub struct TransportClock {
 }
 
 impl TransportClock {
+    /// True while playing.
     pub fn is_playing(&self) -> bool {
         self.shared.playing.load(Ordering::Relaxed)
     }
@@ -218,14 +236,17 @@ impl TransportHandle {
         }
     }
 
+    /// Asks the transport to play. False when the queue is full.
     pub fn play(&mut self) -> bool {
         self.send(TransportCommand::Play)
     }
 
+    /// Asks the transport to stop. False when the queue is full.
     pub fn stop(&mut self) -> bool {
         self.send(TransportCommand::Stop)
     }
 
+    /// Asks the transport to move to `sample`. False when the queue is full.
     pub fn locate(&mut self, sample: u64) -> bool {
         self.send(TransportCommand::Locate(sample))
     }
@@ -249,6 +270,7 @@ impl TransportHandle {
         &self.tempo
     }
 
+    /// True while playing.
     pub fn is_playing(&self) -> bool {
         self.shared.playing.load(Ordering::Relaxed)
     }
@@ -263,6 +285,7 @@ impl TransportHandle {
         self.tempo.samples_to_position(self.position(), sample_rate)
     }
 
+    /// The loop, if one is set and enabled.
     pub fn loop_range(&self) -> Option<LoopRange> {
         if !self.shared.loop_enabled.load(Ordering::Relaxed) {
             return None;

@@ -2,19 +2,26 @@ name: Docs
 
 # Builds the docs site in docs/ and deploys it to Cloudflare Workers: main
 # goes live, and a pull request gets a preview URL of its own. The site
-# reads the skin tokens from packages/skins and the design notes say what
-# the code does, so changes there rebuild it too.
+# reads the skin tokens from packages/skins and publishes the crates'
+# rustdoc under /api/, so changes there rebuild it too. macOS, because the
+# engine and hosting crates only build there.
 on:
   push:
     branches: [main]
     paths:
       - "docs/**"
       - "packages/skins/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
       - ".github/workflows/docs.yml"
   pull_request:
     paths:
       - "docs/**"
       - "packages/skins/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
       - ".github/workflows/docs.yml"
 
 concurrency:
@@ -28,7 +35,7 @@ permissions:
 jobs:
   docs:
     name: Build and deploy
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     env:
       # Forked pull requests have no secrets; they stop after the build.
       DEPLOY: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
@@ -42,6 +49,12 @@ jobs:
           cache: npm
           cache-dependency-path: docs/package-lock.json
       - run: npm ci
+        working-directory: docs
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # The crates' rustdoc into public/api, failing on any warning.
+      - run: npm run rustdoc
         working-directory: docs
 
       # Generates the theme and social image, builds with Astro, fails on a

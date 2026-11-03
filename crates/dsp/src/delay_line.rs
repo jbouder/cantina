@@ -16,10 +16,12 @@ impl DelayLine {
         }
     }
 
+    /// The longest delay, in samples, the line holds.
     pub fn max_delay(&self) -> usize {
         self.buffer.len() - 1
     }
 
+    /// Fills the line with silence.
     pub fn reset(&mut self) {
         self.buffer.fill(0.0);
         self.write = 0;

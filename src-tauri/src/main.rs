@@ -1,3 +1,6 @@
+//! The Cantina app. Started with the scanner flag, it is the plugin
+//! scanner's child process instead.
+
 // Prevents an extra console window on Windows; harmless on macOS.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 

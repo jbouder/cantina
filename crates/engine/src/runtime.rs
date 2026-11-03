@@ -1,7 +1,7 @@
 //! The real-time graph runtime and its UI-thread controller.
 //!
 //! [`Runtime`] lives on the audio thread and runs the active
-//! [`Schedule`]. [`Controller`] lives on the UI thread, owns the editable
+//! `Schedule`. [`Controller`] lives on the UI thread, owns the editable
 //! [`Graph`], and talks to the runtime over three lock-free queues:
 //!
 //! - compiled schedules go in, and the runtime swaps one in at the start
@@ -36,8 +36,11 @@ use crate::transport::{Transport, TransportHandle};
 /// A parameter change addressed to one node.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ParamChange {
+    /// The node.
     pub node: NodeId,
+    /// Index of the parameter in the node's list.
     pub param: ParamId,
+    /// The new value.
     pub value: f32,
 }
 
@@ -52,6 +55,7 @@ const PARAM_QUEUE: usize = 1024;
 /// Counters the audio thread bumps. Read from any thread.
 #[derive(Debug, Default)]
 pub struct RuntimeStats {
+    /// Blocks processed.
     pub blocks: AtomicU64,
     /// Schedules swapped in.
     pub swaps: AtomicU64,
@@ -74,6 +78,7 @@ impl RuntimeStats {
 /// Why [`Controller::commit`] could not hand a schedule over.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommitError {
+    /// The graph could not be compiled into a schedule.
     Graph(GraphError),
     /// The audio thread has not taken the last schedules yet. Try again
     /// after it has run a block.
@@ -163,10 +168,12 @@ impl Runtime {
         Ok((runtime, controller))
     }
 
+    /// The configuration the graph runs at.
     pub fn config(&self) -> GraphConfig {
         self.config
     }
 
+    /// Counters the audio thread bumps.
     pub fn stats(&self) -> &Arc<RuntimeStats> {
         &self.stats
     }
@@ -337,10 +344,12 @@ impl Controller {
         &self.graph
     }
 
+    /// The graph, to edit before the next commit.
     pub fn graph_mut(&mut self) -> &mut Graph {
         &mut self.graph
     }
 
+    /// Counters the audio thread bumps.
     pub fn stats(&self) -> &RuntimeStats {
         &self.stats
     }
@@ -350,6 +359,7 @@ impl Controller {
         &self.transport
     }
 
+    /// The transport's UI-thread end.
     pub fn transport_mut(&mut self) -> &mut TransportHandle {
         &mut self.transport
     }

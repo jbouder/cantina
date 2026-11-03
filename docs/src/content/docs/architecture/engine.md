@@ -1,0 +1,83 @@
+---
+title: "Engine"
+description: "The engine crate: CoreAudio streams, the real-time graph runtime, transport and tempo map, disk streaming, latency compensation and analysis."
+sidebar:
+  order: 4
+---
+
+The engine is the only layer that touches the audio device, and the only code that runs on the audio thread is in here or called from here. The code is `crates/engine`; the API is [`cantina_engine`](/api/cantina_engine/).
+
+## The stream
+
+`stream` opens a duplex CoreAudio stream from an input device to an output device. When they are the same device, one HAL output unit runs both directions in a single I/O cycle, so nothing is buffered between the callbacks. Two different devices run on separate clocks, so one block of input is held back and drift shows in the counters. `device` lists devices, sets sample rate and buffer size, and watches for hardware changes: a device plugged in or removed, a default changed, a rate changed under the stream. The shell rebuilds the graph on any of them.
+
+## The graph runtime
+
+A `Graph` is built and edited on the UI thread: nodes are added, prepared and wired between the stream input, each other and the stream output. `Controller::commit` compiles it into a flat schedule with every buffer preallocated and hands it to the `Runtime` on the audio thread over a lock-free queue. The runtime swaps it in at a block boundary.
+
+Nodes are shared between consecutive schedules, so an edit that adds a pedal leaves the others running with their state intact. Nodes that were removed go back to the UI thread inside the old schedule and are dropped there. Parameter changes go over a second queue and land at the start of the next block.
+
+A track in the graph, with everything summing into the master strip:
+
+```
+input -> mute -> bus -> pedals... -> strip -> master -> output
+           |      ^                    |         |
+      recorder  delay <- player      meter   output meter
+```
+
+How the shell builds this from a project is on the [project](/architecture/project/#the-graph) page.
+
+## Transport and tempo
+
+The `Transport` plays, stops, locates and loops, and cuts a block at the loop wrap so each `BlockContext` covers contiguous timeline samples. The UI thread drives it through a `TransportHandle` and reads it through a `TransportClock`. Musical time is counted in ticks, 960 per quarter note, and the `TempoMap` converts sample-accurately between samples, seconds, ticks and bar.beat.tick positions across tempo and time signature changes. The metronome (`click`) and the drum `sequencer` read the tempo map directly, so they land on the sample.
+
+## Disk streaming
+
+The `Player` plays clips from WAV files without touching the disk on the audio thread. A disk thread renders clips into chunks tagged with their timeline position and pushes them through a ring; the node takes the chunk for the block it is asked for and plays silence (counting an underrun) when there is none. A locate or loop change starts a new generation, and the disk thread prefetches across the loop wrap. The `Recorder` does the reverse: the node pushes the input to a ring and a writer thread writes the WAV file.
+
+## Latency compensation
+
+Not the [round trip](/notes/latency/) through the interface, but what plugins add. Every
+processor reports the frames it delays the signal by, and a track's
+chain delays it by the sum. Without correction a track with a lookahead
+limiter plays late against one without, and a take recorded along to it
+lands late on the timeline.
+
+The engine levels the tracks (`crates/engine/src/delay.rs`): `plan`
+takes every chain's latency and gives each track the difference to the
+slowest, and a `Delay` node on each track's *playback* branch, between
+the player and the bus, holds that many frames back. Live input joins
+the bus after the delay, so monitoring is never compensated: the player
+hears their own chain's latency and nothing else. The compensation is
+recomputed whenever a chain changes and whenever a plugin reports a new
+latency (the shell polls the plugin handles a few times a second). The
+engine test plays an impulse on two tracks, one through a 10-frame
+lookahead, and checks both land on the same output frame once
+compensated and 10 frames apart when not.
+
+Recorded takes are moved earlier when they are placed on the timeline,
+by the compensation plus the input and output latency CoreAudio reports
+for the open devices (device latency, safety offset and one buffer each
+way). What the player heard was that late against the timeline, and what
+they played in time with it came back that much later still. A take
+that would start before zero is trimmed at the front instead.
+
+The UI shows the compensation next to the engine's device line
+(`comp 12.3 ms`) and on each pedal that adds latency, and warns when it
+goes above a threshold set in Settings (20 ms by default, kept in
+`settings.json`).
+
+## Analysis
+
+A `Scope` node taps the master or one track and writes recent samples into a ring of atomics. The shell's pump runs an `Analyzer` over them each display frame, off the audio thread: a 128-band log spectrum, the 2048-sample waveform and the level. They travel to the UI with the beat position in the [frame](/architecture/frames/).
+
+## Try it without the app
+
+The examples run the engine from a terminal:
+
+```sh
+cargo run -p cantina-engine --example passthrough -- --list
+cargo run -p cantina-engine --example passthrough -- --in Scarlett --out Scarlett --buffer 64
+```
+
+`--chain gain,overdrive` picks the pedals, `--chain gain,au:AUDelay` or `--chain 'clap:Surge XT'` a plugin, `--click 120` adds the metronome and `--play file.wav` streams a file. While it runs, type `list` to see processors and parameters, `2.drive 30` to change one, `s` for the counters and `q` to quit. `measure_latency` measures the [round trip](/notes/latency/).

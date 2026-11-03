@@ -54,8 +54,11 @@ pub const MAX_HOST_CHANNELS: usize = 8;
 /// The three four-character codes that identify an Audio Unit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ComponentId {
+    /// The component type, such as `aufx` for an effect.
     pub kind: u32,
+    /// The component subtype, chosen by the manufacturer.
     pub subtype: u32,
+    /// The manufacturer's code, such as `appl`.
     pub manufacturer: u32,
 }
 
@@ -99,13 +102,16 @@ impl std::fmt::Display for ComponentId {
 /// What the scanner knows about an installed Audio Unit.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ComponentInfo {
+    /// The three codes that find it.
     pub id: ComponentId,
     /// As the component reports it, usually `Manufacturer: Name`.
     pub name: String,
+    /// The component's version, as AU packs it.
     pub version: u32,
 }
 
 impl ComponentInfo {
+    /// True for Apple's own units.
     pub fn is_apple(&self) -> bool {
         self.id.manufacturer == kAudioUnitManufacturer_Apple
     }
@@ -135,8 +141,11 @@ impl ComponentInfo {
 /// its default channel layout and whether it ships an editor view.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstanceInfo {
+    /// Channels on the main input.
     pub inputs: u32,
+    /// Channels on the main output.
     pub outputs: u32,
+    /// True when the unit ships its own editor view.
     pub has_editor: bool,
 }
 
@@ -308,6 +317,7 @@ unsafe impl Send for UnitOwner {}
 unsafe impl Sync for UnitOwner {}
 
 impl UnitOwner {
+    /// The instance, for AudioToolbox calls.
     pub fn raw(&self) -> AudioUnit {
         self.0
     }
@@ -456,10 +466,12 @@ pub struct AudioUnitHandle {
 }
 
 impl AudioUnitHandle {
+    /// What the scanner knows about the unit.
     pub fn info(&self) -> &ComponentInfo {
         &self.info
     }
 
+    /// The unit's name without its manufacturer.
     pub fn name(&self) -> &str {
         &self.display_name
     }
@@ -483,6 +495,7 @@ impl AudioUnitHandle {
             .map_or(0.0, |&au_id| param_value(self.unit.raw(), au_id))
     }
 
+    /// The unit's parameters, in the order the processor lists them.
     pub fn params(&self) -> &[ParamInfo] {
         &self.params
     }
@@ -611,6 +624,7 @@ impl AudioUnitProcessor {
         Ok(processor)
     }
 
+    /// What the scanner knows about the unit.
     pub fn info(&self) -> &ComponentInfo {
         &self.info
     }

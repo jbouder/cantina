@@ -11,6 +11,9 @@ rust-version.workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[lints]
+workspace = true
+
 [dependencies]
 clack-plugin = "0.2"
 clack-extensions = { version = "0.2", features = ["clack-plugin", "audio-ports", "params", "latency", "state"] }

@@ -76,8 +76,11 @@ pub fn installed_bundles() -> Vec<PathBuf> {
 /// A plugin a bundle offers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PluginInfo {
+    /// The plugin's reverse-domain id.
     pub id: String,
+    /// The plugin's name.
     pub name: String,
+    /// Who makes it.
     pub vendor: String,
 }
 
@@ -121,8 +124,11 @@ fn describe(entry: &PluginEntry) -> Vec<PluginInfo> {
 /// can poll. Nothing here blocks.
 #[derive(Default)]
 pub struct Shared {
+    /// The plugin asked to be deactivated and activated again.
     pub restart_requested: AtomicBool,
+    /// The plugin asked to be processed even with no input.
     pub process_requested: AtomicBool,
+    /// The plugin asked for a call on the main thread.
     pub callback_requested: AtomicBool,
     /// The plugin wants a parameter flush while inactive.
     pub flush_requested: AtomicBool,
@@ -163,6 +169,7 @@ pub struct MainThreadHost<'a> {
 }
 
 impl<'a> MainThreadHost<'a> {
+    /// The main-thread host over `shared`.
     pub fn new(shared: &'a Shared) -> Self {
         Self { shared }
     }
@@ -341,6 +348,7 @@ impl ClapProcessor {
         })
     }
 
+    /// The plugin's id, name and vendor.
     pub fn info(&self) -> &PluginInfo {
         &self.info
     }
@@ -741,10 +749,12 @@ pub struct ClapHandle {
 }
 
 impl ClapHandle {
+    /// The plugin's id, name and vendor.
     pub fn info(&self) -> &PluginInfo {
         &self.info
     }
 
+    /// The plugin's parameters, in the order the processor lists them.
     pub fn params(&self) -> &[ParamInfo] {
         &self.params
     }

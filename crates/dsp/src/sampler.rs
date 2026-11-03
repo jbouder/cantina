@@ -36,6 +36,7 @@ pub const CHOKE_SECONDS: f32 = 0.003;
 /// A hit: a pad, how hard, and the frame of the block it lands on.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Trigger {
+    /// Index of the pad in the kit.
     pub pad: usize,
     /// 0 to 1.
     pub velocity: f32,
@@ -98,6 +99,7 @@ pub struct Sampler {
 }
 
 impl Sampler {
+    /// A sampler playing `kit`, at 48 kHz until it is prepared.
     pub fn new(kit: Arc<LoadedKit>) -> Self {
         Self {
             kit,
@@ -116,6 +118,7 @@ impl Sampler {
         }
     }
 
+    /// The kit it plays.
     pub fn kit(&self) -> &Arc<LoadedKit> {
         &self.kit
     }

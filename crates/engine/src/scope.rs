@@ -36,6 +36,7 @@ pub struct ScopeHandle {
 }
 
 impl Scope {
+    /// A scope for the audio thread and its handle for the UI thread.
     pub fn new() -> (Scope, ScopeHandle) {
         let ring = Arc::new(Ring {
             samples: (0..SCOPE_CAPACITY).map(|_| AtomicU32::new(0)).collect(),

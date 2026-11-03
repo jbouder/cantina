@@ -37,9 +37,13 @@ pub const MAX_BLOCK_FRAMES: usize = 4096;
 /// How to open a stream.
 #[derive(Debug, Clone)]
 pub struct StreamConfig {
+    /// The device to take input from.
     pub input: DeviceId,
+    /// The device to play to; the same as `input` for one duplex unit.
     pub output: DeviceId,
+    /// The rate to run at; the device is switched to it.
     pub sample_rate: f64,
+    /// The I/O buffer size to ask the device for, in frames.
     pub buffer_frames: u32,
     /// Zero-based input channel to take the signal from.
     pub input_channel: usize,
@@ -78,9 +82,13 @@ where
 /// What the stream actually opened with.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StreamInfo {
+    /// The rate the stream runs at.
     pub sample_rate: f64,
+    /// The buffer size the device granted, in frames.
     pub buffer_frames: u32,
+    /// Channels the input device has.
     pub input_channels: u32,
+    /// Channels the output device has.
     pub output_channels: u32,
     /// True when one audio unit runs both directions on one device.
     pub duplex: bool,
@@ -96,7 +104,9 @@ pub struct StreamInfo {
 /// Counters the callbacks bump. Read from any thread.
 #[derive(Debug, Default)]
 pub struct Stats {
+    /// Input callbacks so far.
     pub input_callbacks: AtomicU64,
+    /// Output callbacks so far.
     pub output_callbacks: AtomicU64,
     /// Input frames dropped because the ring buffer was full.
     pub input_overruns: AtomicU64,
@@ -104,6 +114,7 @@ pub struct Stats {
     pub output_underruns: AtomicU64,
     /// Blocks larger than the scratch buffer, which should never happen.
     pub oversized_blocks: AtomicU64,
+    /// The largest block a callback has handed over.
     pub max_block_frames: AtomicU32,
 }
 
@@ -329,10 +340,12 @@ impl Stream {
         })
     }
 
+    /// Counters the callbacks bump.
     pub fn stats(&self) -> &Stats {
         &self.stats
     }
 
+    /// What the stream opened with.
     pub fn info(&self) -> &StreamInfo {
         &self.info
     }

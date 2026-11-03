@@ -7,11 +7,14 @@ use std::ops::{Add, Mul, Sub};
 /// A complex number as a pair.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Complex {
+    /// Real part.
     pub re: f32,
+    /// Imaginary part.
     pub im: f32,
 }
 
 impl Complex {
+    /// Zero.
     pub const ZERO: Complex = Complex { re: 0.0, im: 0.0 };
 }
 
@@ -85,6 +88,7 @@ impl Fft {
         }
     }
 
+    /// Points in the transform.
     pub fn size(&self) -> usize {
         self.size
     }

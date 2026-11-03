@@ -12,6 +12,8 @@ function* pages(dir) {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) {
+      // Rustdoc under /api/ has its own search; only the site's page there counts.
+      if (dir === join(dist, "api")) continue;
       if (name !== "pagefind" && name !== "_astro") yield* pages(path);
     } else if (name === "index.html") {
       // Redirect pages carry no content to index.

@@ -19,6 +19,7 @@ pub struct Mute {
 }
 
 impl Mute {
+    /// A mute, open (passing audio) or closed.
     pub fn new(open: bool) -> Self {
         Self {
             gain: Smoother::new(if open { 1.0 } else { 0.0 }),

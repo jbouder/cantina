@@ -17,6 +17,7 @@ impl Allpass {
         self.coefficient = (1.0 - t) / (1.0 + t);
     }
 
+    /// Runs one sample through the filter.
     #[inline]
     pub fn tick(&mut self, x: f32) -> f32 {
         let y = -self.coefficient * x + self.x1 + self.coefficient * self.y1;

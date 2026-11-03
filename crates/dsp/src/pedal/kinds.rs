@@ -13,7 +13,9 @@ use crate::lfo::NOTE_NAMES;
 pub struct KindInfo {
     /// The `kind` a file uses.
     pub kind: &'static str,
+    /// Shown in the designer's node menu.
     pub label: &'static str,
+    /// One line on what it does.
     pub summary: &'static str,
     /// Takes no audio in: the pedal's input and the oscillator.
     pub source: bool,
@@ -21,6 +23,7 @@ pub struct KindInfo {
     pub control: bool,
     /// Sums any number of incoming edges; other kinds take one.
     pub sums: bool,
+    /// The fields a node of this kind takes.
     pub fields: &'static [FieldInfo],
 }
 
@@ -28,9 +31,13 @@ pub struct KindInfo {
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FieldInfo {
+    /// The name a file uses.
     pub name: &'static str,
+    /// Shown in the designer.
     pub label: &'static str,
+    /// One line on what it does.
     pub summary: &'static str,
+    /// What it takes.
     pub kind: FieldKind,
     /// May follow a signal sample by sample.
     pub modulatable: bool,
@@ -42,18 +49,27 @@ pub struct FieldInfo {
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum FieldKind {
+    /// A number in a range.
     Number {
+        /// The smallest value.
         min: f32,
+        /// The largest value.
         max: f32,
+        /// The value when the file leaves it out.
         default: f32,
+        /// `dB`, `Hz`, `s`, `ms`, `%` or nothing.
         unit: &'static str,
     },
     /// One of `options`, by name in a file and by index when bound.
     Name {
+        /// The names to choose from.
         options: &'static [&'static str],
+        /// Index of the name when the file leaves it out.
         default: usize,
     },
+    /// Off or on.
     Bool {
+        /// The value when the file leaves it out.
         default: bool,
     },
 }
@@ -485,6 +501,7 @@ pub fn kind(name: &str) -> Option<&'static KindInfo> {
 }
 
 impl KindInfo {
+    /// A field of this kind by name.
     pub fn field(&self, name: &str) -> Option<&'static FieldInfo> {
         self.fields.iter().find(|f| f.name == name)
     }

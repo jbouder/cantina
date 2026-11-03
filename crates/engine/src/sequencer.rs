@@ -43,6 +43,7 @@ pub struct PatternData {
 }
 
 impl PatternData {
+    /// Ticks per step.
     pub fn step_ticks(&self) -> u64 {
         PPQ as u64 / self.steps_per_beat.max(1) as u64
     }
@@ -68,8 +69,11 @@ impl PatternData {
 /// front keeps its beats where they were.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Placement {
+    /// The pattern, shared with the audio thread.
     pub pattern: Arc<PatternData>,
+    /// Timeline tick it starts at.
     pub start: u64,
+    /// Ticks into the pattern it starts from.
     pub offset: u64,
     /// `u64::MAX` plays until stopped.
     pub length: u64,
@@ -130,6 +134,7 @@ pub struct SequencerHandle {
 }
 
 impl Sequencer {
+    /// A sequencer playing `kit` and its handle for the UI thread.
     pub fn new(kit: Arc<LoadedKit>) -> (Sequencer, SequencerHandle) {
         let (outgoing, incoming) = RingBuffer::new(SCORE_QUEUE);
         let (retired_in, retired_out) = RingBuffer::new(RETIRED_QUEUE);
@@ -150,6 +155,7 @@ impl Sequencer {
         (sequencer, handle)
     }
 
+    /// Counters for this sequencer, shared with its handle.
     pub fn stats(&self) -> &Arc<SequencerStats> {
         &self.stats
     }
@@ -251,6 +257,7 @@ impl Node for Sequencer {
 }
 
 impl SequencerHandle {
+    /// Counters for the sequencer, shared with it.
     pub fn stats(&self) -> &Arc<SequencerStats> {
         &self.stats
     }

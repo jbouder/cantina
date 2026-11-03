@@ -31,61 +31,102 @@ use crate::model::{Project, FORMAT_VERSION};
 
 /// Extension of a project directory.
 pub const EXTENSION: &str = "cantina";
+/// The model inside a project directory.
 pub const PROJECT_FILE: &str = "project.json";
+/// Recorded and imported audio, never modified.
 pub const AUDIO_DIR: &str = "audio";
+/// Third-party plugin state blobs, one per pedal.
 pub const PLUGINS_DIR: &str = "plugins";
+/// Copies of the user pedals the project uses.
 pub const PEDALS_DIR: &str = "pedals";
 
+/// Why a project could not be opened.
 #[derive(Debug, Error)]
 pub enum LoadError {
+    /// The directory has no `project.json`.
     #[error("{path} is not a project: no {PROJECT_FILE} inside it")]
-    NotAProject { path: PathBuf },
+    NotAProject {
+        /// The directory.
+        path: PathBuf,
+    },
+    /// A file could not be read.
     #[error("reading {path}: {source}")]
     Io {
+        /// The file.
         path: PathBuf,
+        /// What went wrong.
         #[source]
         source: io::Error,
     },
+    /// `project.json` is not JSON.
     #[error("{path} is not valid JSON: {source}")]
     Json {
+        /// The file.
         path: PathBuf,
+        /// Where it stopped parsing.
         #[source]
         source: serde_json::Error,
     },
+    /// `project.json` has no version to upgrade from.
     #[error("{path} has no numeric \"version\" field")]
-    NoVersion { path: PathBuf },
+    NoVersion {
+        /// The file.
+        path: PathBuf,
+    },
+    /// Written by a newer Cantina than this one.
     #[error("{path} is a version {found} project; this Cantina reads up to version {supported}")]
     TooNew {
+        /// The file.
         path: PathBuf,
+        /// Its version.
         found: u64,
+        /// The newest version this build reads.
         supported: u32,
     },
+    /// The JSON does not have the project's shape, even after upgrading.
     #[error("{path} does not match the project format: {source}")]
     Shape {
+        /// The file.
         path: PathBuf,
+        /// What did not match.
         #[source]
         source: serde_json::Error,
     },
+    /// The project parsed but breaks a rule of the model.
     #[error("{path} is not a usable project: {why}")]
-    Invalid { path: PathBuf, why: String },
+    Invalid {
+        /// The file.
+        path: PathBuf,
+        /// The rule, in words.
+        why: String,
+    },
 }
 
+/// Why a project could not be saved.
 #[derive(Debug, Error)]
 pub enum SaveError {
+    /// The project directory or one inside it could not be created.
     #[error("creating {path}: {source}")]
     Create {
+        /// The directory.
         path: PathBuf,
+        /// What went wrong.
         #[source]
         source: io::Error,
     },
+    /// `project.json` could not be written.
     #[error("writing {path}: {source}")]
     Write {
+        /// The file.
         path: PathBuf,
+        /// What went wrong.
         #[source]
         source: io::Error,
     },
+    /// The model could not be turned into JSON.
     #[error("encoding the project: {0}")]
     Encode(#[from] serde_json::Error),
+    /// The project breaks a rule of the model, so it is not written.
     #[error("not saving an unusable project: {0}")]
     Invalid(String),
 }
@@ -95,6 +136,7 @@ pub fn dir_for(parent: &Path, name: &str) -> PathBuf {
     parent.join(format!("{name}.{EXTENSION}"))
 }
 
+/// The `audio/` directory of a project.
 pub fn audio_dir(project_dir: &Path) -> PathBuf {
     project_dir.join(AUDIO_DIR)
 }

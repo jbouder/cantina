@@ -25,6 +25,7 @@ pub const WAVEFORM_SAMPLES: usize = FFT_SIZE;
 /// The spectrum's lowest and highest band edges, in Hz. The top is
 /// lowered to Nyquist at rates that cannot reach it.
 pub const SPECTRUM_LOW_HZ: f32 = 20.0;
+/// See [`SPECTRUM_LOW_HZ`].
 pub const SPECTRUM_HIGH_HZ: f32 = 20_000.0;
 
 /// One log band: the FFT bins it spans, or, for a band narrower than a
@@ -45,13 +46,17 @@ pub struct Analyzer {
     /// Magnitude of every FFT bin up to Nyquist, as an amplitude.
     magnitudes: Vec<f32>,
     bands: Vec<Band>,
+    /// The latest spectrum: [`SPECTRUM_BINS`] log-spaced bands from
+    /// [`SPECTRUM_LOW_HZ`] up, as amplitudes.
     pub spectrum: Vec<f32>,
+    /// The latest [`WAVEFORM_SAMPLES`] samples, oldest first.
     pub waveform: Vec<f32>,
     /// RMS of the window, linear.
     pub rms: f32,
 }
 
 impl Analyzer {
+    /// An analyzer for audio at `sample_rate`. Allocates.
     pub fn new(sample_rate: f64) -> Self {
         let window: Vec<f32> = (0..FFT_SIZE)
             .map(|i| 0.5 - 0.5 * (2.0 * PI * i as f32 / FFT_SIZE as f32).cos())
@@ -140,11 +145,13 @@ impl Analyzer {
 /// Where the beat is at a timeline sample.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BeatPosition {
+    /// Tempo at that sample.
     pub bpm: f32,
     /// 0 on the beat, rising to just under 1 before the next.
     pub phase: f32,
     /// Zero-based, as the tempo map counts.
     pub bar: u32,
+    /// Zero-based beat within the bar.
     pub beat: u32,
 }
 

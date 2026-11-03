@@ -79,6 +79,7 @@ impl Convolver {
         self.partition = 0;
     }
 
+    /// The impulse response being convolved with.
     pub fn impulse(&self) -> &[f32] {
         &self.impulse
     }
@@ -121,6 +122,7 @@ impl Convolver {
         self.reset();
     }
 
+    /// Clears the history, so the tail of what played before is gone.
     pub fn reset(&mut self) {
         self.history.fill(0.0);
         self.history_at = 0;

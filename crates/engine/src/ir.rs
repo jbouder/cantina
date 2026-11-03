@@ -18,15 +18,20 @@ pub const MAX_SECONDS: f32 = 3.0;
 /// An impulse found on disk, not yet loaded.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IrEntry {
+    /// Stable id a cabinet pedal stores: the file name without its extension.
     pub id: String,
+    /// Shown in the impulse picker.
     pub name: String,
+    /// The WAV file.
     pub path: PathBuf,
 }
 
 /// A loaded impulse, mono.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Impulse {
+    /// The rate it was recorded at.
     pub sample_rate: f32,
+    /// The impulse response, one channel.
     pub samples: Vec<f32>,
 }
 

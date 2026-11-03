@@ -22,6 +22,7 @@ const RMS_WINDOW: f64 = 0.05;
 pub struct Level {
     /// Highest absolute sample since the last read.
     pub peak: f32,
+    /// Root mean square since the last read, linear.
     pub rms: f32,
 }
 
@@ -48,6 +49,7 @@ pub struct MeterHandle {
 }
 
 impl Meter {
+    /// A meter for the audio thread and its handle for the UI thread.
     pub fn new() -> (Meter, MeterHandle) {
         let cells: Arc<[Cell; MAX_CHANNELS]> = Arc::new(Default::default());
         (

@@ -120,7 +120,7 @@ header.header {
 }
 
 /* Inline code is a small display. */
-.sl-markdown-content :not(pre) > code {
+.sl-markdown-content code:not(pre code, .not-content code) {
   background: var(--lcd-bg);
   color: var(--lcd-fg);
   border: 1px solid var(--frame);

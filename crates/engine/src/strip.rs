@@ -12,8 +12,11 @@ static PARAMS: [ParamInfo; 3] = [
     ParamInfo::new("Mute", Unit::Generic, 0.0, 1.0, 0.0),
 ];
 
+/// Index of the gain parameter, in decibels.
 pub const GAIN: ParamId = 0;
+/// Index of the pan parameter, -1 to 1.
 pub const PAN: ParamId = 1;
+/// Index of the mute parameter, 0 or 1.
 pub const MUTE: ParamId = 2;
 
 /// Time constant of the gain and pan smoothing, in seconds.
@@ -33,6 +36,8 @@ pub struct Strip {
 }
 
 impl Strip {
+    /// A strip at `db` gain and `pan`, muted or not. Values are clamped to
+    /// the parameters' ranges.
     pub fn new(db: f32, pan: f32, muted: bool) -> Self {
         let db = PARAMS[GAIN].clamp(db);
         Self {

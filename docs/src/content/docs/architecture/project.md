@@ -1,6 +1,8 @@
 ---
-title: "Projects"
-description: "The project directory, the model, the command log, undo, autosave and recovery."
+title: "Project"
+description: "The project directory, the model, commands with inverses, undo, versioned files and crash recovery: the project crate and how the shell uses it."
+sidebar:
+  order: 8
 ---
 
 A project is a directory. `Song` lives at `~/Music/Cantina/Song.cantina/`:
@@ -14,7 +16,7 @@ Song.cantina/
   pedals/         the project's own copy of every designed pedal it uses
 ```
 
-The model lives in `crates/project` and knows nothing about audio devices.
+The model lives in `crates/project` ([`cantina_project`](/api/cantina_project/)) and knows nothing about audio devices.
 The shell (`src-tauri/src/engine.rs`) owns the open project and builds the
 engine graph from it; the UI reads the same model through the status it
 is pushed.
@@ -26,7 +28,7 @@ serialized in camelCase:
 
 ```json
 {
-  "version": 1,
+  "version": 5,
   "name": "Song",
   "sampleRate": 48000.0,
   "tempo": { "bpm": 120.0, "numerator": 4, "denominator": 4 },
@@ -56,19 +58,16 @@ serialized in camelCase:
   `au:…` or `clap:…`) and the value of each parameter in the order the
   processor lists them. Names, units and ranges come from the processor,
   not the file. A third-party plugin's own state is saved next to the
-  file as `plugins/<pedal id>.state`; see [hosting](/notes/hosting/). A
+  file as `plugins/<pedal id>.state`; see [hosting](/architecture/hosting/#state-in-the-project). A
   pedal with `"bypassed": true` keeps its settings but the signal goes
-  round it; the field is left out when false. The format went to
-  version 5 with it.
+  round it; the field is left out when false.
 - **Strips** (`strip` on a track, `master` on the project) hold
-  `gainDb`, `pan`, `mute` and `solo`. The format went to version 2 when
-  they arrived; a version 1 file gets strips at unity.
+  `gainDb`, `pan`, `mute` and `solo`.
 - **`sampleRate`** is the rate every file in `audio/` is at. Opening a
   project switches the engine to that rate; changing the device rate is
   only allowed while the project has no audio.
 - **Drum tracks** carry a `kit` id and **`patterns`** on the project
-  hold the step grids; see [drums](/notes/drums/). The format went to
-  version 3 with them.
+  hold the step grids; see [drums](/notes/drums/).
 - **Designed pedals** have the spec `pedal:<id>`; the definition is
   `pedals/<id>.pedal.json` in the project, written on Save for every
   such pedal the chains use (drafts included) and read back on open,
@@ -123,10 +122,11 @@ input, mono, so a take can be played back through a chain that changed
 after the fact. The delay before the bus is latency compensation: each
 track's playback waits for the slowest chain so clips line up at the
 master, while live input, which joins after it, is never delayed (see
-[latency](/notes/latency/)). Each strip is gain, pan and mute, every one smoothed on
+[the engine](/architecture/engine/#latency-compensation)). Each strip is gain, pan and mute, every one smoothed on
 the audio thread so a fader move never clicks; its meter is a tap after
 it. Solo is computed in the shell: a solo anywhere mutes every track that
-is not soloed, and solos add up. The master strip has gain and mute. Recording starts a take on every armed track from
+is not soloed, and solos add up. The master strip has gain and mute.
+Recording starts a take on every armed track from
 the playhead; stopping finalizes each file (`<Track>-<n>.wav` in `audio/`)
 and inserts it as a clip, through a command like any other edit.
 
@@ -143,11 +143,15 @@ file outside `audio/`) each produce their own error rather than a crash.
 Every fixture under `crates/project/tests/fixtures/` is loaded by the
 tests and must come out at the current version; when the format changes,
 the old shape stays there as a fixture and a migration step is added.
-Version 1 to 2 added the strips: `v1.json` has none and must load with
-every strip at unity. Version 2 to 3 added drum tracks and patterns:
-`v2.json` must load with no patterns and every track an audio track.
-Version 4 to 5 added bypass: `v4.json` must load with every pedal on,
-and `v5.json` has a bypassed one.
+
+### Changing the format
+
+1. Bump `FORMAT_VERSION` in `crates/project/src/model.rs`.
+2. Add a migration step in `crates/project/src/file.rs` that turns the
+   previous version's JSON into the new shape.
+3. Copy a file of the previous version into `crates/project/tests/fixtures/`
+   and add a test that it loads with the defaults you expect.
+4. Update the project example on this page.
 
 Saves write `project.json.tmp` and rename it over `project.json`, so a
 crash mid-save leaves the previous file whole.
