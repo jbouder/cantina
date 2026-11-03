@@ -5,15 +5,39 @@
  * materials.
  */
 const layers = [
-  { name: "ui", href: "/architecture/ui/", what: "React and TypeScript: timeline, mixer, pedalboard, drum grid, designer, stage" },
-  { name: "src-tauri", href: "/architecture/shell/", what: "The shell: owns the engine handle, the open project, windows and menus" },
-  { name: "engine", href: "/architecture/engine/", what: "CoreAudio stream, real-time graph runtime, transport and tempo map, lock-free queues, disk streaming, analysis" },
+  {
+    name: "ui",
+    href: "/architecture/ui/",
+    what: "React and TypeScript: timeline, mixer, pedalboard, drum grid, designer, stage",
+  },
+  {
+    name: "src-tauri",
+    href: "/architecture/shell/",
+    what: "The shell: owns the engine handle, the open project, windows and menus",
+  },
+  {
+    name: "engine",
+    href: "/architecture/engine/",
+    what: "CoreAudio stream, real-time graph runtime, transport and tempo map, lock-free queues, disk streaming, analysis",
+  },
 ];
 const below = [
-  { name: "hosting", href: "/architecture/hosting/", what: "Audio Units and CLAP: scan, instantiate, latency, state, editor windows" },
-  { name: "dsp", href: "/architecture/dsp/", what: "Pure processing, no I/O: filters, waveshapers, delays, modulation, convolution, sampler" },
+  {
+    name: "hosting",
+    href: "/architecture/hosting/",
+    what: "Audio Units and CLAP: scan, instantiate, latency, state, editor windows",
+  },
+  {
+    name: "dsp",
+    href: "/architecture/dsp/",
+    what: "Pure processing, no I/O: filters, waveshapers, delays, modulation, convolution, sampler",
+  },
 ];
-const project = { name: "project", href: "/architecture/project/", what: "serde model, undo command log, file format, migrations" };
+const project = {
+  name: "project",
+  href: "/architecture/project/",
+  what: "serde model, undo command log, file format, migrations",
+};
 const links = [
   { down: "commands (Tauri invoke)", up: "state, meters, analysis (binary channel)" },
   { down: "graph edits, parameter changes", up: "status, frames" },
