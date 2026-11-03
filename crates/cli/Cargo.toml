@@ -1,0 +1,31 @@
+[package]
+name = "cantina-cli"
+description = "The cantina-cli command: check, render and list what Cantina reads, without the app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+# Not `cantina`: the app's own binary is called that, and two binaries of
+# one name in a workspace overwrite each other in target/.
+[[bin]]
+name = "cantina-cli"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = "1.0.104"
+cantina-dsp = { workspace = true, features = ["schema"] }
+cantina-engine.workspace = true
+cantina-project = { workspace = true, features = ["schema"] }
+clap = { version = "4", features = ["derive"] }
+hound = "3.5.1"
+jsonschema = { version = "0.60", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+tempfile = "3"

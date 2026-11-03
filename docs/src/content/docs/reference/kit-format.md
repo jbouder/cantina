@@ -91,3 +91,44 @@ picker.
 The format is `Kit` in `crates/dsp/src/kit.rs`, validated by
 `Kit::from_json` with a message that names the pad and the rule.
 
+
+## Kit recipes
+
+A kit can also be described rather than recorded. A recipe,
+`<name>.recipe.json`, names each pad's voice and shapes it with a few
+numbers, and `cantina-cli synth-kit` synthesises the samples and writes the
+`kit.json`:
+
+```sh
+cargo run -p cantina-cli -- synth-kit recipes/lofi.recipe.json ~/Music/Cantina/Kits/lofi
+```
+
+```jsonc
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/kit-recipe.schema.json",
+  "version": 1,
+  "name": "Lo-fi (synth)",
+  "seed": 7, // seeds the noise; the same recipe and seed give the same bytes
+  "pads": [
+    { "id": "kick", "voice": "kick", "pitch": 50, "decay": 0.45, "tone": 0.35 },
+    { "id": "hh-closed", "voice": "hat", "decay": 0.045, "choke": "hat" },
+    { "id": "hh-open", "voice": "hat", "decay": 0.35, "choke": "hat" }
+  ]
+}
+```
+
+| Field | What it does |
+| --- | --- |
+| `voice` | `kick`, `snare`, `hat`, `clap`, `tom` or `cowbell` |
+| `pitch` | The fundamental in Hz, 20 to 12 000: where a kick or tom settles, a snare's body, a hat's lowest partial, a clap's band |
+| `decay` | Seconds to fall by 60 dB, 0.005 to 4 |
+| `tone` | Brightness, 0 to 1 |
+| `noise` | How much noise is blended with the pitched part, 0 to 1 |
+| `layers` | Velocity layers, 1 to 4 (2 when missing); soft layers are darker and shorter, not just quieter |
+| `name`, `gainDb`, `pan`, `choke` | As on a kit's pad |
+
+Every number but the id and voice is optional and starts at the voice's
+default. The output depends only on the recipe, so a synthesised kit can
+live in git and be regenerated. [`kit-recipe.schema.json`](/schemas/kit-recipe.schema.json)
+is the schema; the stock recipe is `recipes/lofi.recipe.json`. Swap in
+recorded samples later by editing the `kit.json` it wrote.

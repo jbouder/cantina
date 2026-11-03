@@ -163,43 +163,61 @@ impl Pattern {
             .unwrap_or(0.0)
     }
 
-    fn validate(&self) -> Result<(), String> {
+    /// How messages name the pattern: by id in a project, and as "the
+    /// pattern" for a standalone file, whose id is 0 until imported.
+    fn label(&self) -> String {
+        if self.id.0 == 0 {
+            "the pattern".into()
+        } else {
+            format!("pattern {}", self.id)
+        }
+    }
+
+    /// Checks the rules a pattern must satisfy: a name, a step size the
+    /// grid offers, a length from 1 to [`MAX_PATTERN_STEPS`], swing from 0
+    /// to 1, and one row per pad holding exactly `length` velocities from
+    /// 0 to 1.
+    pub fn validate(&self) -> Result<(), String> {
         if self.name.is_empty() {
-            return Err(format!("pattern {} has no name", self.id));
+            return Err(format!("{} has no name", self.label()));
         }
         if !matches!(self.steps_per_beat, 1 | 2 | 3 | 4 | 6 | 8) {
             return Err(format!(
-                "pattern {} has {} steps per beat; 1, 2, 3, 4, 6 or 8 are allowed",
-                self.id, self.steps_per_beat
+                "{} has {} steps per beat; 1, 2, 3, 4, 6 or 8 are allowed",
+                self.label(),
+                self.steps_per_beat
             ));
         }
         if self.length == 0 || self.length as usize > MAX_PATTERN_STEPS {
             return Err(format!(
-                "pattern {} has {} steps; 1 to {MAX_PATTERN_STEPS} are allowed",
-                self.id, self.length
+                "{} has {} steps; 1 to {MAX_PATTERN_STEPS} are allowed",
+                self.label(),
+                self.length
             ));
         }
         if !self.swing.is_finite() || !(0.0..=1.0).contains(&self.swing) {
             return Err(format!(
-                "pattern {} has a swing of {}, outside 0 to 1",
-                self.id, self.swing
+                "{} has a swing of {}, outside 0 to 1",
+                self.label(),
+                self.swing
             ));
         }
         let mut pads = std::collections::HashSet::new();
         for row in &self.rows {
             if row.pad.is_empty() {
-                return Err(format!("pattern {} has a row with no pad", self.id));
+                return Err(format!("{} has a row with no pad", self.label()));
             }
             if !pads.insert(row.pad.as_str()) {
                 return Err(format!(
-                    "pattern {} has two rows for pad {:?}",
-                    self.id, row.pad
+                    "{} has two rows for pad {:?}",
+                    self.label(),
+                    row.pad
                 ));
             }
             if row.steps.len() != self.length as usize {
                 return Err(format!(
-                    "pattern {} row {:?} has {} steps, the pattern {}",
-                    self.id,
+                    "{} row {:?} has {} steps, the pattern {}",
+                    self.label(),
                     row.pad,
                     row.steps.len(),
                     self.length
@@ -211,8 +229,9 @@ impl Pattern {
                 .any(|v| !v.is_finite() || !(0.0..=1.0).contains(v))
             {
                 return Err(format!(
-                    "pattern {} row {:?} has a velocity outside 0 to 1",
-                    self.id, row.pad
+                    "{} row {:?} has a velocity outside 0 to 1",
+                    self.label(),
+                    row.pad
                 ));
             }
         }

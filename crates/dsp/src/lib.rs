@@ -40,6 +40,7 @@ pub mod pedal;
 pub mod pitch;
 mod processor;
 mod readout;
+pub mod recipe;
 mod render;
 mod reverb;
 mod sampler;
@@ -67,6 +68,7 @@ pub use processor::{
     Buffer, Chain, Handle, ParamId, ParamInfo, Processor, StateError, Transport, Unit, MAX_CHANNELS,
 };
 pub use readout::Readout;
+pub use recipe::{synthesize, KitRecipe, PadRecipe, Voice, RECIPE_VERSION};
 pub use render::Renderer;
 pub use reverb::Reverb;
 pub use sampler::{Sampler, Trigger, MAX_TRIGGERS, MAX_VOICES};

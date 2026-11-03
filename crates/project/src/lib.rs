@@ -10,6 +10,7 @@ mod file;
 mod history;
 mod journal;
 mod model;
+mod pattern_file;
 #[cfg(any(test, feature = "schema"))]
 pub mod schema;
 
@@ -23,4 +24,7 @@ pub use journal::{replay, Entry as JournalEntry, Journal, Read as JournalRead, J
 pub use model::{
     Clip, ClipId, Id, Pattern, PatternClip, PatternClipId, PatternId, PatternRow, Pedal, PedalId,
     Project, Strip, Tempo, Track, TrackId, FORMAT_VERSION, MAX_PATTERN_STEPS, PPQ,
+};
+pub use pattern_file::{
+    imported, pattern_file_name, pattern_from_json, pattern_to_json, PATTERN_SUFFIX,
 };

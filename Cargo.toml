@@ -6,6 +6,7 @@ members = [
     "crates/hosting",
     "crates/clap-fixture",
     "crates/project",
+    "crates/cli",
     "src-tauri",
 ]
 

@@ -11,7 +11,8 @@
 //! UPDATE_SCHEMAS=1 cargo test -p cantina-project schemas
 //! ```
 //!
-//! regenerates all four, and the same test fails when any is stale.
+//! regenerates them all (pedal, kit, kit recipe, pattern and project), and
+//! the same test fails when any is stale.
 
 use serde_json::{json, Value};
 
@@ -119,10 +120,11 @@ mod tests {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
     }
 
-    fn all() -> [(&'static str, Value); 4] {
+    fn all() -> [(&'static str, Value); 5] {
         [
             ("pedal", cantina_dsp::schema::pedal()),
             ("kit", cantina_dsp::schema::kit()),
+            ("kit-recipe", cantina_dsp::schema::kit_recipe()),
             ("pattern", pattern()),
             ("project", project()),
         ]
@@ -178,13 +180,16 @@ mod tests {
 
     #[test]
     fn schemas_every_stock_file_validates() {
-        let [pedal, kit, pattern_s, project_s] = all().map(|(_, s)| validator(&s));
+        let [pedal, kit, recipe, pattern_s, project_s] = all().map(|(_, s)| validator(&s));
         let pedals = files(&root().join("pedals"), ".pedal.json");
         assert!(!pedals.is_empty(), "no stock pedals found");
         pedals.iter().for_each(|p| assert_valid(&pedal, p));
         let kits = files(&root().join("kits"), "kit.json");
         assert!(kits.len() >= 3, "no stock kits found");
         kits.iter().for_each(|k| assert_valid(&kit, k));
+        let recipes = files(&root().join("recipes"), ".recipe.json");
+        assert!(!recipes.is_empty(), "no stock kit recipes found");
+        recipes.iter().for_each(|r| assert_valid(&recipe, r));
         let v5 = root().join("crates/project/tests/fixtures/v5.json");
         assert_valid(&project_s, &v5);
         // Each pattern in a project, without its id, is a pattern file.

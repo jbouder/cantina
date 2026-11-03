@@ -130,13 +130,48 @@ pub fn kit() -> Value {
     s
 }
 
+/// The schema for a kit recipe, `<name>.recipe.json`, which
+/// `cantina-cli synth-kit` turns into a kit folder.
+pub fn kit_recipe() -> Value {
+    use crate::recipe::{KitRecipe, MAX_DECAY, MAX_RECIPE_LAYERS, RECIPE_VERSION};
+    let mut s = schemars::schema_for!(KitRecipe).to_value();
+    s["$id"] = json!(format!("{SITE}/kit-recipe.schema.json"));
+    s["title"] = json!("Cantina kit recipe");
+    let props = &mut s["properties"];
+    props["version"]["const"] = json!(RECIPE_VERSION);
+    props["name"]["minLength"] = json!(1);
+    props["pads"]["minItems"] = json!(1);
+    props["pads"]["maxItems"] = json!(MAX_PADS);
+    let pad = &mut s["$defs"]["PadRecipe"]["properties"];
+    pad["id"]["pattern"] = json!("^[A-Za-z0-9_-]+$");
+    for (field, lo, hi) in [
+        ("pitch", 20.0, 12_000.0),
+        ("decay", 0.005, MAX_DECAY),
+        ("tone", 0.0, 1.0),
+        ("noise", 0.0, 1.0),
+        ("gainDb", -60.0, 12.0),
+        ("pan", -1.0, 1.0),
+    ] {
+        pad[field]["minimum"] = json!(lo);
+        pad[field]["maximum"] = json!(hi);
+    }
+    pad["layers"]["minimum"] = json!(1);
+    pad["layers"]["maximum"] = json!(MAX_RECIPE_LAYERS);
+    tidy(&mut s);
+    s
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn schemas_are_draft_2020_12_with_site_ids() {
-        for (s, name) in [(pedal(), "pedal"), (kit(), "kit")] {
+        for (s, name) in [
+            (pedal(), "pedal"),
+            (kit(), "kit"),
+            (kit_recipe(), "kit-recipe"),
+        ] {
             assert_eq!(s["$id"], format!("{SITE}/{name}.schema.json"));
             assert!(s["$schema"].as_str().unwrap().contains("2020-12"));
         }
