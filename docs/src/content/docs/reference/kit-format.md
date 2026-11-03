@@ -17,22 +17,37 @@ kits/
 ```
 
 The folder's name is the kit's id; a project refers to a kit by that id.
-`kit.json` is:
+
+## Schema
+
+[`kit.schema.json`](/schemas/kit.schema.json) is a JSON Schema (draft
+2020-12) generated from the types Cantina reads. Name it in `kit.json` and
+an editor validates and completes the file:
 
 ```json
+{ "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/kit.schema.json" }
+```
+
+## An annotated example
+
+The comments are for this page; a real `kit.json` has none.
+
+```jsonc
 {
-  "version": 1,
-  "name": "Acoustic",
-  "pads": [
+  "version": 1,                  // the format version; always 1 for now
+  "name": "Acoustic",            // shown in the kit picker
+  "pads": [                      // one to 64, in the order the grid shows them
     {
-      "id": "kick",
-      "name": "Kick",
-      "layers": [
+      "id": "kick",              // what patterns refer to; keep the common names
+      "name": "Kick",            // shown in the grid; the id when missing
+      "layers": [                // one sample per velocity range
         { "file": "kick-soft.wav", "velocity": [0, 0.6] },
         { "file": "kick-hard.wav", "velocity": [0.6, 1] }
       ]
     },
+    // pan is -1 (left) to 1 (right); one layer needs no velocity range
     { "id": "snare", "name": "Snare", "pan": -0.1, "layers": [{ "file": "snare.wav" }] },
+    // pads in the same choke group cut each other off
     { "id": "hh-closed", "name": "Closed hat", "choke": "hat", "pan": 0.3,
       "layers": [{ "file": "hh-closed.wav" }] },
     { "id": "hh-open", "name": "Open hat", "choke": "hat", "pan": 0.3, "gainDb": -3,
@@ -40,6 +55,8 @@ The folder's name is the kit's id; a project refers to a kit by that id.
   ]
 }
 ```
+
+## Fields
 
 - **`pads`**: one to 64, each with a unique `id` that patterns refer to
   (`kick`, `snare`, `hh-closed`… the stock kits share these names so a

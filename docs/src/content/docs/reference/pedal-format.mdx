@@ -1,36 +1,68 @@
 ---
 title: "Pedal format"
-description: "Design notes on the pedal JSON format and its interpreter in the dsp crate."
+description: "The .pedal.json format: parameters, nodes, edges, bindings and every node kind, with an annotated example and a JSON schema."
 ---
 
-A user-designed pedal is a JSON graph of DSP primitives. The format is
-read, checked and compiled by `crates/dsp/src/pedal/` into a
-`PedalProcessor` that implements `Processor` like every stock pedal, so
-the chain, the mixer, latency compensation and the project file never
-know the difference. Pedals built this way are real-time safe by
-construction: the primitives are the ones the stock pedals already run
-on, every buffer is reserved when the pedal is compiled and prepared,
-and `process` allocates nothing (a test counts allocations through a
-wrapping allocator to make sure).
+import Kinds from '../../../components/Kinds.astro';
+
+A pedal is a JSON file, `<id>.pedal.json`: a graph of DSP primitives
+with the knobs that drive them. The [designer](/guides/designer/) writes
+these files, and they can be written by hand too. Cantina reads, checks and
+compiles a pedal into a processor like every stock pedal's, so the chain,
+the mixer, latency compensation and the project never know the difference.
+
+## Schema
+
+[`pedal.schema.json`](/schemas/pedal.schema.json) is a JSON Schema
+(draft 2020-12) generated from the types Cantina reads, with every node
+kind's fields, ranges and defaults. Name it in a file and an editor such as
+VS Code validates and completes the file as you type:
 
 ```json
+{ "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/pedal.schema.json" }
+```
+
+The schema checks each node's fields. The graph rules (one input and one
+output, no cycles, everything wired) are checked when Cantina opens the
+pedal; see [rules](#rules).
+
+## An annotated example
+
+A drive with a tone knob and a choice of clipping curve. The comments are
+for this page; a real file has none.
+
+```jsonc
 {
-  "version": 1,
-  "name": "Warm Drive",
-  "params": [
-    { "id": "drive", "label": "Drive", "unit": "dB", "min": 0, "max": 30, "default": 12 }
+  "version": 1,                 // the format version; always 1 for now
+  "name": "Warm Drive",         // shown in the picker and on the pedal's card
+  "params": [                   // the knobs, in the order the card shows them
+    { "id": "drive", "label": "Drive", "unit": "dB", "min": 0, "max": 30, "default": 12 },
+    { "id": "tone", "label": "Tone", "unit": "%", "min": 0, "max": 100, "default": 50 },
+    // a pick from a list: its value is the index, 0 for "Smooth"
+    { "id": "curve", "label": "Curve", "choices": ["Smooth", "Hard"], "default": 0 }
   ],
   "nodes": [
     { "id": "in", "kind": "input" },
+    // keep the low end out of the clipper
     { "id": "pre", "kind": "biquad", "type": "highpass", "freq": 80 },
+    // the Drive knob's value, in dB, as the gain
     { "id": "gain", "kind": "gain", "db": { "param": "drive" } },
-    { "id": "clip", "kind": "waveshaper", "curve": "soft", "oversample": 4 },
-    { "id": "tone", "kind": "biquad", "type": "lowpass", "freq": 4500 },
+    // each choice of the Curve knob picks a curve by name
+    { "id": "clip", "kind": "waveshaper", "oversample": 4,
+      "curve": { "param": "curve", "values": ["soft", "hard"] } },
+    // Tone 0 to 100 sweeps the lowpass from 800 Hz to 8 kHz, on a log scale
+    { "id": "tone", "kind": "biquad", "type": "lowpass",
+      "freq": { "param": "tone", "map": [800, 8000], "log": true } },
     { "id": "out", "kind": "output" }
   ],
+  // the audio path, [from, to] by node id
   "edges": [["in", "pre"], ["pre", "gain"], ["gain", "clip"], ["clip", "tone"], ["tone", "out"]]
 }
 ```
+
+The nine stock pedals in `pedals/` in the repository are complete
+examples, from a plain drive to a phaser with an oscillator bound to an
+allpass cascade.
 
 ## The file
 
@@ -80,18 +112,7 @@ only be bound, not wired with an edge.
 
 ## Kinds
 
-| Kind | Fields | What it does |
-| --- | --- | --- |
-| `input` | | The signal coming into the pedal. |
-| `output` | | The signal leaving. |
-| `gain` | `db` (−96 to 96) **or** `linear` (0 to 16); `smooth` 0.005 | Scales the signal. Both fields are modulatable and smoothed. |
-| `biquad` | `type` (`lowpass`, `highpass`, `peak`, `lowshelf`, `highshelf`, `notch`); `freq` 20 to 20 000 Hz; `gain` ±24 dB (peak and shelves); `q` 0.1 to 10 (0.7071); `smooth` 0 | The cookbook filters from `biquad.rs`. The coefficients are recomputed when a field changes, keeping the filter state so a sweep does not click. `freq` is modulatable: a swept filter is redesigned every sample. |
-| `waveshaper` | `curve` (`soft`, `hard`, `asymmetric`, `fold`, `silicon`, `germanium`, `octave`); `oversample` 1, 2, 4 or 8 | The curves from `shaper.rs` through the oversampler from `oversample.rs`. At 1 the shaper runs plain with no latency; anything above adds **22 samples**, the same at every factor, so a bound factor can switch without moving the signal in time. |
-| `delay` | `time` 0.1 to 10 000 ms; `feedback` 0 to 0.99; `mix` 0 to 1 (1); `max` ms (2000); `smooth` 0.02 | A delay line with feedback and a dry/wet blend. `time` is modulatable; a change slides the read head, so a bound lfo makes a chorus or a flanger and a knob drag bends the pitch like tape (the stock delay pedal crossfades instead). The line is reserved for `max` at prepare. |
-| `lfo` | `rate` Hz; `shape` (`sine`, `triangle`, `square`, `saw`, `random`); `sync`; `note` (`1/1` to `1/32`, dotted and triplet); `depth` 0 to 1 (smoothed); `phase` 0 to 1; `spread` 0 to 1; `unipolar`; `smooth` 0.02 | The oscillator from `lfo.rs`, free-running or locked to the transport at a note value. Its output, scaled by `depth`, is what bindings read: −1 to 1, or 0 to 1 with `unipolar`, which lines a map's ends up with the wave's. `phase` offsets where the cycle is read; `spread` reads the right channel that much further on. |
-| `allpass` | `stages` 1 to 16 (4); `freq` Hz; `feedback` 0 to 0.95; `mix` 0 to 1 (1); `smooth` 0.02 | A cascade of first-order allpasses with feedback around it, flat in level: mixed half and half with the dry signal it is a phaser, and `freq` is modulatable for the sweep. |
-| `mix` | | Sums every incoming edge. Put gains in front to weight them. |
-| `split` | | Passes the signal through, as a junction to fan out from. |
+<Kinds />
 
 The catalog is `kinds()` in `crates/dsp/src/pedal/kinds.rs`, with each
 field's range, default and summary; the designer builds its palette
@@ -139,5 +160,4 @@ pedals do, sample for sample: a `gain` is the stock `Gain`'s loop, a
 `lfo` read at its trough and bound to a `gain` over `[1, 0]` is the
 tremolo. A test renders a `gain` into a `biquad` and compares it with
 the stock gain and filter bit for bit. That is what lets the stock
-pedals be shipped in this format (the next step) and still pass their
-golden files.
+pedals ship in this format and still pass their golden files.

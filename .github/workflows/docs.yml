@@ -11,6 +11,9 @@ on:
     paths:
       - "docs/**"
       - "packages/skins/**"
+      # The skin token and pedal kind references are read from these.
+      - "ui/src/skins/**"
+      - "ui/src/lib/pedal-kinds.json"
       - "crates/**"
       - "Cargo.toml"
       - "Cargo.lock"
@@ -19,6 +22,9 @@ on:
     paths:
       - "docs/**"
       - "packages/skins/**"
+      # The skin token and pedal kind references are read from these.
+      - "ui/src/skins/**"
+      - "ui/src/lib/pedal-kinds.json"
       - "crates/**"
       - "Cargo.toml"
       - "Cargo.lock"

@@ -1,0 +1,122 @@
+{
+  "$defs": {
+    "Layer": {
+      "description": "One sample of a pad, chosen by velocity.",
+      "properties": {
+        "file": {
+          "description": "A file next to the kit's JSON.",
+          "type": "string"
+        },
+        "gainDb": {
+          "default": 0.0,
+          "description": "Gain in decibels.",
+          "format": "float",
+          "type": "number"
+        },
+        "velocity": {
+          "default": [
+            0.0,
+            1.0
+          ],
+          "description": "The velocities this layer answers, inclusive, from 0 to 1. The whole range when missing.",
+          "items": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "type": "object"
+    },
+    "Pad": {
+      "description": "One pad: a sound the sequencer can hit.",
+      "properties": {
+        "choke": {
+          "description": "Pads in the same choke group cut each other: hitting one stops whatever else in the group is still ringing, the closed hat silencing the open one.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "gainDb": {
+          "default": 0.0,
+          "description": "Gain in decibels.",
+          "format": "float",
+          "type": "number"
+        },
+        "id": {
+          "description": "Stable identifier patterns refer to, such as `kick` or `hh-closed`.",
+          "type": "string"
+        },
+        "layers": {
+          "description": "The pad's samples by velocity, at least one.",
+          "items": {
+            "$ref": "#/$defs/Layer"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array"
+        },
+        "name": {
+          "default": "",
+          "description": "Display name; the id when missing.",
+          "type": "string"
+        },
+        "pan": {
+          "default": 0.0,
+          "description": "-1 is hard left, 1 hard right.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": -1,
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "layers"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://cantina-docs.vibeproject.workers.dev/schemas/kit.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A drum kit as its JSON file holds it.",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "name": {
+      "description": "Shown in the kit picker.",
+      "type": "string"
+    },
+    "pads": {
+      "default": [],
+      "description": "The pads, in the order the sequencer shows them.",
+      "items": {
+        "$ref": "#/$defs/Pad"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "type": "array"
+    },
+    "version": {
+      "const": 1,
+      "description": "The format version, `KIT_VERSION` when written.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version",
+    "name"
+  ],
+  "title": "Cantina drum kit",
+  "type": "object"
+}

@@ -1,0 +1,897 @@
+{
+  "$defs": {
+    "Binding": {
+      "additionalProperties": false,
+      "description": "How a field follows a parameter or a signal. Exactly one of `param` and `node` is set.",
+      "properties": {
+        "log": {
+          "description": "Interpolate the map exponentially, for frequencies.",
+          "type": "boolean"
+        },
+        "map": {
+          "description": "The field's value at the bottom and top of the source's range: a parameter's `min` to `max`, a signal's 0 to 1.",
+          "items": {
+            "$ref": "#/$defs/Num"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "node": {
+          "description": "Follow this node's output, sample by sample. An `lfo` is the usual source; any node will do.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "param": {
+          "description": "Follow this parameter, at block rate, smoothed where the field says so.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "values": {
+          "description": "For a choice or toggle parameter: the field's value for each index. Numbers or names, as the field takes.",
+          "items": {
+            "$ref": "#/$defs/Value"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "NodeDef": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Value"
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "input"
+              }
+            }
+          },
+          "then": {
+            "description": "The signal coming into the pedal. Exactly one.",
+            "properties": {},
+            "propertyNames": {
+              "enum": [
+                "id",
+                "kind",
+                "pos"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "output"
+              }
+            }
+          },
+          "then": {
+            "description": "The signal leaving the pedal. Exactly one.",
+            "properties": {},
+            "propertyNames": {
+              "enum": [
+                "id",
+                "kind",
+                "pos"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "gain"
+              }
+            }
+          },
+          "then": {
+            "description": "Scales the signal, in decibels or by a multiplier, smoothly.",
+            "properties": {
+              "db": {
+                "anyOf": [
+                  {
+                    "default": 0.0,
+                    "description": "Gain in decibels; eased in the linear domain In dB.",
+                    "maximum": 96.0,
+                    "minimum": -96.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "linear": {
+                "anyOf": [
+                  {
+                    "default": 1.0,
+                    "description": "A plain multiplier instead of decibels; set one or the other",
+                    "maximum": 16.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "smooth": {
+                "anyOf": [
+                  {
+                    "default": 0.004999999888241291,
+                    "description": "Seconds a parameter change takes to settle; 0 applies it on the next block In s.",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              }
+            },
+            "propertyNames": {
+              "enum": [
+                "id",
+                "kind",
+                "pos",
+                "db",
+                "linear",
+                "smooth"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "biquad"
+              }
+            }
+          },
+          "then": {
+            "description": "A second-order filter: lowpass, highpass, peak, shelf or notch.",
+            "properties": {
+              "freq": {
+                "anyOf": [
+                  {
+                    "default": 1000.0,
+                    "description": "Corner or centre frequency In Hz.",
+                    "maximum": 20000.0,
+                    "minimum": 20.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "gain": {
+                "anyOf": [
+                  {
+                    "default": 0.0,
+                    "description": "Boost or cut for a peak or shelf; the cuts and the notch ignore it In dB.",
+                    "maximum": 24.0,
+                    "minimum": -24.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "q": {
+                "anyOf": [
+                  {
+                    "default": 0.7071067690849304,
+                    "description": "Width: 0.7071 is a flat Butterworth cut",
+                    "maximum": 10.0,
+                    "minimum": 0.10000000149011612,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "smooth": {
+                "anyOf": [
+                  {
+                    "default": 0.0,
+                    "description": "Seconds a parameter change takes to settle; 0 applies it on the next block In s.",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "type": {
+                "anyOf": [
+                  {
+                    "default": "lowpass",
+                    "description": "The design: a cut, a bell, a shelf or a notch",
+                    "enum": [
+                      "lowpass",
+                      "highpass",
+                      "peak",
+                      "lowshelf",
+                      "highshelf",
+                      "notch"
+                    ]
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              }
+            },
+            "propertyNames": {
+              "enum": [
+                "id",
+                "kind",
+                "pos",
+                "type",
+                "freq",
+                "gain",
+                "q",
+                "smooth"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "waveshaper"
+              }
+            }
+          },
+          "then": {
+            "description": "Clips or folds the signal through a curve, oversampled so the harmonics do not alias.",
+            "properties": {
+              "curve": {
+                "anyOf": [
+                  {
+                    "default": "soft",
+                    "description": "The transfer curve; what it does past full scale is the character",
+                    "enum": [
+                      "soft",
+                      "hard",
+                      "asymmetric",
+                      "fold",
+                      "silicon",
+                      "germanium",
+                      "octave"
+                    ]
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "oversample": {
+                "anyOf": [
+                  {
+                    "default": 4.0,
+                    "description": "1, 2, 4 or 8 times the rate; anything above 1 adds 22 samples of latency, the same at every factor In ×.",
+                    "maximum": 8.0,
+                    "minimum": 1.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              }
+            },
+            "propertyNames": {
+              "enum": [
+                "id",
+                "kind",
+                "pos",
+                "curve",
+                "oversample"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "delay"
+              }
+            }
+          },
+          "then": {
+            "description": "A delay line with feedback and a dry/wet mix; bind the time to an lfo for chorus and flanging.",
+            "properties": {
+              "feedback": {
+                "anyOf": [
+                  {
+                    "default": 0.0,
+                    "description": "How much of the delayed signal goes round again",
+                    "maximum": 0.9900000095367432,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "max": {
+                "anyOf": [
+                  {
+                    "default": 2000.0,
+                    "description": "The line's length; memory is reserved for this at prepare In ms.",
+                    "maximum": 10000.0,
+                    "minimum": 1.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "mix": {
+                "anyOf": [
+                  {
+                    "default": 1.0,
+                    "description": "Dry at 0, the delayed signal alone at 1",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "smooth": {
+                "anyOf": [
+                  {
+                    "default": 0.019999999552965164,
+                    "description": "Seconds a parameter change takes to settle; 0 applies it on the next block In s.",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "time": {
+                "anyOf": [
+                  {
+                    "default": 300.0,
+                    "description": "Delay in milliseconds; a change slides the read head, like tape In ms.",
+                    "maximum": 10000.0,
+                    "minimum": 0.10000000149011612,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              }
+            },
+            "propertyNames": {
+              "enum": [
+                "id",
+                "kind",
+                "pos",
+                "time",
+                "feedback",
+                "mix",
+                "max",
+                "smooth"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "lfo"
+              }
+            }
+          },
+          "then": {
+            "description": "A low-frequency oscillator, free or synced to the tempo. Drives other nodes' fields; it carries no audio.",
+            "properties": {
+              "depth": {
+                "anyOf": [
+                  {
+                    "default": 1.0,
+                    "description": "Scales the output; bindings see 0 at no depth",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "note": {
+                "anyOf": [
+                  {
+                    "default": "1/4",
+                    "description": "Cycle length when synced, in note values",
+                    "enum": [
+                      "1/1",
+                      "1/2",
+                      "1/2T",
+                      "1/4",
+                      "1/4D",
+                      "1/4T",
+                      "1/8",
+                      "1/8D",
+                      "1/8T",
+                      "1/16",
+                      "1/16T",
+                      "1/32"
+                    ]
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "phase": {
+                "anyOf": [
+                  {
+                    "default": 0.0,
+                    "description": "Where in the cycle the wave is read, in cycles",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "rate": {
+                "anyOf": [
+                  {
+                    "default": 1.0,
+                    "description": "Cycles per second when not synced In Hz.",
+                    "maximum": 50.0,
+                    "minimum": 0.009999999776482582,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "shape": {
+                "anyOf": [
+                  {
+                    "default": "sine",
+                    "description": "The wave",
+                    "enum": [
+                      "sine",
+                      "triangle",
+                      "square",
+                      "saw",
+                      "random"
+                    ]
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "smooth": {
+                "anyOf": [
+                  {
+                    "default": 0.019999999552965164,
+                    "description": "Seconds a parameter change takes to settle; 0 applies it on the next block In s.",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "spread": {
+                "anyOf": [
+                  {
+                    "default": 0.0,
+                    "description": "How far ahead the right channel reads, in cycles",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "sync": {
+                "anyOf": [
+                  {
+                    "default": false,
+                    "description": "Lock to the transport at the note value instead of the rate",
+                    "type": "boolean"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "unipolar": {
+                "anyOf": [
+                  {
+                    "default": false,
+                    "description": "Run from 0 to 1 instead of -1 to 1, so a map's ends are the wave's",
+                    "type": "boolean"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              }
+            },
+            "propertyNames": {
+              "enum": [
+                "id",
+                "kind",
+                "pos",
+                "rate",
+                "shape",
+                "sync",
+                "note",
+                "depth",
+                "phase",
+                "spread",
+                "unipolar",
+                "smooth"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "allpass"
+              }
+            }
+          },
+          "then": {
+            "description": "A cascade of allpass stages with feedback: flat in level, it shifts phase, and mixed with the dry signal makes the notches of a phaser.",
+            "properties": {
+              "feedback": {
+                "anyOf": [
+                  {
+                    "default": 0.0,
+                    "description": "The cascade's output fed back to its input, which deepens the notches",
+                    "maximum": 0.949999988079071,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "freq": {
+                "anyOf": [
+                  {
+                    "default": 1000.0,
+                    "description": "Where the phase shift is centred In Hz.",
+                    "maximum": 20000.0,
+                    "minimum": 20.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "mix": {
+                "anyOf": [
+                  {
+                    "default": 1.0,
+                    "description": "Dry at 0, the shifted signal alone at 1; a phaser sits at 0.5",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "smooth": {
+                "anyOf": [
+                  {
+                    "default": 0.019999999552965164,
+                    "description": "Seconds a parameter change takes to settle; 0 applies it on the next block In s.",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              },
+              "stages": {
+                "anyOf": [
+                  {
+                    "default": 4.0,
+                    "description": "First-order allpasses in a row; each pair makes a notch when mixed with the dry signal",
+                    "maximum": 16.0,
+                    "minimum": 1.0,
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/Binding"
+                  }
+                ]
+              }
+            },
+            "propertyNames": {
+              "enum": [
+                "id",
+                "kind",
+                "pos",
+                "stages",
+                "freq",
+                "feedback",
+                "mix",
+                "smooth"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "mix"
+              }
+            }
+          },
+          "then": {
+            "description": "Sums everything connected to it. Put gains in front to weight them.",
+            "properties": {},
+            "propertyNames": {
+              "enum": [
+                "id",
+                "kind",
+                "pos"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "split"
+              }
+            }
+          },
+          "then": {
+            "description": "Passes the signal through, as a junction to fan it out from.",
+            "properties": {},
+            "propertyNames": {
+              "enum": [
+                "id",
+                "kind",
+                "pos"
+              ]
+            }
+          }
+        }
+      ],
+      "description": "One node of the graph: a primitive and its fields.",
+      "properties": {
+        "id": {
+          "description": "Unique within the pedal; what edges and bindings refer to.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "The primitive: one of the kinds `kinds` lists.",
+          "enum": [
+            "input",
+            "output",
+            "gain",
+            "biquad",
+            "waveshaper",
+            "delay",
+            "lfo",
+            "allpass",
+            "mix",
+            "split"
+          ],
+          "type": "string"
+        },
+        "pos": {
+          "description": "Where the designer drew it; nothing to the sound.",
+          "items": {
+            "$ref": "#/$defs/Num"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "Num": {
+      "description": "A number that serializes without a fraction when it has none, so a file says `\"freq\": 80` rather than `80.0`.",
+      "format": "double",
+      "type": "number"
+    },
+    "ParamDef": {
+      "description": "A knob the pedal exposes. Nodes read it through a binding.",
+      "properties": {
+        "choices": {
+          "description": "A pick from a list: the value is the index, the range is set from the list.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "default": {
+          "default": 0,
+          "description": "The value a new pedal starts at.",
+          "format": "float",
+          "type": "number"
+        },
+        "id": {
+          "description": "What bindings refer to, such as `drive`.",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "description": "Display name; the id when missing.",
+          "type": "string"
+        },
+        "max": {
+          "default": 1,
+          "description": "The largest value; 1 when missing.",
+          "format": "float",
+          "type": "number"
+        },
+        "min": {
+          "default": 0,
+          "description": "The smallest value.",
+          "format": "float",
+          "type": "number"
+        },
+        "toggle": {
+          "description": "A switch: 0 or 1.",
+          "type": "boolean"
+        },
+        "unit": {
+          "description": "`dB`, `Hz`, `s`, `ms`, `%` or nothing.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "Value": {
+      "anyOf": [
+        {
+          "description": "A number, for a number field.",
+          "format": "double",
+          "type": "number"
+        },
+        {
+          "description": "A switch.",
+          "type": "boolean"
+        },
+        {
+          "description": "One of a list of names.",
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/Binding",
+          "description": "Follows a parameter or another node's signal."
+        }
+      ],
+      "description": "A field's value: a number, a name from a list, a switch, or a binding to a parameter or another node's signal."
+    }
+  },
+  "$id": "https://cantina-docs.vibeproject.workers.dev/schemas/pedal.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A pedal as its JSON file holds it.",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "edges": {
+      "default": [],
+      "description": "Audio connections, each `[from, to]` by node id.",
+      "items": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "string"
+          }
+        ],
+        "type": "array"
+      },
+      "type": "array"
+    },
+    "name": {
+      "description": "Shown in the pedal picker and on the pedal.",
+      "type": "string"
+    },
+    "nodes": {
+      "default": [],
+      "description": "The graph's nodes.",
+      "items": {
+        "$ref": "#/$defs/NodeDef"
+      },
+      "maxItems": 64,
+      "type": "array"
+    },
+    "params": {
+      "default": [],
+      "description": "The knobs, in the order the pedal shows them.",
+      "items": {
+        "$ref": "#/$defs/ParamDef"
+      },
+      "maxItems": 32,
+      "type": "array"
+    },
+    "version": {
+      "const": 1,
+      "description": "The format version, `PEDAL_VERSION` when written.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version",
+    "name"
+  ],
+  "title": "Cantina pedal",
+  "type": "object"
+}

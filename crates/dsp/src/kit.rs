@@ -46,6 +46,7 @@ pub const MAX_PADS: usize = 64;
 pub const MAX_LAYERS: usize = 16;
 
 /// A drum kit as its JSON file holds it.
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Kit {
@@ -59,6 +60,7 @@ pub struct Kit {
 }
 
 /// One pad: a sound the sequencer can hit.
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Pad {
@@ -83,6 +85,7 @@ pub struct Pad {
 }
 
 /// One sample of a pad, chosen by velocity.
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Layer {

@@ -43,6 +43,8 @@ mod readout;
 mod render;
 mod reverb;
 mod sampler;
+#[cfg(test)]
+mod schema;
 mod shaper;
 mod smooth;
 mod tuner;

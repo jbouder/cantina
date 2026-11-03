@@ -16,3 +16,5 @@ serde_json = "1"
 
 [dev-dependencies]
 hound = "3.5.1"
+# Derives the JSON schemas for the pedal and kit formats, in tests only.
+schemars = "1"

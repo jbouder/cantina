@@ -14,7 +14,8 @@
       "*.json",
       "!ui/dist",
       "!src-tauri/gen",
-      "!ui/src/lib/pedal-kinds.json"
+      "!ui/src/lib/pedal-kinds.json",
+      "!docs/public/schemas"
     ]
   },
   "formatter": {
@@ -56,6 +57,9 @@
           "correctness": {
             "noUnusedVariables": "off",
             "noUnusedImports": "off"
+          },
+          "style": {
+            "useImportType": "off"
           }
         }
       }
