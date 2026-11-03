@@ -60,9 +60,15 @@ defaults, so set only what differs):
   `--lcd-overlay` (a grid over the display), `--lcd-mask` (turns display
   text into a dot matrix), `--lcd-text-shadow`, `--meter-bg`.
 - **Sheets**: `--sheet-bg`, `--sheet-ink`, `--scrim`.
-- **Beat**: `--beat` is 0 to 1 within the beat once M8 drives it from the
-  tempo map, and 0 under reduced motion. Neon's `--window-filter` grows
-  with it; any skin may use it the same way.
+- **Beat**: `--beat` is 1 on each beat and falls to 0 over 300 ms, from
+  the tempo map's bar, beat and phase while the transport rolls, so the
+  pulse lands with the click; with the transport stopped it follows onsets
+  heard in the input instead. `ui/src/skins/beat.ts` sets it from the
+  analysis frames, the same envelope the stage's scenes use. Neon's
+  `--window-filter` grows with it; any skin may use it the same way, and
+  says so with `beat: true` in `SKINS`, because the property is animated
+  only while a skin that reads it is on. It stays 0 under the system's
+  reduced motion and under Reduce flashing in Settings.
 
 ## Adding a skin
 
@@ -71,7 +77,8 @@ defaults, so set only what differs):
    for one that changes everything, or Toxic for a different title bar.
    Set the palette first, then the materials that should differ.
 2. Import it in `ui/src/styles.css` next to the others.
-3. Add `{ id: "<id>", name: "<Name>" }` to `SKINS` in `ui/src/skins/index.ts`.
+3. Add `{ id: "<id>", name: "<Name>", beat: false }` to `SKINS` in
+   `ui/src/skins/index.ts`, with `beat: true` if the CSS reads `--beat`.
    The picker in Settings, persistence and the `?skin=` screenshot switch
    all read that list.
 4. Run `scripts/screenshot.sh <name> "skin=<id>" "skin=<id>&settings"` and
@@ -94,7 +101,8 @@ defaults, so set only what differs):
   read, so `--face` is the flat color the panel averages to and `--silver`
   and `--pbtn` the faces of the two kinds of key; keep them honest.
 - **Reduced motion.** Anything that moves on `--beat` must read as static
-  when the property is 0, which it is under `prefers-reduced-motion`.
+  when the property is 0, which it is under `prefers-reduced-motion` and
+  Reduce flashing.
 - **No literal colors outside the skin file.** If a component needs a new
   color, add a token to Classic first and give it a value in every skin
   that should differ.

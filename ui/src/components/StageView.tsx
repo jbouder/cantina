@@ -1,6 +1,7 @@
 import { DEFAULT_SCENE, EngineFrames, getScene, SCENES, Stage } from "@cantina/scenes";
 import { useEffect, useId, useRef, useState } from "react";
 import { analysisSetSource, type EngineStatus, onAnalysis } from "../lib/engine";
+import { reducesFlashing, useReduceFlashing } from "../lib/motion";
 import { Lcd } from "./Lcd";
 import { Select } from "./Select";
 import { Sheet } from "./Sheet";
@@ -28,6 +29,7 @@ export function StageView({ status, initialScene, onClose, onStatus }: Props) {
     initialScene && getScene(initialScene) ? initialScene : DEFAULT_SCENE.gpu,
   );
   const [problem, setProblem] = useState<string | null>(null);
+  const [reduceFlashing] = useReduceFlashing();
 
   useEffect(() => {
     const el = host.current;
@@ -40,7 +42,7 @@ export function StageView({ status, initialScene, onClose, onStatus }: Props) {
       {
         sampleRate: 48_000,
         quality: 1,
-        reduceFlashing: false,
+        reduceFlashing: reducesFlashing(),
         retroLook: false,
         palette: "auto",
         options: {},
@@ -55,6 +57,11 @@ export function StageView({ status, initialScene, onClose, onStatus }: Props) {
       stage.current = null;
     };
   }, []);
+
+  // Scenes read the context every frame, so a change applies at once.
+  useEffect(() => {
+    if (stage.current) stage.current.rc.reduceFlashing = reduceFlashing;
+  }, [reduceFlashing]);
 
   useEffect(() => {
     setProblem(null);
