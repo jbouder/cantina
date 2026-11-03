@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Checks every skin's text and focus contrast, WCAG 2.2 style.
 //
-// Reads the hex tokens out of ui/src/skins/*.css (Classic first, as the
-// fallback) and checks the pairs below. Gradients cannot be read, so the
+// Reads the hex tokens out of each skin: the shared palette in
+// packages/skins/tokens/ and Cantina's own in ui/src/skins/, Classic
+// first as the fallback, and checks the pairs below. Gradients cannot be read, so the
 // transport key is represented by --silver, the panel key by --pbtn, and
 // the frame by --frame; skins keep those honest for what the eye sees.
 //
@@ -10,7 +11,14 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-const dir = join(new URL("..", import.meta.url).pathname, "ui", "src", "skins");
+const root = new URL("..", import.meta.url).pathname;
+const dir = join(root, "ui", "src", "skins");
+const shared = join(root, "packages", "skins", "tokens");
+
+/** A skin's tokens: the shared palette, then Cantina's on top. */
+function skin(name) {
+  return { ...tokens(join(shared, name)), ...tokens(join(dir, name)) };
+}
 
 function tokens(file) {
   const out = {};
@@ -57,10 +65,10 @@ const PAIRS = [
   ["focus", "sheet-bg", 3, "focus ring in a sheet"],
 ];
 
-const base = tokens(join(dir, "classic.css"));
+const base = skin("classic.css");
 let failed = false;
 for (const name of readdirSync(dir).filter((f) => f.endsWith(".css")).sort()) {
-  const t = { ...base, ...tokens(join(dir, name)) };
+  const t = { ...base, ...skin(name) };
   // A title bar that is transparent or a gradient shows the face through.
   t["title-bg"] = resolve(t, "title-bg") ?? t.face;
   for (const [fg, bg, min, what] of PAIRS) {

@@ -4,43 +4,7 @@
  * which M8 drives from the tempo map and which reduced motion pins to 0.
  */
 :root[data-skin="neon"] {
-  --frame-hi: #ff4fd8;
-  --frame: #0c0614;
-  --frame-mid: #08040e;
-  --frame-lo: #04020a;
-  --frame-edge: #ff2fb0;
   --face: #0c0614;
-  --titlebar-hi: #12081e;
-  --titlebar-lo: #0a0412;
-  --title-on: #ff4fd8;
-  --title-on-lo: #3a0a4a;
-  --title-text: #ffe0fa;
-  --lcd-bg: #04020a;
-  --lcd-fg: #3cf0ff;
-  --lcd-dim: #10243a;
-  --list-bg: #04020a;
-  --list-fg: #3cf0ff;
-  --select: #6a0a8a;
-  /* The transport keys are outlines, so their face is the frame. */
-  --silver-hi: #1a0c26;
-  --silver: #0c0614;
-  --silver-lo: #04020a;
-  --glyph: #ff6fe0;
-  --ink: #ffd8f6;
-  --ink-dim: #b08ac0;
-  --led-on: #ff4fd8;
-  --led-off: #3a0a3a;
-  --pbtn-hi: #1e0e2c;
-  --pbtn: #160a22;
-  --pbtn-lo: #10061a;
-  --pbtn-bevel-hi: #ff4fd8;
-  --pbtn-bevel-lo: #04020a;
-  --pbtn-ink: #ffd8f6;
-  --sheet-bg: #07030d;
-  --vol-lo: #ff2fb0;
-  --vol-mid: #b04fff;
-  --vol-hi: #3cf0ff;
-  --track: #10061a;
 
   /* Timeline. */
   --tl-bg: #06030c;
@@ -53,7 +17,6 @@
   --tl-clip-selected: #5a1288;
   --tl-wave: #ff8cf0;
   --tl-playhead: #3cf0ff;
-  --focus: #3cf0ff;
 
   /* Cut corners, a thin magenta edge, and a glow on the wrapper that
    * grows with the beat. */

@@ -3,43 +3,8 @@
  * a vacuum fluorescent display. Ported from music-visualizer.
  */
 :root[data-skin="hifi"] {
-  --frame-hi: #b0784a;
-  --frame: #6b3f22;
-  --frame-mid: #5a3419;
-  --frame-lo: #2e1a0c;
-  --frame-edge: #140a03;
   --face: #c4b79c;
-  --titlebar-hi: #3a2414;
-  --titlebar-lo: #24160a;
-  --title-on: #e6c27a;
-  --title-on-lo: #7a5420;
-  --title-text: #3a2a14;
-  --lcd-bg: #010d0c;
-  --lcd-fg: #4ff0d0;
-  --lcd-dim: #0b2e2a;
-  --list-bg: #010d0c;
-  --list-fg: #4ff0d0;
-  --select: #136a5e;
-  --silver-hi: #f6f1e6;
-  --silver: #d8cfbd;
-  --silver-lo: #9c917c;
-  --glyph: #2a1d10;
-  --ink: #2a1d10;
-  --ink-dim: #4e3f28;
-  --led-on: #ff9a3c;
-  --led-off: #3a2210;
-  --pbtn-hi: #e9e2d2;
-  --pbtn: #cfc5b0;
-  --pbtn-lo: #b0a48a;
-  --pbtn-bevel-hi: #fffaf0;
-  --pbtn-bevel-lo: #6a5e48;
-  --pbtn-ink: #2a1d10;
-  --sheet-bg: #e9dfc8;
   --sheet-ink: #2a1d10;
-  --vol-lo: #1ea890;
-  --vol-mid: #4ff0d0;
-  --vol-hi: #ff9a3c;
-  --track: #120a04;
 
   /* Timeline. */
   --tl-bg: #120a04;
@@ -52,7 +17,6 @@
   --tl-clip-selected: #176a5c;
   --tl-wave: #9cf8e6;
   --tl-playhead: #ffb35c;
-  --focus: #7a2e00;
   color-scheme: light;
 
   /* Wood cheeks at the sides of a brushed champagne panel. */

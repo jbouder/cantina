@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@fontsource/vt323/400.css";
+@import "@cantina/skins/tokens.css";
 @import "./skins/classic.css";
 @import "./skins/midnight.css";
 @import "./skins/metal.css";

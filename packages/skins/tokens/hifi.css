@@ -1,0 +1,56 @@
+/* Hi-fi: the tokens both apps draw with. */
+:root[data-skin="hifi"] {
+  /* Frame: the window chrome around everything. */
+  --frame-hi: #b0784a;
+  --frame: #6b3f22;
+  --frame-mid: #5a3419;
+  --frame-lo: #2e1a0c;
+  --frame-edge: #140a03;
+
+  /* Title bar. */
+  --titlebar-hi: #3a2414;
+  --titlebar-lo: #24160a;
+  --title-on: #e6c27a;
+  --title-on-lo: #7a5420;
+  --title-text: #3a2a14;
+
+  /* Displays: readouts, meter backplates, lists. */
+  --lcd-bg: #010d0c;
+  --lcd-fg: #4ff0d0;
+  --lcd-dim: #0b2e2a;
+  --list-bg: #010d0c;
+  --list-fg: #4ff0d0;
+  --select: #136a5e;
+
+  /* Transport keys: silver, with a dark glyph. */
+  --silver-hi: #f6f1e6;
+  --silver: #d8cfbd;
+  --silver-lo: #9c917c;
+  --glyph: #2a1d10;
+
+  /* Panel keys, in the frame's own material. */
+  --pbtn-hi: #e9e2d2;
+  --pbtn: #cfc5b0;
+  --pbtn-lo: #b0a48a;
+  --pbtn-bevel-hi: #fffaf0;
+  --pbtn-bevel-lo: #6a5e48;
+  --pbtn-ink: #2a1d10;
+
+  /* Text on the frame. */
+  --ink: #2a1d10;
+  --ink-dim: #4e3f28;
+
+  /* Indicator lights. */
+  --led-on: #ff9a3c;
+  --led-off: #3a2210;
+
+  /* Level meters and their track. */
+  --vol-lo: #1ea890;
+  --vol-mid: #4ff0d0;
+  --vol-hi: #ff9a3c;
+  --track: #120a04;
+
+  /* Sheets and focus. */
+  --sheet-bg: #e9dfc8;
+  --focus: #7a2e00;
+}

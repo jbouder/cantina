@@ -1,0 +1,56 @@
+/* Toxic: the tokens both apps draw with. */
+:root[data-skin="toxic"] {
+  /* Frame: the window chrome around everything. */
+  --frame-hi: #e8ff7a;
+  --frame: #8fd400;
+  --frame-mid: #6fb000;
+  --frame-lo: #3e6a00;
+  --frame-edge: #1a2c00;
+
+  /* Title bar. */
+  --titlebar-hi: #b6f020;
+  --titlebar-lo: #86c800;
+  --title-on: #1a2c00;
+  --title-on-lo: #c8f040;
+  --title-text: #fff23a;
+
+  /* Displays: readouts, meter backplates, lists. */
+  --lcd-bg: #0a0a00;
+  --lcd-fg: #fff23a;
+  --lcd-dim: #3a3600;
+  --list-bg: #0a0a00;
+  --list-fg: #fff23a;
+  --select: #4a6a00;
+
+  /* Transport keys: silver, with a dark glyph. */
+  --silver-hi: #f6ff8a;
+  --silver: #c8f040;
+  --silver-lo: #9ad400;
+  --glyph: #142200;
+
+  /* Panel keys, in the frame's own material. */
+  --pbtn-hi: #f6ff8a;
+  --pbtn: #c8f040;
+  --pbtn-lo: #9ad400;
+  --pbtn-bevel-hi: #fff;
+  --pbtn-bevel-lo: #2e4a00;
+  --pbtn-ink: #142200;
+
+  /* Text on the frame. */
+  --ink: #142200;
+  --ink-dim: #1f3300;
+
+  /* Indicator lights. */
+  --led-on: #fff23a;
+  --led-off: #3a3600;
+
+  /* Level meters and their track. */
+  --vol-lo: #6fd400;
+  --vol-mid: #fff23a;
+  --vol-hi: #ff6a00;
+  --track: #0a0a00;
+
+  /* Sheets and focus. */
+  --sheet-bg: #b6f020;
+  --focus: #8a1a00;
+}

@@ -2,7 +2,8 @@
 // Fails when a UI source file carries a literal color.
 //
 // Every color comes from a skin token, so the only files allowed to spell
-// one out are the skin definitions in ui/src/skins/*.css. Everywhere else
+// one out are the skin definitions in ui/src/skins/*.css (and the shared
+// palette in packages/skins/, which this does not scan). Everywhere else
 // a hex value, an rgb()/hsl()/oklch()/color() call or a CSS named color
 // in a stylesheet is an error. Tailwind's palette is cleared in
 // styles.css, so this is the check that catches arbitrary values such as

@@ -1,0 +1,11 @@
+/*
+ * Every skin's shared palette. Classic is the fallback on :root; each
+ * other skin sets its values under :root[data-skin="<id>"]. An app adds
+ * its own component-level tokens on top in its own stylesheets.
+ */
+@import "./tokens/classic.css";
+@import "./tokens/midnight.css";
+@import "./tokens/metal.css";
+@import "./tokens/hifi.css";
+@import "./tokens/neon.css";
+@import "./tokens/toxic.css";

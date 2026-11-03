@@ -3,42 +3,7 @@
  * a dot-matrix display. Ported from music-visualizer.
  */
 :root[data-skin="metal"] {
-  --frame-hi: #fff;
-  --frame: #c9cdd3;
-  --frame-mid: #aeb3ba;
-  --frame-lo: #7d838b;
-  --frame-edge: #3c4046;
   --face: #c9cdd3;
-  --titlebar-hi: #e6e9ed;
-  --titlebar-lo: #c3c8ce;
-  --title-on: #7d838b;
-  --title-on-lo: #eef0f3;
-  --title-text: #3c4046;
-  --lcd-bg: #050b14;
-  --lcd-fg: #6cb6ff;
-  --lcd-dim: #10243c;
-  --list-bg: #050b14;
-  --list-fg: #6cb6ff;
-  --select: #2a5fa8;
-  --silver-hi: #fff;
-  --silver: #dfe2e6;
-  --silver-lo: #9aa0a8;
-  --glyph: #1c2026;
-  --ink: #1c2026;
-  --ink-dim: #4c525a;
-  --led-on: #4aa8ff;
-  --led-off: #2a3440;
-  --pbtn-hi: #f4f6f8;
-  --pbtn: #d5d9de;
-  --pbtn-lo: #b6bbc2;
-  --pbtn-bevel-hi: #fff;
-  --pbtn-bevel-lo: #6c727a;
-  --pbtn-ink: #1c2026;
-  --sheet-bg: #e8ebee;
-  --vol-lo: #2a6fd6;
-  --vol-mid: #6cb6ff;
-  --vol-hi: #d6ecff;
-  --track: #2a2f36;
 
   /* Timeline. */
   --tl-bg: #2a2f36;
@@ -51,7 +16,6 @@
   --tl-clip-selected: #2a66b4;
   --tl-wave: #b3dbff;
   --tl-playhead: #ffb35c;
-  --focus: #2a5fa8;
   color-scheme: light;
 
   /* The faceplate: brushed, with a screw in each corner. */
