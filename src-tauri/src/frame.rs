@@ -264,4 +264,111 @@ mod tests {
             "the frame layout changed: rerun with CANTINA_WRITE_FIXTURES=1 and update frame.ts"
         );
     }
+
+    /// Writes `packages/scenes/test/recording.bin` when asked: a second
+    /// of frames from the real analyser, 60 of them, over a kick on every
+    /// beat at 120 BPM, a hat between and a chord, with the beat fields
+    /// set. The scenes' harness draws every scene from it. Each frame is
+    /// a little-endian u32 length and then the frame.
+    #[test]
+    fn record_the_scene_harness_frames() {
+        use cantina_dsp::Buffer;
+        use cantina_engine::graph::{BlockContext, Node};
+        use cantina_engine::{beat_at, Analyzer, Scope, TempoMap};
+        if std::env::var_os("CANTINA_WRITE_FIXTURES").is_none() {
+            return;
+        }
+        const RATE: f64 = 48_000.0;
+        const BLOCK: usize = 800;
+        let tempo = TempoMap::default();
+        let (mut scope, handle) = Scope::new();
+        let mut analyzer = Analyzer::new(RATE);
+        let mut noise = 0x1234_5678u32;
+        let mut out = Vec::new();
+        let mut bytes = Vec::new();
+        // Lead in by a window so the first frame is full.
+        let lead = 2048;
+        for frame in 0..(60 + lead / BLOCK + 1) {
+            let mut lane = vec![0.0f32; BLOCK];
+            for (i, v) in lane.iter_mut().enumerate() {
+                let n = (frame * BLOCK + i) as f64 - lead as f64;
+                let t = n.max(0.0) / RATE;
+                let into_beat = t % 0.5;
+                let into_half = t % 0.25;
+                let kick = (-into_beat * 18.0).exp()
+                    * (2.0
+                        * std::f64::consts::PI
+                        * (50.0 + 60.0 * (-into_beat * 30.0).exp())
+                        * into_beat)
+                        .sin();
+                noise = noise.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                let white = (noise >> 8) as f64 / (1u32 << 24) as f64 * 2.0 - 1.0;
+                let hat = if into_beat >= 0.25 {
+                    (-into_half * 60.0).exp() * white
+                } else {
+                    0.0
+                };
+                let chord: f64 = [196.0, 247.0, 294.0]
+                    .iter()
+                    .map(|hz| (2.0 * std::f64::consts::PI * hz * t).sin())
+                    .sum();
+                *v = if n < 0.0 {
+                    0.0
+                } else {
+                    (0.7 * kick + 0.15 * hat + 0.08 * chord) as f32
+                };
+            }
+            let mut right = lane.clone();
+            let mut lanes: [&mut [f32]; 2] = [&mut lane, &mut right];
+            let mut buffer = Buffer::new(&mut lanes);
+            let ctx = BlockContext {
+                sample_rate: RATE,
+                frames: BLOCK,
+                playing: true,
+                position: 0,
+                loop_range: None,
+                tempo: &tempo,
+            };
+            scope.process(&ctx, &mut buffer);
+            let written = handle.written();
+            if (written as usize) < lead + BLOCK {
+                continue;
+            }
+            analyzer.analyse(&handle);
+            let heard = written - lead as u64;
+            let b = beat_at(&tempo, heard, RATE);
+            Frame {
+                sequence: out.len() as u32,
+                dropped: 0,
+                position_seconds: heard as f64 / RATE,
+                playing: true,
+                recording: false,
+                beat: Some(Beat {
+                    bpm: b.bpm,
+                    phase: b.phase,
+                    bar: b.bar,
+                    beat: b.beat,
+                }),
+                meters: &[analyzer.rms, analyzer.rms, analyzer.rms, analyzer.rms],
+                spectrum: &analyzer.spectrum,
+                waveform: &analyzer.waveform,
+                readouts: &[],
+                analysis: Some(Analysis {
+                    rms: analyzer.rms,
+                    source: 1,
+                }),
+            }
+            .encode_into(&mut bytes);
+            out.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+            out.extend_from_slice(&bytes);
+            if out.len() > 60 * (bytes.len() + 4) - 1 {
+                break;
+            }
+        }
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../packages/scenes/test/recording.bin"
+        );
+        std::fs::write(path, out).unwrap();
+    }
 }

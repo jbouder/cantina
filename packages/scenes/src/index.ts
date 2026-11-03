@@ -1,0 +1,14 @@
+export type { AudioFrame } from './frame';
+export { BIN_COUNT, FFT_SIZE, createSilentFrame } from './frame';
+export { BANDS, FrameAnalyzer, bandLevel, hzToBin, waveRms } from './analyzer';
+export * from './beat';
+export type { Family, OptionSchema, PaletteChoice, PaletteId, PresetInfo, RenderContext, Renderer } from './Renderer';
+export { optionValue } from './Renderer';
+export type { SceneEntry } from './registry';
+export { DEFAULT_SCENE, SCENES, getScene, scenesFor } from './registry';
+export type { FrameSource, StageEvents } from './Stage';
+export { CROSSFADE_MS, Stage, hasWebGL2 } from './Stage';
+export { QUALITY_LEVELS, QualityGovernor, nextLowerQuality } from './quality';
+export type { EngineAnalysis, EngineSpectrum } from './sources/engine';
+export { ENGINE_SPECTRUM, EngineFrames } from './sources/engine';
+export { AnalyserFrames, configureAnalyser } from './sources/webAudio';

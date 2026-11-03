@@ -12,6 +12,7 @@ import { ProjectBar } from "./components/ProjectBar";
 import { Projects } from "./components/Projects";
 import { Recovery } from "./components/Recovery";
 import { Settings } from "./components/Settings";
+import { StageView } from "./components/StageView";
 import { Timeline } from "./components/Timeline";
 import { Transport } from "./components/Transport";
 import { Window } from "./components/Window";
@@ -76,6 +77,9 @@ export function App() {
   const [projectsOpen, setProjectsOpen] = useState(() => params?.has("projects") ?? false);
   const [pickerOpen, setPickerOpen] = useState(() => params?.has("picker") ?? false);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  // In a browser `?stage` opens the stage, and `?scene=<id>` picks its scene.
+  const [stageOpen, setStageOpen] = useState(() => params?.has("stage") ?? false);
+  const closeStage = useCallback(() => setStageOpen(false), []);
   const closeProjects = useCallback(() => setProjectsOpen(false), []);
   const closePicker = useCallback(() => setPickerOpen(false), []);
   // In a browser `?drums` adds a drum track to the stand-in and selects it.
@@ -253,6 +257,18 @@ export function App() {
         <>
           <EngineControl status={status} busy={busy} onToggle={toggle} />
           <Button
+            aria-label="Stage"
+            title="Stage"
+            aria-haspopup="dialog"
+            aria-expanded={stageOpen}
+            onClick={() => setStageOpen(true)}
+            className="px-2"
+          >
+            <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
+              <path d="M1 3h14v9H1zm1.5 1.5v6h11v-6zM4 9l2.5-3 2 2.2L10 6.5 12 9zM5 13.5h6V15H5z" />
+            </svg>
+          </Button>
+          <Button
             aria-label="Settings"
             aria-haspopup="dialog"
             aria-expanded={settingsOpen}
@@ -361,6 +377,14 @@ export function App() {
           </div>
         ) : null}
       </main>
+      {stageOpen && status ? (
+        <StageView
+          status={status}
+          initialScene={params?.get("scene") ?? undefined}
+          onClose={closeStage}
+          onStatus={setStatus}
+        />
+      ) : null}
       {settingsOpen && status ? (
         <Settings
           status={status}

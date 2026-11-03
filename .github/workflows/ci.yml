@@ -22,6 +22,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      # Draws every visualizer scene in headless Chrome from recorded frames.
+      - run: npm run test:scenes
       # The shell embeds ui/dist at compile time, so the UI builds first.
       - run: npm run build
       - uses: dtolnay/rust-toolchain@stable
