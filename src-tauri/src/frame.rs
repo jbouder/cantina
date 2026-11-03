@@ -1,9 +1,9 @@
 //! The binary frame the engine streams to the UI at display rate.
 //!
-//! One format carries meters and pedal readouts now and the analysis
-//! stream (spectrum, waveform, beat) in M8: the header says how much of
-//! each the body holds, so a reader built for meters skips what it does
-//! not know. The layout is documented in `docs/frames.md` and decoded by
+//! One format carries meters, pedal readouts and the analysis stream
+//! (spectrum, waveform, level, beat): the header says how much of each
+//! the body holds, so a reader built for meters skips what it does not
+//! know. The layout is documented in `docs/frames.md` and decoded by
 //! `ui/src/lib/frame.ts`; the two must agree.
 //!
 //! All integers and floats are little-endian. The header is 48 bytes, a
@@ -12,14 +12,17 @@
 
 /// The four bytes every frame starts with.
 pub const MAGIC: [u8; 4] = *b"CNTF";
-pub const VERSION: u16 = 2;
+pub const VERSION: u16 = 3;
 pub const HEADER_LEN: usize = 48;
 
 pub const FLAG_PLAYING: u16 = 1 << 0;
 pub const FLAG_RECORDING: u16 = 1 << 1;
 pub const FLAG_BEAT: u16 = 1 << 2;
+pub const FLAG_ANALYSIS: u16 = 1 << 3;
+/// The analysis trailer after the readouts: RMS and source.
+pub const ANALYSIS_LEN: usize = 8;
 
-/// Bar, beat and phase from the tempo map. Not filled in until M8.
+/// Bar, beat and phase from the tempo map, while the transport rolls.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Beat {
     pub bpm: f32,
@@ -46,6 +49,17 @@ pub struct Frame<'a> {
     /// Every pedal readout in the graph, in track and chain order; the
     /// status says which pedal owns how many.
     pub readouts: &'a [f32],
+    pub analysis: Option<Analysis>,
+}
+
+/// What the spectrum and waveform were taken from, and its level.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Analysis {
+    /// RMS of the analysis window, linear.
+    pub rms: f32,
+    /// The meter that measures the same signal: 1 for the master, 2 and
+    /// up for a track.
+    pub source: u32,
 }
 
 impl Frame<'_> {
@@ -55,6 +69,11 @@ impl Frame<'_> {
                 + self.spectrum.len()
                 + self.waveform.len()
                 + self.readouts.len())
+            + if self.analysis.is_some() {
+                ANALYSIS_LEN
+            } else {
+                0
+            }
     }
 
     /// Writes the frame into `out`, reusing its allocation.
@@ -70,6 +89,9 @@ impl Frame<'_> {
         }
         if self.beat.is_some() {
             flags |= FLAG_BEAT;
+        }
+        if self.analysis.is_some() {
+            flags |= FLAG_ANALYSIS;
         }
         let beat = self.beat.unwrap_or(Beat {
             bpm: 0.0,
@@ -96,6 +118,10 @@ impl Frame<'_> {
             for v in lane {
                 out.extend_from_slice(&v.to_le_bytes());
             }
+        }
+        if let Some(analysis) = self.analysis {
+            out.extend_from_slice(&analysis.rms.to_le_bytes());
+            out.extend_from_slice(&analysis.source.to_le_bytes());
         }
     }
 
@@ -139,13 +165,17 @@ mod tests {
             spectrum: &[1.0, 2.0, 3.0],
             waveform: &[-1.0, 1.0],
             readouts: &[440.0, 0.9],
+            analysis: Some(Analysis {
+                rms: 0.5,
+                source: 1,
+            }),
         };
         let b = frame.encode();
         assert_eq!(b.len(), frame.encoded_len());
-        assert_eq!(b.len(), HEADER_LEN + 4 * 11);
+        assert_eq!(b.len(), HEADER_LEN + 4 * 11 + ANALYSIS_LEN);
         assert_eq!(&b[0..4], b"CNTF");
-        assert_eq!(u16_at(&b, 4), 2);
-        assert_eq!(u16_at(&b, 6), FLAG_PLAYING | FLAG_BEAT);
+        assert_eq!(u16_at(&b, 4), 3);
+        assert_eq!(u16_at(&b, 6), FLAG_PLAYING | FLAG_BEAT | FLAG_ANALYSIS);
         assert_eq!(u32_at(&b, 8), 7);
         assert_eq!(u32_at(&b, 12), 2);
         assert_eq!(f64::from_le_bytes(b[16..24].try_into().unwrap()), 1.5);
@@ -163,6 +193,8 @@ mod tests {
         assert_eq!(f32_at(&b, 48 + 28), -1.0);
         assert_eq!(f32_at(&b, 48 + 36), 440.0);
         assert_eq!(f32_at(&b, 48 + 40), 0.9);
+        assert_eq!(f32_at(&b, 48 + 44), 0.5);
+        assert_eq!(u32_at(&b, 48 + 48), 1);
     }
 
     #[test]
@@ -178,11 +210,58 @@ mod tests {
             spectrum: &[],
             waveform: &[],
             readouts: &[],
+            analysis: None,
         };
         let b = frame.encode();
         assert_eq!(b.len(), HEADER_LEN + 16);
         assert_eq!(u16_at(&b, 6), FLAG_RECORDING);
         assert_eq!(u16_at(&b, 26), 0);
         assert_eq!(u16_at(&b, 30), 0);
+    }
+
+    /// The frame `ui/src/lib/frame.fixture.bin` holds. The UI's tests
+    /// decode the same file, so the two sides cannot drift apart.
+    fn fixture() -> Vec<u8> {
+        let spectrum: Vec<f32> = (0..8).map(|i| i as f32 / 8.0).collect();
+        let waveform: Vec<f32> = (0..6).map(|i| (i as f32 - 3.0) / 4.0).collect();
+        Frame {
+            sequence: 0x0102_0304,
+            dropped: 5,
+            position_seconds: 12.25,
+            playing: true,
+            recording: true,
+            beat: Some(Beat {
+                bpm: 96.5,
+                phase: 0.75,
+                bar: 17,
+                beat: 2,
+            }),
+            meters: &[0.5, 0.25, 1.0, 0.5, 0.125, 0.0625],
+            spectrum: &spectrum,
+            waveform: &waveform,
+            readouts: &[440.0, 0.875, -6.5],
+            analysis: Some(Analysis {
+                rms: 0.375,
+                source: 2,
+            }),
+        }
+        .encode()
+    }
+
+    #[test]
+    fn the_ui_fixture_matches_the_encoder() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../ui/src/lib/frame.fixture.bin"
+        );
+        if std::env::var_os("CANTINA_WRITE_FIXTURES").is_some() {
+            std::fs::write(path, fixture()).unwrap();
+        }
+        let file = std::fs::read(path).expect("run with CANTINA_WRITE_FIXTURES=1 to write it");
+        assert_eq!(
+            file,
+            fixture(),
+            "the frame layout changed: rerun with CANTINA_WRITE_FIXTURES=1 and update frame.ts"
+        );
     }
 }

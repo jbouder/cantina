@@ -11,7 +11,8 @@ import fuzzDef from "../../../pedals/fuzz.pedal.json";
 import overdriveDef from "../../../pedals/overdrive.pedal.json";
 import phaserDef from "../../../pedals/phaser.pedal.json";
 import tremoloDef from "../../../pedals/tremolo.pedal.json";
-import { decodeFrame, encodeFrame } from "./frame";
+import { type AnalysisFrame, analysisOf, decodeFrame, encodeFrame } from "./frame";
+import { mockAnalysis, mockBeat } from "./mockAnalysis";
 import {
   disconnect,
   empty,
@@ -48,6 +49,8 @@ export interface EngineStatus {
   irs: IrInfo[];
   /** The pattern looping on a drum track for editing, if any. Not part of the project. */
   audition: AuditionStatus | null;
+  /** The track the stage's analysis listens to, or null for the master. */
+  analysisSource: number | null;
 }
 
 /** A kind of pedal the picker offers. Mirrors `PedalKindInfo` in src-tauri. */
@@ -892,6 +895,7 @@ const mock: EngineStatus = {
   kits: mockKits,
   irs: MOCK_IRS,
   audition: mockParams?.has("audition") ? { track: MOCK_DRUMS, pattern: 11 } : null,
+  analysisSource: null,
 };
 mockTransport.playing = mock.transport.playing || mock.transport.recording;
 mockTransport.recording = mock.transport.recording;
@@ -1493,9 +1497,17 @@ export async function patternAudition(
   return mockStatus();
 }
 
+/** Points the stage's analysis at a track, or the master with `null`. */
+export async function analysisSetSource(track: number | null): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("analysis_set_source", { track });
+  mock.analysisSource = track;
+  return mockStatus();
+}
+
 export async function trackRemove(id: number): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("track_remove", { id });
   mock.project.tracks = mock.project.tracks.filter((t) => t.id !== id);
+  if (mock.analysisSource === id) mock.analysisSource = null;
   return mockEdit();
 }
 
@@ -1887,6 +1899,7 @@ export function onStatus(listener: (status: EngineStatus) => void): () => void {
  * busy UI gets a fresh frame when it is ready, not a queue of stale ones.
  */
 const meterListeners = new Set<(f: MeterFrame) => void>();
+const analysisListeners = new Set<(f: AnalysisFrame) => void>();
 let meterChannelOpen = false;
 let latest: ArrayBuffer | null = null;
 let scheduled = false;
@@ -1924,6 +1937,9 @@ function publish(buffer: ArrayBuffer) {
     readouts: frame.readouts,
   };
   for (const l of meterListeners) l(out);
+  if (analysisListeners.size === 0) return;
+  const analysis = analysisOf(frame);
+  if (analysis) for (const l of analysisListeners) l(analysis);
 }
 
 /** A frame from the shell: shown on the next animation frame, then acknowledged. */
@@ -1990,6 +2006,9 @@ function openMeterChannel() {
         }),
       ),
     );
+    const { bpm, numerator } = mock.project.tempo;
+    const beat = mockTransport.playing ? mockBeat(mockTransport.position, bpm, numerator) : null;
+    const analysis = mockAnalysis(t, beat, mock.running ? 1 : 0);
     // No shell to acknowledge, and headless captures never reach an
     // animation frame, so the stand-in publishes directly.
     publish(
@@ -1999,9 +2018,12 @@ function openMeterChannel() {
         position: mockTransport.position,
         playing: mockTransport.playing,
         recording: mockTransport.recording,
-        beat: null,
+        beat,
         meters,
         readouts,
+        spectrum: analysis.spectrum,
+        waveform: analysis.waveform,
+        analysis: { rms: analysis.rms, source: 1 },
       }),
     );
   }, 1000 / 60);
@@ -2011,6 +2033,13 @@ export function onMeters(listener: (frame: MeterFrame) => void): () => void {
   openMeterChannel();
   meterListeners.add(listener);
   return () => meterListeners.delete(listener);
+}
+
+/** The stage's input: spectrum, waveform, level and beat, at display rate. */
+export function onAnalysis(listener: (frame: AnalysisFrame) => void): () => void {
+  openMeterChannel();
+  analysisListeners.add(listener);
+  return () => analysisListeners.delete(listener);
 }
 
 /** Linear amplitude to decibels, floored so silence reads finite. */

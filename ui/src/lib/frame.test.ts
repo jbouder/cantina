@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { decodeFrame, encodeFrame, HEADER_LEN } from "./frame";
 
@@ -82,18 +83,39 @@ describe("frame", () => {
         spectrum: [1, 2, 3],
         waveform: [-1, 1],
         readouts: [440, 0.9],
+        analysis: { rms: 0.5, source: 1 },
       }),
     );
     expect(String.fromCharCode(...b.subarray(0, 4))).toBe("CNTF");
-    expect(b[4]).toBe(2); // version
-    expect(b[6]).toBe(0b101); // playing | beat
+    expect(b[4]).toBe(3); // version
+    expect(b[6]).toBe(0b1101); // playing | beat | analysis
     expect(b[8]).toBe(7); // sequence
     expect(b[12]).toBe(2); // dropped
     expect(b[24]).toBe(2); // meter count
     expect(b[26]).toBe(3); // spectrum bins
     expect(b[28]).toBe(2); // waveform samples
     expect(b[30]).toBe(2); // readouts
-    expect(b.length).toBe(48 + 4 * 11);
+    expect(b.length).toBe(48 + 4 * 11 + 8);
+  });
+
+  it("decodes the frame the Rust encoder wrote", () => {
+    // frame.rs's tests check this file against the encoder, so a layout
+    // change on either side fails one of the two suites.
+    const bytes = readFileSync(new URL("./frame.fixture.bin", import.meta.url));
+    const frame = decodeFrame(
+      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length),
+    );
+    expect(frame.sequence).toBe(0x01020304);
+    expect(frame.dropped).toBe(5);
+    expect(frame.position).toBe(12.25);
+    expect(frame.playing).toBe(true);
+    expect(frame.recording).toBe(true);
+    expect(frame.beat).toEqual({ bpm: 96.5, phase: 0.75, bar: 17, beat: 2 });
+    expect(Array.from(frame.meters)).toEqual([0.5, 0.25, 1, 0.5, 0.125, 0.0625]);
+    expect(Array.from(frame.spectrum)).toEqual([0, 1, 2, 3, 4, 5, 6, 7].map((i) => i / 8));
+    expect(Array.from(frame.waveform)).toEqual([0, 1, 2, 3, 4, 5].map((i) => (i - 3) / 4));
+    expect(Array.from(frame.readouts)).toEqual([440, 0.875, -6.5]);
+    expect(frame.analysis).toEqual({ rms: 0.375, source: 2 });
   });
 
   it("rejects buffers that are not frames", () => {

@@ -8,6 +8,7 @@
 //!
 //! macOS only, by design. See `PLAN.md` for why.
 
+pub mod analysis;
 pub mod click;
 pub mod delay;
 pub mod device;
@@ -21,6 +22,7 @@ pub mod player;
 pub mod processors;
 pub mod recorder;
 pub mod runtime;
+pub mod scope;
 pub mod sequencer;
 pub mod stream;
 pub mod strip;
@@ -28,6 +30,7 @@ pub mod tempo;
 pub mod transport;
 pub mod wav;
 
+pub use analysis::{beat_at, Analyzer, BeatPosition};
 pub use click::Click;
 pub use delay::{plan, Delay};
 pub use device::{DeviceEvent, DeviceId, DeviceInfo, Watcher};
@@ -41,6 +44,7 @@ pub use mute::Mute;
 pub use player::{Clip, Player, PlayerHandle, PlayerStats};
 pub use recorder::{Recorder, RecorderHandle, RecorderStats};
 pub use runtime::{CommitError, Controller, ParamChange, Runtime, RuntimeStats};
+pub use scope::{Scope, ScopeHandle};
 pub use sequencer::{PatternData, Placement, Score, Sequencer, SequencerHandle, SequencerStats};
 pub use stream::{BlockProcessor, Stats, Stream, StreamConfig, StreamInfo, MAX_BLOCK_FRAMES};
 pub use strip::Strip;
