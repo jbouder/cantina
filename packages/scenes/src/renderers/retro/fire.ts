@@ -35,6 +35,8 @@ export class FireScene extends RetroScene {
       const hot = Math.random() < 0.55 ? Math.min(255, 255 * level * (0.8 + Math.random() * 0.4)) : 0;
       for (let k = 0; k < run && x < W; k++, x++) heat[bottom + x] = hot;
     }
+    // The downbeat on the tempo map flares the whole bed.
+    if (this.barOnset(frame)) heat.fill(255, bottom, bottom + W);
     // Treble throws sparks.
     const sparks = Math.floor(frame.treble * 60);
     for (let i = 0; i < sparks; i++) {

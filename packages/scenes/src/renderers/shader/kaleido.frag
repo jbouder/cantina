@@ -1,5 +1,6 @@
 // Kaleidoscope bloom: a feedback kaleidoscope with slow hue drift.
 // Mid sets the fold count; each beat injects a bright seed at the center.
+// On a tempo map the hue steps a quarter turn on every bar.
 // uPrev holds last frame (ping-pong framebuffers owned by the runner).
 
 vec2 rot(vec2 p, float a) {
@@ -24,7 +25,7 @@ void main() {
   vec3 prev = texture(uPrev, prevUv).rgb;
   prev = mix(prev, prev.gbr, 0.015) * 0.94;
 
-  vec3 hue = 0.5 + 0.5 * cos(6.28318 * (uTime * 0.025 + r * 0.9 + vec3(0.0, 0.33, 0.67)));
+  vec3 hue = 0.5 + 0.5 * cos(6.28318 * (uTime * 0.025 + uBar * 0.25 + r * 0.9 + vec3(0.0, 0.33, 0.67)));
   float wv = waveAt(a / seg);
   float ringR = 0.18 + 0.12 * wv + 0.15 * uBass;
   float ring = smoothstep(0.014, 0.0, abs(r - ringR));

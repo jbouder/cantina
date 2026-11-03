@@ -49,6 +49,8 @@ export class StarfieldScene extends RetroScene {
 
   protected step(frame: AudioFrame): void {
     this.bump = Math.max(this.bump * 0.85, frame.beat);
+    // A surge on each bar's downbeat, twice a beat's.
+    if (this.barOnset(frame)) this.bump = 2;
     this.speed = this.warp ? 0.35 + frame.bass * 2.6 + this.bump * 1.4 : 0.12 + frame.bass * 1.1 + this.bump * 0.7;
     for (let i = 0; i < STARS; i++) {
       this.pz[i] = this.z[i];

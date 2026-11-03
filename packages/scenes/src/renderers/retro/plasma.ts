@@ -25,6 +25,8 @@ export class PlasmaScene extends RetroScene {
     const { W, H } = this;
     this.t += RETRO_STEP;
     this.cycle = (this.cycle + RETRO_STEP * (12 + frame.rms * 260)) % 256;
+    // Each bar on the tempo map turns the palette a quarter of the way round.
+    if (this.barOnset(frame)) this.cycle = (this.cycle + 64) % 256;
     // Mid scales wave frequency; ease it so the pattern breathes rather than jitters.
     this.scale += (1 + frame.mid * 2.5 - this.scale) * 0.08;
 
