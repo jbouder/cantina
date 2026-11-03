@@ -1,0 +1,43 @@
+name: Bug
+description: Something Cantina does wrong, from a click in the audio to a crash.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1. 
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Cantina version
+      description: Settings → Updates shows it, or the commit if you built from source.
+    validations:
+      required: true
+  - type: input
+    id: mac
+    attributes:
+      label: Mac and macOS
+      placeholder: MacBook Pro M2, macOS 15.3
+    validations:
+      required: true
+  - type: textarea
+    id: audio
+    attributes:
+      label: Audio setup
+      description: Interface, sample rate and buffer size (Settings → Audio), and any plugins in the chain. For glitches and clicks this is usually the answer.
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: A project folder, a pedal file, a screenshot or a crash log helps.

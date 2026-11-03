@@ -1,0 +1,34 @@
+name: Feature or change
+description: Something Cantina should do, or do differently.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What should change, in a sentence or two.
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why it matters, and to whom. A player with a guitar in hand is the usual someone.
+      value: |
+        - 
+    validations:
+      required: true
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Acceptance Criteria
+      description: How a reviewer can tell it is done. Numbers beat adjectives for anything audio.
+      value: |
+        - [ ] 
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of Scope
+      description: What this deliberately does not cover.
