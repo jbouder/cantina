@@ -1,0 +1,155 @@
+---
+/**
+ * One format's JSON Schema as tables: the top-level fields, then each
+ * object it defines. Read at build time from schemas/ at the root of the
+ * repository, which the Rust tests generate from the types Cantina reads,
+ * so the page cannot drift from the code.
+ */
+interface Props {
+  /** `pedal`, `kit`, `kit-recipe`, `pattern` or `project`. */
+  name: string;
+}
+
+type Schema = {
+  $id?: string;
+  title?: string;
+  description?: string;
+  type?: string | string[];
+  properties?: Record<string, Schema>;
+  required?: string[];
+  $defs?: Record<string, Schema>;
+  $ref?: string;
+  const?: unknown;
+  enum?: unknown[];
+  anyOf?: Schema[];
+  oneOf?: Schema[];
+  items?: Schema;
+  prefixItems?: Schema[];
+  default?: unknown;
+  minimum?: number;
+  maximum?: number;
+  exclusiveMinimum?: number;
+  minItems?: number;
+  maxItems?: number;
+  minLength?: number;
+  pattern?: string;
+  format?: string;
+};
+
+const files = import.meta.glob<{ default: Schema }>("../../../schemas/*.schema.json", {
+  eager: true,
+});
+const { name } = Astro.props;
+const entry = Object.entries(files).find(([path]) => path.endsWith(`/${name}.schema.json`));
+if (!entry) throw new Error(`no schemas/${name}.schema.json`);
+const schema = entry[1].default;
+const defs = schema.$defs ?? {};
+
+const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+/** Inline code from backticks, the only markup the descriptions use. */
+const code = (s: string) => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>");
+const anchor = (def: string) => `def-${def.toLowerCase()}`;
+
+/** What a field accepts, as HTML. */
+function takes(s: Schema | undefined): string {
+  if (!s) return "";
+  if (s.$ref) {
+    const def = s.$ref.split("/").pop() ?? "";
+    return defs[def]?.properties
+      ? `<a href="#${anchor(def)}"><code>${def}</code></a>`
+      : takes(defs[def]);
+  }
+  if (s.const !== undefined) return `exactly <code>${esc(JSON.stringify(s.const))}</code>`;
+  if (s.enum) return s.enum.map((e) => `<code>${esc(JSON.stringify(e))}</code>`).join(", ");
+  const alts = s.anyOf ?? s.oneOf;
+  if (alts) {
+    return alts
+      .filter((x) => x.type !== "null")
+      .map(takes)
+      .join(" or ");
+  }
+  const types = [s.type ?? []].flat().filter((t) => t !== "null");
+  let text = types.join(" or ");
+  if (types.includes("array")) {
+    text = s.prefixItems ? `[${s.prefixItems.map(takes).join(", ")}]` : `list of ${takes(s.items)}`;
+  }
+  const limits: string[] = [];
+  if (s.minimum !== undefined) limits.push(`≥ ${s.minimum}`);
+  if (s.exclusiveMinimum !== undefined) limits.push(`> ${s.exclusiveMinimum}`);
+  if (s.maximum !== undefined && !(s.format?.startsWith("uint") && s.maximum > 1e4))
+    limits.push(`≤ ${s.maximum}`);
+  if (!s.prefixItems && s.minItems !== undefined) limits.push(`at least ${s.minItems}`);
+  if (!s.prefixItems && s.maxItems !== undefined) limits.push(`at most ${s.maxItems}`);
+  if (s.minLength !== undefined) limits.push("not empty");
+  if (s.pattern) limits.push(`matching <code>${esc(s.pattern)}</code>`);
+  return limits.length ? `${text} (${limits.join(", ")})` : text;
+}
+
+function rows(s: Schema) {
+  const required = new Set(s.required ?? []);
+  return Object.entries(s.properties ?? {})
+    .filter(([field]) => field !== "$schema")
+    .map(([field, p]) => ({
+      field,
+      required: required.has(field),
+      takes: takes(p),
+      about:
+        code(p.description ?? "") +
+        (p.default !== undefined ? ` Default <code>${esc(JSON.stringify(p.default))}</code>.` : ""),
+    }));
+}
+
+const objects = Object.entries(defs).filter(([, d]) => d.properties);
+const file = `/schemas/${name}.schema.json`;
+---
+
+<p>
+  The schema is <a href={file}><code>{name}.schema.json</code></a> (JSON Schema draft 2020-12),
+  also printed by <code>cantina-cli schema {name}</code>. Name it in a file with
+  <code>"$schema": "{schema.$id}"</code> and an editor validates and completes it; Cantina ignores the
+  field.
+</p>
+{schema.description && <p set:html={code(schema.description)} />}
+
+<h2 id="fields">Fields</h2>
+<table>
+  <thead>
+    <tr><th>Field</th><th>Required</th><th>Takes</th><th>What it is</th></tr>
+  </thead>
+  <tbody>
+    {
+      rows(schema).map((r) => (
+        <tr>
+          <td><code>{r.field}</code></td>
+          <td>{r.required ? "yes" : ""}</td>
+          <td set:html={r.takes} />
+          <td set:html={r.about} />
+        </tr>
+      ))
+    }
+  </tbody>
+</table>
+
+{
+  objects.map(([def, d]) => (
+    <section>
+      <h3 id={anchor(def)}><code>{def}</code></h3>
+      {d.description && <p set:html={code(d.description)} />}
+      <table>
+        <thead>
+          <tr><th>Field</th><th>Required</th><th>Takes</th><th>What it is</th></tr>
+        </thead>
+        <tbody>
+          {rows(d).map((r) => (
+            <tr>
+              <td><code>{r.field}</code></td>
+              <td>{r.required ? "yes" : ""}</td>
+              <td set:html={r.takes} />
+              <td set:html={r.about} />
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  ))
+}

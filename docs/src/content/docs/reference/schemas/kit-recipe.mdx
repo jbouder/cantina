@@ -1,0 +1,14 @@
+---
+title: "Kit recipe schema"
+description: "Every field of a kit recipe, generated from kit-recipe.schema.json."
+---
+
+import Schema from '../../../../components/Schema.astro';
+
+A kit described by synthesis settings, `<name>.recipe.json`, which `cantina-cli synth-kit` turns into a kit folder. See [kit recipes](/reference/kit-format/#kit-recipes).
+
+This page is generated from the schema when the site is built, so it lists
+exactly what Cantina accepts. Check a file against it, and the rules beyond
+it, with [`cantina-cli check`](/reference/cli/#check).
+
+<Schema name="kit-recipe" />

@@ -1,0 +1,14 @@
+---
+title: "Project schema"
+description: "Every field of a project.json, generated from project.schema.json."
+---
+
+import Schema from '../../../../components/Schema.astro';
+
+A project's `project.json`, in a `Name.cantina/` folder. The [project architecture](/architecture/project/) page explains ids, clips, chains and versions; an older file is upgraded on open, so the schema describes the current version.
+
+This page is generated from the schema when the site is built, so it lists
+exactly what Cantina accepts. Check a file against it, and the rules beyond
+it, with [`cantina-cli check`](/reference/cli/#check).
+
+<Schema name="project" />

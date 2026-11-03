@@ -1,0 +1,14 @@
+---
+title: "Pattern schema"
+description: "Every field of a .pattern.json drum pattern, generated from pattern.schema.json."
+---
+
+import Schema from '../../../../components/Schema.astro';
+
+A drum pattern as a file of its own, `<name>.pattern.json`: the pattern a project holds, without its id. See [pattern files](/guides/drums/#pattern-files).
+
+This page is generated from the schema when the site is built, so it lists
+exactly what Cantina accepts. Check a file against it, and the rules beyond
+it, with [`cantina-cli check`](/reference/cli/#check).
+
+<Schema name="pattern" />

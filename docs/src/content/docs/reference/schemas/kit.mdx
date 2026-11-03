@@ -1,0 +1,14 @@
+---
+title: "Kit schema"
+description: "Every field of a drum kit's kit.json, generated from kit.schema.json."
+---
+
+import Schema from '../../../../components/Schema.astro';
+
+A drum kit's `kit.json`, in a folder with its samples. The [kit format](/reference/kit-format/) explains layers, choke groups and where kits are found.
+
+This page is generated from the schema when the site is built, so it lists
+exactly what Cantina accepts. Check a file against it, and the rules beyond
+it, with [`cantina-cli check`](/reference/cli/#check).
+
+<Schema name="kit" />

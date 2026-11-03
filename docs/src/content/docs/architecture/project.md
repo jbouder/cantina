@@ -94,6 +94,10 @@ them:
 UPDATE_SCHEMAS=1 cargo test -p cantina-project schemas
 ```
 
+Every field is on the generated [project schema](/reference/schemas/project/)
+page; [authoring with an agent](/guides/agents/) covers writing projects,
+pedals, kits and patterns from outside the app.
+
 ## Commands
 
 Every edit is a `Command` (`crates/project/src/command.rs`): insert, remove,
