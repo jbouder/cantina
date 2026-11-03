@@ -67,12 +67,12 @@ serialized in camelCase:
   project switches the engine to that rate; changing the device rate is
   only allowed while the project has no audio.
 - **Drum tracks** carry a `kit` id and **`patterns`** on the project
-  hold the step grids; see [drums](/notes/drums/).
+  hold the step grids; see [drums](/architecture/drums/).
 - **Designed pedals** have the spec `pedal:<id>`; the definition is
   `pedals/<id>.pedal.json` in the project, written on Save for every
   such pedal the chains use (drafts included) and read back on open,
   so a song plays the same on its own, whatever the library holds. See
-  [designer](/notes/designer/).
+  [designer](/architecture/designer/).
 
 ## Commands
 

@@ -51,7 +51,7 @@ processor trait.
 
 Outcome (2026-10-31): trait **go**, with the threading decision above owed
 to M4. Latency **pending hardware**: the measurement tool is built and the
-bar is in `docs/src/content/docs/notes/latency.md`, but no interface was available to run it.
+bar is in `docs/src/content/docs/guides/latency.md`, but no interface was available to run it.
 
 - Workspace, `dsp` and `engine` crates, CoreAudio passthrough with a gain.
 - Measure round trip with a loopback cable and a click; record the number.

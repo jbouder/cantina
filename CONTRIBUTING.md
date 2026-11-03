@@ -27,6 +27,18 @@ Every public Rust item needs a doc comment. A change that alters a stock
 pedal's sound regenerates the golden files with
 `UPDATE_GOLDEN=1 cargo test -p cantina-dsp --test golden`.
 
+## Running things
+
+- `npm run tauri dev` runs the app, rebuilding as the code changes.
+- `npm run dev` serves the UI alone in a browser against a stand-in
+  engine, which is enough for layout and skin work.
+- The engine runs without the app too; see
+  [try it without the app](https://cantina-docs.vibeproject.workers.dev/architecture/engine/#try-it-without-the-app).
+- The docs site is its own npm project in `docs/`, on Node 22:
+  `cd docs && npm install && npm run dev`. Pages are Markdown in
+  `docs/src/content/docs/`, each with a `title` and a `description`.
+  `npm run build` fails on a broken link.
+
 ## Pull requests
 
 - One issue per pull request, closing it.

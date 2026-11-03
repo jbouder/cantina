@@ -37,7 +37,7 @@ The `Player` plays clips from WAV files without touching the disk on the audio t
 
 ## Latency compensation
 
-Not the [round trip](/notes/latency/) through the interface, but what plugins add. Every
+Not the [round trip](/guides/latency/) through the interface, but what plugins add. Every
 processor reports the frames it delays the signal by, and a track's
 chain delays it by the sum. Without correction a track with a lookahead
 limiter plays late against one without, and a take recorded along to it
@@ -80,4 +80,4 @@ cargo run -p cantina-engine --example passthrough -- --list
 cargo run -p cantina-engine --example passthrough -- --in Scarlett --out Scarlett --buffer 64
 ```
 
-`--chain gain,overdrive` picks the pedals, `--chain gain,au:AUDelay` or `--chain 'clap:Surge XT'` a plugin, `--click 120` adds the metronome and `--play file.wav` streams a file. While it runs, type `list` to see processors and parameters, `2.drive 30` to change one, `s` for the counters and `q` to quit. `measure_latency` measures the [round trip](/notes/latency/).
+`--chain gain,overdrive` picks the pedals, `--chain gain,au:AUDelay` or `--chain 'clap:Surge XT'` a plugin, `--click 120` adds the metronome and `--play file.wav` streams a file. While it runs, type `list` to see processors and parameters, `2.drive 30` to change one, `s` for the counters and `q` to quit. `measure_latency` measures the [round trip](/guides/latency/).

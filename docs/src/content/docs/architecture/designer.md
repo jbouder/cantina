@@ -1,39 +1,18 @@
 ---
 title: "Pedal designer"
-description: "How the pedal designer edits a pedal graph on a canvas while it plays in the chain."
+description: "How the designer previews a pedal graph live in the chain, where designs are stored, and how to work on it in a browser."
+sidebar:
+  order: 10.5
 ---
 
-The designer edits a pedal in the pedal format
-([pedal-format](/notes/pedal-format/)) while it runs in a chain, so every
-change is heard on the input as it is made. **New design…** in the
-pedal picker (the **+** slot at the end of a chain) starts a new pedal
-(an input wired to an output) at the end of the chain and opens it;
-**Edit…** on a designed pedal's card opens that one. Any stock pedal that ships in the format can be loaded as a
-starting point from **Start from**.
+The designer edits a pedal in the [pedal format](/reference/pedal-format/)
+while it runs in a chain. Using it is in the
+[designer guide](/guides/designer/); this page is how it works.
 
-## What is on screen
-
-- **The canvas** (`ui/src/components/Designer.tsx`): one card per
-  node, dragged to arrange (arrow keys move the focused one, Shift for
-  single pixels). A card's right-hand port starts a wire; the next
-  input port clicked ends it. Wires are the format's edges; dashed
-  lines are signal bindings, labelled with the field they drive. An
-  `lfo` has no output port, since it carries no audio: a field follows
-  it from the side panel. Delete removes the selected node or wire.
-- **The side panel**: the pedal's name; *Start from*; the problems the
-  engine reported, if any; the selected node's id and fields; the
-  parameters.
-- **Fields** come from the kind catalog (`ui/src/lib/pedal-kinds.json`,
-  written by a test in `crates/dsp/src/pedal/kinds.rs` from the one
-  source, which fails when it is stale). Each field has a *source*:
-  default, a constant (a fader, a pick or a switch), a parameter (with
-  a map of the parameter's range onto the field, linear or log, or for
-  a choice parameter a value per choice), or for modulatable fields a
-  signal from another node with a map.
-- **Parameters** are the pedal's knobs: id, label, unit, range and
-  default, or choices, or a toggle. Each shows its live fader too, which
-  sets the running pedal's value directly (`chain_set_param`), as the
-  chain's card does.
+The canvas is `ui/src/components/Designer.tsx`. Its node menus and fields
+come from the kind catalog, `ui/src/lib/pedal-kinds.json`, which a test in
+`crates/dsp/src/pedal/kinds.rs` writes from the one source and fails when it
+is stale.
 
 ## How the preview works
 
@@ -58,7 +37,7 @@ boundary, which is what "heard within one block" means here. Knob
 moves on their own do not rebuild anything; they are parameter changes
 over the audio thread's queue.
 
-## Saving, the library and sharing
+## The library and projects
 
 **Save to library** writes the definition to `~/Music/Cantina/Pedals/`
 (anything `CANTINA_PEDALS` names is listed too) as `<id>.pedal.json`,

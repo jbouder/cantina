@@ -1,18 +1,20 @@
 ---
 title: "Stock pedals"
-description: "The stock pedals: what each one does, its parameters and how it is built."
+description: "How each stock pedal is built: the detectors, curves, oversampling, modulation, delay, reverb and convolution behind the knobs."
+sidebar:
+  order: 7.2
 ---
 
 The pedals that ship with Cantina live in `crates/dsp`
 as `Processor`s (see the trait in `crates/dsp/src/processor.rs`). This
-page is what each one does, what its knobs mean, and the design choices
-behind it. Every pedal has golden-file tests (`crates/dsp/tests/golden`)
+page is how each one is built and the design choices behind it; what the
+knobs do for a player is in the [pedals guide](/guides/pedals/). Every pedal has golden-file tests (`crates/dsp/tests/golden`)
 that pin its output over an impulse, a sine, a sweep and a square burst,
 plus its own tests for the behaviour that matters.
 
 User-designed pedals are a JSON graph of the same primitives; the
-format is in [pedal-format](/notes/pedal-format/) and the editor in
-[designer](/notes/designer/).
+format is in the [pedal format](/reference/pedal-format/) and the editor in
+[the designer](/architecture/designer/).
 
 ## Parameters and readouts
 
@@ -122,10 +124,6 @@ square; *Germanium* is softer and lopsided with a bias that makes it
 sputter as a note decays; *Octave* rectifies before clipping so the
 fundamental doubles. A test checks every curve stays within ±1 and
 that no two curves, or pedals, render the same.
-
-The overdrive keeps the M0 pedal's first three parameters in the same
-order, so a project saved before this carries its Drive, Tone and
-Level over and gets the defaults for the rest.
 
 ### Oversampling
 

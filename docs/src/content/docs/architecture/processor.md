@@ -47,4 +47,4 @@ Nothing on a handle is ever called from the audio thread. How each format shares
 3. Register its spec in the engine's processor builder (`crates/engine/src/processors.rs`).
 4. Add it to the golden-file renders in `crates/dsp/tests/golden.rs` and regenerate them with `UPDATE_GOLDEN=1 cargo test -p cantina-dsp --test golden`.
 
-Many pedals are better written in the [pedal format](/notes/pedal-format/) instead: a JSON graph of DSP primitives that is real-time safe by construction.
+Many pedals are better written in the [pedal format](/reference/pedal-format/) instead: a JSON graph of DSP primitives that is real-time safe by construction.

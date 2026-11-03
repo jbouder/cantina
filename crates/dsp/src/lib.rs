@@ -108,7 +108,7 @@ pub const STOCK_NAMES: &[&str] = &[
 /// The stock pedals that are compositions of the pedal format's
 /// primitives, as the definitions that ship in `pedals/`: name and
 /// JSON. The rest of [`STOCK_NAMES`] stay native because the format
-/// cannot express them (`docs/src/content/docs/notes/pedals.md` says which and why).
+/// cannot express them (`docs/src/content/docs/architecture/pedals.md` says which and why).
 pub static STOCK_PEDAL_JSON: &[(&str, &str)] = &[
     (
         "overdrive",
