@@ -11,8 +11,9 @@ the timeline.
 
 - **Add** a pedal with the dashed **Add a pedal** slot at the end. Type in
   the picker to filter it.
-- **Reorder** by dragging a pedal's name onto another place in the chain,
-  or focus the name and press ← or →.
+- **Reorder** by dragging a pedal by its header, the row with its name,
+  onto another place in the chain. A box marks where it will land; Esc
+  puts it back. Or focus the name and press ← or →.
 - **Turn off** a pedal with the light at the left of its name. Off, the
   signal goes round the pedal and it adds no latency; its knobs dim but
   keep their settings. Click the light again to turn it back on. On and off
