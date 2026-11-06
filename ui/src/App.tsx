@@ -54,6 +54,7 @@ const IDLE: MeterFrame = {
   position: 0,
   playing: false,
   recording: false,
+  countIn: 0,
   readouts: [],
 };
 
@@ -385,6 +386,7 @@ export function App() {
                     metronome={status.metronome}
                     running={running}
                     position={frame.position}
+                    countIn={frame.countIn}
                     auditioning={status.audition !== null}
                     timeline={controls}
                     onStatus={setStatus}

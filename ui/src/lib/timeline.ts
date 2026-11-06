@@ -95,13 +95,29 @@ export const TRACK_HEIGHT = 72;
 /** How close to a clip's edge a pointer counts as a trim handle. */
 export const EDGE_PX = 7;
 
+/** How wide a clip's trim handles are, for a clip `width` pixels wide. */
+export function gripWidth(width: number, selected: boolean): number {
+  if (width > EDGE_PX * 3) return EDGE_PX;
+  return selected ? width / 3 : 0;
+}
+
 export type Hit =
   | { kind: "ruler" }
   | { kind: "empty"; track: number }
   | { kind: "clip" | "left" | "right"; track: number; clip: ClipInfo };
 
-/** What is under a pointer at `x`, `y` in the canvas. `tracks` holds each track's clips. */
-export function hitTest(tracks: ClipInfo[][], x: number, y: number, view: View): Hit | null {
+/**
+ * What is under a pointer at `x`, `y` in the canvas. `tracks` holds each
+ * track's clips. A clip too narrow for its edges is all body, unless it
+ * is the `selected` one: that shows handles, so its outer thirds are them.
+ */
+export function hitTest(
+  tracks: ClipInfo[][],
+  x: number,
+  y: number,
+  view: View,
+  selected: number | null = null,
+): Hit | null {
   if (y < 0) return null;
   if (y < RULER_HEIGHT) return { kind: "ruler" };
   const track = Math.floor((y - RULER_HEIGHT) / TRACK_HEIGHT);
@@ -111,8 +127,9 @@ export function hitTest(tracks: ClipInfo[][], x: number, y: number, view: View):
     const left = xOf(clip.start, view);
     const right = xOf(clip.start + clip.length, view);
     if (x < left || x > right) continue;
-    if (x - left <= EDGE_PX && right - left > EDGE_PX * 3) return { kind: "left", track, clip };
-    if (right - x <= EDGE_PX && right - left > EDGE_PX * 3) return { kind: "right", track, clip };
+    const handle = gripWidth(right - left, clip.id === selected);
+    if (x - left <= handle) return { kind: "left", track, clip };
+    if (right - x <= handle) return { kind: "right", track, clip };
     return { kind: "clip", track, clip };
   }
   return { kind: "empty", track };

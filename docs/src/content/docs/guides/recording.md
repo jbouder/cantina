@@ -20,8 +20,11 @@ and use ▲ and ▼ to move it up or down or **×** to remove it.
 
 1. Arm the track: click the light beside its name. An armed track plays your
    input through its pedals.
-2. Press **Record** or R. The transport rolls from the playhead.
-3. Press **Stop** or Space. The take lands on the track as a clip.
+2. Press **Record** or R. The click counts in four beats, whether or not the
+   metronome is on, and the clock shows the count. Then the transport rolls
+   from the playhead and the take starts on that exact sample.
+3. Press **Stop** or Space. The take lands on the track as a clip. Stopping
+   during the count-in cancels it and records nothing.
 
 Takes are written to the project's folder as they record, and the files are
 never changed afterwards: every edit below is to the clips that point into
@@ -42,10 +45,15 @@ the interface does not push them late.
 | To | Do |
 | --- | --- |
 | Move a clip | Drag it, onto another track too. It snaps to the grid. |
-| Trim a clip | Drag either edge. The audio stays where it was. |
+| Trim a clip | Click it, then drag the handle on either edge. The audio stays where it was, and a trimmed edge can be dragged back out. |
 | Split a clip | Alt-click it where it should split, or select it and press S to split at the playhead. |
+| Duplicate a clip | Select it and press ⌘D. The copy lands in the first space after it that holds it, never over another clip, and is selected, so another ⌘D adds the next. |
 | Delete a clip | Select it and press Delete, or use its button on the **Clips** tab. |
 | Nudge a clip | Select it and press ← or → to move it one grid step. |
+
+Right-click a clip for a menu of the same edits: split it where you clicked or
+at the playhead, trim its start or end to the playhead, duplicate or delete it.
+Drum clips work the same way.
 
 Every edit can be undone with ⌘Z and redone with ⇧⌘Z, or with the arrows
 beside the project name. The **Clips** tab of the track's editor lists its

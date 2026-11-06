@@ -279,6 +279,7 @@ pub fn render_pattern(
             playing: true,
             position: start as u64,
             loop_range: None,
+            count_in: None,
             tempo: &tempo,
         };
         let (left, right) = out.split_at_mut(1);

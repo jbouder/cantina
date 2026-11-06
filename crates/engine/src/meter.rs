@@ -145,6 +145,7 @@ mod tests {
             playing: false,
             position: 0,
             loop_range: None::<LoopRange>,
+            count_in: None,
             tempo,
         }
     }

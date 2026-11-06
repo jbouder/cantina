@@ -101,6 +101,12 @@ describe("hitTest", () => {
   it("treats a tiny clip as all body", () => {
     const tiny = [[clip(1, 0, 1000)]];
     expect(hitTest(tiny, 1, RULER_HEIGHT + 1, view)?.kind).toBe("clip");
+    // Selected, it shows handles, with its middle left to drag it by.
+    const id = tiny[0]?.[0]?.id ?? 0;
+    const width = (tiny[0]?.[0]?.length ?? 0) / view.spp;
+    expect(hitTest(tiny, width * 0.1, RULER_HEIGHT + 1, view, id)?.kind).toBe("left");
+    expect(hitTest(tiny, width * 0.5, RULER_HEIGHT + 1, view, id)?.kind).toBe("clip");
+    expect(hitTest(tiny, width * 0.9, RULER_HEIGHT + 1, view, id)?.kind).toBe("right");
   });
 });
 

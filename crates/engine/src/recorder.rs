@@ -624,6 +624,51 @@ mod tests {
     }
 
     #[test]
+    fn a_take_counted_in_starts_on_its_position_and_a_cancelled_one_is_empty() {
+        let dir = tempdir();
+        let (mut runtime, mut controller, mut handle) = runtime_with_recorder(48_000);
+        controller.transport_mut().locate(5000);
+        settle(&mut runtime);
+
+        // Counted in, the first frame of the file is the position it was
+        // armed at, however the count falls across blocks.
+        let path = dir.join("counted.wav");
+        handle.start(path.clone(), 5000).unwrap();
+        controller.transport_mut().count_in(SR);
+        let count = (60.0 / 120.0 * SR) as usize * 4;
+        for _ in 0..count / BLOCK {
+            settle(&mut runtime);
+        }
+        assert_eq!(handle.stats().captured_frames.load(Ordering::Relaxed), 0);
+        assert_eq!(controller.transport().position(), 5000);
+        settle(&mut runtime);
+        assert!(controller.transport().is_playing());
+        play(&mut runtime, &controller, 1024);
+        controller.transport_mut().stop();
+        handle.stop().unwrap();
+        settle(&mut runtime);
+        wait_for_close(&handle, 1);
+        assert_eq!(
+            handle.stats().started_at.load(Ordering::Relaxed),
+            5000,
+            "the take starts where the count-in left the transport"
+        );
+
+        // Stopped during the count, the take closes with nothing in it.
+        controller.transport_mut().locate(0);
+        settle(&mut runtime);
+        let cancelled = dir.join("cancelled.wav");
+        handle.start(cancelled.clone(), 0).unwrap();
+        controller.transport_mut().count_in(SR);
+        settle(&mut runtime);
+        controller.transport_mut().stop();
+        handle.stop().unwrap();
+        settle(&mut runtime);
+        wait_for_close(&handle, 2);
+        assert_eq!(crate::wav::info(&cancelled).unwrap().frames, 0);
+    }
+
+    #[test]
     fn stereo_lanes_interleave() {
         let dir = tempdir();
         let path = dir.join("stereo.wav");

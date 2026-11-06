@@ -118,6 +118,24 @@ describe("frame", () => {
     expect(frame.analysis).toEqual({ rms: 0.375, source: 2 });
   });
 
+  it("carries a count-in in the beat field, without a beat", () => {
+    const frame = decodeFrame(
+      encodeFrame({
+        sequence: 0,
+        dropped: 0,
+        position: 0,
+        playing: false,
+        recording: true,
+        countIn: 3,
+        beat: null,
+        meters: [],
+      }),
+    );
+    expect(frame.countIn).toBe(3);
+    expect(frame.beat).toBeNull();
+    expect(frame.playing).toBe(false);
+  });
+
   it("rejects buffers that are not frames", () => {
     expect(() => decodeFrame(new ArrayBuffer(10))).toThrow(/shorter/);
     const junk = encodeFrame({

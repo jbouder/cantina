@@ -160,6 +160,7 @@ mod tests {
             playing: true,
             position: 0,
             loop_range: None,
+            count_in: None,
             tempo: &tempo,
         };
         let mut signal: Vec<f32> = (0..256).map(|i| i as f32).collect();
@@ -217,6 +218,7 @@ mod tests {
                 playing: true,
                 position: 0,
                 loop_range: None,
+                count_in: None,
                 tempo: &tempo,
             };
             self.0.process(&ctx, buffer);

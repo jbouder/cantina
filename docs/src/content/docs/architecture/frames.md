@@ -21,7 +21,7 @@ so the UI views the body as `Float32Array`s directly on the buffer.
 | --- | --- | --- | --- |
 | 0 | 4 | bytes | magic `CNTF` |
 | 4 | 2 | u16 | version, currently 3 |
-| 6 | 2 | u16 | flags: bit 0 playing, bit 1 recording, bit 2 beat fields valid, bit 3 analysis trailer present |
+| 6 | 2 | u16 | flags: bit 0 playing, bit 1 recording, bit 2 beat fields valid, bit 3 analysis trailer present, bit 4 count-in running |
 | 8 | 4 | u32 | sequence, wraps |
 | 12 | 4 | u32 | frames dropped so far (see below) |
 | 16 | 8 | f64 | timeline position in seconds |
@@ -32,7 +32,7 @@ so the UI views the body as `Float32Array`s directly on the buffer.
 | 32 | 4 | f32 | beat: tempo in BPM |
 | 36 | 4 | f32 | beat: phase, 0 at the beat rising to 1 before the next |
 | 40 | 4 | u32 | beat: bar |
-| 44 | 4 | u32 | beat: beat within the bar |
+| 44 | 4 | u32 | beat: beat within the bar; with bit 4 set, the beat being counted, from 1 |
 | 48 | 4·2·M | f32 | meters, `[peak0, rms0, peak1, rms1, …]`, linear |
 | 48 + 8M | 4·S | f32 | spectrum magnitudes, log-spaced bins |
 | 48 + 8M + 4S | 4·W | f32 | recent waveform samples |

@@ -292,7 +292,8 @@ impl Voice {
 }
 
 /// Adds a click on every beat of the tempo map while the transport plays,
-/// louder or different on the downbeat, in one of [`SOUNDS`]. Put it on
+/// louder or different on the downbeat, in one of [`SOUNDS`], and on every
+/// beat of a count-in, whether or not the metronome is on. Put it on
 /// its own path to the output so it mixes with, rather than replaces,
 /// the signal.
 #[derive(Debug, Clone)]
@@ -367,6 +368,10 @@ impl Node for Click {
         let mut next = beats.as_mut().and_then(|b| b.next());
         let (downbeat, beat) = &RECIPES[self.sound.min(RECIPES.len() - 1)];
         for frame in 0..frames {
+            if let Some(first) = ctx.count_in.and_then(|c| c.beat_at(frame as u64)) {
+                let recipe = if first { downbeat } else { beat };
+                self.voice.trigger(recipe, self.sample_rate);
+            }
             if let Some(b) = next {
                 if b.sample - ctx.position == frame as u64 {
                     let recipe = if b.is_downbeat { downbeat } else { beat };
@@ -388,6 +393,7 @@ impl Node for Click {
 mod tests {
     use super::*;
     use crate::tempo::{TempoMap, TimeSignature};
+    use crate::transport::CountIn;
 
     const SR: f64 = 48_000.0;
 
@@ -405,6 +411,7 @@ mod tests {
             playing,
             position: start,
             loop_range: None,
+            count_in: None,
             tempo,
         };
         let mut lanes = [&mut out[..]];
@@ -477,6 +484,45 @@ mod tests {
         }
     }
 
+    /// Renders a count-in over several blocks, the way the runtime does.
+    fn count(click: &mut Click, tempo: &TempoMap, count: CountIn, block: usize) -> Vec<f32> {
+        let mut out = vec![0.0f32; count.remaining as usize];
+        let mut remaining = count.remaining;
+        for chunk in out.chunks_mut(block) {
+            let frames = chunk.len();
+            let ctx = BlockContext {
+                sample_rate: SR,
+                frames,
+                playing: false,
+                position: 1000,
+                loop_range: None,
+                count_in: Some(CountIn { remaining, ..count }),
+                tempo,
+            };
+            let mut lanes = [chunk];
+            let mut buffer = Buffer::new(&mut lanes);
+            click.process(&ctx, &mut buffer);
+            remaining -= frames as u64;
+        }
+        out
+    }
+
+    #[test]
+    fn a_count_in_clicks_its_beats_with_the_metronome_off() {
+        let tempo = TempoMap::new(120.0, TimeSignature::COMMON);
+        let mut click = Click::default();
+        click.prepare(SR, 512);
+        click.set_param(ON, 0.0);
+        let out = count(&mut click, &tempo, CountIn::new(24_000, 4), 512);
+        assert_eq!(onsets(&out), vec![0, 24_000, 48_000, 72_000]);
+        let peak = |from: usize| {
+            out[from..from + 2000]
+                .iter()
+                .fold(0.0f32, |p, s| p.max(s.abs()))
+        };
+        assert!(peak(0) > peak(24_000), "the first beat is marked");
+    }
+
     #[test]
     fn silent_while_stopped_and_adds_to_the_input() {
         let tempo = TempoMap::default();
@@ -492,6 +538,7 @@ mod tests {
             playing: true,
             position: 0,
             loop_range: None,
+            count_in: None,
             tempo: &tempo,
         };
         let mut lanes = [&mut out[..]];

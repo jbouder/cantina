@@ -2723,6 +2723,22 @@ impl Engine {
         })
     }
 
+    /// Copies a pattern clip to the first space after it on its track
+    /// that holds it.
+    pub fn pattern_clip_duplicate(&mut self, id: u64) -> Result<EngineStatus> {
+        let id = PatternClipId(id);
+        let (track, clip) = self
+            .project
+            .pattern_clip(id)
+            .with_context(|| format!("no pattern clip {id}"))?;
+        let start = track.free_pattern_start(clip.end(), clip.length);
+        let command = Command::InsertPatternClip {
+            track: track.id,
+            clip: clip.duplicate(PatternClipId(self.project.fresh_id()), start),
+        };
+        self.apply(command)
+    }
+
     pub fn pattern_clip_split(&mut self, id: u64, at: u64) -> Result<EngineStatus> {
         let new_id = PatternClipId(self.project.fresh_id());
         self.apply(Command::SplitPatternClip {
@@ -3189,6 +3205,22 @@ impl Engine {
         })
     }
 
+    /// Copies a clip to the first space after it on its track that holds
+    /// it, so the copy never plays over another clip.
+    pub fn clip_duplicate(&mut self, id: u64) -> Result<EngineStatus> {
+        let id = ClipId(id);
+        let (track, clip) = self
+            .project
+            .clip(id)
+            .with_context(|| format!("no clip {id}"))?;
+        let start = track.free_clip_start(clip.end(), clip.length);
+        let command = Command::InsertClip {
+            track: track.id,
+            clip: clip.duplicate(ClipId(self.project.fresh_id()), start),
+        };
+        self.apply(command)
+    }
+
     /// Cuts a clip at timeline sample `at`; the right part is a new clip.
     pub fn clip_split(&mut self, id: u64, at: u64) -> Result<EngineStatus> {
         let new_id = ClipId(self.project.fresh_id());
@@ -3232,8 +3264,10 @@ impl Engine {
         Ok(self.publish())
     }
 
-    /// Starts a take on every armed track from the current position and
-    /// rolls. Takes are written to `audio/` and become clips on stop.
+    /// Starts a take on every armed track from the current position:
+    /// from a stopped transport the click counts in four beats with the
+    /// timeline held, and it rolls with the take's first frame on that
+    /// position. Takes are written to `audio/` and become clips on stop.
     pub fn transport_record(&mut self) -> Result<EngineStatus> {
         let armed: Vec<(TrackId, String)> = self
             .project
@@ -3258,6 +3292,7 @@ impl Engine {
         let correction = live.compensation as u64
             + info.input_latency_frames as u64
             + info.output_latency_frames as u64;
+        let sample_rate = info.sample_rate;
         for (track, track_name) in armed {
             let (file, name) = take_name(&audio_dir, &track_name);
             live.track_mut(track)?
@@ -3272,7 +3307,11 @@ impl Engine {
                 correction,
             });
         }
-        live.transport().play();
+        if live.transport().is_playing() {
+            live.transport().play();
+        } else {
+            live.transport().count_in(sample_rate);
+        }
         self.transport_state
             .recording
             .store(true, Ordering::Relaxed);
@@ -3318,7 +3357,11 @@ impl Engine {
                         },
                     });
                 }
-                Ok(_) => {}
+                // Stopped before a frame was recorded, as during the
+                // count-in: nothing refers to the file and nothing will.
+                Ok(_) => {
+                    let _ = std::fs::remove_file(audio_dir.join(&take.file));
+                }
                 Err(e) => problems.push(format!("{}: {e:#}", take.name)),
             }
         }
@@ -4336,6 +4379,7 @@ fn spawn_meter_pump(
                     position_seconds: clock.position() as f64 / sample_rate,
                     playing,
                     recording,
+                    count_in: clock.count_in() as u32,
                     beat,
                     meters,
                     spectrum: &analyzer.spectrum,

@@ -15,6 +15,7 @@ const FLAG_PLAYING = 1 << 0;
 const FLAG_RECORDING = 1 << 1;
 const FLAG_BEAT = 1 << 2;
 const FLAG_ANALYSIS = 1 << 3;
+const FLAG_COUNT_IN = 1 << 4;
 /** The analysis trailer after the readouts: RMS and source. */
 const ANALYSIS_LEN = 8;
 
@@ -42,6 +43,8 @@ export interface Frame {
   position: number;
   playing: boolean;
   recording: boolean;
+  /** The beat a count-in is on, from 1; zero with no count-in. */
+  countIn: number;
   beat: Beat | null;
   /** Peak and RMS pairs, linear: [peak0, rms0, peak1, rms1, ...]. */
   meters: Float32Array;
@@ -114,6 +117,7 @@ export function decodeFrame(buffer: ArrayBuffer): Frame {
     position: view.getFloat64(16, true),
     playing: (flags & FLAG_PLAYING) !== 0,
     recording: (flags & FLAG_RECORDING) !== 0,
+    countIn: (flags & FLAG_COUNT_IN) !== 0 ? view.getUint32(44, true) : 0,
     beat:
       (flags & FLAG_BEAT) !== 0
         ? {
@@ -135,7 +139,8 @@ export function decodeFrame(buffer: ArrayBuffer): Frame {
 
 /** Writes a frame. The browser stand-in and the tests use it; the app only decodes. */
 export function encodeFrame(
-  frame: Omit<Frame, "meters" | "spectrum" | "waveform" | "readouts" | "analysis"> & {
+  frame: Omit<Frame, "countIn" | "meters" | "spectrum" | "waveform" | "readouts" | "analysis"> & {
+    countIn?: number;
     meters: ArrayLike<number>;
     spectrum?: ArrayLike<number>;
     waveform?: ArrayLike<number>;
@@ -160,6 +165,7 @@ export function encodeFrame(
   if (frame.recording) flags |= FLAG_RECORDING;
   if (frame.beat) flags |= FLAG_BEAT;
   if (analysis) flags |= FLAG_ANALYSIS;
+  if (frame.countIn) flags |= FLAG_COUNT_IN;
   view.setUint16(6, flags, true);
   view.setUint32(8, frame.sequence >>> 0, true);
   view.setUint32(12, frame.dropped >>> 0, true);
@@ -171,7 +177,7 @@ export function encodeFrame(
   view.setFloat32(32, frame.beat?.bpm ?? 0, true);
   view.setFloat32(36, frame.beat?.phase ?? 0, true);
   view.setUint32(40, frame.beat?.bar ?? 0, true);
-  view.setUint32(44, frame.beat?.beat ?? 0, true);
+  view.setUint32(44, frame.beat?.beat ?? frame.countIn ?? 0, true);
   let at = HEADER_LEN;
   for (const lane of [frame.meters, spectrum, waveform, readouts]) {
     for (let i = 0; i < lane.length; i++) {

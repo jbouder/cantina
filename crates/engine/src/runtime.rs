@@ -205,6 +205,7 @@ impl Runtime {
                 playing: segment.playing,
                 position: segment.position,
                 loop_range: self.transport.loop_range(),
+                count_in: segment.count_in,
                 tempo: self.transport.tempo_map(),
             };
             let mut ins: [&[f32]; MAX_CHANNELS] = [&[]; MAX_CHANNELS];

@@ -125,6 +125,7 @@ mod tests {
             playing: false,
             position: 0,
             loop_range: None,
+            count_in: None,
             tempo: &tempo,
         };
         let mut lanes: [&mut [f32]; 2] = [left, right];

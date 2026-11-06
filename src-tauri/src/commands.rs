@@ -236,6 +236,11 @@ pub fn clip_trim(
 }
 
 #[tauri::command]
+pub fn clip_duplicate(engine: State<'_, EngineState>, id: u64) -> Result<EngineStatus, String> {
+    engine.lock().clip_duplicate(id).map_err(fail)
+}
+
+#[tauri::command]
 pub fn clip_split(
     engine: State<'_, EngineState>,
     id: u64,
@@ -504,6 +509,14 @@ pub fn pattern_clip_trim(
         .lock()
         .pattern_clip_trim(id, start, offset, length)
         .map_err(fail)
+}
+
+#[tauri::command]
+pub fn pattern_clip_duplicate(
+    engine: State<'_, EngineState>,
+    id: u64,
+) -> Result<EngineStatus, String> {
+    engine.lock().pattern_clip_duplicate(id).map_err(fail)
 }
 
 #[tauri::command]
