@@ -12,6 +12,7 @@ import {
   ms,
   type PedalInfo,
   type PedalKindInfo,
+  pedalSetBypass,
 } from "../lib/engine";
 import { Button } from "./Button";
 import { Fader } from "./Fader";
@@ -116,6 +117,7 @@ export function PedalChain({
               }}
               onMove={(to) => run(chainMove(pedal.id, to))}
               onRemove={() => run(chainRemove(pedal.id))}
+              onBypass={() => run(pedalSetBypass(pedal.id, !pedal.bypassed))}
               onEditor={(open) => run(open ? editorOpen(pedal.id) : editorClose(pedal.id))}
               onSpec={(spec) => run(chainSetSpec(pedal.id, spec))}
               onRescanIrs={() => run(irsRescan())}
@@ -162,6 +164,8 @@ type CardProps = {
   onDragEnd: () => void;
   onMove: (to: number) => void;
   onRemove: () => void;
+  /** Turns the pedal off (bypassed) or back on. */
+  onBypass: () => void;
   /** Opens or closes the plugin's own editor window. */
   onEditor: (open: boolean) => void;
   /** Swaps the pedal's spec: a cabinet's impulse response. */
@@ -185,6 +189,7 @@ function PedalCard({
   onDragEnd,
   onMove,
   onRemove,
+  onBypass,
   onEditor,
   onSpec,
   onRescanIrs,
@@ -236,6 +241,16 @@ function PedalCard({
       className={`surface-panel grid shrink-0 content-start gap-1.5 p-2 ${wide ? "w-88" : "w-44"} ${dragging ? "opacity-50" : ""}`}
     >
       <header className="flex min-w-0 items-center gap-1">
+        <button
+          type="button"
+          aria-pressed={!pedal.bypassed}
+          aria-label={`${pedal.name} on`}
+          title={pedal.bypassed ? "Off: the signal goes round it. Turn it on" : "On. Turn it off"}
+          onClick={onBypass}
+          className="grid size-6 shrink-0 cursor-pointer place-items-center rounded-control border-0 bg-transparent p-0"
+        >
+          <Led on={!pedal.bypassed} label={pedal.name} />
+        </button>
         <h3 className="m-0 min-w-0 flex-1 font-bold text-[11px] uppercase tracking-[0.1em]">
           <span className="flex items-center gap-1">
             <button
@@ -267,81 +282,89 @@ function PedalCard({
             </small>
           ) : null}
         </h3>
-        <Button aria-label={`Remove ${pedal.name}`} onClick={onRemove} className="px-2">
-          <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-current">
+        <button
+          type="button"
+          aria-label={`Remove ${pedal.name}`}
+          title="Remove"
+          onClick={onRemove}
+          className="grid size-6 shrink-0 cursor-pointer place-items-center rounded-control border-0 bg-transparent p-0 text-ink-dim hover:text-ink"
+        >
+          <svg aria-hidden="true" viewBox="0 0 16 16" className="size-2.5 fill-current">
             <path d="M3 2l5 5 5-5 1 1-5 5 5 5-1 1-5-5-5 5-1-1 5-5-5-5z" />
           </svg>
-        </Button>
+        </button>
       </header>
-      {cabinetIr !== null ? (
-        <div className="grid gap-1">
-          <label htmlFor={irId} className="font-bold text-[11px] uppercase tracking-[0.08em]">
-            Impulse
-          </label>
-          <span className="relative">
-            <select
-              id={irId}
-              className="surface-lcd min-h-8 w-full appearance-none truncate py-0 pr-8 pl-2 font-lcd text-base"
-              value={cabinetIr}
-              onChange={(e) => onSpec(`cab:${e.target.value}`)}
+      <div className={`grid min-w-0 content-start gap-1.5 ${pedal.bypassed ? "opacity-50" : ""}`}>
+        {cabinetIr !== null ? (
+          <div className="grid gap-1">
+            <label htmlFor={irId} className="font-bold text-[11px] uppercase tracking-[0.08em]">
+              Impulse
+            </label>
+            <span className="relative">
+              <select
+                id={irId}
+                className="surface-lcd min-h-8 w-full appearance-none truncate py-0 pr-8 pl-2 font-lcd text-base"
+                value={cabinetIr}
+                onChange={(e) => onSpec(`cab:${e.target.value}`)}
+              >
+                {cabinetIr === "" || !irs.some((ir) => ir.id === cabinetIr) ? (
+                  <option value={cabinetIr}>
+                    {cabinetIr === "" ? "None" : `${cabinetIr} (not installed)`}
+                  </option>
+                ) : null}
+                {irs.map((ir) => (
+                  <option key={ir.id} value={ir.id}>
+                    {ir.name}
+                  </option>
+                ))}
+              </select>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 16 16"
+                className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 fill-lcd-fg"
+              >
+                <path d="M2 5l6 6 6-6z" />
+              </svg>
+            </span>
+            <Button
+              onClick={onRescanIrs}
+              title="Look for impulse responses added to ~/Music/Cantina/IRs"
             >
-              {cabinetIr === "" || !irs.some((ir) => ir.id === cabinetIr) ? (
-                <option value={cabinetIr}>
-                  {cabinetIr === "" ? "None" : `${cabinetIr} (not installed)`}
-                </option>
-              ) : null}
-              {irs.map((ir) => (
-                <option key={ir.id} value={ir.id}>
-                  {ir.name}
-                </option>
-              ))}
-            </select>
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 16 16"
-              className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 fill-lcd-fg"
-            >
-              <path d="M2 5l6 6 6-6z" />
-            </svg>
-          </span>
-          <Button
-            onClick={onRescanIrs}
-            title="Look for impulse responses added to ~/Music/Cantina/IRs"
-          >
-            Rescan
+              Rescan
+            </Button>
+          </div>
+        ) : null}
+        <PedalReadout pedal={pedal} values={readouts} />
+        {designed ? (
+          <Button aria-haspopup="dialog" onClick={onDesign} title="Open this pedal in the designer">
+            Edit…
           </Button>
+        ) : null}
+        {pedal.hasEditor ? (
+          <Button
+            aria-pressed={pedal.editorOpen}
+            onClick={() => onEditor(!pedal.editorOpen)}
+            variant={pedal.editorOpen ? "transport" : "panel"}
+            title={
+              pedal.editorOpen
+                ? "Close the plugin's own window"
+                : "Open the plugin's own window; the knobs below follow it"
+            }
+          >
+            <Led on={pedal.editorOpen} label="Editor open" />
+            {pedal.editorOpen ? "Editor open" : "Edit…"}
+          </Button>
+        ) : null}
+        <div className={wide ? "grid min-w-0 grid-cols-2 gap-x-4 gap-y-2" : "contents"}>
+          {pedal.params.map((param, i) => (
+            <Fader
+              key={`${String(i)}-${param.name}`}
+              param={param}
+              value={values[i] ?? param.value}
+              onChange={(v) => setParam(i, v)}
+            />
+          ))}
         </div>
-      ) : null}
-      <PedalReadout pedal={pedal} values={readouts} />
-      {designed ? (
-        <Button aria-haspopup="dialog" onClick={onDesign} title="Open this pedal in the designer">
-          Edit…
-        </Button>
-      ) : null}
-      {pedal.hasEditor ? (
-        <Button
-          aria-pressed={pedal.editorOpen}
-          onClick={() => onEditor(!pedal.editorOpen)}
-          variant={pedal.editorOpen ? "transport" : "panel"}
-          title={
-            pedal.editorOpen
-              ? "Close the plugin's own window"
-              : "Open the plugin's own window; the knobs below follow it"
-          }
-        >
-          <Led on={pedal.editorOpen} label="Editor open" />
-          {pedal.editorOpen ? "Editor open" : "Edit…"}
-        </Button>
-      ) : null}
-      <div className={wide ? "grid min-w-0 grid-cols-2 gap-x-4 gap-y-2" : "contents"}>
-        {pedal.params.map((param, i) => (
-          <Fader
-            key={`${String(i)}-${param.name}`}
-            param={param}
-            value={values[i] ?? param.value}
-            onChange={(v) => setParam(i, v)}
-          />
-        ))}
       </div>
     </article>
   );

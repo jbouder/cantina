@@ -13,7 +13,11 @@ the timeline.
   the picker to filter it.
 - **Reorder** by dragging a pedal's name onto another place in the chain,
   or focus the name and press ← or →.
-- **Remove** a pedal with its **×**.
+- **Turn off** a pedal with the light at the left of its name. Off, the
+  signal goes round the pedal and it adds no latency; its knobs dim but
+  keep their settings. Click the light again to turn it back on. On and off
+  are saved with the project and can be undone.
+- **Remove** a pedal with the small **×** at the right of its name.
 - **Change** a knob by dragging its fader, or from the keyboard. Every
   change is heard at once, and every change can be undone.
 
