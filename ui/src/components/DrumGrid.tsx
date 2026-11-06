@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   currentStep,
   DEFAULT_VELOCITY,
@@ -44,10 +45,11 @@ import {
   type TrackStatus,
   trackSetKit,
 } from "../lib/engine";
+import { dropPatternAt, setPatternDrag, usePatternDrag } from "../lib/pattern-drag";
+import { DRAG_THRESHOLD } from "../lib/reorder";
 import { Button } from "./Button";
 import { Led } from "./Led";
 import { Select } from "./Select";
-import { PATTERN_DRAG } from "./Timeline";
 
 type Props = {
   /** A drum track: `track.kit` is set. */
@@ -296,8 +298,39 @@ export function DrumGrid({
   const tabbable = (pad: string, s: number) =>
     focused ? focused.pad === pad && focused.step === s : pad === pads[0]?.id && s === 0;
 
+  // Dragging the place key carries the pattern to the timeline; a press
+  // that never passes the threshold is a click and places at the playhead.
+  const patternDrag = usePatternDrag();
+  const press = useRef<{ x0: number; y0: number; moved: boolean } | null>(null);
+  const dragged = useRef(false);
+  useEffect(() => {
+    if (!patternDrag) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        // Canceled: the release that follows neither drops nor places.
+        press.current = null;
+        dragged.current = true;
+        setPatternDrag(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [patternDrag]);
+
   return (
     <section aria-label={`${track.name} drum grid`} className="grid gap-2">
+      {patternDrag
+        ? createPortal(
+            <div
+              aria-hidden="true"
+              style={{ left: patternDrag.x + 12, top: patternDrag.y + 12 }}
+              className="surface-lcd pointer-events-none fixed z-50 px-2 py-1 font-lcd text-base"
+            >
+              <span className="lcd-text">{patternDrag.name}</span>
+            </div>,
+            document.body,
+          )
+        : null}
       <div className="flex flex-wrap items-end gap-2">
         <Select
           id={`${id}-kit`}
@@ -427,14 +460,40 @@ export function DrumGrid({
               Loop
             </Button>
             <Button
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData(PATTERN_DRAG, String(pattern.id));
-                e.dataTransfer.effectAllowed = "copy";
+              className={`touch-none select-none ${patternDrag ? "cursor-grabbing" : "cursor-grab"}`}
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.currentTarget.setPointerCapture(e.pointerId);
+                press.current = { x0: e.clientX, y0: e.clientY, moved: false };
               }}
-              onClick={() =>
-                run(patternClipAdd(track.id, pattern.id, Math.round(ticksAt(position, tempo))))
-              }
+              onPointerMove={(e) => {
+                const p = press.current;
+                if (!p) return;
+                const far = Math.hypot(e.clientX - p.x0, e.clientY - p.y0) > DRAG_THRESHOLD;
+                if (!p.moved && !far) return;
+                p.moved = true;
+                setPatternDrag({ id: pattern.id, name: pattern.name, x: e.clientX, y: e.clientY });
+              }}
+              onPointerUp={(e) => {
+                const p = press.current;
+                press.current = null;
+                if (!p?.moved) return;
+                // A drag ends in a click on the key; that click is not a place.
+                dragged.current = true;
+                setPatternDrag(null);
+                dropPatternAt(pattern.id, e.clientX, e.clientY);
+              }}
+              onPointerCancel={() => {
+                press.current = null;
+                setPatternDrag(null);
+              }}
+              onClick={() => {
+                if (dragged.current) {
+                  dragged.current = false;
+                  return;
+                }
+                run(patternClipAdd(track.id, pattern.id, Math.round(ticksAt(position, tempo))));
+              }}
               title="Place the pattern on this track at the playhead, or drag it onto the timeline; drag the clip's right edge to loop it for more bars"
             >
               Place at playhead

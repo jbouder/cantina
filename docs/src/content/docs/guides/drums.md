@@ -116,7 +116,8 @@ hear each change on the next pass.
 
 **Place at playhead** puts the pattern on the track at the playhead. You can
 also drag the button onto a drum track's lane and drop it where the pattern
-should start.
+should start. The pattern's name follows the pointer while you drag; Esc, or
+letting go anywhere off the timeline, places nothing.
 
 A pattern clip moves, trims, splits and deletes like an audio clip (see
 [Recording and editing](/guides/recording/#edit-clips)). Drag its right edge
