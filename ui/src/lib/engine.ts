@@ -753,7 +753,7 @@ function mockPedal(id: number, spec: string): PedalInfo {
  * pedals in order; `?plugin` appends the stand-in plugin;
  * `?design=overdrive` (or `new`) appends a designed pedal started from
  * that stock pedal, with `?broken` leaving its tone unwired so the
- * designer shows problems.
+ * designer shows problems. `?bypassed=overdrive` turns those stock pedals off.
  */
 function mockGuitarChain(): PedalInfo[] {
   const specs = mockParams?.get("chain")?.split(",").filter(Boolean) ?? ["gain", "overdrive"];
@@ -766,6 +766,8 @@ function mockGuitarChain(): PedalInfo[] {
     mockDesigns.set("draft-19", def);
     chain.push(mockPedal(19, "pedal:draft-19"));
   }
+  const off = mockParams?.get("bypassed")?.split(",") ?? [];
+  for (const pedal of chain) pedal.bypassed = off.includes(pedal.spec);
   return chain;
 }
 
