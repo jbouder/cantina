@@ -1,5 +1,4 @@
 import {
-  type DragEvent,
   type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
@@ -32,6 +31,7 @@ import {
   trackAddDrums,
   transportLocate,
 } from "../lib/engine";
+import { setPatternDropTarget } from "../lib/pattern-drag";
 import { loadPeaks, peaksFor, usePeaksVersion } from "../lib/peakStore";
 import { columns } from "../lib/peaks";
 import {
@@ -65,9 +65,6 @@ import { MasterHeader, TrackHeader } from "./TrackHeader";
  */
 const ADD_KEY =
   "surface-pbutton min-h-6 shrink-0 border-0 px-2 font-bold text-[11px] uppercase leading-none tracking-[0.06em]";
-
-/** The drag type a pattern chip carries from the drum grid. */
-export const PATTERN_DRAG = "application/x-cantina-pattern";
 
 /** What the transport strip above the lanes can do to the view. */
 export interface TimelineControls {
@@ -529,20 +526,15 @@ export function Timeline({
 
   // ----- dropping a pattern from the drum grid -----
 
-  const onDragOver = (e: DragEvent<HTMLCanvasElement>) => {
-    if (e.dataTransfer.types.includes(PATTERN_DRAG)) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "copy";
-    }
-  };
-
-  const onDrop = (e: DragEvent<HTMLCanvasElement>) => {
-    const id = Number(e.dataTransfer.getData(PATTERN_DRAG));
-    if (!id) return;
-    e.preventDefault();
-    const r = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - r.left;
-    const y = e.clientY - r.top;
+  // The grid drags with pointer events (see lib/pattern-drag.ts); the
+  // canvas is where a pattern lands. The ref keeps the latest view.
+  const dropPattern = useRef<(id: number, clientX: number, clientY: number) => void>(() => {});
+  dropPattern.current = (id, clientX, clientY) => {
+    const el = canvas.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const x = clientX - r.left;
+    const y = clientY - r.top;
     const row = Math.floor((y - RULER_HEIGHT) / TRACK_HEIGHT);
     const track = tracks[row];
     if (!track) return;
@@ -553,6 +545,11 @@ export function Timeline({
     const start = snap(sampleAt(x, view), grid.division, snapOn);
     run(patternClipAdd(track.id, id, Math.round(start / spt)));
   };
+  useEffect(() => {
+    const el = canvas.current;
+    if (!el) return;
+    return setPatternDropTarget(el, (id, x, y) => dropPattern.current(id, x, y));
+  }, []);
 
   // ----- the keyboard -----
 
@@ -677,8 +674,6 @@ export function Timeline({
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
             onKeyDown={onKeyDown}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
           />
         </div>
       </div>

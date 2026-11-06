@@ -37,7 +37,10 @@ dropped on the window, and that handler claims every drop: the webview
 never fires `drop`, though `dragover` still arrives. A drag that works
 in the browser against the stand-in can still fail in the app. The pedal
 chain finds where a card lands from the cards' positions
-(`ui/src/lib/reorder.ts`).
+(`ui/src/lib/reorder.ts`). A pattern dragged from the drum grid crosses
+components, so `ui/src/lib/pattern-drag.ts` holds the drag: the grid
+publishes it, a chip follows the pointer, and the timeline registers its
+canvas as the drop target.
 
 ## Frames
 
