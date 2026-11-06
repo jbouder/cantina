@@ -25,6 +25,8 @@ type Props = {
   running: boolean;
   /** Timeline position in seconds, from the meter frames. */
   position: number;
+  /** The beat a count-in is on, from 1; zero with no count-in. */
+  countIn: number;
   /** True when a drum pattern is looping on a track, which is something to play. The metronome is too. */
   auditioning: boolean;
   /** The timeline's view: snap, zoom and the bar readout. */
@@ -45,6 +47,7 @@ export function Transport({
   metronome,
   running,
   position,
+  countIn,
   auditioning,
   timeline,
   onStatus,
@@ -57,11 +60,17 @@ export function Transport({
     auditioning ||
     metronome.on ||
     tracks.some((t) => t.clips.length > 0 || t.patternClips.length > 0);
-  const note = transport.recording
-    ? `Recording ${armed.map((t) => t.name).join(", ")}…`
-    : armed.length === 0
-      ? "Arm a track to record"
-      : `${armed.map((t) => t.name).join(", ")} armed`;
+  // Record stays down through the count-in; its light means audio is
+  // going to disk, so it waits for the first frame.
+  const recording = transport.recording && countIn === 0;
+  const note =
+    countIn > 0
+      ? "Counting in…"
+      : transport.recording
+        ? `Recording ${armed.map((t) => t.name).join(", ")}…`
+        : armed.length === 0
+          ? "Arm a track to record"
+          : `${armed.map((t) => t.name).join(", ")} armed`;
 
   const [bpm, setBpm] = useState(String(tempo.bpm));
   useEffect(() => {
@@ -83,9 +92,9 @@ export function Transport({
         aria-pressed={transport.recording}
         disabled={!running || armed.length === 0 || rolling}
         onClick={() => run(transportRecord())}
-        title="Record (R)"
+        title="Record after a four-beat count-in (R)"
       >
-        <Led on={transport.recording} tone="record" label="Recording" />
+        <Led on={recording} tone="record" label="Recording" />
         Record
       </Button>
       <Button
@@ -113,9 +122,9 @@ export function Transport({
       </Button>
       <Lcd
         aria-label="Position"
-        className="min-h-8 whitespace-nowrap px-2 text-center tabular-nums"
+        className="min-h-8 min-w-32 whitespace-nowrap px-2 text-center tabular-nums"
       >
-        {timeline.bars} · {clock(position)}
+        {countIn > 0 ? `Count-in ${countIn}` : `${timeline.bars} · ${clock(position)}`}
       </Lcd>
       <span className="flex items-center gap-1 text-sm">
         <label htmlFor="tempo-bpm" className="font-bold text-[11px] uppercase tracking-[0.08em]">

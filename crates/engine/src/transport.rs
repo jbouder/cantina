@@ -10,7 +10,8 @@
 //!
 //! A block is cut into segments at the loop end so a loop is
 //! sample-accurate: the frames before the wrap and the frames after it are
-//! processed as two blocks with their own positions.
+//! processed as two blocks with their own positions. A count-in ends the
+//! same way, so the timeline starts rolling on an exact frame of a block.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -21,6 +22,44 @@ use crate::tempo::{MusicalPosition, TempoMap};
 
 /// Commands that can wait between two blocks.
 const COMMAND_QUEUE: usize = 64;
+
+/// Beats counted before a recording starts.
+pub const COUNT_IN_BEATS: u64 = 4;
+
+/// Beats counted off while the timeline holds, before it rolls.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CountIn {
+    /// Frames left, from the first frame of the block that carries this.
+    pub remaining: u64,
+    /// Frames in one beat.
+    pub beat: u64,
+    /// Beats counted in all.
+    pub beats: u64,
+}
+
+impl CountIn {
+    /// A count of `beats` beats of `beat` frames each.
+    pub fn new(beat: u64, beats: u64) -> Self {
+        let beat = beat.max(1);
+        Self {
+            remaining: beat * beats,
+            beat,
+            beats,
+        }
+    }
+
+    /// Which beat is being counted, from 1.
+    pub fn count(&self) -> u64 {
+        (self.beat * self.beats).saturating_sub(self.remaining) / self.beat + 1
+    }
+
+    /// Whether a beat falls `frame` frames into the block, and if so
+    /// whether it is the first of the count.
+    pub fn beat_at(&self, frame: u64) -> Option<bool> {
+        let left = self.remaining.checked_sub(frame).filter(|l| *l > 0)?;
+        (left % self.beat == 0).then_some(left == self.beat * self.beats)
+    }
+}
 
 /// A loop between two timeline samples, `start..end`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,8 +91,10 @@ impl LoopRange {
 pub enum TransportCommand {
     /// Start playing from the current position.
     Play,
-    /// Stop where it is.
+    /// Stop where it is, ending any count-in.
     Stop,
+    /// Count beats with the timeline held, then play.
+    CountIn(CountIn),
     /// Move to a timeline sample.
     Locate(u64),
     /// Set or clear the loop.
@@ -67,6 +108,8 @@ pub enum TransportCommand {
 struct Shared {
     playing: AtomicBool,
     position: AtomicU64,
+    /// The beat being counted, from 1; zero with no count-in.
+    count: AtomicU64,
     loop_enabled: AtomicBool,
     loop_start: AtomicU64,
     loop_end: AtomicU64,
@@ -81,6 +124,8 @@ pub struct Segment {
     pub position: u64,
     /// True when the timeline moves during it.
     pub playing: bool,
+    /// The count-in, when the segment is part of one.
+    pub count_in: Option<CountIn>,
 }
 
 /// The audio-thread half.
@@ -91,6 +136,7 @@ pub struct Transport {
     playing: bool,
     position: u64,
     loop_range: Option<LoopRange>,
+    count_in: Option<CountIn>,
 }
 
 /// The UI-thread half.
@@ -112,6 +158,7 @@ impl Transport {
             playing: false,
             position: 0,
             loop_range: None,
+            count_in: None,
         };
         let handle = TransportHandle {
             shared,
@@ -126,8 +173,20 @@ impl Transport {
     pub fn apply_commands(&mut self, mut retire: impl FnMut(Box<TempoMap>)) {
         while let Ok(command) = self.commands.pop() {
             match command {
-                TransportCommand::Play => self.playing = true,
-                TransportCommand::Stop => self.playing = false,
+                TransportCommand::Play => {
+                    self.count_in = None;
+                    self.playing = true;
+                }
+                TransportCommand::Stop => {
+                    self.count_in = None;
+                    self.playing = false;
+                }
+                TransportCommand::CountIn(count) => {
+                    self.playing = false;
+                    self.count_in = Some(count).filter(|c| c.remaining > 0);
+                }
+                // A take is waiting for this position; it holds until then.
+                TransportCommand::Locate(_) if self.count_in.is_some() => {}
                 TransportCommand::Locate(sample) => self.position = sample,
                 TransportCommand::SetLoop(range) => {
                     self.loop_range = range.filter(|r| !r.is_empty());
@@ -143,10 +202,26 @@ impl Transport {
     /// advances the position past it. While stopped the whole remainder is
     /// one segment and the position stays put.
     pub fn next_segment(&mut self, remaining: usize) -> Segment {
+        if let Some(count) = self.count_in {
+            let frames = remaining.min(count.remaining.min(usize::MAX as u64) as usize);
+            let left = count.remaining - frames as u64;
+            self.count_in = (left > 0).then_some(CountIn {
+                remaining: left,
+                ..count
+            });
+            self.playing = left == 0;
+            return Segment {
+                frames,
+                position: self.position,
+                playing: false,
+                count_in: Some(count),
+            };
+        }
         let segment = Segment {
             frames: self.frames_before_wrap(remaining),
             position: self.position,
             playing: self.playing,
+            count_in: None,
         };
         if self.playing {
             self.position += segment.frames as u64;
@@ -173,6 +248,8 @@ impl Transport {
     pub fn publish(&self) {
         self.shared.playing.store(self.playing, Ordering::Relaxed);
         self.shared.position.store(self.position, Ordering::Relaxed);
+        let count = self.count_in.map_or(0, |c| c.count());
+        self.shared.count.store(count, Ordering::Relaxed);
         let (enabled, start, end) = match self.loop_range {
             Some(r) => (true, r.start, r.end),
             None => (false, 0, 0),
@@ -220,6 +297,11 @@ impl TransportClock {
     pub fn position(&self) -> u64 {
         self.shared.position.load(Ordering::Relaxed)
     }
+
+    /// The beat being counted, from 1; zero with no count-in.
+    pub fn count_in(&self) -> u64 {
+        self.shared.count.load(Ordering::Relaxed)
+    }
 }
 
 impl TransportHandle {
@@ -239,6 +321,20 @@ impl TransportHandle {
     /// Asks the transport to play. False when the queue is full.
     pub fn play(&mut self) -> bool {
         self.send(TransportCommand::Play)
+    }
+
+    /// Asks the transport to count [`COUNT_IN_BEATS`] beats at the tempo
+    /// where it stands, then play. False when the queue is full.
+    pub fn count_in(&mut self, sample_rate: f64) -> bool {
+        let tick = self
+            .tempo
+            .samples_to_ticks(self.position(), sample_rate)
+            .max(0.0) as u64;
+        let beat = (60.0 / self.tempo.tempo_at(tick) * sample_rate).round() as u64;
+        self.send(TransportCommand::CountIn(CountIn::new(
+            beat,
+            COUNT_IN_BEATS,
+        )))
     }
 
     /// Asks the transport to stop. False when the queue is full.
@@ -327,7 +423,8 @@ mod tests {
             vec![Segment {
                 frames: 64,
                 position: 0,
-                playing: false
+                playing: false,
+                count_in: None,
             }]
         );
         assert!(!handle.is_playing());
@@ -349,7 +446,8 @@ mod tests {
             Segment {
                 frames: 10,
                 position: 1000,
-                playing: true
+                playing: true,
+                count_in: None,
             }
         );
         assert_eq!(handle.position(), 1010);
@@ -381,12 +479,14 @@ mod tests {
                 Segment {
                     frames: 30,
                     position: 120,
-                    playing: true
+                    playing: true,
+                    count_in: None,
                 },
                 Segment {
                     frames: 34,
                     position: 100,
-                    playing: true
+                    playing: true,
+                    count_in: None,
                 },
             ]
         );
@@ -440,5 +540,78 @@ mod tests {
         assert!(!handle.is_abandoned());
         drop(transport);
         assert!(handle.is_abandoned());
+    }
+
+    #[test]
+    fn a_count_in_holds_the_timeline_then_rolls_on_an_exact_frame() {
+        let (mut transport, mut handle) = Transport::new(TempoMap::default());
+        handle.locate(1000);
+        transport.apply_commands(|_| {});
+        transport.publish();
+        // 120 bpm at 48 kHz: 24 000 frames a beat, 96 000 in the count.
+        assert!(handle.count_in(48_000.0));
+        transport.apply_commands(|_| {});
+        let mut frames = 0;
+        while frames + 4096 < 96_000 {
+            let segs = segments(&mut transport, 4096);
+            assert_eq!(segs.len(), 1);
+            assert!(!segs[0].playing);
+            assert_eq!(segs[0].position, 1000);
+            assert_eq!(handle.clock().count_in(), (frames + 4096) / 24_000 + 1);
+            frames += 4096;
+        }
+        // The block that ends the count is cut where the timeline starts.
+        let before = (96_000 - frames) as usize;
+        let segs = segments(&mut transport, 4096);
+        assert_eq!(segs.len(), 2);
+        assert_eq!(segs[0].frames, before);
+        assert!(!segs[0].playing);
+        assert!(segs[0].count_in.is_some());
+        assert_eq!(
+            segs[1],
+            Segment {
+                frames: 4096 - before,
+                position: 1000,
+                playing: true,
+                count_in: None,
+            }
+        );
+        assert_eq!(handle.clock().count_in(), 0);
+        assert!(handle.is_playing());
+    }
+
+    #[test]
+    fn stop_ends_a_count_in_and_locate_waits_for_it() {
+        let (mut transport, mut handle) = Transport::new(TempoMap::default());
+        handle.count_in(48_000.0);
+        handle.locate(500);
+        transport.apply_commands(|_| {});
+        let segs = segments(&mut transport, 64);
+        assert_eq!(segs[0].position, 0, "the take is waiting for this position");
+        assert_eq!(handle.clock().count_in(), 1);
+        handle.stop();
+        transport.apply_commands(|_| {});
+        let segs = segments(&mut transport, 96_000);
+        assert_eq!(segs[0].count_in, None);
+        assert!(!segs[0].playing);
+        assert!(!handle.is_playing());
+        assert_eq!(handle.clock().count_in(), 0);
+    }
+
+    #[test]
+    fn a_count_in_finds_its_beats() {
+        let count = CountIn::new(100, 4);
+        assert_eq!(count.count(), 1);
+        assert_eq!(count.beat_at(0), Some(true), "the first beat is marked");
+        assert_eq!(count.beat_at(1), None);
+        assert_eq!(count.beat_at(100), Some(false));
+        assert_eq!(count.beat_at(300), Some(false));
+        assert_eq!(count.beat_at(400), None, "the count is over there");
+        let later = CountIn {
+            remaining: 150,
+            ..count
+        };
+        assert_eq!(later.count(), 3);
+        assert_eq!(later.beat_at(50), Some(false));
     }
 }

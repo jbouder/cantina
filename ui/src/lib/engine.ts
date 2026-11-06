@@ -379,6 +379,8 @@ export interface MeterFrame {
   position: number;
   playing: boolean;
   recording: boolean;
+  /** The beat a count-in is on, from 1; zero with no count-in. */
+  countIn: number;
   /** Every pedal readout, flat; `readoutsByPedal` splits them up. */
   readouts: ArrayLike<number>;
 }
@@ -393,7 +395,8 @@ export const SILENT: Level = { peak: 0, rms: 0 };
  * UI talks to this stand-in instead. It keeps `vite dev` useful for layout
  * and skin work and is what the PR screenshots are taken from. `?running`
  * starts it with the stream open; `?armed`, `?take`, `?playing` and
- * `?recording` set up the project and transport.
+ * `?recording` set up the project and transport; `?countin=<1-4>` holds a
+ * count-in on that beat.
  */
 const mockDevices: AudioDevice[] = [
   {
@@ -786,7 +789,15 @@ function mockClip(id: number, name: string, startSeconds: number, seconds: numbe
 }
 
 let mockNextId = 20;
-const mockTransport = { position: 0, playing: false, recording: false };
+const mockTransport = {
+  position: 0,
+  playing: false,
+  recording: false,
+  /** Seconds of count-in left. */
+  countIn: 0,
+};
+const MOCK_COUNT_BEATS = 4;
+const mockBeatSeconds = () => 60 / mock.project.tempo.bpm;
 const mockProjects = ["Untitled", "Blues in A", "Riff ideas"];
 
 const mockKits: KitInfo[] = [
@@ -983,6 +994,12 @@ const mock: EngineStatus = {
 };
 mockTransport.playing = mock.transport.playing || mock.transport.recording;
 mockTransport.recording = mock.transport.recording;
+if (mockParams?.has("countin")) {
+  const beat = Number(mockParams.get("countin"));
+  mockTransport.playing = false;
+  mockTransport.recording = true;
+  mockTransport.countIn = (MOCK_COUNT_BEATS + 1 - beat) * mockBeatSeconds() - 0.01;
+}
 
 function mockDevice(uid: string | null, input: boolean): AudioDevice | undefined {
   return uid
@@ -1569,6 +1586,29 @@ export async function patternClipTrim(
   return mockEdit("trim pattern clip");
 }
 
+/** The first position after `clip` where a copy clears every clip beside it. */
+function mockFreeStart(
+  clips: { start: number; length: number }[],
+  clip: { start: number; length: number },
+): number {
+  let at = clip.start + clip.length;
+  for (const c of [...clips].sort((a, b) => a.start - b.start)) {
+    if (c.start >= at + clip.length) break;
+    at = Math.max(at, c.start + c.length);
+  }
+  return at;
+}
+
+/** Copies a pattern clip to the first space after it that holds it. */
+export async function patternClipDuplicate(id: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pattern_clip_duplicate", { id });
+  const { track, clip } = mockPatternClipAt(id);
+  const start = mockFreeStart(track.patternClips, clip);
+  track.patternClips.push({ ...clip, id: mockNextId++, start });
+  sortPatternClips(track);
+  return mockEdit("place pattern");
+}
+
 export async function patternClipSplit(id: number, at: number): Promise<EngineStatus> {
   at = Math.round(at);
   if (inTauri) return invoke<EngineStatus>("pattern_clip_split", { id, at });
@@ -1695,6 +1735,16 @@ export async function clipTrim(
 }
 
 /** Cuts a clip at a timeline sample; the right part becomes a new clip. */
+/** Copies a clip to the first space after it that holds it. */
+export async function clipDuplicate(id: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("clip_duplicate", { id });
+  const { track, clip } = mockClipAt(id);
+  const start = mockFreeStart(track.clips, clip);
+  track.clips.push({ ...clip, id: mockNextId++, start });
+  track.clips.sort((a, b) => a.start - b.start);
+  return mockEdit(`add clip ${clip.name}`);
+}
+
 export async function clipSplit(id: number, at: number): Promise<EngineStatus> {
   at = Math.round(at);
   if (inTauri) return invoke<EngineStatus>("clip_split", { id, at });
@@ -1754,14 +1804,14 @@ export async function transportPlay(): Promise<EngineStatus> {
 export async function transportRecord(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("transport_record");
   if (!mock.project.tracks.some((t) => t.armed)) throw new Error("arm a track before recording");
-  mockTransport.playing = true;
+  mockTransport.countIn = MOCK_COUNT_BEATS * mockBeatSeconds();
   mockTransport.recording = true;
   return mockStatus();
 }
 
 export async function transportStop(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("transport_stop");
-  if (mockTransport.recording) {
+  if (mockTransport.recording && mockTransport.countIn === 0) {
     for (const t of mock.project.tracks) {
       if (!t.armed) continue;
       const n = t.clips.length + 1;
@@ -1771,13 +1821,14 @@ export async function transportStop(): Promise<EngineStatus> {
   }
   mockTransport.playing = false;
   mockTransport.recording = false;
+  mockTransport.countIn = 0;
   return mockStatus();
 }
 
-/** Moves the playhead to a sample. */
+/** Moves the playhead to a sample. A count-in holds it until it ends. */
 export async function transportLocate(sample: number): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("transport_locate", { sample: Math.round(sample) });
-  mockTransport.position = sample / MOCK_RATE;
+  if (mockTransport.countIn === 0) mockTransport.position = sample / MOCK_RATE;
   return mockStatus();
 }
 
@@ -2093,6 +2144,7 @@ function publish(buffer: ArrayBuffer) {
     position: frame.position,
     playing: frame.playing,
     recording: frame.recording,
+    countIn: frame.countIn,
     readouts: frame.readouts,
   };
   for (const l of meterListeners) l(out);
@@ -2127,6 +2179,10 @@ function openMeterChannel() {
   window.setInterval(() => {
     t += 1 / 60;
     if (mockTransport.playing) mockTransport.position += 1 / 60;
+    if (mockTransport.countIn > 0 && !mockParams?.has("countin")) {
+      mockTransport.countIn = Math.max(0, mockTransport.countIn - 1 / 60);
+      mockTransport.playing = mockTransport.countIn === 0;
+    }
     const anySolo = mock.project.tracks.some((t) => t.strip.solo);
     const meters = mock.running
       ? [
@@ -2177,6 +2233,10 @@ function openMeterChannel() {
         position: mockTransport.position,
         playing: mockTransport.playing,
         recording: mockTransport.recording,
+        countIn:
+          mockTransport.countIn > 0
+            ? MOCK_COUNT_BEATS + 1 - Math.ceil(mockTransport.countIn / mockBeatSeconds())
+            : 0,
         beat,
         meters,
         readouts,

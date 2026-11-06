@@ -51,5 +51,5 @@ pub use sequencer::{PatternData, Placement, Score, Sequencer, SequencerHandle, S
 pub use stream::{BlockProcessor, Stats, Stream, StreamConfig, StreamInfo, MAX_BLOCK_FRAMES};
 pub use strip::Strip;
 pub use tempo::{Beat, MusicalPosition, TempoMap, TimeSignature, PPQ};
-pub use transport::{LoopRange, TransportClock, TransportHandle};
+pub use transport::{CountIn, LoopRange, TransportClock, TransportHandle, COUNT_IN_BEATS};
 pub use wav::WavInfo;

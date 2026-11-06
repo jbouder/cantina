@@ -88,6 +88,15 @@ impl PatternClip {
     pub fn end(&self) -> u64 {
         self.start + self.length
     }
+
+    /// A copy under a new id, starting at tick `start`.
+    pub fn duplicate(&self, id: PatternClipId, start: u64) -> Self {
+        Self {
+            id,
+            start,
+            ..self.clone()
+        }
+    }
 }
 
 /// A step sequencer pattern: a grid of pads against steps, with a
@@ -315,6 +324,30 @@ impl Clip {
     pub fn end(&self) -> u64 {
         self.start + self.length
     }
+
+    /// A copy under a new id, starting at timeline sample `start`. Both
+    /// read the same file, with the same trim.
+    pub fn duplicate(&self, id: ClipId, start: u64) -> Self {
+        Self {
+            id,
+            start,
+            ..self.clone()
+        }
+    }
+}
+
+/// The first position at or after `from` where `length` fits between the
+/// `spans`, each a start and an end.
+fn free_start(mut spans: Vec<(u64, u64)>, from: u64, length: u64) -> u64 {
+    spans.sort_unstable();
+    let mut at = from;
+    for (start, end) in spans {
+        if start >= at + length {
+            break;
+        }
+        at = at.max(end);
+    }
+    at
 }
 
 /// A pedal in a chain: the spec the engine builds it from (a stock name,
@@ -394,6 +427,24 @@ impl Track {
     /// True for a drum track, which has a kit.
     pub fn is_drums(&self) -> bool {
         self.kit.is_some()
+    }
+
+    /// The first timeline sample at or after `from` with room for
+    /// `length` samples clear of every clip on this track.
+    pub fn free_clip_start(&self, from: u64, length: u64) -> u64 {
+        let spans = self.clips.iter().map(|c| (c.start, c.end())).collect();
+        free_start(spans, from, length)
+    }
+
+    /// The first tick at or after `from` with room for `length` ticks
+    /// clear of every pattern clip on this track.
+    pub fn free_pattern_start(&self, from: u64, length: u64) -> u64 {
+        let spans = self
+            .pattern_clips
+            .iter()
+            .map(|c| (c.start, c.end()))
+            .collect();
+        free_start(spans, from, length)
     }
 
     /// A clip on this track.
@@ -632,6 +683,30 @@ mod tests {
         });
         p.tracks.push(t);
         p
+    }
+
+    #[test]
+    fn a_duplicate_keeps_its_audio_under_a_new_id() {
+        let p = project();
+        let clip = &p.tracks[0].clips[0];
+        let copy = clip.duplicate(ClipId(p.fresh_id()), 5000);
+        assert_eq!((copy.id, copy.start), (ClipId(4), 5000));
+        assert_eq!(
+            (&copy.file, copy.offset, copy.length),
+            (&clip.file, clip.offset, clip.length)
+        );
+    }
+
+    #[test]
+    fn free_space_clears_every_clip_in_the_way() {
+        let spans = || vec![(300, 400), (0, 100), (120, 180)];
+        assert_eq!(free_start(spans(), 100, 20), 100, "the gap fits exactly");
+        assert_eq!(free_start(spans(), 100, 21), 180, "past the second clip");
+        assert_eq!(free_start(spans(), 100, 200), 400, "and past the third");
+        assert_eq!(free_start(spans(), 180, 120), 180, "up against the next");
+        assert_eq!(free_start(spans(), 500, 10), 500);
+        // An overlapping pair behind the start still holds it back.
+        assert_eq!(free_start(vec![(0, 500), (10, 20)], 100, 10), 500);
     }
 
     #[test]

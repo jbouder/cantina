@@ -19,6 +19,8 @@ pub const FLAG_PLAYING: u16 = 1 << 0;
 pub const FLAG_RECORDING: u16 = 1 << 1;
 pub const FLAG_BEAT: u16 = 1 << 2;
 pub const FLAG_ANALYSIS: u16 = 1 << 3;
+/// A count-in is running: the beat field holds the beat being counted.
+pub const FLAG_COUNT_IN: u16 = 1 << 4;
 /// The analysis trailer after the readouts: RMS and source.
 pub const ANALYSIS_LEN: usize = 8;
 
@@ -41,6 +43,8 @@ pub struct Frame<'a> {
     pub position_seconds: f64,
     pub playing: bool,
     pub recording: bool,
+    /// The beat a count-in is on, from 1; zero with no count-in.
+    pub count_in: u32,
     pub beat: Option<Beat>,
     /// Peak and RMS pairs, linear: `[peak0, rms0, peak1, rms1, ...]`.
     pub meters: &'a [f32],
@@ -93,11 +97,16 @@ impl Frame<'_> {
         if self.analysis.is_some() {
             flags |= FLAG_ANALYSIS;
         }
+        if self.count_in > 0 {
+            flags |= FLAG_COUNT_IN;
+        }
+        // The timeline holds through a count-in, so there is no beat
+        // for its count to displace.
         let beat = self.beat.unwrap_or(Beat {
             bpm: 0.0,
             phase: 0.0,
             bar: 0,
-            beat: 0,
+            beat: self.count_in,
         });
         out.extend_from_slice(&MAGIC);
         out.extend_from_slice(&VERSION.to_le_bytes());
@@ -155,6 +164,7 @@ mod tests {
             position_seconds: 1.5,
             playing: true,
             recording: false,
+            count_in: 0,
             beat: Some(Beat {
                 bpm: 120.0,
                 phase: 0.25,
@@ -198,6 +208,27 @@ mod tests {
     }
 
     #[test]
+    fn a_count_in_travels_in_the_beat_field() {
+        let frame = Frame {
+            sequence: 0,
+            dropped: 0,
+            position_seconds: 0.0,
+            playing: false,
+            recording: true,
+            count_in: 3,
+            beat: None,
+            meters: &[],
+            spectrum: &[],
+            waveform: &[],
+            readouts: &[],
+            analysis: None,
+        };
+        let b = frame.encode();
+        assert_eq!(u16_at(&b, 6), FLAG_RECORDING | FLAG_COUNT_IN);
+        assert_eq!(u32_at(&b, 44), 3);
+    }
+
+    #[test]
     fn meters_only_frame_is_small_and_beatless() {
         let frame = Frame {
             sequence: 0,
@@ -205,6 +236,7 @@ mod tests {
             position_seconds: 0.0,
             playing: false,
             recording: true,
+            count_in: 0,
             beat: None,
             meters: &[0.0, 0.0, 0.0, 0.0],
             spectrum: &[],
@@ -230,6 +262,7 @@ mod tests {
             position_seconds: 12.25,
             playing: true,
             recording: true,
+            count_in: 0,
             beat: Some(Beat {
                 bpm: 96.5,
                 phase: 0.75,
@@ -327,6 +360,7 @@ mod tests {
                 playing: true,
                 position: 0,
                 loop_range: None,
+                count_in: None,
                 tempo: &tempo,
             };
             scope.process(&ctx, &mut buffer);
@@ -343,6 +377,7 @@ mod tests {
                 position_seconds: heard as f64 / RATE,
                 playing: true,
                 recording: false,
+                count_in: 0,
                 beat: Some(Beat {
                     bpm: b.bpm,
                     phase: b.phase,

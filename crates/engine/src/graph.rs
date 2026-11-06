@@ -26,7 +26,7 @@ use cantina_dsp::{Buffer, ParamId, ParamInfo, Processor, Transport, MAX_CHANNELS
 
 use crate::runtime::RuntimeStats;
 use crate::tempo::TempoMap;
-use crate::transport::LoopRange;
+use crate::transport::{CountIn, LoopRange};
 
 /// Identifies a node for the life of its graph. Never reused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -81,6 +81,9 @@ pub struct BlockContext<'a> {
     pub position: u64,
     /// The active loop, if any.
     pub loop_range: Option<LoopRange>,
+    /// The count-in, while one runs: `playing` is false and the position
+    /// holds until it ends, and the click counts the beats.
+    pub count_in: Option<CountIn>,
     /// The tempo map, for nodes that follow bars and beats.
     pub tempo: &'a TempoMap,
 }
@@ -777,6 +780,7 @@ mod tests {
             playing: false,
             position: 0,
             loop_range: None,
+            count_in: None,
             tempo,
         }
     }

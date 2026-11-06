@@ -1,5 +1,6 @@
 import {
   type KeyboardEvent,
+  type MouseEvent,
   type PointerEvent,
   type ReactNode,
   useCallback,
@@ -11,6 +12,7 @@ import {
 } from "react";
 import {
   type ClipInfo,
+  clipDuplicate,
   clipMove,
   clipRemove,
   clipSplit,
@@ -19,6 +21,7 @@ import {
   type Level,
   type PatternInfo,
   patternClipAdd,
+  patternClipDuplicate,
   patternClipMove,
   patternClipRemove,
   patternClipSplit,
@@ -40,6 +43,8 @@ import {
   follow,
   type Geometry,
   gridFor,
+  gripWidth,
+  type Hit,
   hitTest,
   laneToTicks,
   moved,
@@ -57,6 +62,7 @@ import {
   xOf,
   zoomAround,
 } from "../lib/timeline";
+import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { MasterHeader, TrackHeader } from "./TrackHeader";
 
 /**
@@ -115,6 +121,13 @@ interface Drag {
   moved: boolean;
 }
 
+/** The open context menu: where, and the timeline sample under the pointer. */
+interface Menu {
+  x: number;
+  y: number;
+  at: number;
+}
+
 /** The tokens the canvas draws with, read from the skin on each draw. */
 const TOKENS = [
   "bg",
@@ -142,10 +155,11 @@ const LABEL_WIDTH = 288;
 
 /**
  * Tracks and clips on a canvas. Drag a clip to move it (across tracks
- * too), drag either edge to trim, Alt-click to split at the pointer, and
- * click the ruler to move the playhead. The keyboard does the same on
- * the selected clip: Delete, S to split at the playhead, the arrows to
- * nudge by a grid step. Waveforms come from peak caches built in a
+ * too), drag either edge or a selected clip's handles to trim, Alt-click
+ * to split at the pointer, right-click for the clip's menu, and click the
+ * ruler to move the playhead. The keyboard does the same on the selected
+ * clip: Delete, Cmd-D to duplicate, S to split at the playhead, the arrows
+ * to nudge by a grid step. Waveforms come from peak caches built in a
  * worker; the canvas only ever reads one level of them per column.
  */
 export function Timeline({
@@ -174,6 +188,9 @@ export function Timeline({
   const [selectedClip, setSelectedClip] = useState<number | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const dragRef = useRef<Drag | null>(null);
+  const [hover, setHover] = useState<Hit["kind"] | null>(null);
+  const [menu, setMenu] = useState<Menu | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
   const peaksVersion = usePeaksVersion();
 
   const run = useCallback(
@@ -373,6 +390,17 @@ export function Timeline({
       ctx.lineWidth = isSelected ? 2 : 1;
       ctx.strokeRect(left + 0.5, y + 0.5, right - left - 1, h - 1);
       ctx.lineWidth = 1;
+      // The trim handles, on the edges that are in view.
+      if (isSelected) {
+        const grip = gripWidth(x1 - x0, true);
+        ctx.fillStyle = tk["clip-edge"];
+        if (x0 >= 0) ctx.fillRect(x0, y, grip, h);
+        if (x1 <= width) ctx.fillRect(x1 - grip, y, grip, h);
+        ctx.fillStyle = tk["clip-selected"];
+        const ridge = Math.floor(h / 3);
+        if (x0 >= 0 && grip >= 3) ctx.fillRect(x0 + grip / 2 - 0.5, y + ridge, 1, ridge);
+        if (x1 <= width && grip >= 3) ctx.fillRect(x1 - grip / 2 - 0.5, y + ridge, 1, ridge);
+      }
       // Name, clipped to the clip.
       ctx.save();
       ctx.beginPath();
@@ -424,15 +452,16 @@ export function Timeline({
 
   // ----- the pointer -----
 
-  const local = (e: PointerEvent<HTMLCanvasElement>) => {
+  const local = (e: MouseEvent<HTMLCanvasElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
 
   const onPointerDown = (e: PointerEvent<HTMLCanvasElement>) => {
-    if (e.button !== 0) return;
+    // A Ctrl-click is a right-click on a Mac; the menu handles it.
+    if (e.button !== 0 || e.ctrlKey) return;
     const { x, y } = local(e);
-    const hit = hitTest(lanes, x, y, view);
+    const hit = hitTest(lanes, x, y, view, selectedClip);
     if (!hit) return;
     e.currentTarget.focus();
     if (hit.kind === "ruler") {
@@ -466,8 +495,11 @@ export function Timeline({
 
   const onPointerMove = (e: PointerEvent<HTMLCanvasElement>) => {
     const d = dragRef.current;
-    if (!d) return;
     const { x, y } = local(e);
+    if (!d) {
+      setHover(hitTest(lanes, x, y, view, selectedClip)?.kind ?? null);
+      return;
+    }
     if (!d.moved && Math.abs(x - d.startX) < 3) return;
     let geometry: Geometry;
     let toTrack = d.fromTrack;
@@ -509,13 +541,30 @@ export function Timeline({
         );
       }
     } else if (g.start !== d.clip.start || g.length !== d.clip.length) {
-      if (isPattern(d.clip)) {
-        const t = laneToTicks(g, spt);
-        run(patternClipTrim(d.clip.id, t.start, t.offset, t.length));
-      } else {
-        run(clipTrim(d.clip.id, g.start, g.offset, g.length));
-      }
+      run(trim(d.clip, g));
     }
+  };
+
+  /** The clip's menu, on the clip under the pointer, which it selects. */
+  const onContextMenu = (e: MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const { x, y } = local(e);
+    const hit = hitTest(lanes, x, y, view, selectedClip);
+    if (!hit || hit.kind === "ruler" || hit.kind === "empty") {
+      setMenu(null);
+      return;
+    }
+    e.currentTarget.focus();
+    const track = tracks[hit.track];
+    if (track) onSelectTrack(track.id);
+    setSelectedClip(hit.clip.id);
+    setMenu({ x: e.clientX, y: e.clientY, at: Math.round(sampleAt(x, view)) });
+  };
+
+  const trim = (clip: ClipInfo, g: Geometry) => {
+    if (!isPattern(clip)) return clipTrim(clip.id, g.start, g.offset, g.length);
+    const t = laneToTicks(g, spt);
+    return patternClipTrim(clip.id, t.start, t.offset, t.length);
   };
 
   const split = (clip: ClipInfo, at: number) =>
@@ -523,6 +572,51 @@ export function Timeline({
 
   const remove = (clip: ClipInfo) =>
     isPattern(clip) ? patternClipRemove(clip.id) : clipRemove(clip.id);
+
+  /** Copies a clip into the next space that holds it and selects the copy, so a second one follows it. */
+  const duplicate = (track: TrackStatus, clip: ClipInfo) =>
+    (isPattern(clip) ? patternClipDuplicate(clip.id) : clipDuplicate(clip.id)).then(
+      (status) => {
+        onStatus(status);
+        const now = status.project.tracks.find((t) => t.id === track.id);
+        const clips = isPattern(clip) ? now?.patternClips : now?.clips;
+        setSelectedClip(Math.max(...(clips ?? []).map((c) => c.id)));
+      },
+      (e) => onError(String(e)),
+    );
+
+  const menuItems = (target: NonNullable<typeof selected>, at: number): MenuItem[] => {
+    const { track, clip } = target;
+    const here = Math.round(playhead);
+    const inside = canSplit(clip, here);
+    return [
+      { label: "Split here", disabled: !canSplit(clip, at), onSelect: () => run(split(clip, at)) },
+      {
+        label: "Split at playhead",
+        hint: "S",
+        disabled: !inside,
+        onSelect: () => run(split(clip, here)),
+      },
+      {
+        label: "Trim start to playhead",
+        disabled: !inside,
+        separated: true,
+        onSelect: () => run(trim(clip, trimmedLeft(clip, here, 0, false))),
+      },
+      {
+        label: "Trim end to playhead",
+        disabled: !inside,
+        onSelect: () => run(trim(clip, trimmedRight(clip, here, 0, false))),
+      },
+      {
+        label: "Duplicate",
+        hint: "⌘D",
+        separated: true,
+        onSelect: () => duplicate(track, clip),
+      },
+      { label: "Delete", hint: "⌫", onSelect: () => run(remove(clip)) },
+    ];
+  };
 
   // ----- dropping a pattern from the drum grid -----
 
@@ -554,6 +648,11 @@ export function Timeline({
   // ----- the keyboard -----
 
   const onKeyDown = (e: KeyboardEvent<HTMLCanvasElement>) => {
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "d") {
+      e.preventDefault();
+      if (selected) duplicate(selected.track, selected.clip);
+      return;
+    }
     if (e.metaKey || e.ctrlKey) return;
     switch (e.key) {
       case "Delete":
@@ -620,6 +719,16 @@ export function Timeline({
     divisionLabel,
   };
 
+  const pointing = drag?.kind ?? hover;
+  const cursor =
+    pointing === "left" || pointing === "right"
+      ? "cursor-ew-resize"
+      : drag
+        ? "cursor-grabbing"
+        : pointing === "clip"
+          ? "cursor-grab"
+          : "";
+
   return (
     <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-2">
       {strip(controls)}
@@ -665,16 +774,26 @@ export function Timeline({
           <canvas
             ref={canvas}
             tabIndex={0}
-            aria-label="Timeline. Drag clips to move them, drag an edge to trim, Alt-click to split, click the ruler to move the playhead. With a clip selected: Delete removes it, S splits it at the playhead, the arrow keys nudge it. Drop a pattern from the drum grid on a drum track to place it."
+            aria-label="Timeline. Drag clips to move them, drag an edge to trim, Alt-click to split, right-click a clip for its menu, click the ruler to move the playhead. With a clip selected: Delete removes it, Command-D duplicates it, S splits it at the playhead, the arrow keys nudge it. Drop a pattern from the drum grid on a drum track to place it."
             aria-disabled={!running}
             style={{ width, height, touchAction: "none" }}
-            className={`block ${drag ? (drag.kind === "clip" ? "cursor-grabbing" : "cursor-ew-resize") : ""}`}
+            className={`block ${cursor}`}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
             onKeyDown={onKeyDown}
+            onContextMenu={onContextMenu}
           />
+          {menu && selected ? (
+            <ContextMenu
+              label={`${selected.clip.name} clip`}
+              x={menu.x}
+              y={menu.y}
+              items={menuItems(selected, menu.at)}
+              onClose={closeMenu}
+            />
+          ) : null}
         </div>
       </div>
     </div>

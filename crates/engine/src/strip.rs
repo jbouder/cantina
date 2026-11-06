@@ -143,6 +143,7 @@ mod tests {
             playing: false,
             position: 0,
             loop_range: None,
+            count_in: None,
             tempo,
         }
     }

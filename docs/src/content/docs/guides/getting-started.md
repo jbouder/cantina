@@ -94,8 +94,8 @@ undone with the arrows next to the project name, or ⌘Z. The
 
 ## Record
 
-With a track armed, **Record** (or R) starts the transport and records what
-comes in; **Stop** (or Space) ends the take, which lands on the track as a
+With a track armed, **Record** (or R) counts in four beats, then starts the
+transport and records what comes in; **Stop** (or Space) ends the take, which lands on the track as a
 clip. Space plays from the playhead. **Save** writes the project to
 `~/Music/Cantina/`, and **Projects…** opens another.
 
