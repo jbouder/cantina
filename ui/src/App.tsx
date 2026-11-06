@@ -29,6 +29,7 @@ import {
   engineStop,
   inTauri,
   type MeterFrame,
+  metronomeSet,
   ms,
   onFileDrop,
   onMeters,
@@ -203,12 +204,19 @@ export function App() {
         return;
       }
       const { status: s, frame: f } = keys.current;
+      if ((e.key === "k" || e.key === "K") && s) {
+        e.preventDefault();
+        const { on, sound, levelDb } = s.metronome;
+        report(metronomeSet({ on: !on, sound, levelDb }));
+        return;
+      }
       if (!s?.running) return;
       if (e.key === " ") {
         e.preventDefault();
         const rolling = f.playing || f.recording;
         const hasClips =
           s.audition !== null ||
+          s.metronome.on ||
           s.project.tracks.some((t) => t.clips.length > 0 || t.patternClips.length > 0);
         if (rolling) report(transportStop());
         else if (hasClips) report(transportPlay());
@@ -374,6 +382,7 @@ export function App() {
                     transport={transport}
                     tracks={status.project.tracks}
                     tempo={status.project.tempo}
+                    metronome={status.metronome}
                     running={running}
                     position={frame.position}
                     auditioning={status.audition !== null}

@@ -8,7 +8,7 @@ use tauri::ipc::{Channel, InvokeResponseBody, Response};
 use tauri::State;
 
 use crate::engine::{DesignerResult, DeviceEntry, Engine, EngineState, EngineStatus};
-use crate::settings::AudioSettings;
+use crate::settings::{AudioSettings, MetronomeSettings};
 
 fn fail(e: anyhow::Error) -> String {
     format!("{e:#}")
@@ -530,6 +530,15 @@ pub fn pattern_audition(
 #[tauri::command]
 pub fn latency_warning_set(engine: State<'_, EngineState>, ms: f32) -> EngineStatus {
     engine.lock().latency_warning_set(ms)
+}
+
+/// Sets the metronome's switch, sound and level.
+#[tauri::command]
+pub fn metronome_set(
+    engine: State<'_, EngineState>,
+    metronome: MetronomeSettings,
+) -> Result<EngineStatus, String> {
+    engine.lock().metronome_set(metronome).map_err(fail)
 }
 
 // ----- the designer -----

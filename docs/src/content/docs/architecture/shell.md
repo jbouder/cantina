@@ -19,7 +19,7 @@ While a stream is open, a pump thread wakes 60 times a second, reads the meters,
 
 ## What else it owns
 
-- **Settings** (`settings.rs`): devices, sample rate, buffer size, the latency warning and editor window positions, kept in `~/Library/Application Support/com.jbouder.cantina/settings.json`.
+- **Settings** (`settings.rs`): devices, sample rate, buffer size, the latency warning, editor window positions and the metronome, kept in `~/Library/Application Support/com.jbouder.cantina/settings.json`.
 - **Projects** (`project.rs`): where projects live and opening, creating and recovering them.
 - **Designed pedals** (`pedals.rs`): the user's library in `~/Music/Cantina/Pedals` and the copies a project keeps.
 - **Plugin editors**: native windows opened, ticked and closed on the main thread. See [hosting](/architecture/hosting/#editor-windows).

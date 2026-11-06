@@ -32,7 +32,7 @@ pub mod transport;
 pub mod wav;
 
 pub use analysis::{beat_at, Analyzer, BeatPosition};
-pub use click::Click;
+pub use click::{Click, SOUNDS as CLICK_SOUNDS};
 pub use delay::{plan, Delay};
 pub use device::{DeviceEvent, DeviceId, DeviceInfo, Watcher};
 pub use graph::{

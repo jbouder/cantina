@@ -78,6 +78,7 @@ pub fn run() {
             commands::chain_move,
             commands::chain_set_param,
             commands::latency_warning_set,
+            commands::metronome_set,
             commands::track_add_drums,
             commands::track_set_kit,
             commands::analysis_set_source,

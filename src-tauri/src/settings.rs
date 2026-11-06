@@ -29,6 +29,38 @@ impl Default for AudioSettings {
     }
 }
 
+/// The metronome: whether it clicks while the transport plays, which
+/// sound, and how loud. Mirrors `Metronome` in the UI.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct MetronomeSettings {
+    pub on: bool,
+    /// One of the engine's click sounds, by name.
+    pub sound: String,
+    pub level_db: f32,
+}
+
+impl Default for MetronomeSettings {
+    fn default() -> Self {
+        Self {
+            on: false,
+            sound: cantina_engine::CLICK_SOUNDS[0].to_string(),
+            level_db: -6.0,
+        }
+    }
+}
+
+impl MetronomeSettings {
+    /// The sound's index among the engine's sounds; the first when the
+    /// name is not one of them.
+    pub fn sound_index(&self) -> usize {
+        cantina_engine::CLICK_SOUNDS
+            .iter()
+            .position(|s| *s == self.sound)
+            .unwrap_or(0)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
@@ -40,6 +72,7 @@ pub struct Settings {
     pub editor_positions: HashMap<String, (f64, f64)>,
     /// Latency compensation above this many milliseconds is flagged.
     pub latency_warn_ms: f32,
+    pub metronome: MetronomeSettings,
 }
 
 impl Default for Settings {
@@ -49,6 +82,7 @@ impl Default for Settings {
             last_project: None,
             editor_positions: HashMap::new(),
             latency_warn_ms: crate::engine::DEFAULT_LATENCY_WARN_MS,
+            metronome: MetronomeSettings::default(),
         }
     }
 }
@@ -93,6 +127,17 @@ mod tests {
         let loaded = Settings::load(&path).unwrap();
         assert_eq!(loaded.audio.sample_rate, 96_000.0);
         assert_eq!(loaded.audio.buffer_frames, 128);
+        assert_eq!(loaded.metronome, MetronomeSettings::default());
+        fs::write(&path, r#"{"metronome":{"on":true,"sound":"Cowbell"}}"#).unwrap();
+        let loaded = Settings::load(&path).unwrap();
+        assert!(loaded.metronome.on);
+        assert_eq!(loaded.metronome.sound_index(), 2);
+        assert_eq!(loaded.metronome.level_db, -6.0);
+        let unknown = MetronomeSettings {
+            sound: "Theremin".into(),
+            ..MetronomeSettings::default()
+        };
+        assert_eq!(unknown.sound_index(), 0);
         fs::remove_dir_all(dir).unwrap();
     }
 }
