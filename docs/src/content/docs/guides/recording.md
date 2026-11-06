@@ -1,6 +1,6 @@
 ---
 title: "Recording and editing"
-description: "Record takes, edit clips on the timeline, mix tracks, and set the tempo and grid."
+description: "Record takes, edit clips on the timeline, mix tracks, and set the tempo, grid and metronome."
 ---
 
 The studio window is an arrangement on top and an editor for the selected
@@ -59,6 +59,24 @@ Type a tempo in the **Tempo** box. The grid follows it, and the strip says
 how fine it is: the grid gets finer as you zoom in, from 32 bars down to a
 sixteenth note. **Snap** turns snapping off and on. Drum clips stay on their
 bars when the tempo changes.
+
+## Metronome
+
+**Click** in the transport strip turns the metronome on and off; K does the
+same from the keyboard. While the transport rolls, it clicks on every beat
+of the tempo, with a different sound on the first beat of each bar.
+
+- The drop-down beside it picks the sound: **Standard**, **Woodblock**,
+  **Cowbell**, **Drum** (a kick on the downbeat, a snare on the others) or
+  **Hi-hat**.
+- The slider sets its level, from -40 to +6 dB. Double-click it for -6 dB.
+- With the metronome on, **Play** works on an empty project, so you can
+  practice to it before anything is recorded.
+
+The click goes to your speakers or headphones only. It is not on the output
+meter, the stage, a recorded take or an exported mix. The metronome is a
+setting of the app, not of the project, so it stays as you left it across
+projects and launches, and undo does not touch it.
 
 ## Mix
 

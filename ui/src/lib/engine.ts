@@ -68,6 +68,22 @@ export interface EngineStatus {
   analysisSource: number | null;
   /** The library folders: where they are, their pattern files, and what will not load. */
   library: LibraryStatus;
+  metronome: MetronomeStatus;
+}
+
+/** The metronome's settings. Mirrors `MetronomeSettings` in src-tauri. */
+export interface Metronome {
+  /** Clicks on every beat while the transport plays. */
+  on: boolean;
+  /** One of `MetronomeStatus.sounds`. */
+  sound: string;
+  /** -40 to +6 dB. */
+  levelDb: number;
+}
+
+/** The metronome and the sounds it offers. Mirrors `MetronomeStatus` in src-tauri. */
+export interface MetronomeStatus extends Metronome {
+  sounds: string[];
 }
 
 /** A kind of pedal the picker offers. Mirrors `PedalKindInfo` in src-tauri. */
@@ -919,6 +935,12 @@ const mock: EngineStatus = {
   irs: MOCK_IRS,
   audition: mockParams?.has("audition") ? { track: MOCK_DRUMS, pattern: 11 } : null,
   analysisSource: null,
+  metronome: {
+    on: mockParams?.has("metronome") ?? false,
+    sound: mockParams?.get("metronome") || "Standard",
+    levelDb: -6,
+    sounds: ["Standard", "Woodblock", "Cowbell", "Drum", "Hi-hat"],
+  },
   library: {
     pedalsDir: "/Users/you/Music/Cantina/Pedals",
     kitsDir: "/Users/you/Music/Cantina/Kits",
@@ -991,6 +1013,7 @@ function mockStatus(): EngineStatus {
       master: { ...mock.project.master },
     },
     audition: mock.audition ? { ...mock.audition } : null,
+    metronome: { ...mock.metronome, sounds: [...mock.metronome.sounds] },
     sampleRate: mockSettings.sampleRate,
     bufferFrames: mockSettings.bufferFrames,
     inputUid: mockSettings.inputUid,
@@ -1100,6 +1123,22 @@ export async function latencyWarningSet(ms: number): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("latency_warning_set", { ms });
   const comp = (mock.latency.compensationFrames / MOCK_RATE) * 1000;
   mock.latency = { ...mock.latency, warnMs: ms, warn: comp > ms };
+  mockPublish();
+  return mockStatus();
+}
+
+/** Turns the metronome on or off and sets its sound and level. Not undoable. */
+export async function metronomeSet(metronome: Metronome): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("metronome_set", { metronome });
+  if (!mock.metronome.sounds.includes(metronome.sound)) {
+    throw new Error(`the metronome has no sound called ${metronome.sound}`);
+  }
+  mock.metronome = {
+    ...mock.metronome,
+    on: metronome.on,
+    sound: metronome.sound,
+    levelDb: Math.min(6, Math.max(-40, metronome.levelDb)),
+  };
   mockPublish();
   return mockStatus();
 }

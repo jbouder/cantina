@@ -30,10 +30,11 @@ use cantina_dsp::{
     Cabinet, Handle, LoadedKit, ParamInfo, PedalDef, PedalError, Problem, Processor, Readout, Unit,
     STOCK_NAMES,
 };
+use cantina_engine::click::{LEVEL as CLICK_LEVEL, ON as CLICK_ON, SOUND as CLICK_SOUND};
 use cantina_engine::strip::{GAIN, MUTE, PAN};
 use cantina_engine::{
-    beat_at, device, ir, kit, plan, processors, wav, Analyzer, Controller, Delay, DeviceEvent,
-    DeviceId, Endpoint, GraphConfig, Impulse, IrEntry, KitEntry, Meter, MeterHandle,
+    beat_at, device, ir, kit, plan, processors, wav, Analyzer, Click, Controller, Delay,
+    DeviceEvent, DeviceId, Endpoint, GraphConfig, Impulse, IrEntry, KitEntry, Meter, MeterHandle,
     MusicalPosition, Mute, NodeId, PatternData, Placement, Player, PlayerHandle, Recorder,
     RecorderHandle, Runtime, Scope, ScopeHandle, Score, Sequencer, SequencerHandle, Stream,
     StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
@@ -55,7 +56,7 @@ use crate::library;
 use crate::mixdown;
 use crate::pedals::{self, PedalEntry};
 use crate::project::Projects;
-use crate::settings::{AudioSettings, Settings};
+use crate::settings::{AudioSettings, MetronomeSettings, Settings};
 
 /// Event name for status pushes to the UI.
 pub const STATUS_EVENT: &str = "engine://status";
@@ -96,6 +97,18 @@ pub struct EngineStatus {
     /// The library folders: where they are, the pattern files in
     /// `Patterns`, and every file in them that does not load.
     pub library: library::LibraryStatus,
+    pub metronome: MetronomeStatus,
+}
+
+/// The metronome's settings and the sounds it offers. Mirrors
+/// `MetronomeStatus` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetronomeStatus {
+    #[serde(flatten)]
+    pub settings: MetronomeSettings,
+    /// Every sound `metronome_set` takes, by name.
+    pub sounds: Vec<String>,
 }
 
 /// What the designer gets back from an update: the status, and the
@@ -833,6 +846,9 @@ struct Live {
     readouts: Readouts,
     /// Captures what the stage analyses: the master, or one track.
     scope: NodeId,
+    /// The metronome, straight to the output: heard, but not metered,
+    /// analysed or mixed down.
+    click: NodeId,
     /// The track the scope listens to; the master when it is gone.
     analysis_source: Option<TrackId>,
     analysis: Arc<PumpAnalysis>,
@@ -859,6 +875,16 @@ impl Live {
 
     fn transport(&mut self) -> &mut TransportHandle {
         self.controller.transport_mut()
+    }
+
+    /// Hands the click its switch, sound and level.
+    fn set_metronome(&mut self, m: &MetronomeSettings) {
+        let on = if m.on { 1.0 } else { 0.0 };
+        self.controller.set_param(self.click, CLICK_ON, on);
+        self.controller
+            .set_param(self.click, CLICK_SOUND, m.sound_index() as f32);
+        self.controller
+            .set_param(self.click, CLICK_LEVEL, m.level_db);
     }
 
     fn track(&self, id: TrackId) -> Result<&LiveTrack> {
@@ -1196,7 +1222,7 @@ impl Live {
     /// ```
     ///
     /// The scope taps the master, or the strip of the track the stage
-    /// listens to.
+    /// listens to. The click goes to the output alone.
     fn wire(&mut self) -> Result<()> {
         let graph = self.controller.graph_mut();
         graph.clear_edges();
@@ -1230,6 +1256,7 @@ impl Live {
         }
         graph.connect(self.master, self.output_meter)?;
         graph.connect(self.master, Endpoint::Output)?;
+        graph.connect(self.click, Endpoint::Output)?;
         let tapped = self
             .analysis_source
             .and_then(|id| self.tracks.iter().position(|t| t.id == id));
@@ -1831,6 +1858,13 @@ impl Engine {
                 .filter(|id| self.project.track(*id).is_some())
                 .map(|t| t.0),
             library: self.library_status.clone(),
+            metronome: MetronomeStatus {
+                settings: self.settings.metronome.clone(),
+                sounds: cantina_engine::CLICK_SOUNDS
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect(),
+            },
         }
     }
 
@@ -2028,6 +2062,24 @@ impl Engine {
         self.settings.latency_warn_ms = ms.max(0.0);
         self.persist();
         self.publish()
+    }
+
+    /// Turns the metronome on or off and sets its sound and level. It
+    /// clicks on every beat of the tempo map while the transport plays.
+    /// A setting, not part of the project, so it is not undoable.
+    pub fn metronome_set(&mut self, metronome: MetronomeSettings) -> Result<EngineStatus> {
+        if !cantina_engine::CLICK_SOUNDS.contains(&metronome.sound.as_str()) {
+            bail!("the metronome has no sound called {}", metronome.sound);
+        }
+        self.settings.metronome = MetronomeSettings {
+            level_db: metronome.level_db.clamp(-40.0, 6.0),
+            ..metronome
+        };
+        if let Some(live) = &mut self.live {
+            live.set_metronome(&self.settings.metronome);
+        }
+        self.persist();
+        Ok(self.publish())
     }
 
     // ----- plugins -----
@@ -3939,6 +3991,11 @@ impl Engine {
         let output_meter = graph.add(Box::new(output_meter));
         let (scope, scope_handle) = Scope::new();
         let scope = graph.add(Box::new(scope));
+        let click = graph.add(Box::new(Click::default()));
+        let metronome = &self.settings.metronome;
+        graph.set_param(click, CLICK_ON, if metronome.on { 1.0 } else { 0.0 });
+        graph.set_param(click, CLICK_SOUND, metronome.sound_index() as f32);
+        graph.set_param(click, CLICK_LEVEL, metronome.level_db);
 
         let stream = Stream::open(
             StreamConfig {
@@ -3993,6 +4050,7 @@ impl Engine {
             meters,
             readouts,
             scope,
+            click,
             analysis_source: self.analysis_source,
             analysis,
             input,

@@ -29,7 +29,7 @@ How the shell builds this from a project is on the [project](/architecture/proje
 
 ## Transport and tempo
 
-The `Transport` plays, stops, locates and loops, and cuts a block at the loop wrap so each `BlockContext` covers contiguous timeline samples. The UI thread drives it through a `TransportHandle` and reads it through a `TransportClock`. Musical time is counted in ticks, 960 per quarter note, and the `TempoMap` converts sample-accurately between samples, seconds, ticks and bar.beat.tick positions across tempo and time signature changes. The metronome (`click`) and the drum `sequencer` read the tempo map directly, so they land on the sample.
+The `Transport` plays, stops, locates and loops, and cuts a block at the loop wrap so each `BlockContext` covers contiguous timeline samples. The UI thread drives it through a `TransportHandle` and reads it through a `TransportClock`. Musical time is counted in ticks, 960 per quarter note, and the `TempoMap` converts sample-accurately between samples, seconds, ticks and bar.beat.tick positions across tempo and time signature changes. The metronome (`click`) and the drum `sequencer` read the tempo map directly, so they land on the sample. The click's sounds are synthesised as each beat triggers, from up to two tones (sine or square, the first able to glide down) and a burst of high-passed noise, so nothing is loaded or allocated; its `Sound`, `Level` and `On` parameters are set through the controller like any node's. The shell wires it straight to the output, beside the master, so it is heard but not metered, analysed or mixed down, and keeps its settings in `settings.json`.
 
 ## Disk streaming
 

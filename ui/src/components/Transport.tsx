@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   clock,
   type EngineStatus,
+  type MetronomeStatus,
   type Tempo,
   type TrackStatus,
   type TransportStatus,
@@ -13,16 +14,18 @@ import {
 import { Button } from "./Button";
 import { Lcd } from "./Lcd";
 import { Led } from "./Led";
+import { Metronome } from "./Metronome";
 import type { TimelineControls } from "./Timeline";
 
 type Props = {
   transport: TransportStatus;
   tracks: TrackStatus[];
   tempo: Tempo;
+  metronome: MetronomeStatus;
   running: boolean;
   /** Timeline position in seconds, from the meter frames. */
   position: number;
-  /** True when a drum pattern is looping on a track, which is something to play. */
+  /** True when a drum pattern is looping on a track, which is something to play. The metronome is too. */
   auditioning: boolean;
   /** The timeline's view: snap, zoom and the bar readout. */
   timeline: TimelineControls;
@@ -32,12 +35,14 @@ type Props = {
 
 /**
  * The strip above the lanes: record, play and stop, one clock in bars
- * and time, the tempo, then snap and zoom for the timeline.
+ * and time, the tempo and the metronome, then snap and zoom for the
+ * timeline.
  */
 export function Transport({
   transport,
   tracks,
   tempo,
+  metronome,
   running,
   position,
   auditioning,
@@ -49,7 +54,9 @@ export function Transport({
   const rolling = transport.playing || transport.recording;
   const armed = tracks.filter((t) => t.armed && !t.kit);
   const hasClips =
-    auditioning || tracks.some((t) => t.clips.length > 0 || t.patternClips.length > 0);
+    auditioning ||
+    metronome.on ||
+    tracks.some((t) => t.clips.length > 0 || t.patternClips.length > 0);
   const note = transport.recording
     ? `Recording ${armed.map((t) => t.name).join(", ")}…`
     : armed.length === 0
@@ -132,6 +139,7 @@ export function Transport({
           {tempo.numerator}/{tempo.denominator} · grid {timeline.divisionLabel}
         </span>
       </span>
+      <Metronome metronome={metronome} onStatus={onStatus} onError={onError} />
       <Button aria-pressed={timeline.snapOn} onClick={timeline.toggleSnap}>
         Snap
       </Button>
