@@ -29,6 +29,16 @@ A file's samples are reduced once, in a Web Worker (`peaks.worker.ts`), into min
 
 Edits are previewed on the canvas while dragging and become one command when the pointer is released.
 
+## Dragging
+
+Drags inside the window use pointer events, not HTML drag and drop. On
+macOS the shell keeps Tauri's file-drop handler on, so pedal files can be
+dropped on the window, and that handler claims every drop: the webview
+never fires `drop`, though `dragover` still arrives. A drag that works
+in the browser against the stand-in can still fail in the app. The pedal
+chain finds where a card lands from the cards' positions
+(`ui/src/lib/reorder.ts`).
+
 ## Frames
 
 `ui/src/lib/frame.ts` decodes the binary [frame](/architecture/frames/) the shell sends each display frame. Components that show levels or the stage read the latest one in an animation frame and acknowledge it, so a busy page never builds a backlog.

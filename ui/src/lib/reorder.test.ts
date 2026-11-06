@@ -1,0 +1,31 @@
+import { describe, expect, it } from "vitest";
+import { dropIndex } from "./reorder";
+
+// Three 100 px cards with 10 px gaps: centers at 50, 160 and 270.
+const row = [
+  { left: 0, right: 100 },
+  { left: 110, right: 210 },
+  { left: 220, right: 320 },
+];
+
+describe("dropIndex", () => {
+  it("picks the card under the pointer", () => {
+    expect(dropIndex(30, row)).toBe(0);
+    expect(dropIndex(150, row)).toBe(1);
+    expect(dropIndex(300, row)).toBe(2);
+  });
+
+  it("picks the nearer card in a gap", () => {
+    expect(dropIndex(104, row)).toBe(0);
+    expect(dropIndex(106, row)).toBe(1);
+  });
+
+  it("clamps past either end", () => {
+    expect(dropIndex(-500, row)).toBe(0);
+    expect(dropIndex(5000, row)).toBe(2);
+  });
+
+  it("has nowhere to land in an empty row", () => {
+    expect(dropIndex(10, [])).toBe(-1);
+  });
+});
