@@ -117,6 +117,9 @@ did not mean to change a sound, the change is wrong.
   Issues say what and why (summary, motivation, acceptance criteria,
   what is out of scope); the templates ask for exactly that.
 - **Branch from `main`**; pull requests are squash-merged once CI passes.
+  Coding agents follow the per-issue loop in `AGENTS.md` (Working a
+  milestone): a worktree and branch per issue, merged and removed before
+  the next.
 - **UI changes include screenshots**, taken with
   `scripts/screenshot.sh m<milestone>-<topic> "<query>"` against the
   stand-in engine, across more than one skin when the look changes. They

@@ -113,7 +113,8 @@ decisions and the milestones; the architecture lives on the docs site, in
   updates its guide or architecture page in `docs/src/content/docs/` in the
   same PR. Pages are Markdown with a `title` and a `description`; the docs
   build fails on a broken link.
-- **One issue per pull request**, closing it, on a milestone.
+- **One issue per pull request**, closing it, on a milestone. Agents
+  follow the loop in [Working a milestone](#working-a-milestone).
 - **UI changes include screenshots**, taken with
   `scripts/screenshot.sh <name> "<query>"` against the stand-in engine
   (name them `m<milestone>-<topic>`, as the existing ones are), across
@@ -159,3 +160,34 @@ Before finishing any change, run what CI runs (`.github/workflows/ci.yml`):
 `scripts/skill-fixtures.sh` and `cargo doc` as above. All must pass.
 Audio you cannot hear: prove a DSP change with tests and `cantina-cli
 render` numbers (peak, RMS, DC, latency), not by assertion.
+
+## Working a milestone
+
+Coding agents work one milestone at a time, one issue at a time, and
+finish each issue before starting the next:
+
+1. **Pick the next open issue** in the milestone (`gh issue list
+   --milestone "<name>"`), lowest number first unless one depends on
+   another. Read it and its acceptance criteria, including the docs.
+2. **Branch in a worktree** from an up-to-date `main`:
+   `git fetch && git worktree add ../cantina-wt/<topic> -b
+   m<milestone>/<topic> origin/main`. Work only in that worktree.
+3. **Do the work** to the rules above: code, tests, docs and, for UI
+   changes, screenshots.
+4. **Run what CI runs** (above) locally until it all passes.
+5. **Open a pull request** that says `Closes #<issue>`, on the issue's
+   milestone, in the shape the recent ones use (What, How, Proof,
+   Screenshots). Say plainly what was not tested, such as on hardware.
+6. **Wait for CI** (`gh pr checks --watch`). If it fails, fix it on the
+   branch and push; never merge red.
+7. **Squash-merge** (`gh pr merge --squash --delete-branch`), which
+   closes the issue and deletes the remote branch.
+8. **Clean up**: `git worktree remove ../cantina-wt/<topic>`, delete the
+   local branch, and `git pull` on `main`.
+9. **Move to the next issue.** When the milestone has none left, close
+   it and stop for the next milestone.
+
+Stop and ask a person instead of guessing when an issue needs a decision
+it does not make, when a change would alter a stock pedal's sound or a
+file format beyond what the issue asks, or when CI fails for a reason
+outside the change.
