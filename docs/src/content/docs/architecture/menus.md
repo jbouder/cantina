@@ -71,3 +71,14 @@ because there is only one place that says what they are.
 3. Run `cargo test -p cantina menu` and `npm run check`. The tests fail on
    an action in no menu or in two, an unknown `@` item, an accelerator
    that does not parse or lacks ⌘ or ⌃, and a shortcut used twice.
+
+## The shortcut reference
+
+`ui/src/lib/shortcuts.ts` builds the shortcut list from the registry: every
+menu item with a shortcut, menu by menu, then the `contexts` in
+`actions.json`, the keys that work only in one part of the window (the
+timeline, the drum grid, performance mode). **Help ▸ Keyboard Shortcuts**
+draws it as a sheet, and the [shortcut reference](/reference/shortcuts/)
+page is generated from it. A test fails when the page is out of date;
+`UPDATE_SHORTCUTS=1 npx vitest run shortcuts` rewrites it. A key added to
+a focused area goes in `contexts` so the reference keeps up.

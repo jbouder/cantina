@@ -8,7 +8,11 @@ sidebar:
 Everything in Cantina's menu bar is also somewhere in the window; the menus
 are where a Mac app's commands are expected to be, with their shortcuts
 beside them. An item that cannot apply right now, such as **Save** with
-nothing to save, is greyed out.
+nothing to save, is greyed out. The [shortcut reference](/reference/shortcuts/)
+lists every key on one page.
+
+The menus grow with Cantina: the assistant, tabs, rigs and jam mode each
+add their own items when they arrive.
 
 ## Cantina
 
@@ -107,5 +111,6 @@ in a text field. The menu shows them without a shortcut for that reason.
 | --- | --- |
 | Search | macOS's own: finds any menu item by name. |
 | Cantina Help | Opens this site. |
+| Keyboard Shortcuts | Every shortcut, by menu and by part of the window. The same list as the [shortcut reference](/reference/shortcuts/). |
 | Release Notes | Opens the releases on GitHub. |
 | Report an Issue… | Opens a new GitHub issue with your Cantina version filled in. |

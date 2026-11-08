@@ -194,6 +194,9 @@
     },
     "reportIssue": {
       "label": "Report an Issue…"
+    },
+    "shortcuts": {
+      "label": "Keyboard Shortcuts"
     }
   },
   "menus": [
@@ -321,7 +324,43 @@
     },
     {
       "title": "Help",
-      "items": ["help", "-", "releaseNotes", "reportIssue"]
+      "items": ["help", "shortcuts", "-", "releaseNotes", "reportIssue"]
+    }
+  ],
+  "contexts": [
+    {
+      "title": "Timeline",
+      "note": "With the timeline focused.",
+      "keys": [
+        ["⌫", "Deletes the selected clip"],
+        ["S", "Splits the selected clip at the playhead"],
+        ["← →", "Nudges the selected clip a grid step, or scrolls with none selected"],
+        ["+ −", "Zooms in and out"],
+        ["Esc", "Clears the selection"],
+        ["⌥-click", "Splits a clip where you click"]
+      ]
+    },
+    {
+      "title": "Drum grid",
+      "note": "With a step focused.",
+      "keys": [
+        ["← → ↑ ↓", "Moves around the grid"],
+        ["Space, Return", "Adds or removes a hit"],
+        ["⇧↑ ⇧↓", "Makes the hit 10% harder or softer"],
+        ["Home, End", "Jumps to the ends of the row"]
+      ]
+    },
+    {
+      "title": "Performance mode",
+      "note": "While the stage is full screen.",
+      "keys": [
+        ["← →", "Previous and next scene"],
+        ["B", "Shows or hides the pedalboard"],
+        ["↑ ↓", "Switches chains"],
+        ["1–9", "Stomps the live chain's pedals"],
+        ["D", "Sends the stage to the other display, or brings it back"],
+        ["Esc", "Leaves performance mode"]
+      ]
     }
   ]
 }
