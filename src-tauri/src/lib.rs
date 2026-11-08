@@ -142,6 +142,7 @@ pub fn run() {
             commands::count_in_set,
             commands::chain_bypass,
             commands::open_link,
+            commands::loop_set,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Cantina shell")

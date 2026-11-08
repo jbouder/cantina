@@ -34,17 +34,18 @@ use cantina_engine::click::{LEVEL as CLICK_LEVEL, ON as CLICK_ON, SOUND as CLICK
 use cantina_engine::strip::{GAIN, MUTE, PAN};
 use cantina_engine::{
     beat_at, device, ir, kit, plan, processors, wav, Analyzer, Click, Controller, Delay,
-    DeviceEvent, DeviceId, Endpoint, GraphConfig, Impulse, IrEntry, KitEntry, Meter, MeterHandle,
-    MusicalPosition, Mute, NodeId, PatternData, Placement, Player, PlayerHandle, Recorder,
-    RecorderHandle, Runtime, Scope, ScopeHandle, Score, Sequencer, SequencerHandle, Stream,
-    StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
+    DeviceEvent, DeviceId, Endpoint, GraphConfig, Impulse, IrEntry, KitEntry, LoopRange, Meter,
+    MeterHandle, MusicalPosition, Mute, NodeId, PatternData, Placement, Player, PlayerHandle,
+    Recorder, RecorderHandle, Runtime, Scope, ScopeHandle, Score, Sequencer, SequencerHandle,
+    Stream, StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle, Watcher,
+    MAX_BLOCK_FRAMES,
 };
 use cantina_hosting::scan::{self, PluginList, Scanner};
 use cantina_hosting::{AudioUnitHandle, ClapHandle, Editor};
 use cantina_project::{
-    Clip, ClipId, Command, History, Journal, JournalEntry, Pattern, PatternClip, PatternClipId,
-    PatternId, PatternRow, Pedal, PedalId, Project, Strip as StripModel, Tempo, Track, TrackId,
-    PEDALS_DIR, PLUGINS_DIR,
+    Clip, ClipId, Command, History, Journal, JournalEntry, LoopRegion, Pattern, PatternClip,
+    PatternClipId, PatternId, PatternRow, Pedal, PedalId, Project, Strip as StripModel, Tempo,
+    Track, TrackId, PEDALS_DIR, PLUGINS_DIR,
 };
 use objc2::MainThreadMarker;
 use serde::Serialize;
@@ -235,6 +236,9 @@ pub struct ProjectStatus {
     pub patterns: Vec<PatternInfo>,
     /// The master strip; pan and solo are unused on it.
     pub master: StripModel,
+    /// The loop region, and whether playback loops over it.
+    #[serde(rename = "loop")]
+    pub loop_region: Option<LoopRegion>,
 }
 
 /// A pattern, as the grid shows it. Mirrors `PatternInfo` in the UI.
@@ -2236,6 +2240,7 @@ impl Engine {
                 })
                 .collect(),
             master: p.master.clone(),
+            loop_region: p.loop_region,
         }
     }
 
@@ -2475,6 +2480,18 @@ impl Engine {
         let Some(live) = &mut self.live else {
             return Ok(());
         };
+        // The loop, when it is on, wraps the transport.
+        let looping = self
+            .project
+            .loop_region
+            .filter(|r| r.on)
+            .map(|r| LoopRange {
+                start: r.start,
+                end: r.end,
+            });
+        if live.transport().loop_range() != looping {
+            live.transport().set_loop(looping);
+        }
         let audio_dir = cantina_project::audio_dir(&self.project_dir);
         let mut removed = Vec::new();
         let result = live.sync(
@@ -3313,6 +3330,11 @@ impl Engine {
         })
     }
 
+    /// Sets the loop region and whether playback loops, or clears it.
+    pub fn loop_set(&mut self, region: Option<LoopRegion>) -> Result<EngineStatus> {
+        self.apply(Command::SetLoop { region })
+    }
+
     /// Bypasses every pedal on a track's chain, or turns them all on, as
     /// one edit.
     pub fn chain_bypass(&mut self, track: u64, on: bool) -> Result<EngineStatus> {
@@ -3595,6 +3617,14 @@ impl Engine {
                 correction,
             });
         }
+        // Over a loop, a take is one pass: it stops at the loop's end
+        // rather than wrapping and recording over itself.
+        let stop = self
+            .project
+            .loop_region
+            .filter(|r| r.on && r.end > from)
+            .map(|r| r.end);
+        live.transport().stop_at(stop);
         if live.transport().is_playing() || !self.settings.count_in {
             live.transport().play();
         } else {

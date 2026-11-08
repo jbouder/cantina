@@ -46,6 +46,7 @@ import {
   engineStop,
   inTauri,
   kitImport,
+  loopSet,
   type MeterFrame,
   menuState,
   metronomeSet,
@@ -111,6 +112,14 @@ function loadSplit(): number {
   return DEFAULT_SPLIT;
 }
 
+/** Four bars from the start of the bar at `seconds`, in samples. */
+function barsFrom(status: EngineStatus, seconds: number): { start: number; end: number } {
+  const { bpm, numerator, denominator } = status.project.tempo;
+  const bar = numerator * (60 / bpm) * (4 / denominator) * status.project.sampleRate;
+  const start = Math.floor((seconds * status.project.sampleRate) / bar) * bar;
+  return { start: Math.round(start), end: Math.round(start + 4 * bar) };
+}
+
 /** The end of the song: the end of the last clip on any track, in samples. */
 function songEnd(status: EngineStatus): number {
   const spt = samplesPerTick(status.project.tempo, status.project.sampleRate);
@@ -172,7 +181,11 @@ export function App() {
   const [checkUpdates, setCheckUpdates] = useState(false);
   // The timeline's clip edits, for the Edit menu.
   const timelineEdit = useRef<TimelineEdit | null>(null);
-  const [clipEdit, setClipEdit] = useState<TimelineEditState>({ selected: false, canSplit: false });
+  const [clipEdit, setClipEdit] = useState<TimelineEditState>({
+    selected: false,
+    canSplit: false,
+    span: null,
+  });
   const [skin, setSkin] = useSkin();
   // View ▸ Show Meters, remembered for next time.
   // In a browser `?nometers` hides them, for screenshots.
@@ -277,6 +290,25 @@ export function App() {
       }),
     [],
   );
+
+  // A take over a loop stops itself at the loop's end; the shell then
+  // needs Stop to put the take on its track. Only once the take has
+  // rolled, so the frames before the transport starts do not count.
+  const rolledWhileRecording = useRef(false);
+  useEffect(() => {
+    if (!frame.recording) {
+      rolledWhileRecording.current = false;
+      return;
+    }
+    if (frame.playing) {
+      rolledWhileRecording.current = true;
+      return;
+    }
+    if (rolledWhileRecording.current && frame.countIn === 0) {
+      rolledWhileRecording.current = false;
+      transportStop().then(setStatus, (e) => setError(String(e)));
+    }
+  }, [frame.recording, frame.playing, frame.countIn]);
 
   const toggle = useCallback(async () => {
     if (!status || busy) return;
@@ -480,6 +512,23 @@ export function App() {
       enabled: has,
       checked: status?.countIn ?? true,
       run: () => report(countInSet(!(status?.countIn ?? true))),
+    },
+    // Loop on and off; with no region yet, four bars from the playhead's bar.
+    loop: {
+      enabled: has,
+      checked: project?.loop?.on ?? false,
+      run: () => {
+        if (!status) return;
+        const region = status.project.loop;
+        if (region) report(loopSet({ ...region, on: !region.on }));
+        else report(loopSet({ ...barsFrom(status, frame.position), on: true }));
+      },
+    },
+    loopToClip: {
+      enabled: clipEdit.span !== null,
+      run: () => {
+        if (clipEdit.span) report(loopSet({ ...clipEdit.span, on: true }));
+      },
     },
     goToStart: { enabled: running && !frame.recording, run: () => report(transportLocate(0)) },
     goToEnd: {
@@ -751,6 +800,7 @@ export function App() {
                 onError={setError}
                 editRef={timelineEdit}
                 onEditState={setClipEdit}
+                loopRegion={status.project.loop}
               />
             </div>
             <Divider

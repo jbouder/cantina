@@ -50,6 +50,33 @@
       "minimum": 0,
       "type": "integer"
     },
+    "LoopRegion": {
+      "description": "A region of the timeline, in samples, that playback can loop over.",
+      "properties": {
+        "end": {
+          "description": "Sample just after it; playback wraps from here to `start`.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "on": {
+          "description": "True while playback loops. The region stays when it is off.",
+          "type": "boolean"
+        },
+        "start": {
+          "description": "First sample of the loop.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "on"
+      ],
+      "type": "object"
+    },
     "Pattern": {
       "description": "A step sequencer pattern: a grid of pads against steps, with a velocity per cell. Patterns belong to the project and refer to pads by the ids the kit format uses (`kick`, `snare`, `hh-closed`…), so a pattern plays on any drum track whose kit has those pads.",
       "properties": {
@@ -358,6 +385,17 @@
     "$schema": {
       "type": "string"
     },
+    "loop": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LoopRegion"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The loop region on the timeline, set or not, and whether playback loops over it."
+    },
     "master": {
       "$ref": "#/$defs/Strip",
       "default": {
@@ -411,7 +449,7 @@
       "type": "array"
     },
     "version": {
-      "const": 5,
+      "const": 6,
       "description": "The format version, `FORMAT_VERSION` when written; older files are upgraded on load.",
       "format": "uint32",
       "minimum": 0,

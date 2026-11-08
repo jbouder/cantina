@@ -260,6 +260,9 @@ fn migrate(from: u32, mut value: Value) -> Value {
         // 4 -> 5: bypass. A pedal may carry `bypassed`; a version 4 file
         // has none, so every pedal is on.
         4 => value,
+        // 5 -> 6: a loop region. A project may carry `loop`; a version 5
+        // file has none, so nothing loops.
+        5 => value,
         _ => value,
     }
 }
@@ -476,6 +479,32 @@ mod tests {
         let json = serde_json::to_value(&project).unwrap();
         assert_eq!(json["tracks"][0]["chain"][0]["bypassed"], true);
         assert!(json["tracks"][0]["chain"][1].get("bypassed").is_none());
+    }
+
+    #[test]
+    fn a_version_6_file_loops_and_a_version_5_file_does_not() {
+        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+        let v6 = load_str(
+            &fs::read_to_string(fixtures.join("v6.json")).unwrap(),
+            Path::new("v6/project.json"),
+        )
+        .unwrap();
+        assert_eq!(
+            v6.loop_region,
+            Some(crate::model::LoopRegion {
+                start: 96_000,
+                end: 192_000,
+                on: true
+            })
+        );
+        let v5 = load_str(
+            &fs::read_to_string(fixtures.join("v5.json")).unwrap(),
+            Path::new("v5/project.json"),
+        )
+        .unwrap();
+        assert_eq!(v5.loop_region, None);
+        // No loop writes no field.
+        assert!(serde_json::to_value(&v5).unwrap().get("loop").is_none());
     }
 
     #[test]

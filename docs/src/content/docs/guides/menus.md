@@ -61,6 +61,8 @@ add their own items when they arrive.
 | Play / Stop | Space | Plays from the playhead, or stops. The item reads Stop while the transport rolls. |
 | Record | R | Records the armed tracks. See [recording](/guides/recording/). |
 | Count In | | Checked: Record counts in four beats before the take starts. Unchecked: the take starts at once. Remembered for next time. |
+| Loop | L | Checked while playback loops over the loop region. With no region yet, it loops four bars from the playhead's bar. See [looping](/guides/recording/#loop-a-section). |
+| Loop Selected Clip | | Sets the loop to the selected clip and turns it on. |
 | Metronome | K | Turns the click on and off; checked while it is on. |
 | Go to Start | Home | Moves the playhead to the start of the song. |
 | Go to End | End | Moves the playhead to the end of the last clip. |

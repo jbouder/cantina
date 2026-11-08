@@ -42,6 +42,23 @@ the interface does not push them late.
   keys, or **Fit** to see every clip. Swipe sideways to scroll. While the
   transport rolls, the view pages to keep the playhead in sight.
 
+
+## Loop a section
+
+Press L, or choose **Transport ▸ Loop**, and playback goes round the loop
+region: at its end it jumps back to its start on the exact sample, clips,
+drums and the click with it. The region shows on the ruler, bright while
+looping and faint while not.
+
+- **Shift-drag on the ruler** to draw a loop. It snaps to the grid.
+- **Drag either end** of the loop on the ruler to move it.
+- **Transport ▸ Loop Selected Clip** loops the clip you have selected.
+- With no loop drawn yet, L loops four bars from the bar the playhead is in.
+
+Recording while looping records one pass: the take stops at the loop's end,
+exactly, and lands on the track like any other. Setting and moving the loop
+are edits, so ⌘Z undoes them, and the loop is saved with the project.
+
 ## Edit clips
 
 | To | Do |

@@ -40,6 +40,7 @@ without ⌘ do nothing while you are typing in a text field. The
 | --- | --- |
 | Space | Play |
 | R | Record |
+| L | Loop |
 | K | Metronome |
 | Home | Go to Start |
 | End | Go to End |
@@ -71,6 +72,8 @@ With the timeline focused.
 | + − | Zooms in and out |
 | Esc | Clears the selection |
 | ⌥-click | Splits a clip where you click |
+| ⇧-drag the ruler | Sets the loop |
+| Drag a loop edge | Moves that end of the loop |
 
 ## Drum grid
 
