@@ -18,13 +18,14 @@ and use ▲ and ▼ to move it up or down or **×** to remove it.
 
 ## Record a take
 
-1. Arm the track: click the light beside its name. An armed track plays your
-   input through its pedals.
-2. Press **Record** or R. The click counts in four beats, whether or not the
+1. Arm the track: click the light beside its name, or choose **Track ▸ Arm for
+   Recording**. An armed track plays your input through its pedals.
+2. Press **Record**, R or **Transport ▸ Record**. The click counts in four beats, whether or not the
    metronome is on, and the clock shows the count. Then the transport rolls
    from the playhead and the take starts on that exact sample.
 3. Press **Stop** or Space. The take lands on the track as a clip. Stopping
-   during the count-in cancels it and records nothing.
+   during the count-in cancels it and records nothing. To start
+   recording at once, uncheck **Transport ▸ Count In**.
 
 Takes are written to the project's folder as they record, and the files are
 never changed afterwards: every edit below is to the clips that point into
@@ -34,7 +35,8 @@ the interface does not push them late.
 ## Play and move around
 
 - **Space** plays from the playhead or stops.
-- **Click the ruler** to move the playhead.
+- **Click the ruler** to move the playhead, or press Home and End (**Transport ▸
+  Go to Start** and **Go to End**) to jump to either end of the song.
 - The clock shows bars and beats, then minutes and seconds.
 - **Zoom** with a pinch or Ctrl and the scroll wheel, the **−** and **+**
   keys, or **Fit** to see every clip. Swipe sideways to scroll. While the

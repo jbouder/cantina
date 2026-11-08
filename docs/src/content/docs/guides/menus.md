@@ -54,11 +54,30 @@ nothing to save, is greyed out.
 
 | Item | Key | What it does |
 | --- | --- | --- |
-| Play / Stop | Space | Plays from the playhead, or stops. |
-| Record | R | Counts in and records the armed tracks. See [recording](/guides/recording/). |
+| Play / Stop | Space | Plays from the playhead, or stops. The item reads Stop while the transport rolls. |
+| Record | R | Records the armed tracks. See [recording](/guides/recording/). |
+| Count In | | Checked: Record counts in four beats before the take starts. Unchecked: the take starts at once. Remembered for next time. |
 | Metronome | K | Turns the click on and off; checked while it is on. |
+| Go to Start | Home | Moves the playhead to the start of the song. |
+| Go to End | End | Moves the playhead to the end of the last clip. |
+| Tempo… | | Puts the cursor in the tempo field. |
 
-The keys for these items have no ⌘, so they do nothing while you are typing
+## Track
+
+These act on the selected track, and are greyed out with none.
+
+| Item | Shortcut | What it does |
+| --- | --- | --- |
+| New Audio Track | ⌥⌘N | Adds an audio track with an empty pedalboard and selects it. |
+| New Drum Track | | Adds a drum track with the first kit and selects it. |
+| Arm for Recording | | Checked while the track is armed: it monitors its input and records with Record. Audio tracks only. |
+| Mute, Solo | | Checked while the track is muted or soloed, as the buttons on its header. |
+| Rename Track… | | Opens the track's name for typing. |
+| Remove Track | | Removes the track, its clips and its pedals. Undo brings it back. |
+| Add Pedal… | | The pedal picker, adding to the end of the track's chain. |
+| Bypass Chain | | Checked when every pedal on the track is off. Choosing it turns them all off, or all back on, as one edit. |
+
+The keys in these menus have no ⌘, so they do nothing while you are typing
 in a text field. The menu shows them without a shortcut for that reason.
 
 ## View and Window

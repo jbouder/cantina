@@ -798,3 +798,17 @@ pub fn pattern_clip_paste(
         .pattern_clip_paste(track, start, pattern, offset, length)
         .map_err(fail)
 }
+
+#[tauri::command]
+pub fn count_in_set(engine: State<'_, EngineState>, on: bool) -> EngineStatus {
+    engine.lock().count_in_set(on)
+}
+
+#[tauri::command]
+pub fn chain_bypass(
+    engine: State<'_, EngineState>,
+    track: u64,
+    on: bool,
+) -> Result<EngineStatus, String> {
+    engine.lock().chain_bypass(track, on).map_err(fail)
+}

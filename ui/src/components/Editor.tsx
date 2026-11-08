@@ -50,6 +50,8 @@ type Props = {
   initialTab?: EditorTab | undefined;
   /** Counts File ▸ Bounce Track in Place; each new value bounces the track once. */
   bounceRequest?: number;
+  /** Counts Track ▸ Rename Track; each new value opens the name field. */
+  renameRequest?: number;
   /** Opens the picker, which adds at the end of the chain. */
   onAdd: () => void;
   onDesign: (pedal: number) => void;
@@ -81,6 +83,7 @@ export function Editor({
   irs,
   initialTab,
   bounceRequest = 0,
+  renameRequest = 0,
   onAdd,
   onDesign,
   onStatus,
@@ -106,6 +109,13 @@ export function Editor({
       .then(onStatus, (e) => onError(String(e)))
       .finally(() => setBouncing(false));
   };
+  // A rename asked for from the menu opens the name field.
+  const renamed = useRef(renameRequest);
+  useEffect(() => {
+    if (renameRequest === renamed.current) return;
+    renamed.current = renameRequest;
+    setEditing(true);
+  });
   // A bounce asked for from the menu, once per request.
   const bounced = useRef(bounceRequest);
   useEffect(() => {

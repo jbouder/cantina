@@ -98,6 +98,8 @@ pub struct EngineStatus {
     /// `Patterns`, and every file in them that does not load.
     pub library: library::LibraryStatus,
     pub metronome: MetronomeStatus,
+    /// Record counts in four beats first. An app setting.
+    pub count_in: bool,
 }
 
 /// The metronome's settings and the sounds it offers. Mirrors
@@ -1865,6 +1867,7 @@ impl Engine {
                     .map(|s| s.to_string())
                     .collect(),
             },
+            count_in: self.settings.count_in,
         }
     }
 
@@ -2080,6 +2083,13 @@ impl Engine {
         }
         self.persist();
         Ok(self.publish())
+    }
+
+    /// Turns Record's count-in on or off. An app setting, not undoable.
+    pub fn count_in_set(&mut self, on: bool) -> EngineStatus {
+        self.settings.count_in = on;
+        self.persist();
+        self.publish()
     }
 
     // ----- plugins -----
@@ -3303,6 +3313,25 @@ impl Engine {
         })
     }
 
+    /// Bypasses every pedal on a track's chain, or turns them all on, as
+    /// one edit.
+    pub fn chain_bypass(&mut self, track: u64, on: bool) -> Result<EngineStatus> {
+        let track = self
+            .project
+            .track(TrackId(track))
+            .with_context(|| format!("no track {track}"))?;
+        let commands: Vec<Command> = track
+            .chain
+            .iter()
+            .filter(|p| p.bypassed != on)
+            .map(|p| Command::SetBypass { pedal: p.id, on })
+            .collect();
+        if commands.is_empty() {
+            return Ok(self.publish());
+        }
+        self.apply(Command::Batch { commands })
+    }
+
     /// Switches the live input to one audio track's chain: arms it and
     /// disarms every other audio track, as one edit. On stage this is
     /// how a player moves between a clean and a lead sound.
@@ -3566,7 +3595,7 @@ impl Engine {
                 correction,
             });
         }
-        if live.transport().is_playing() {
+        if live.transport().is_playing() || !self.settings.count_in {
             live.transport().play();
         } else {
             live.transport().count_in(sample_rate);
