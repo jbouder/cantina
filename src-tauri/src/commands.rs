@@ -812,3 +812,17 @@ pub fn chain_bypass(
 ) -> Result<EngineStatus, String> {
     engine.lock().chain_bypass(track, on).map_err(fail)
 }
+
+/// Opens one of the Help menu's links in the browser: `docs`,
+/// `shortcuts`, `releases` or `issue`. Only those; see `menu::link_url`.
+#[tauri::command]
+pub fn open_link(app: tauri::AppHandle, which: String) -> Result<(), String> {
+    let version = app.package_info().version.to_string();
+    let url =
+        crate::menu::link_url(&which, &version).ok_or_else(|| format!("no link called {which}"))?;
+    std::process::Command::new("open")
+        .arg(url)
+        .status()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}

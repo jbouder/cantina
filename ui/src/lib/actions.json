@@ -133,6 +133,67 @@
     "perform": {
       "label": "Performance Mode",
       "key": "P"
+    },
+    "arrange": {
+      "label": "Arrange"
+    },
+    "designer": {
+      "label": "Pedal Designer"
+    },
+    "stage": {
+      "label": "Stage"
+    },
+    "skin-classic": {
+      "label": "Classic",
+      "checkable": true
+    },
+    "skin-midnight": {
+      "label": "Midnight",
+      "checkable": true
+    },
+    "skin-metal": {
+      "label": "Brushed metal",
+      "checkable": true
+    },
+    "skin-hifi": {
+      "label": "Hi-fi",
+      "checkable": true
+    },
+    "skin-neon": {
+      "label": "Neon",
+      "checkable": true
+    },
+    "skin-toxic": {
+      "label": "Toxic",
+      "checkable": true
+    },
+    "zoomIn": {
+      "label": "Zoom In",
+      "accelerator": "CmdOrCtrl+Equal"
+    },
+    "zoomOut": {
+      "label": "Zoom Out",
+      "accelerator": "CmdOrCtrl+Minus"
+    },
+    "zoomFit": {
+      "label": "Zoom to Fit",
+      "accelerator": "CmdOrCtrl+0"
+    },
+    "showMeters": {
+      "label": "Show Meters",
+      "checkable": true
+    },
+    "stageWindow": {
+      "label": "Stage on Second Display"
+    },
+    "help": {
+      "label": "Cantina Help"
+    },
+    "releaseNotes": {
+      "label": "Release Notes"
+    },
+    "reportIssue": {
+      "label": "Report an Issue…"
     }
   },
   "menus": [
@@ -227,11 +288,40 @@
     },
     {
       "title": "View",
-      "items": ["perform", "-", "@fullscreen"]
+      "items": [
+        "arrange",
+        "designer",
+        "stage",
+        "perform",
+        "-",
+        {
+          "title": "Skin",
+          "items": [
+            "skin-classic",
+            "skin-midnight",
+            "skin-metal",
+            "skin-hifi",
+            "skin-neon",
+            "skin-toxic"
+          ]
+        },
+        "-",
+        "zoomIn",
+        "zoomOut",
+        "zoomFit",
+        "-",
+        "showMeters",
+        "-",
+        "@fullscreen"
+      ]
     },
     {
       "title": "Window",
-      "items": ["@minimize", "@maximize", "-", "@bringAllToFront"]
+      "items": ["@minimize", "@maximize", "-", "stageWindow", "-", "@bringAllToFront"]
+    },
+    {
+      "title": "Help",
+      "items": ["help", "-", "releaseNotes", "reportIssue"]
     }
   ]
 }

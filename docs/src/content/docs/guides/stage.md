@@ -11,7 +11,7 @@ the project's tempo, so scenes pulse in time.
 
 ## The stage sheet
 
-The stage key, the screen beside **Engine**, opens a sheet with the scene, a scene
+The stage key, the screen beside **Engine**, or **View ▸ Stage** opens a sheet with the scene, a scene
 picker, and **Listens to**: the master, or one track's post-fader signal.
 The scene is remembered for next time and shared by every place the
 stage is drawn.
@@ -43,7 +43,8 @@ undoable like any edit; a bypassed pedal adds no latency.
 
 ## A second display
 
-With a second display connected, **Second display** (or D) opens the
+With a second display connected, **Second display** (or D, or **Window ▸
+Stage on Second Display**) opens the
 stage full screen on it in a window of its own, while the studio window
 stays where it is. The stage window draws from the same frames and
 follows the scene the studio picks; the studio shows a note in its place

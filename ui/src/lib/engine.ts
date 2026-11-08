@@ -1308,6 +1308,11 @@ function mockFreeName(name: string) {
   if (mockProjects.includes(n)) throw new Error(`there is already a project called ${n}`);
 }
 
+/** Opens one of the Help menu's links in the browser. Nothing in the stand-in. */
+export async function openLink(which: "docs" | "shortcuts" | "releases" | "issue"): Promise<void> {
+  if (inTauri) await invoke("open_link", { which });
+}
+
 /** Shows the open project's folder, or the library folder, in Finder. Nothing in a browser. */
 export async function reveal(what: "project" | "library"): Promise<void> {
   if (inTauri) await invoke("reveal", { what });

@@ -125,11 +125,14 @@ export interface TimelineEditState {
   canSplit: boolean;
 }
 
-/** The clip edits the Edit menu runs on the selected clip. */
+/** The clip edits the Edit menu runs on the selected clip, and the View menu's zoom. */
 export interface TimelineEdit {
   duplicate: () => void;
   remove: () => void;
   splitAtPlayhead: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  fit: () => void;
 }
 
 /** A drag in progress: which edge, and the clip's geometry so far. */
@@ -613,19 +616,6 @@ export function Timeline({
 
   const here = Math.round(playhead);
   const canSplitHere = selected !== null && canSplit(selected.clip, here);
-  if (editRef) {
-    editRef.current = {
-      duplicate: () => {
-        if (selected) duplicate(selected.track, selected.clip);
-      },
-      remove: () => {
-        if (selected) run(remove(selected.clip));
-      },
-      splitAtPlayhead: () => {
-        if (selected && canSplit(selected.clip, here)) run(split(selected.clip, here));
-      },
-    };
-  }
   const editState = selected !== null;
   useEffect(() => {
     onEditState?.({ selected: editState, canSplit: canSplitHere });
@@ -843,6 +833,24 @@ export function Timeline({
     bars: musicalLabel(playhead, grid),
     divisionLabel,
   };
+
+  // The View and Edit menus reach the timeline through this.
+  if (editRef) {
+    editRef.current = {
+      duplicate: () => {
+        if (selected) duplicate(selected.track, selected.clip);
+      },
+      remove: () => {
+        if (selected) run(remove(selected.clip));
+      },
+      splitAtPlayhead: () => {
+        if (selected && canSplit(selected.clip, here)) run(split(selected.clip, here));
+      },
+      zoomIn: controls.zoomIn,
+      zoomOut: controls.zoomOut,
+      fit: controls.fit,
+    };
+  }
 
   const pointing = drag?.kind ?? hover;
   const cursor =
