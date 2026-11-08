@@ -8,12 +8,12 @@
 
 use std::time::Duration;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 /// What kind of thing went wrong, for the UI to pick its wording and for
 /// the chat to say what to do next. Mirrors `ProblemKind` in the UI.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ProblemKind {
     /// The assistant is turned off; nothing was sent.
@@ -36,7 +36,7 @@ pub enum ProblemKind {
 }
 
 /// A failed request, in plain words. Mirrors `AssistantProblem` in the UI.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Problem {
     pub kind: ProblemKind,
@@ -44,7 +44,8 @@ pub struct Problem {
 }
 
 impl Problem {
-    fn new(kind: ProblemKind, message: impl Into<String>) -> Self {
+    /// A problem of a kind, in these words.
+    pub fn new(kind: ProblemKind, message: impl Into<String>) -> Self {
         Self {
             kind,
             message: message.into(),
@@ -317,6 +318,230 @@ impl Connection {
     }
 }
 
+impl Connection {
+    /// A chat completion, streamed: `on_text` gets each piece of the
+    /// reply as it arrives, and the whole step, with any tool calls,
+    /// comes back at the end. An endpoint that ignores `stream` and
+    /// answers in one piece works too.
+    pub async fn chat(
+        &self,
+        client: &reqwest::Client,
+        messages: &[Value],
+        tools: &[Value],
+        on_text: &mut (dyn FnMut(&str) + Send),
+    ) -> Result<Step, Problem> {
+        let mut body = json!({
+            "model": self.model,
+            "messages": messages,
+            "stream": true,
+        });
+        if !tools.is_empty() {
+            body["tools"] = Value::Array(tools.to_vec());
+        }
+        let mut response = self
+            .request(client, reqwest::Method::POST, "/chat/completions")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| Problem::from_reqwest(&e, &self.base))?;
+        let status = response.status().as_u16();
+        if !(200..300).contains(&status) {
+            let body = response.text().await.unwrap_or_default();
+            return Err(classify(status, &body, Stage::Chat, &self.model));
+        }
+        let streamed = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v.contains("event-stream"));
+        let mut stream = StreamState::default();
+        if streamed {
+            while let Some(chunk) = response
+                .chunk()
+                .await
+                .map_err(|e| Problem::from_reqwest(&e, &self.base))?
+            {
+                let text = stream.feed(&chunk);
+                if !text.is_empty() {
+                    on_text(&text);
+                }
+                if stream.done {
+                    break;
+                }
+            }
+        } else {
+            let body = response
+                .text()
+                .await
+                .map_err(|e| Problem::from_reqwest(&e, &self.base))?;
+            let text = stream.whole(&body);
+            if !text.is_empty() {
+                on_text(&text);
+            }
+        }
+        stream.finish()
+    }
+}
+
+/// A tool call the model asked for.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CallRequest {
+    /// The id the result goes back under.
+    pub id: String,
+    pub name: String,
+    /// The arguments as the model wrote them: JSON, if it got them right.
+    pub arguments: String,
+}
+
+/// One answer from the model: its text and the tools it wants run.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Step {
+    pub text: String,
+    pub calls: Vec<CallRequest>,
+}
+
+/// A streamed answer being put back together from its server-sent
+/// events: `data: {json}` lines, each a piece of text or of a tool call.
+#[derive(Debug, Default)]
+pub struct StreamState {
+    /// Bytes after the last newline, which may end mid-character.
+    pending: Vec<u8>,
+    text: String,
+    calls: Vec<CallRequest>,
+    /// The stream said `[DONE]`.
+    pub done: bool,
+    error: Option<String>,
+}
+
+impl StreamState {
+    /// Takes the next bytes and returns the text they add.
+    pub fn feed(&mut self, bytes: &[u8]) -> String {
+        self.pending.extend_from_slice(bytes);
+        let mut added = String::new();
+        while let Some(end) = self.pending.iter().position(|&b| b == b'\n') {
+            let line: Vec<u8> = self.pending.drain(..=end).collect();
+            let line = String::from_utf8_lossy(&line);
+            if let Some(data) = line.trim().strip_prefix("data:") {
+                let data = data.trim();
+                if data == "[DONE]" {
+                    self.done = true;
+                } else if let Ok(event) = serde_json::from_str::<Value>(data) {
+                    self.event(&event, "delta", &mut added);
+                }
+            }
+        }
+        added
+    }
+
+    /// Takes an answer that came in one piece and returns its text.
+    pub fn whole(&mut self, body: &str) -> String {
+        let mut added = String::new();
+        match serde_json::from_str::<Value>(body) {
+            Ok(answer) => self.event(&answer, "message", &mut added),
+            Err(_) => self.error = Some("The answer was not JSON.".into()),
+        }
+        self.done = true;
+        added
+    }
+
+    fn event(&mut self, event: &Value, field: &str, added: &mut String) {
+        if let Some(error) = event.get("error") {
+            let message = error
+                .get("message")
+                .and_then(Value::as_str)
+                .or_else(|| error.as_str())
+                .unwrap_or("unknown error");
+            self.error = Some(message.to_string());
+            return;
+        }
+        let Some(choice) = event.pointer("/choices/0") else {
+            return;
+        };
+        let Some(part) = choice.get(field) else {
+            return;
+        };
+        if let Some(text) = part.get("content").and_then(Value::as_str) {
+            self.text.push_str(text);
+            added.push_str(text);
+        }
+        for (n, call) in part
+            .get("tool_calls")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .enumerate()
+        {
+            let index = call
+                .get("index")
+                .and_then(Value::as_u64)
+                .map_or(n, |i| i as usize);
+            while self.calls.len() <= index {
+                self.calls.push(CallRequest {
+                    id: String::new(),
+                    name: String::new(),
+                    arguments: String::new(),
+                });
+            }
+            let slot = &mut self.calls[index];
+            if let Some(id) = call.get("id").and_then(Value::as_str) {
+                slot.id = id.to_string();
+            }
+            if let Some(name) = call.pointer("/function/name").and_then(Value::as_str) {
+                // Sent once in the first piece, though some servers repeat it.
+                if !slot.name.ends_with(name) {
+                    slot.name.push_str(name);
+                }
+            }
+            if let Some(args) = call.pointer("/function/arguments") {
+                match args {
+                    Value::String(piece) => slot.arguments.push_str(piece),
+                    other => slot.arguments = other.to_string(),
+                }
+            }
+        }
+    }
+
+    /// The step, once the stream has ended.
+    pub fn finish(self) -> Result<Step, Problem> {
+        if let Some(message) = self.error {
+            return Err(Problem::new(
+                ProblemKind::Server,
+                format!("The provider stopped with an error: {message}"),
+            ));
+        }
+        let calls = self
+            .calls
+            .into_iter()
+            .enumerate()
+            .filter(|(_, c)| !c.name.is_empty())
+            .map(|(n, c)| CallRequest {
+                id: if c.id.is_empty() {
+                    format!("call_{n}")
+                } else {
+                    c.id
+                },
+                ..c
+            })
+            .collect();
+        Ok(Step {
+            text: self.text,
+            calls,
+        })
+    }
+}
+
+/// A client for a chat: no limit on the whole answer, which streams for
+/// as long as the model writes, but one on each wait for more of it.
+pub fn chat_client() -> reqwest::Client {
+    install_crypto();
+    reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(10))
+        .read_timeout(Duration::from_secs(120))
+        .user_agent(concat!("Cantina/", env!("CARGO_PKG_VERSION")))
+        .build()
+        .unwrap_or_default()
+}
+
 /// The model ids in a `/models` answer: `{"data": [{"id": …}]}`, or the
 /// bare list some local servers send.
 pub fn parse_models(body: &str) -> Option<Vec<String>> {
@@ -342,16 +567,21 @@ pub fn parse_models(body: &str) -> Option<Vec<String>> {
 
 /// A client for short requests: listing models and testing.
 pub fn client() -> reqwest::Client {
-    // The updater installs the same provider; whichever runs first wins.
-    if rustls::crypto::CryptoProvider::get_default().is_none() {
-        let _ = rustls::crypto::ring::default_provider().install_default();
-    }
+    install_crypto();
     reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(10))
         .timeout(Duration::from_secs(30))
         .user_agent(concat!("Cantina/", env!("CARGO_PKG_VERSION")))
         .build()
         .unwrap_or_default()
+}
+
+/// rustls's crypto. The updater installs the same provider; whichever
+/// runs first wins.
+fn install_crypto() {
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
 }
 
 #[cfg(test)]
@@ -563,6 +793,89 @@ mod tests {
             run(nobody.test(&client)).unwrap_err().kind,
             ProblemKind::BadUrl
         );
+    }
+
+    #[test]
+    fn a_stream_is_put_back_together_across_split_lines_and_characters() {
+        let events = concat!(
+            "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\",\"content\":\"Signal \"}}]}\n\n",
+            ": a comment\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"chain é\"}}]}\r\n\r\n",
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"set_tempo\",\"arguments\":\"\"}}]}}]}\n",
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"bpm\\\":\"}}]}}]}\n",
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\" 90}\"}},{\"index\":1,\"function\":{\"name\":\"list_tracks\"}}]}}]}\n",
+            "data: [DONE]\n",
+        );
+        // Fed a byte at a time, so lines and the é split anywhere.
+        let mut state = StreamState::default();
+        let mut text = String::new();
+        for byte in events.as_bytes() {
+            text.push_str(&state.feed(std::slice::from_ref(byte)));
+        }
+        assert!(state.done);
+        assert_eq!(text, "Signal chain é");
+        let step = state.finish().unwrap();
+        assert_eq!(step.text, "Signal chain é");
+        assert_eq!(
+            step.calls,
+            [
+                CallRequest {
+                    id: "c1".into(),
+                    name: "set_tempo".into(),
+                    arguments: "{\"bpm\": 90}".into()
+                },
+                CallRequest {
+                    id: "call_1".into(),
+                    name: "list_tracks".into(),
+                    arguments: String::new()
+                },
+            ]
+        );
+        let mut failed = StreamState::default();
+        failed.feed(b"data: {\"error\":{\"message\":\"overloaded\"}}\n");
+        assert_eq!(failed.finish().unwrap_err().kind, ProblemKind::Server);
+    }
+
+    #[test]
+    fn a_chat_streams_from_the_endpoint_and_one_in_a_piece_works_too() {
+        let base = fake::serve(|seen| {
+            if seen.body.contains("\"whole\"") {
+                (
+                    200,
+                    "application/json",
+                    r#"{"choices":[{"message":{"role":"assistant","content":"All of it."}}]}"#
+                        .into(),
+                )
+            } else if seen.body.contains("\"stream\":true") && seen.body.contains("\"tools\"") {
+                (
+                    200,
+                    "text/event-stream",
+                    "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\" there\"}}]}\n\ndata: [DONE]\n\n".into(),
+                )
+            } else {
+                (
+                    400,
+                    "application/json",
+                    r#"{"error":{"message":"no"}}"#.into(),
+                )
+            }
+        });
+        let client = chat_client();
+        let messages = [json!({"role": "user", "content": "hello"})];
+        let tools = [
+            json!({"type": "function", "function": {"name": "t", "parameters": {"type": "object"}}}),
+        ];
+        let streamed = Connection::new(&base, "m", None).unwrap();
+        let mut pieces = Vec::new();
+        let step = run(streamed.chat(&client, &messages, &tools, &mut |t| {
+            pieces.push(t.to_string())
+        }))
+        .unwrap();
+        assert_eq!(pieces.concat(), "Hi there");
+        assert_eq!(step.text, "Hi there");
+        let whole = Connection::new(&base, "whole", None).unwrap();
+        let step = run(whole.chat(&client, &messages, &[], &mut |_| {})).unwrap();
+        assert_eq!(step.text, "All of it.");
     }
 
     #[test]

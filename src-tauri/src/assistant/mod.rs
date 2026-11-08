@@ -10,6 +10,7 @@
 //!
 //! See `docs/src/content/docs/architecture/assistant.md`.
 
+pub mod chat;
 pub mod keychain;
 pub mod provider;
 
@@ -46,4 +47,101 @@ pub fn connection(settings: &AssistantSettings) -> Result<provider::Connection, 
     }
     let key = keychain::key().map_err(|e| provider::Problem::other(format!("{e:#}")))?;
     provider::Connection::new(&settings.endpoint, &settings.model, key)
+}
+
+/// The system prompt: who the assistant is and how it should answer.
+pub fn system_prompt() -> String {
+    "You are the assistant built into Cantina, a macOS studio for guitar and bass players: \
+     a live pedal chain per track, multitrack recording, drum tracks with step patterns, \
+     Audio Unit and CLAP plugins, a pedal designer and a stage of visualizer scenes. \
+     Answer the player's questions about playing, tone and the app. Be brief and concrete; \
+     use Markdown, with short lists and code blocks only where they help. If you are not \
+     sure how Cantina does something, say so rather than guessing."
+        .to_string()
+}
+
+/// The conversation as the shell keeps it: the thread, and the request
+/// in flight, if one is.
+pub struct Session {
+    /// What the player and the model have said, kept between launches.
+    pub thread: std::sync::Mutex<chat::Thread>,
+    running: std::sync::Mutex<Option<Running>>,
+}
+
+/// A conversation in flight: its Stop, and the confirmations it waits on.
+struct Running {
+    cancel: std::sync::Arc<chat::Cancel>,
+    asks: std::collections::HashMap<String, tokio::sync::oneshot::Sender<bool>>,
+}
+
+impl Session {
+    /// The session, with the thread kept at `path`.
+    pub fn new(path: Option<std::path::PathBuf>) -> Self {
+        Self {
+            thread: std::sync::Mutex::new(chat::Thread::load(path)),
+            running: std::sync::Mutex::new(None),
+        }
+    }
+
+    fn running(&self) -> std::sync::MutexGuard<'_, Option<Running>> {
+        self.running.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// The thread so far.
+    pub fn items(&self) -> Vec<chat::Item> {
+        self.thread
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .items
+            .clone()
+    }
+
+    /// Starts a conversation, or says one is already going.
+    pub fn begin(&self) -> Result<std::sync::Arc<chat::Cancel>, provider::Problem> {
+        let mut running = self.running();
+        if running.is_some() {
+            return Err(provider::Problem::other(
+                "The assistant is still answering. Wait, or press Stop.",
+            ));
+        }
+        let cancel = std::sync::Arc::new(chat::Cancel::default());
+        *running = Some(Running {
+            cancel: cancel.clone(),
+            asks: Default::default(),
+        });
+        Ok(cancel)
+    }
+
+    /// Ends the conversation in flight.
+    pub fn end(&self) {
+        *self.running() = None;
+    }
+
+    /// Stops the conversation in flight, if there is one.
+    pub fn stop(&self) {
+        if let Some(r) = self.running().as_ref() {
+            r.cancel.cancel();
+        }
+    }
+
+    /// A receiver for the player's answer to the call `id`.
+    pub fn ask(&self, id: &str) -> tokio::sync::oneshot::Receiver<bool> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        if let Some(r) = self.running().as_mut() {
+            r.asks.insert(id.to_string(), tx);
+        }
+        rx
+    }
+
+    /// The player's answer to a confirmation.
+    pub fn answer(&self, id: &str, yes: bool) {
+        if let Some(tx) = self.running().as_mut().and_then(|r| r.asks.remove(id)) {
+            let _ = tx.send(yes);
+        }
+    }
+
+    /// True while a conversation is in flight.
+    pub fn busy(&self) -> bool {
+        self.running().is_some()
+    }
 }

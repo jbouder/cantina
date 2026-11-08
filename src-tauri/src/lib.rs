@@ -30,6 +30,13 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
             app.manage(EngineState::new(app.handle().clone()));
+            // The chat thread, kept beside the plugin cache.
+            let thread = app
+                .path()
+                .app_data_dir()
+                .ok()
+                .map(|dir| dir.join("assistant-thread.json"));
+            app.manage(assistant::Session::new(thread));
             let folders = app.state::<EngineState>().lock().library_folders();
             library::spawn_watcher(app.handle().clone(), folders);
             // The menu bar from the action registry. If it cannot be
@@ -148,6 +155,14 @@ pub fn run() {
             commands::assistant_set_key,
             commands::assistant_models,
             commands::assistant_test,
+            commands::assistant_thread,
+            commands::assistant_send,
+            commands::assistant_retry,
+            commands::assistant_stop,
+            commands::assistant_confirm,
+            commands::assistant_clear,
+            commands::assistant_open_url,
+            commands::assistant_undo,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Cantina shell")

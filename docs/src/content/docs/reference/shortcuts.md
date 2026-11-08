@@ -56,6 +56,7 @@ without ⌘ do nothing while you are typing in a text field. The
 | Keys | Does |
 | --- | --- |
 | P | Performance Mode |
+| ⌘J | Assistant |
 | ⌘= | Zoom In |
 | ⌘− | Zoom Out |
 | ⌘0 | Zoom to Fit |

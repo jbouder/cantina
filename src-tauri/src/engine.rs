@@ -2118,6 +2118,15 @@ impl Engine {
         self.publish()
     }
 
+    /// Undoes an edit the assistant made, if it is still the last thing
+    /// that happened to the project, at `revision`.
+    pub fn assistant_undo(&mut self, revision: u64) -> Result<EngineStatus> {
+        if self.project.revision != revision {
+            bail!("Something else has changed since. Use Edit ▸ Undo to step back through it.");
+        }
+        self.undo()
+    }
+
     /// Saves the API key in the Keychain, or removes it when empty.
     pub fn assistant_set_key(&mut self, key: &str) -> Result<EngineStatus> {
         crate::assistant::keychain::set_key(key)?;

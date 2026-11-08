@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Assistant } from "./components/Assistant";
 import { Button } from "./components/Button";
 import { Designer } from "./components/Designer";
 import { Divider } from "./components/Divider";
@@ -29,6 +30,7 @@ import {
   isTyping,
   menuStates,
 } from "./lib/actions";
+import { assistantReady } from "./lib/assistant";
 import {
   audioImport,
   brokenOf,
@@ -146,6 +148,8 @@ export function App() {
   // In a browser `?settings`, `?projects` and `?picker` open the
   // sheets, so screenshots can show them.
   const [settingsOpen, setSettingsOpen] = useState(() => params?.has("settings") ?? false);
+  // `?chat` opens the assistant's panel (with `?assistant` connected).
+  const [assistantOpen, setAssistantOpen] = useState(() => params?.has("chat") ?? false);
   // `?settings=assistant` opens Settings scrolled to the assistant.
   const [settingsSection, setSettingsSection] = useState<"assistant" | null>(() =>
     params?.get("settings") === "assistant" ? "assistant" : null,
@@ -383,6 +387,8 @@ export function App() {
       status.project.tracks.some((t) => t.clips.length > 0 || t.patternClips.length > 0));
   const project = status?.project ?? null;
   const has = status !== null;
+  // The assistant shows only once it is on and has an endpoint and a model.
+  const ready = assistantReady(status);
   const idle = has && !frame.recording;
   const bounceable =
     selected !== null &&
@@ -623,6 +629,11 @@ export function App() {
       },
     },
     stage: { enabled: has, run: () => setStageOpen(true) },
+    assistant: {
+      enabled: ready,
+      checked: assistantOpen && ready,
+      run: () => setAssistantOpen((open) => !open),
+    },
     ...skinBindings,
     zoomIn: { enabled: has, run: () => timelineEdit.current?.zoomIn() },
     zoomOut: { enabled: has, run: () => timelineEdit.current?.zoomOut() },
@@ -706,6 +717,20 @@ export function App() {
       end={
         <>
           <EngineControl status={status} busy={busy} onToggle={toggle} />
+          {ready ? (
+            <Button
+              aria-label="Assistant"
+              title="Assistant (⌘J)"
+              aria-pressed={assistantOpen}
+              variant={assistantOpen ? "transport" : "panel"}
+              onClick={() => setAssistantOpen((open) => !open)}
+              className="px-2"
+            >
+              <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
+                <path d="M2 2h12v9H6l-3 3v-3H2zm1.5 1.5v6h1v1.4l1.4-1.4h7.6v-6zM5 5.5h6V7H5z" />
+              </svg>
+            </Button>
+          ) : null}
           <Button
             aria-label="Stage"
             title="Stage"
@@ -740,111 +765,116 @@ export function App() {
         ) : null
       }
     >
-      <main className="flex min-h-0 flex-1 flex-col gap-3 p-window">
-        {status?.notice ? <Notice message={status.notice} onDismiss={dismiss} /> : null}
-        {update && status ? (
-          <UpdateBanner
-            update={update}
-            dirty={status.project.dirty}
-            recording={frame.recording}
-            onDismiss={() => setUpdate(null)}
-          />
-        ) : null}
-        {status?.project.recovery ? (
-          <Recovery recovery={status.project.recovery} onStatus={setStatus} onError={setError} />
-        ) : null}
-        {status?.latency.warn ? (
-          <Lcd role="status" error className="text-base">
-            Plugins delay playback by {ms(status.latency.compensationFrames, status.sampleRate)},
-            above the {status.latency.warnMs} ms you set. Live monitoring is not delayed.
-          </Lcd>
-        ) : null}
-        {problem ? (
-          <Lcd role="alert" error>
-            {problem}
-          </Lcd>
-        ) : null}
-
-        {status && transport ? (
-          <div
-            ref={body}
-            className="grid min-h-0 flex-1"
-            style={{ gridTemplateRows: `${arrangeHeight}px auto minmax(0, 1fr)` }}
-          >
-            <div className="min-h-0">
-              <Timeline
-                tracks={status.project.tracks}
-                patterns={status.project.patterns}
-                sampleRate={status.project.sampleRate}
-                tempo={status.project.tempo}
-                position={frame.position}
-                playing={transport.playing}
-                running={running}
-                selectedTrack={selected?.id ?? null}
-                hasKits={status.kits.length > 0}
-                levels={frame.tracks}
-                master={status.project.master}
-                masterLevel={frame.output}
-                strip={(controls) => (
-                  <Transport
-                    transport={transport}
-                    tracks={status.project.tracks}
-                    tempo={status.project.tempo}
-                    metronome={status.metronome}
-                    running={running}
-                    position={frame.position}
-                    countIn={frame.countIn}
-                    auditioning={status.audition !== null}
-                    timeline={controls}
-                    onStatus={setStatus}
-                    onError={setError}
-                  />
-                )}
-                onSelectTrack={setSelectedTrack}
-                onStatus={setStatus}
-                onError={setError}
-                editRef={timelineEdit}
-                onEditState={setClipEdit}
-                loopRegion={status.project.loop}
-              />
-            </div>
-            <Divider
-              value={arrangeHeight}
-              min={MIN_PANE}
-              max={Math.max(MIN_PANE, bodyHeight - MIN_PANE)}
-              onChange={changeSplit}
+      <div className="flex min-h-0 flex-1">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-window">
+          {status?.notice ? <Notice message={status.notice} onDismiss={dismiss} /> : null}
+          {update && status ? (
+            <UpdateBanner
+              update={update}
+              dirty={status.project.dirty}
+              recording={frame.recording}
+              onDismiss={() => setUpdate(null)}
             />
-            {selected ? (
-              <Editor
-                key={selected.id}
-                track={selected}
-                index={status.project.tracks.indexOf(selected)}
-                count={status.project.tracks.length}
-                sampleRate={status.project.sampleRate}
-                kinds={status.pedalKinds}
-                patterns={status.project.patterns}
-                kits={status.kits}
-                library={status.library}
-                audition={status.audition}
-                tempo={status.project.tempo}
-                position={frame.position}
-                playing={transport.playing}
-                readouts={readouts}
-                irs={status.irs}
-                initialTab={initialTab}
-                bounceRequest={bounceRequest}
-                renameRequest={renameRequest}
-                onAdd={() => setPickerOpen(true)}
-                onDesign={(pedal) => design(pedal, selected.id)}
-                onStatus={setStatus}
-                onError={setError}
+          ) : null}
+          {status?.project.recovery ? (
+            <Recovery recovery={status.project.recovery} onStatus={setStatus} onError={setError} />
+          ) : null}
+          {status?.latency.warn ? (
+            <Lcd role="status" error className="text-base">
+              Plugins delay playback by {ms(status.latency.compensationFrames, status.sampleRate)},
+              above the {status.latency.warnMs} ms you set. Live monitoring is not delayed.
+            </Lcd>
+          ) : null}
+          {problem ? (
+            <Lcd role="alert" error>
+              {problem}
+            </Lcd>
+          ) : null}
+
+          {status && transport ? (
+            <div
+              ref={body}
+              className="grid min-h-0 flex-1"
+              style={{ gridTemplateRows: `${arrangeHeight}px auto minmax(0, 1fr)` }}
+            >
+              <div className="min-h-0">
+                <Timeline
+                  tracks={status.project.tracks}
+                  patterns={status.project.patterns}
+                  sampleRate={status.project.sampleRate}
+                  tempo={status.project.tempo}
+                  position={frame.position}
+                  playing={transport.playing}
+                  running={running}
+                  selectedTrack={selected?.id ?? null}
+                  hasKits={status.kits.length > 0}
+                  levels={frame.tracks}
+                  master={status.project.master}
+                  masterLevel={frame.output}
+                  strip={(controls) => (
+                    <Transport
+                      transport={transport}
+                      tracks={status.project.tracks}
+                      tempo={status.project.tempo}
+                      metronome={status.metronome}
+                      running={running}
+                      position={frame.position}
+                      countIn={frame.countIn}
+                      auditioning={status.audition !== null}
+                      timeline={controls}
+                      onStatus={setStatus}
+                      onError={setError}
+                    />
+                  )}
+                  onSelectTrack={setSelectedTrack}
+                  onStatus={setStatus}
+                  onError={setError}
+                  editRef={timelineEdit}
+                  onEditState={setClipEdit}
+                  loopRegion={status.project.loop}
+                />
+              </div>
+              <Divider
+                value={arrangeHeight}
+                min={MIN_PANE}
+                max={Math.max(MIN_PANE, bodyHeight - MIN_PANE)}
+                onChange={changeSplit}
               />
-            ) : (
-              <div />
-            )}
-          </div>
+              {selected ? (
+                <Editor
+                  key={selected.id}
+                  track={selected}
+                  index={status.project.tracks.indexOf(selected)}
+                  count={status.project.tracks.length}
+                  sampleRate={status.project.sampleRate}
+                  kinds={status.pedalKinds}
+                  patterns={status.project.patterns}
+                  kits={status.kits}
+                  library={status.library}
+                  audition={status.audition}
+                  tempo={status.project.tempo}
+                  position={frame.position}
+                  playing={transport.playing}
+                  readouts={readouts}
+                  irs={status.irs}
+                  initialTab={initialTab}
+                  bounceRequest={bounceRequest}
+                  renameRequest={renameRequest}
+                  onAdd={() => setPickerOpen(true)}
+                  onDesign={(pedal) => design(pedal, selected.id)}
+                  onStatus={setStatus}
+                  onError={setError}
+                />
+              ) : (
+                <div />
+              )}
+            </div>
+          ) : null}
+        </main>
+        {assistantOpen && ready ? (
+          <Assistant onClose={() => setAssistantOpen(false)} onStatus={setStatus} />
         ) : null}
-      </main>
+      </div>
       {stageOpen && status ? (
         <StageView status={status} onClose={closeStage} onPerform={perform} onStatus={setStatus} />
       ) : null}
