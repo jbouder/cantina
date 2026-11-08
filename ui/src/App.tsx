@@ -146,11 +146,16 @@ export function App() {
   // In a browser `?settings`, `?projects` and `?picker` open the
   // sheets, so screenshots can show them.
   const [settingsOpen, setSettingsOpen] = useState(() => params?.has("settings") ?? false);
+  // `?settings=assistant` opens Settings scrolled to the assistant.
+  const [settingsSection, setSettingsSection] = useState<"assistant" | null>(() =>
+    params?.get("settings") === "assistant" ? "assistant" : null,
+  );
   const [projectsOpen, setProjectsOpen] = useState(() => params?.has("projects") ?? false);
   const [exportOpen, setExportOpen] = useState(() => params?.has("export") ?? false);
   const [pickerOpen, setPickerOpen] = useState(() => params?.has("picker") ?? false);
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
+    setSettingsSection(null);
     setCheckUpdates(false);
   }, []);
   // In a browser `?stage` opens the stage, `?perform` performance mode
@@ -861,6 +866,7 @@ export function App() {
           onStatusChange={setStatus}
           onUpdate={setUpdate}
           checkForUpdates={checkUpdates}
+          section={settingsSection}
         />
       ) : null}
       {exportOpen && status ? (

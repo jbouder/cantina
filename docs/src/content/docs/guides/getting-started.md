@@ -66,6 +66,10 @@ included. Allow it, or Cantina hears nothing.
 The **Engine** key starts and stops the audio. Its light is on while audio
 is running. Your choices are remembered for next time.
 
+The rest of Settings holds the **Skin**, **Motion** (Reduce flashing),
+the optional **Assistant**, off until you connect a model (see
+[The assistant](/guides/assistant/)), and **Updates**.
+
 ## Arm a track and play
 
 A new project, `Untitled`, opens with a **Guitar** track whose chain is a

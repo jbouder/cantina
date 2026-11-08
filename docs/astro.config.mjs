@@ -98,6 +98,7 @@ export default defineConfig({
             { label: "The stage", slug: "guides/stage" },
             { label: "Skins", slug: "guides/skins" },
             { label: "Authoring with an agent", slug: "guides/agents" },
+            { label: "The assistant", slug: "guides/assistant" },
           ],
         },
         { label: "Reference", items: [{ autogenerate: { directory: "reference" } }] },

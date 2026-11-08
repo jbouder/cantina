@@ -7,6 +7,7 @@
 //! way over channels, and status changes the engine makes on its own are
 //! pushed as events.
 
+mod assistant;
 mod commands;
 mod engine;
 mod frame;
@@ -143,6 +144,10 @@ pub fn run() {
             commands::chain_bypass,
             commands::open_link,
             commands::loop_set,
+            commands::assistant_configure,
+            commands::assistant_set_key,
+            commands::assistant_models,
+            commands::assistant_test,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Cantina shell")

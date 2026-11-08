@@ -57,7 +57,7 @@ use crate::library;
 use crate::mixdown;
 use crate::pedals::{self, PedalEntry};
 use crate::project::Projects;
-use crate::settings::{AudioSettings, MetronomeSettings, Settings};
+use crate::settings::{AssistantSettings, AudioSettings, MetronomeSettings, Settings};
 
 /// Event name for status pushes to the UI.
 pub const STATUS_EVENT: &str = "engine://status";
@@ -101,6 +101,8 @@ pub struct EngineStatus {
     pub metronome: MetronomeStatus,
     /// Record counts in four beats first. An app setting.
     pub count_in: bool,
+    /// The assistant's connection, without its key. An app setting.
+    pub assistant: crate::assistant::AssistantStatus,
 }
 
 /// The metronome's settings and the sounds it offers. Mirrors
@@ -1872,6 +1874,7 @@ impl Engine {
                     .collect(),
             },
             count_in: self.settings.count_in,
+            assistant: crate::assistant::AssistantStatus::of(&self.settings.assistant),
         }
     }
 
@@ -2094,6 +2097,31 @@ impl Engine {
         self.settings.count_in = on;
         self.persist();
         self.publish()
+    }
+
+    // ----- the assistant -----
+
+    /// The assistant's endpoint and model, and whether it is on.
+    pub fn assistant_settings(&self) -> AssistantSettings {
+        self.settings.assistant.clone()
+    }
+
+    /// Turns the assistant on or off and sets its endpoint and model. An
+    /// app setting, not part of the project, so it is not undoable.
+    pub fn assistant_configure(&mut self, assistant: AssistantSettings) -> EngineStatus {
+        self.settings.assistant = AssistantSettings {
+            endpoint: assistant.endpoint.trim().to_string(),
+            model: assistant.model.trim().to_string(),
+            ..assistant
+        };
+        self.persist();
+        self.publish()
+    }
+
+    /// Saves the API key in the Keychain, or removes it when empty.
+    pub fn assistant_set_key(&mut self, key: &str) -> Result<EngineStatus> {
+        crate::assistant::keychain::set_key(key)?;
+        Ok(self.publish())
     }
 
     // ----- plugins -----

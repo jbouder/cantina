@@ -24,6 +24,11 @@ cantina-engine.workspace = true
 cantina-hosting.workspace = true
 cantina-project.workspace = true
 objc2 = "0.6"
+# The assistant's requests to its provider; the same build the updater uses.
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-no-provider", "system-proxy"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+# The assistant's API key lives in the login Keychain.
+security-framework = "3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2", features = [] }
