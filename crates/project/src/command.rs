@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::model::{
-    Clip, ClipId, Pattern, PatternClip, PatternClipId, PatternId, PatternRow, Pedal, PedalId,
-    Project, Strip, Tempo, Track, TrackId, MAX_PATTERN_STEPS,
+    Clip, ClipId, LoopRegion, Pattern, PatternClip, PatternClipId, PatternId, PatternRow, Pedal,
+    PedalId, Project, Strip, Tempo, Track, TrackId, MAX_PATTERN_STEPS,
 };
 
 /// Why a command was refused. The project is unchanged when one of these
@@ -190,6 +190,11 @@ pub enum Command {
     SetTempo {
         /// The new tempo.
         tempo: Tempo,
+    },
+    /// Sets the loop region and whether playback loops, or clears it.
+    SetLoop {
+        /// The region, or none.
+        region: Option<LoopRegion>,
     },
     /// Gain in decibels on a track's strip, or the master's with no track.
     SetGain {
@@ -368,6 +373,9 @@ impl Command {
             Command::SetBypass { on: true, .. } => "bypass pedal".into(),
             Command::SetBypass { .. } => "turn pedal on".into(),
             Command::SetTempo { .. } => "change tempo".into(),
+            Command::SetLoop { region: Some(r) } if r.on => "loop".into(),
+            Command::SetLoop { region: Some(_) } => "loop off".into(),
+            Command::SetLoop { region: None } => "clear loop".into(),
             Command::SetGain { track: None, .. } => "change master gain".into(),
             Command::SetGain { .. } => "change gain".into(),
             Command::SetPan { .. } => "change pan".into(),
@@ -401,6 +409,7 @@ impl Command {
         match self {
             Command::SetParam { pedal, param, .. } => Some(format!("param:{pedal}:{param}")),
             Command::SetTempo { .. } => Some("tempo".into()),
+            Command::SetLoop { .. } => Some("loop".into()),
             Command::SetGain { track, .. } => Some(format!("gain:{}", strip_key(*track))),
             Command::SetPan { track, .. } => Some(format!("pan:{track}")),
             Command::SetPatternStep {
@@ -633,6 +642,18 @@ impl Command {
                 }
                 let was = std::mem::replace(&mut project.tempo, tempo.clone());
                 Ok(Command::SetTempo { tempo: was })
+            }
+            Command::SetLoop { region } => {
+                if let Some(r) = region {
+                    if r.end <= r.start {
+                        return Err(CommandError::Invalid(format!(
+                            "a loop from {} to {} has no length",
+                            r.start, r.end
+                        )));
+                    }
+                }
+                let was = std::mem::replace(&mut project.loop_region, *region);
+                Ok(Command::SetLoop { region: was })
             }
             Command::SetGain { track, db } => {
                 if !db.is_finite() {
@@ -1425,6 +1446,45 @@ mod tests {
                     bpm: 0.0,
                     ..Tempo::default()
                 }
+            }
+            .apply(&mut p.clone()),
+            Err(CommandError::Invalid(_))
+        ));
+    }
+
+    #[test]
+    fn a_loop_is_set_turned_off_and_cleared() {
+        let p = project();
+        let region = LoopRegion {
+            start: 48_000,
+            end: 96_000,
+            on: true,
+        };
+        let looped = round_trip(
+            &p,
+            Command::SetLoop {
+                region: Some(region),
+            },
+        );
+        assert_eq!(looped.loop_region, Some(region));
+        let off = round_trip(
+            &looped,
+            Command::SetLoop {
+                region: Some(LoopRegion {
+                    on: false,
+                    ..region
+                }),
+            },
+        );
+        assert_eq!(off.loop_region.map(|r| r.on), Some(false));
+        round_trip(&off, Command::SetLoop { region: None });
+        assert!(matches!(
+            Command::SetLoop {
+                region: Some(LoopRegion {
+                    start: 10,
+                    end: 10,
+                    on: true
+                })
             }
             .apply(&mut p.clone()),
             Err(CommandError::Invalid(_))

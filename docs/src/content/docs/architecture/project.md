@@ -31,7 +31,7 @@ field's doc comment as its description; a file may name it in a
 
 ```json
 {
-  "version": 5,
+  "version": 6,
   "name": "Song",
   "sampleRate": 48000.0,
   "tempo": { "bpm": 120.0, "numerator": 4, "denominator": 4 },
@@ -66,6 +66,10 @@ field's doc comment as its description; a file may name it in a
   round it; the field is left out when false.
 - **Strips** (`strip` on a track, `master` on the project) hold
   `gainDb`, `pan`, `mute` and `solo`.
+- **`loop`**, when present, is the loop region: `start` and `end` in
+  timeline samples and `on`, whether playback loops over it. The region
+  stays when looping is off; a project that never set one has no field.
+  Version 6 added it; older files have no loop.
 - **`sampleRate`** is the rate every file in `audio/` is at. Opening a
   project switches the engine to that rate; changing the device rate is
   only allowed while the project has no audio.

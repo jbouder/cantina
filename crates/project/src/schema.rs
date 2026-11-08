@@ -190,10 +190,10 @@ mod tests {
         let recipes = files(&root().join("recipes"), ".recipe.json");
         assert!(!recipes.is_empty(), "no stock kit recipes found");
         recipes.iter().for_each(|r| assert_valid(&recipe, r));
-        let v5 = root().join("crates/project/tests/fixtures/v5.json");
-        assert_valid(&project_s, &v5);
+        let v6 = root().join("crates/project/tests/fixtures/v6.json");
+        assert_valid(&project_s, &v6);
         // Each pattern in a project, without its id, is a pattern file.
-        let project: Value = serde_json::from_str(&std::fs::read_to_string(v5).unwrap()).unwrap();
+        let project: Value = serde_json::from_str(&std::fs::read_to_string(v6).unwrap()).unwrap();
         for mut p in project["patterns"].as_array().unwrap().clone() {
             p.as_object_mut().unwrap().remove("id");
             assert!(pattern_s.is_valid(&p), "{p}");
@@ -225,9 +225,9 @@ mod tests {
 
     #[test]
     fn schemas_files_that_name_their_schema_still_load() {
-        let text = std::fs::read_to_string(root().join("crates/project/tests/fixtures/v5.json"))
+        let text = std::fs::read_to_string(root().join("crates/project/tests/fixtures/v6.json"))
             .unwrap()
             .replacen('{', r#"{ "$schema": "x","#, 1);
-        crate::load_str(&text, Path::new("v5.json")).unwrap();
+        crate::load_str(&text, Path::new("v6.json")).unwrap();
     }
 }

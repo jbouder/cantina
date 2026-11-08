@@ -99,6 +99,9 @@ pub enum TransportCommand {
     Locate(u64),
     /// Set or clear the loop.
     SetLoop(Option<LoopRange>),
+    /// Stop on reaching this timeline sample, exactly, or clear it. A take
+    /// recorded over a loop stops at the loop's end instead of wrapping.
+    StopAt(Option<u64>),
     /// Replace the tempo map.
     SetTempoMap(Box<TempoMap>),
 }
@@ -137,6 +140,8 @@ pub struct Transport {
     position: u64,
     loop_range: Option<LoopRange>,
     count_in: Option<CountIn>,
+    /// Where to stop, ahead of the position.
+    stop_at: Option<u64>,
 }
 
 /// The UI-thread half.
@@ -159,6 +164,7 @@ impl Transport {
             position: 0,
             loop_range: None,
             count_in: None,
+            stop_at: None,
         };
         let handle = TransportHandle {
             shared,
@@ -180,6 +186,7 @@ impl Transport {
                 TransportCommand::Stop => {
                     self.count_in = None;
                     self.playing = false;
+                    self.stop_at = None;
                 }
                 TransportCommand::CountIn(count) => {
                     self.playing = false;
@@ -191,6 +198,7 @@ impl Transport {
                 TransportCommand::SetLoop(range) => {
                     self.loop_range = range.filter(|r| !r.is_empty());
                 }
+                TransportCommand::StopAt(sample) => self.stop_at = sample,
                 TransportCommand::SetTempoMap(map) => {
                     retire(std::mem::replace(&mut self.tempo, map));
                 }
@@ -217,14 +225,25 @@ impl Transport {
                 count_in: Some(count),
             };
         }
+        let mut frames = self.frames_before_wrap(remaining);
+        if let Some(stop) = self.stop_at.filter(|s| self.playing && *s > self.position) {
+            frames = frames.min((stop - self.position).min(usize::MAX as u64) as usize);
+        }
         let segment = Segment {
-            frames: self.frames_before_wrap(remaining),
+            frames,
             position: self.position,
             playing: self.playing,
             count_in: None,
         };
         if self.playing {
             self.position += segment.frames as u64;
+            // Stopping comes before wrapping: a take over a loop ends at
+            // the loop's end and the playhead stays there.
+            if self.stop_at == Some(self.position) {
+                self.stop_at = None;
+                self.playing = false;
+                return segment;
+            }
             if let Some(range) = self.loop_range {
                 if self.position == range.end {
                     self.position = range.start;
@@ -352,6 +371,12 @@ impl TransportHandle {
         self.send(TransportCommand::SetLoop(range))
     }
 
+    /// Asks the transport to stop exactly on reaching `sample`, or clears
+    /// it with `None`. Stopping clears it too. False when the queue is full.
+    pub fn stop_at(&mut self, sample: Option<u64>) -> bool {
+        self.send(TransportCommand::StopAt(sample))
+    }
+
     /// Replaces the tempo map on both threads.
     pub fn set_tempo_map(&mut self, map: TempoMap) -> bool {
         let sent = self.send(TransportCommand::SetTempoMap(Box::new(map.clone())));
@@ -429,6 +454,49 @@ mod tests {
         );
         assert!(!handle.is_playing());
         assert_eq!(handle.position(), 0);
+    }
+
+    #[test]
+    fn stop_at_ends_the_block_on_its_exact_frame_before_the_loop_wraps() {
+        let (mut transport, mut handle) = Transport::new(TempoMap::default());
+        handle.set_loop(Some(LoopRange {
+            start: 100,
+            end: 300,
+        }));
+        handle.locate(150);
+        handle.stop_at(Some(300));
+        handle.play();
+        transport.apply_commands(|_| {});
+        let segs = segments(&mut transport, 256);
+        // Played up to the loop's end, then stopped there, not wrapped.
+        assert_eq!(segs[0].frames, 150);
+        assert!(segs[0].playing);
+        assert_eq!(segs[1].position, 300);
+        assert!(!segs[1].playing);
+        assert!(!handle.is_playing());
+        assert_eq!(handle.position(), 300);
+        // Playing again wraps as a loop does: the stop point is spent.
+        handle.locate(250);
+        handle.play();
+        transport.apply_commands(|_| {});
+        let segs = segments(&mut transport, 100);
+        assert_eq!((segs[0].frames, segs[1].position), (50, 100));
+        assert!(segs[1].playing);
+    }
+
+    #[test]
+    fn stopping_clears_a_stop_point_and_one_behind_is_ignored() {
+        let (mut transport, mut handle) = Transport::new(TempoMap::default());
+        handle.stop_at(Some(64));
+        handle.stop();
+        handle.play();
+        transport.apply_commands(|_| {});
+        assert_eq!(segments(&mut transport, 128).len(), 1);
+        handle.stop_at(Some(10));
+        transport.apply_commands(|_| {});
+        let segs = segments(&mut transport, 128);
+        assert_eq!(segs.len(), 1);
+        assert!(segs[0].playing);
     }
 
     #[test]

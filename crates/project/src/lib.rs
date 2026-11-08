@@ -22,8 +22,8 @@ pub use file::{
 pub use history::{History, UNDO_LIMIT};
 pub use journal::{replay, Entry as JournalEntry, Journal, Read as JournalRead, JOURNAL_FILE};
 pub use model::{
-    Clip, ClipId, Id, Pattern, PatternClip, PatternClipId, PatternId, PatternRow, Pedal, PedalId,
-    Project, Strip, Tempo, Track, TrackId, FORMAT_VERSION, MAX_PATTERN_STEPS, PPQ,
+    Clip, ClipId, Id, LoopRegion, Pattern, PatternClip, PatternClipId, PatternId, PatternRow,
+    Pedal, PedalId, Project, Strip, Tempo, Track, TrackId, FORMAT_VERSION, MAX_PATTERN_STEPS, PPQ,
 };
 pub use pattern_file::{
     imported, pattern_file_name, pattern_from_json, pattern_to_json, PATTERN_SUFFIX,

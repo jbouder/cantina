@@ -826,3 +826,12 @@ pub fn open_link(app: tauri::AppHandle, which: String) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     Ok(())
 }
+
+/// Sets the loop region and whether playback loops, or clears it with none.
+#[tauri::command]
+pub fn loop_set(
+    engine: State<'_, EngineState>,
+    region: Option<cantina_project::LoopRegion>,
+) -> Result<EngineStatus, String> {
+    engine.lock().loop_set(region).map_err(fail)
+}

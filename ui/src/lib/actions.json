@@ -82,6 +82,14 @@
       "label": "Count In",
       "checkable": true
     },
+    "loop": {
+      "label": "Loop",
+      "key": "L",
+      "checkable": true
+    },
+    "loopToClip": {
+      "label": "Loop Selected Clip"
+    },
     "metronome": {
       "label": "Metronome",
       "key": "K",
@@ -264,6 +272,9 @@
         "record",
         "countIn",
         "-",
+        "loop",
+        "loopToClip",
+        "-",
         "metronome",
         "-",
         "goToStart",
@@ -337,7 +348,9 @@
         ["← →", "Nudges the selected clip a grid step, or scrolls with none selected"],
         ["+ −", "Zooms in and out"],
         ["Esc", "Clears the selection"],
-        ["⌥-click", "Splits a clip where you click"]
+        ["⌥-click", "Splits a clip where you click"],
+        ["⇧-drag the ruler", "Sets the loop"],
+        ["Drag a loop edge", "Moves that end of the loop"]
       ]
     },
     {

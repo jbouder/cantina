@@ -22,6 +22,8 @@ import {
   clipTrim,
   type EngineStatus,
   type Level,
+  type LoopRegion,
+  loopSet,
   type PatternInfo,
   patternClipAdd,
   patternClipDuplicate,
@@ -111,6 +113,8 @@ type Props = {
   onSelectTrack: (id: number) => void;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
+  /** The loop region, drawn on the ruler; Shift-drag there sets it, its edges drag. */
+  loopRegion?: LoopRegion | null;
   /** Filled with the clip edits the Edit menu runs on the selected clip. */
   editRef?: RefObject<TimelineEdit | null>;
   /** What the Edit menu can do now; called when that changes. */
@@ -123,6 +127,8 @@ export interface TimelineEditState {
   selected: boolean;
   /** The playhead is inside the selected clip. */
   canSplit: boolean;
+  /** The selected clip's span on the timeline, in samples. */
+  span: { start: number; end: number } | null;
 }
 
 /** The clip edits the Edit menu runs on the selected clip, and the View menu's zoom. */
@@ -184,7 +190,8 @@ const LABEL_WIDTH = 288;
  * to split at the pointer, right-click for the clip's menu, and click the
  * ruler to move the playhead. The keyboard does the same on the selected
  * clip: Delete, Cmd-D to duplicate, S to split at the playhead, the arrows
- * to nudge by a grid step, and Cut, Copy and Paste from the Edit menu. Waveforms come from peak caches built in a
+ * to nudge by a grid step, and Cut, Copy and Paste from the Edit menu.
+ * Shift-drag the ruler to set the loop, and drag its ends to move them. Waveforms come from peak caches built in a
  * worker; the canvas only ever reads one level of them per column.
  */
 export function Timeline({
@@ -206,6 +213,7 @@ export function Timeline({
   onError,
   editRef,
   onEditState,
+  loopRegion = null,
 }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const container = useRef<HTMLDivElement>(null);
@@ -214,6 +222,10 @@ export function Timeline({
   const [snapOn, setSnapOn] = useState(true);
   const [selectedClip, setSelectedClip] = useState<number | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
+  // A loop being set or resized on the ruler: the edge that stays put and
+  // the one under the pointer, in samples.
+  const [loopDraft, setLoopDraft] = useState<{ anchor: number; moving: number } | null>(null);
+  const loopDraftRef = useRef<{ anchor: number; moving: number } | null>(null);
   const dragRef = useRef<Drag | null>(null);
   const [hover, setHover] = useState<Hit["kind"] | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
@@ -446,6 +458,32 @@ export function Timeline({
     });
     if (drag) drawClip(drag.clip, drag.geometry, drag.toTrack, true);
 
+    // The loop: a band on the ruler, faint while off, and lines down the
+    // lanes while on.
+    const shownLoop = loopDraft
+      ? {
+          start: Math.min(loopDraft.anchor, loopDraft.moving),
+          end: Math.max(loopDraft.anchor, loopDraft.moving),
+          on: loopRegion?.on ?? true,
+        }
+      : loopRegion;
+    if (shownLoop && shownLoop.end > shownLoop.start) {
+      const lx0 = xOf(shownLoop.start, view);
+      const lx1 = xOf(shownLoop.end, view);
+      ctx.save();
+      ctx.fillStyle = tk["clip-selected"];
+      ctx.globalAlpha = shownLoop.on ? 0.45 : 0.18;
+      ctx.fillRect(lx0, 0, lx1 - lx0, RULER_HEIGHT - 1);
+      if (shownLoop.on) {
+        ctx.globalAlpha = 0.08;
+        ctx.fillRect(lx0, RULER_HEIGHT, lx1 - lx0, height - RULER_HEIGHT);
+        ctx.globalAlpha = 0.9;
+        ctx.fillRect(Math.round(lx0), 0, 1, height);
+        ctx.fillRect(Math.round(lx1) - 1, 0, 1, height);
+      }
+      ctx.restore();
+    }
+
     // Playhead.
     const px = Math.round(xOf(playhead, view)) + 0.5;
     if (px >= 0 && px <= width) {
@@ -475,6 +513,8 @@ export function Timeline({
     selectedTrack,
     drag,
     peaksVersion,
+    loopRegion,
+    loopDraft,
   ]);
 
   // ----- the pointer -----
@@ -492,7 +532,27 @@ export function Timeline({
     if (!hit) return;
     e.currentTarget.focus();
     if (hit.kind === "ruler") {
-      run(transportLocate(snap(sampleAt(x, view), grid.division, snapOn)));
+      const at = snap(sampleAt(x, view), grid.division, snapOn);
+      // Grab a loop edge, or Shift-drag a new loop; a plain click locates.
+      const edge = loopEdgeAt(x);
+      if (edge !== null && loopRegion) {
+        const draft = {
+          anchor: edge === "start" ? loopRegion.end : loopRegion.start,
+          moving: edge === "start" ? loopRegion.start : loopRegion.end,
+        };
+        loopDraftRef.current = draft;
+        setLoopDraft(draft);
+        e.currentTarget.setPointerCapture(e.pointerId);
+        return;
+      }
+      if (e.shiftKey) {
+        const draft = { anchor: at, moving: at };
+        loopDraftRef.current = draft;
+        setLoopDraft(draft);
+        e.currentTarget.setPointerCapture(e.pointerId);
+        return;
+      }
+      run(transportLocate(at));
       return;
     }
     const track = tracks[hit.track];
@@ -520,9 +580,24 @@ export function Timeline({
     e.currentTarget.setPointerCapture(e.pointerId);
   };
 
+  /** The loop edge within a few pixels of `x` on the ruler, if any. */
+  const loopEdgeAt = (x: number): "start" | "end" | null => {
+    if (!loopRegion) return null;
+    if (Math.abs(x - xOf(loopRegion.start, view)) <= 5) return "start";
+    if (Math.abs(x - xOf(loopRegion.end, view)) <= 5) return "end";
+    return null;
+  };
+
   const onPointerMove = (e: PointerEvent<HTMLCanvasElement>) => {
     const d = dragRef.current;
     const { x, y } = local(e);
+    const loop = loopDraftRef.current;
+    if (loop) {
+      const next = { ...loop, moving: Math.max(0, snap(sampleAt(x, view), grid.division, snapOn)) };
+      loopDraftRef.current = next;
+      setLoopDraft(next);
+      return;
+    }
     if (!d) {
       setHover(hitTest(lanes, x, y, view, selectedClip)?.kind ?? null);
       return;
@@ -549,6 +624,15 @@ export function Timeline({
   };
 
   const onPointerUp = (e: PointerEvent<HTMLCanvasElement>) => {
+    const loop = loopDraftRef.current;
+    if (loop) {
+      loopDraftRef.current = null;
+      setLoopDraft(null);
+      const start = Math.round(Math.min(loop.anchor, loop.moving));
+      const end = Math.round(Math.max(loop.anchor, loop.moving));
+      if (end > start) run(loopSet({ start, end, on: loopRegion?.on ?? true }));
+      return;
+    }
     const d = dragRef.current;
     dragRef.current = null;
     setDrag(null);
@@ -617,9 +701,15 @@ export function Timeline({
   const here = Math.round(playhead);
   const canSplitHere = selected !== null && canSplit(selected.clip, here);
   const editState = selected !== null;
+  const spanStart = selected?.clip.start ?? -1;
+  const spanEnd = selected ? selected.clip.start + selected.clip.length : -1;
   useEffect(() => {
-    onEditState?.({ selected: editState, canSplit: canSplitHere });
-  }, [onEditState, editState, canSplitHere]);
+    onEditState?.({
+      selected: editState,
+      canSplit: canSplitHere,
+      span: spanStart >= 0 ? { start: spanStart, end: spanEnd } : null,
+    });
+  }, [onEditState, editState, canSplitHere, spanStart, spanEnd]);
 
   // Cut, Copy and Paste are the system's own, so text fields keep them.
   // With the timeline focused they act on clips: the web view raises the
@@ -907,7 +997,7 @@ export function Timeline({
           <canvas
             ref={canvas}
             tabIndex={0}
-            aria-label="Timeline. Drag clips to move them, drag an edge to trim, Alt-click to split, right-click a clip for its menu, click the ruler to move the playhead. With a clip selected: Delete removes it, Command-D duplicates it, Command-X and Command-C cut and copy it, S splits it at the playhead, the arrow keys nudge it. Command-V pastes a copied clip on the selected track at the playhead. Drop a pattern from the drum grid on a drum track to place it."
+            aria-label="Timeline. Drag clips to move them, drag an edge to trim, Alt-click to split, right-click a clip for its menu, click the ruler to move the playhead, Shift-drag the ruler to set the loop. With a clip selected: Delete removes it, Command-D duplicates it, Command-X and Command-C cut and copy it, S splits it at the playhead, the arrow keys nudge it. Command-V pastes a copied clip on the selected track at the playhead. Drop a pattern from the drum grid on a drum track to place it."
             aria-disabled={!running}
             style={{ width, height, touchAction: "none" }}
             className={`block ${cursor}`}

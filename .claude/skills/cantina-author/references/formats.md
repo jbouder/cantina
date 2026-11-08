@@ -144,6 +144,7 @@ A whole project. Saved as `project.json` inside a `Name.cantina/` directory next
 
 | Field | Required | Takes | What it is |
 | --- | --- | --- | --- |
+| `loop` |  | `LoopRegion` | The loop region on the timeline, set or not, and whether playback loops over it. |
 | `master` |  | `Strip` | The master strip: gain and mute on the sum of the tracks. Default `{"gainDb":0,"mute":false,"pan":0,"solo":false}`. |
 | `name` | yes | string | The project's name, also its directory's. |
 | `patterns` |  | array of `Pattern` | Drum patterns, shared by every drum track. Default `[]`. |
@@ -151,7 +152,7 @@ A whole project. Saved as `project.json` inside a `Name.cantina/` directory next
 | `sampleRate` | yes | number (> 0) | The rate every file in `audio/` is at, and the rate the engine must run at to play them. |
 | `tempo` |  | `Tempo` | Tempo and time signature. Default `{"bpm":120,"denominator":4,"numerator":4}`. |
 | `tracks` |  | array of `Track` | Tracks, top to bottom. Default `[]`. |
-| `version` | yes | exactly `5` | The format version, `FORMAT_VERSION` when written; older files are upgraded on load. |
+| `version` | yes | exactly `6` | The format version, `FORMAT_VERSION` when written; older files are upgraded on load. |
 
 Where it goes: `project.json` in a `Name.cantina/` folder. Schema: `https://cantina-docs.vibeproject.workers.dev/schemas/project.schema.json`.
 
@@ -167,6 +168,16 @@ A region of a file in `audio/` placed on the timeline. The file is never modifie
 | `name` | yes | string | Shown on the clip. |
 | `offset` | yes | integer (≥ 0) | Frame into the file the clip starts from. |
 | `start` | yes | integer (≥ 0) | Timeline sample the clip starts at. |
+
+### `LoopRegion`
+
+A region of the timeline, in samples, that playback can loop over.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `end` | yes | integer (≥ 0) | Sample just after it; playback wraps from here to `start`. |
+| `on` | yes | boolean | True while playback loops. The region stays when it is off. |
+| `start` | yes | integer (≥ 0) | First sample of the loop. |
 
 ### `Pattern`
 

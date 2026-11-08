@@ -247,6 +247,8 @@ export interface ProjectStatus {
   patterns: PatternInfo[];
   /** The master strip; pan and solo are unused on it. */
   master: Strip;
+  /** The loop region, and whether playback loops over it. */
+  loop: LoopRegion | null;
 }
 
 /** A mixer strip. Mirrors `Strip` in crates/project. */
@@ -298,6 +300,15 @@ export interface ClipInfo {
   start: number;
   offset: number;
   length: number;
+}
+
+/** A region of the timeline playback can loop over, in samples. Mirrors `LoopRegion` in cantina-project. */
+export interface LoopRegion {
+  start: number;
+  /** The sample just after the loop. */
+  end: number;
+  /** True while playback loops; the region stays when it is off. */
+  on: boolean;
 }
 
 /** A pattern clip on a drum track. Positions are in ticks (960 per beat). */
@@ -932,6 +943,8 @@ const mock: EngineStatus = {
       ? [mockPattern(11, "Verse"), { ...mockPattern(12, "Chorus"), swing: 0 }]
       : [],
     master: { gainDb: -1, pan: 0, mute: false, solo: false },
+    // `?loop` loops bars 3 to 6.
+    loop: mockParams?.has("loop") ? { start: 4 * MOCK_RATE, end: 12 * MOCK_RATE, on: true } : null,
   },
   pedalKinds: mockKinds(),
   plugins: {
@@ -1030,6 +1043,7 @@ function mockStatus(): EngineStatus {
         patternClips: t.patternClips.map((c) => ({ ...c })),
         strip: { ...t.strip },
       })),
+      loop: mock.project.loop ? { ...mock.project.loop } : null,
       patterns: mock.project.patterns.map((p) => ({
         ...p,
         rows: p.rows.map((r) => ({ pad: r.pad, steps: [...r.steps] })),
@@ -1255,6 +1269,7 @@ export async function projectNew(name: string): Promise<EngineStatus> {
     ],
     patterns: [],
     master: { ...UNITY },
+    loop: null,
   };
   return mockStatus();
 }
@@ -1699,6 +1714,16 @@ export async function pedalSetBypass(id: number, on: boolean): Promise<EngineSta
   if (!pedal) throw new Error(`no pedal ${id}`);
   pedal.bypassed = on;
   return mockEdit(on ? "bypass pedal" : "turn pedal on");
+}
+
+/** Sets the loop region and whether playback loops, or clears it with null. */
+export async function loopSet(region: LoopRegion | null): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("loop_set", { region });
+  if (region && region.end <= region.start) {
+    throw new Error(`a loop from ${region.start} to ${region.end} has no length`);
+  }
+  mock.project.loop = region ? { ...region } : null;
+  return mockEdit(region ? (region.on ? "loop" : "loop off") : "clear loop");
 }
 
 /** Bypasses every pedal on a track, or turns them all on, as one edit. */

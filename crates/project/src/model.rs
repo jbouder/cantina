@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 /// The format version this crate writes. The loader upgrades older files;
 /// see `file.rs` for the migrations.
-pub const FORMAT_VERSION: u32 = 5;
+pub const FORMAT_VERSION: u32 = 6;
 
 /// Ticks per quarter note in pattern and pattern clip positions. The
 /// same as the engine's tempo map, so a tick here is a tick there.
@@ -246,6 +246,19 @@ impl Pattern {
         }
         Ok(())
     }
+}
+
+/// A region of the timeline, in samples, that playback can loop over.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoopRegion {
+    /// First sample of the loop.
+    pub start: u64,
+    /// Sample just after it; playback wraps from here to `start`.
+    pub end: u64,
+    /// True while playback loops. The region stays when it is off.
+    pub on: bool,
 }
 
 /// Tempo and time signature. One of each for the whole timeline for now;
@@ -489,6 +502,10 @@ pub struct Project {
     /// The master strip: gain and mute on the sum of the tracks.
     #[serde(default)]
     pub master: Strip,
+    /// The loop region on the timeline, set or not, and whether playback
+    /// loops over it.
+    #[serde(default, rename = "loop", skip_serializing_if = "Option::is_none")]
+    pub loop_region: Option<LoopRegion>,
     /// Edits applied since the project was created. Commands do not
     /// touch it; the shell bumps it with each one and the journal records
     /// which revision each line brought the project to, so on open the
@@ -508,6 +525,7 @@ impl Project {
             tracks: Vec::new(),
             patterns: Vec::new(),
             master: Strip::default(),
+            loop_region: None,
             revision: 0,
         }
     }
