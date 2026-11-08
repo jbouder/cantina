@@ -140,3 +140,16 @@ export function menuStates(bindings: Bindings): ({ id: ActionId } & ActionState)
     };
   });
 }
+
+/**
+ * A menu title for an edit, from its command's description: `move clip`
+ * under Undo is `Undo Move Clip`. Lowercase words get a capital, as Mac
+ * menus title-case; names in the description keep their case.
+ */
+export function editTitle(verb: "Undo" | "Redo", description: string | null): string {
+  if (!description) return verb;
+  const words = description
+    .split(" ")
+    .map((w) => (/^[a-z]/.test(w) ? w[0]?.toUpperCase() + w.slice(1) : w));
+  return `${verb} ${words.join(" ")}`;
+}

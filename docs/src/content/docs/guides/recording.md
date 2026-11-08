@@ -48,6 +48,7 @@ the interface does not push them late.
 | Trim a clip | Click it, then drag the handle on either edge. The audio stays where it was, and a trimmed edge can be dragged back out. |
 | Split a clip | Alt-click it where it should split, or select it and press S to split at the playhead. |
 | Duplicate a clip | Select it and press ⌘D. The copy lands in the first space after it that holds it, never over another clip, and is selected, so another ⌘D adds the next. |
+| Cut, copy and paste a clip | Select it, then ⌘X or ⌘C with the timeline focused. ⌘V puts a copy on the selected track at the playhead, in the first space that holds it. |
 | Delete a clip | Select it and press Delete, or use its button on the **Clips** tab. |
 | Nudge a clip | Select it and press ← or → to move it one grid step. |
 
@@ -55,7 +56,7 @@ Right-click a clip for a menu of the same edits: split it where you clicked or
 at the playhead, trim its start or end to the playhead, duplicate or delete it.
 Drum clips work the same way.
 
-Every edit can be undone with ⌘Z and redone with ⇧⌘Z, or with the arrows
+Every edit can be undone with ⌘Z and redone with ⇧⌘Z (the Edit menu names the edit it will undo), or with the arrows
 beside the project name. The **Clips** tab of the track's editor lists its
 clips, for working from the keyboard.
 

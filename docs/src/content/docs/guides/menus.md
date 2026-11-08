@@ -43,8 +43,12 @@ nothing to save, is greyed out.
 
 | Item | Shortcut | What it does |
 | --- | --- | --- |
-| Undo, Redo | ⌘Z, ⇧⌘Z | Undo and redo the last edit to the project. In a text field they undo your typing instead. |
-| Cut, Copy, Paste, Select All | ⌘X, ⌘C, ⌘V, ⌘A | In text fields. |
+| Undo, Redo | ⌘Z, ⇧⌘Z | Undo and redo the last edit to the project. The item names the edit, as in **Undo Move Clip** or **Redo Add Clip Guitar 3**, so you know what it will change. In a text field they undo your typing instead. |
+| Cut, Copy, Paste | ⌘X, ⌘C, ⌘V | In a text field, the text. With the timeline focused, the selected clip: Cut and Copy keep it, and Paste puts a copy on the selected track at the playhead, or in the first space after it that holds the clip. Audio goes on audio tracks and patterns on drum tracks. The copy plays the same recording, so pasting never copies audio. |
+| Duplicate Clip | ⌘D | A copy of the selected clip in the first space after it. |
+| Delete Clip | ⌫ in the timeline | Removes the selected clip. Its recording stays in the project, so Undo, or Paste after a Cut, brings it back. |
+| Select All | ⌘A | In a text field. The timeline selects one clip at a time. |
+| Split Clip at Playhead | S in the timeline | Cuts the selected clip in two at the playhead. |
 
 ## Transport
 

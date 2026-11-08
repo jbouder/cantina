@@ -3396,6 +3396,90 @@ impl Engine {
         self.apply(command)
     }
 
+    /// Pastes a copied clip onto `track` at timeline sample `start`, or in
+    /// the first space after it that holds the clip. The copy reads the
+    /// same file in `audio/`, with the same trim, so a clip cut and
+    /// deleted can still be pasted: deleting never removes the file.
+    pub fn clip_paste(
+        &mut self,
+        track: u64,
+        start: u64,
+        name: &str,
+        file: &str,
+        offset: u64,
+        length: u64,
+    ) -> Result<EngineStatus> {
+        if file.is_empty() || file.contains(['/', '\\']) || file.starts_with('.') {
+            bail!("{file:?} is not a file in audio/");
+        }
+        if !cantina_project::audio_dir(&self.project_dir)
+            .join(file)
+            .is_file()
+        {
+            bail!("{file} is not in this project's audio; copy and paste within one project");
+        }
+        let target = self
+            .project
+            .track(TrackId(track))
+            .with_context(|| format!("no track {track}"))?;
+        if target.kit.is_some() {
+            bail!(
+                "{} is a drum track; paste audio on an audio track",
+                target.name
+            );
+        }
+        let start = target.free_clip_start(start, length);
+        let clip = Clip {
+            id: ClipId(self.project.fresh_id()),
+            name: name.to_string(),
+            file: file.to_string(),
+            start,
+            offset,
+            length,
+        };
+        self.apply(Command::InsertClip {
+            track: TrackId(track),
+            clip,
+        })
+    }
+
+    /// Pastes a copied pattern clip onto drum track `track` at tick
+    /// `start`, or in the first space after it that holds the clip.
+    pub fn pattern_clip_paste(
+        &mut self,
+        track: u64,
+        start: u64,
+        pattern: u64,
+        offset: u64,
+        length: u64,
+    ) -> Result<EngineStatus> {
+        self.project
+            .pattern(PatternId(pattern))
+            .with_context(|| format!("no pattern {pattern}"))?;
+        let target = self
+            .project
+            .track(TrackId(track))
+            .with_context(|| format!("no track {track}"))?;
+        if target.kit.is_none() {
+            bail!(
+                "{} is an audio track; paste a pattern on a drum track",
+                target.name
+            );
+        }
+        let start = target.free_pattern_start(start, length);
+        let clip = PatternClip {
+            id: PatternClipId(self.project.fresh_id()),
+            pattern: PatternId(pattern),
+            start,
+            offset,
+            length,
+        };
+        self.apply(Command::InsertPatternClip {
+            track: TrackId(track),
+            clip,
+        })
+    }
+
     /// Cuts a clip at timeline sample `at`; the right part is a new clip.
     pub fn clip_split(&mut self, id: u64, at: u64) -> Result<EngineStatus> {
         let new_id = ClipId(self.project.fresh_id());

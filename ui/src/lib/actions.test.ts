@@ -4,6 +4,7 @@ import {
   ACTIONS,
   actionForKey,
   type Bindings,
+  editTitle,
   type KeyPress,
   MENUS,
   matchesAccelerator,
@@ -94,5 +95,20 @@ describe("menuStates", () => {
     expect(states.find((s) => s.id === "record")?.enabled).toBe(false);
     expect(states.find((s) => s.id === "metronome")?.checked).toBe(false);
     expect(states.find((s) => s.id === "export")).not.toHaveProperty("checked");
+  });
+});
+
+describe("editTitle", () => {
+  it("names the edit after its command, title-cased", () => {
+    expect(editTitle("Undo", "move clip")).toBe("Undo Move Clip");
+    expect(editTitle("Redo", "change pedal knobs")).toBe("Redo Change Pedal Knobs");
+  });
+
+  it("keeps the case of names", () => {
+    expect(editTitle("Undo", "add clip Guitar 1")).toBe("Undo Add Clip Guitar 1");
+  });
+
+  it("is the bare verb with nothing to name", () => {
+    expect(editTitle("Undo", null)).toBe("Undo");
   });
 });

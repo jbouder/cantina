@@ -60,6 +60,16 @@
       "label": "Redo",
       "accelerator": "Shift+CmdOrCtrl+Z"
     },
+    "duplicate": {
+      "label": "Duplicate Clip",
+      "accelerator": "CmdOrCtrl+D"
+    },
+    "delete": {
+      "label": "Delete Clip"
+    },
+    "split": {
+      "label": "Split Clip at Playhead"
+    },
     "play": {
       "label": "Play",
       "key": "Space"
@@ -122,7 +132,19 @@
     },
     {
       "title": "Edit",
-      "items": ["undo", "redo", "-", "@cut", "@copy", "@paste", "@selectAll"]
+      "items": [
+        "undo",
+        "redo",
+        "-",
+        "@cut",
+        "@copy",
+        "@paste",
+        "duplicate",
+        "delete",
+        "@selectAll",
+        "-",
+        "split"
+      ]
     },
     {
       "title": "Transport",
