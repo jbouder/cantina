@@ -77,6 +77,14 @@ a slower one, so review looks for them first.
 - **The docs stay true.** A change someone would notice updates its
   guide or architecture page in the same pull request.
 
+## Adding a menu item or a shortcut
+
+Menu items and keyboard shortcuts come from one registry,
+`ui/src/lib/actions.json`. Add the action there and put it in a menu, then
+bind it in `App.tsx`; the shell builds the native menu from the same file.
+[Menus and shortcuts](https://cantina-docs.vibeproject.workers.dev/architecture/menus/)
+has the details and the rules the tests hold it to.
+
 ## Testing
 
 CI (`.github/workflows/ci.yml`) runs all of this on every pull request.

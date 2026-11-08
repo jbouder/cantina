@@ -1,0 +1,38 @@
+{
+  "actions": {
+    "settings": { "label": "Settings…", "accelerator": "CmdOrCtrl+Comma" },
+    "export": { "label": "Export Mixdown…", "accelerator": "CmdOrCtrl+E" },
+    "undo": { "label": "Undo", "accelerator": "CmdOrCtrl+Z" },
+    "redo": { "label": "Redo", "accelerator": "Shift+CmdOrCtrl+Z" },
+    "play": { "label": "Play", "key": "Space" },
+    "record": { "label": "Record", "key": "R" },
+    "metronome": { "label": "Metronome", "key": "K", "checkable": true },
+    "perform": { "label": "Performance Mode", "key": "P" }
+  },
+  "menus": [
+    {
+      "title": "Cantina",
+      "items": [
+        "@about",
+        "-",
+        "settings",
+        "-",
+        "@services",
+        "-",
+        "@hide",
+        "@hideOthers",
+        "@showAll",
+        "-",
+        "@quit"
+      ]
+    },
+    { "title": "File", "items": ["export", "-", "@closeWindow"] },
+    {
+      "title": "Edit",
+      "items": ["undo", "redo", "-", "@cut", "@copy", "@paste", "@selectAll"]
+    },
+    { "title": "Transport", "items": ["play", "record", "-", "metronome"] },
+    { "title": "View", "items": ["perform", "-", "@fullscreen"] },
+    { "title": "Window", "items": ["@minimize", "@maximize", "-", "@bringAllToFront"] }
+  ]
+}

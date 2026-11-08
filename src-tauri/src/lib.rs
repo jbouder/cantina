@@ -11,6 +11,7 @@ mod commands;
 mod engine;
 mod frame;
 mod library;
+mod menu;
 mod mixdown;
 mod pedals;
 mod project;
@@ -30,8 +31,17 @@ pub fn run() {
             app.manage(EngineState::new(app.handle().clone()));
             let folders = app.state::<EngineState>().lock().library_folders();
             library::spawn_watcher(app.handle().clone(), folders);
+            // The menu bar from the action registry. If it cannot be
+            // built, macOS keeps Tauri's default menu and the app runs.
+            match menu::build(app.handle()) {
+                Ok(bar) => {
+                    app.set_menu(bar)?;
+                }
+                Err(e) => eprintln!("[menu] could not build the menu bar: {e}"),
+            }
             Ok(())
         })
+        .on_menu_event(|app, event| menu::on_event(app, event.id().as_ref()))
         .invoke_handler(tauri::generate_handler![
             commands::ui_log,
             commands::engine_status,
@@ -119,6 +129,7 @@ pub fn run() {
             commands::mixdown_export,
             commands::track_bounce,
             commands::render_cancel,
+            commands::menu_state,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Cantina shell")

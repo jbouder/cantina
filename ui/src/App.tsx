@@ -19,6 +19,7 @@ import { Timeline } from "./components/Timeline";
 import { Transport } from "./components/Transport";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { Window } from "./components/Window";
+import { type ActionId, actionForKey, type Bindings, isTyping, menuStates } from "./lib/actions";
 import {
   brokenOf,
   designerNew,
@@ -29,9 +30,11 @@ import {
   engineStop,
   inTauri,
   type MeterFrame,
+  menuState,
   metronomeSet,
   ms,
   onFileDrop,
+  onMenuAction,
   onMeters,
   onStatus,
   patternImport,
@@ -106,6 +109,18 @@ export function App() {
   const closeProjects = useCallback(() => setProjectsOpen(false), []);
   const closeExport = useCallback(() => setExportOpen(false), []);
   const closePicker = useCallback(() => setPickerOpen(false), []);
+  // Whether a text field has focus, so Undo and Redo stay available to
+  // the field's own undo when the project has nothing to undo.
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    const update = () => setTyping(isTyping(document.activeElement));
+    window.addEventListener("focusin", update);
+    window.addEventListener("focusout", update);
+    return () => {
+      window.removeEventListener("focusin", update);
+      window.removeEventListener("focusout", update);
+    };
+  }, []);
   // In a browser `?drums` adds a drum track to the stand-in and selects it.
   const [selectedTrack, setSelectedTrack] = useState<number | null>(() =>
     params?.has("drums") ? 10 : null,
@@ -171,67 +186,6 @@ export function App() {
     [],
   );
 
-  // Cmd-Z and Shift-Cmd-Z anywhere but inside a text field, where the
-  // field's own undo applies; Cmd-E opens the export sheet. Space plays or stops, R records and P
-  // performs, except on a control that uses those keys itself.
-  const keys = useRef({ status, frame });
-  keys.current = { status, frame };
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const tag = target?.tagName;
-      const typing =
-        (tag === "INPUT" && (target as HTMLInputElement).type === "text") ||
-        tag === "TEXTAREA" ||
-        target?.isContentEditable;
-      const report = (action: Promise<EngineStatus>) =>
-        action.then(setStatus, (err) => setError(String(err)));
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !e.altKey) {
-        if (typing) return;
-        e.preventDefault();
-        report(e.shiftKey ? projectRedo() : projectUndo());
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "e" && !e.altKey && !e.shiftKey) {
-        e.preventDefault();
-        setExportOpen(true);
-        return;
-      }
-      if (e.metaKey || e.ctrlKey || e.altKey || typing) return;
-      if (tag === "INPUT" || tag === "SELECT" || tag === "BUTTON") return;
-      if (e.key === "p" || e.key === "P") {
-        e.preventDefault();
-        perform();
-        return;
-      }
-      const { status: s, frame: f } = keys.current;
-      if ((e.key === "k" || e.key === "K") && s) {
-        e.preventDefault();
-        const { on, sound, levelDb } = s.metronome;
-        report(metronomeSet({ on: !on, sound, levelDb }));
-        return;
-      }
-      if (!s?.running) return;
-      if (e.key === " ") {
-        e.preventDefault();
-        const rolling = f.playing || f.recording;
-        const hasClips =
-          s.audition !== null ||
-          s.metronome.on ||
-          s.project.tracks.some((t) => t.clips.length > 0 || t.patternClips.length > 0);
-        if (rolling) report(transportStop());
-        else if (hasClips) report(transportPlay());
-      } else if (e.key === "r" || e.key === "R") {
-        if (f.playing || f.recording) return;
-        if (!s.project.tracks.some((t) => t.armed && !t.kit)) return;
-        e.preventDefault();
-        report(transportRecord());
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [perform]);
-
   const toggle = useCallback(async () => {
     if (!status || busy) return;
     setBusy(true);
@@ -283,6 +237,83 @@ export function App() {
   const transport = status
     ? { ...status.transport, playing: frame.playing, recording: frame.recording }
     : null;
+
+  // Every action the menu bar and the keyboard run, from the registry in
+  // `lib/actions.json`, wired to the app and to whether it applies now.
+  // The menu bar learns the state through `menuState`; a chosen item or a
+  // key runs the same handler a button does.
+  const report = useCallback(
+    (action: Promise<EngineStatus>) => action.then(setStatus, (e) => setError(String(e))),
+    [],
+  );
+  const rolling = frame.playing || frame.recording;
+  const hasClips =
+    status !== null &&
+    (status.audition !== null ||
+      status.metronome.on ||
+      status.project.tracks.some((t) => t.clips.length > 0 || t.patternClips.length > 0));
+  const bindings: Bindings = {
+    settings: { enabled: status !== null, run: () => setSettingsOpen(true) },
+    export: { enabled: status !== null, run: () => setExportOpen(true) },
+    // In a text field ⌘Z is the field's own undo.
+    undo: {
+      enabled: typing || (status?.project.undoLabel ?? null) !== null,
+      run: () => {
+        if (isTyping(document.activeElement)) document.execCommand("undo");
+        else report(projectUndo());
+      },
+    },
+    redo: {
+      enabled: typing || (status?.project.redoLabel ?? null) !== null,
+      run: () => {
+        if (isTyping(document.activeElement)) document.execCommand("redo");
+        else report(projectRedo());
+      },
+    },
+    play: {
+      enabled: running && (rolling || hasClips),
+      label: rolling ? "Stop" : "Play",
+      run: () => report(rolling ? transportStop() : transportPlay()),
+    },
+    record: {
+      enabled: running && !rolling && tracks.some((t) => t.armed && !t.kit),
+      run: () => report(transportRecord()),
+    },
+    metronome: {
+      enabled: status !== null,
+      checked: status?.metronome.on ?? false,
+      run: () => {
+        if (!status) return;
+        const { on, sound, levelDb } = status.metronome;
+        report(metronomeSet({ on: !on, sound, levelDb }));
+      },
+    },
+    perform: { enabled: status !== null, run: perform },
+  };
+  const bound = useRef(bindings);
+  bound.current = bindings;
+  const menu = JSON.stringify(menuStates(bindings));
+  useEffect(() => {
+    menuState(JSON.parse(menu)).catch((e) => setError(String(e)));
+  }, [menu]);
+  useEffect(() => {
+    const run = (id: ActionId) => {
+      const action = bound.current[id];
+      if (!action.enabled) return false;
+      action.run();
+      return true;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      const id = actionForKey(e, e.target as Element | null, inTauri);
+      if (id && run(id)) e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    const stopMenu = onMenuAction(run);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      stopMenu();
+    };
+  }, []);
 
   return (
     <Window
