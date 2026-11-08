@@ -74,6 +74,42 @@ window; the same again closes it.
 - **Clear** forgets the conversation. Otherwise it is kept, and is there
   the next time you open Cantina.
 
+## What it can read and change
+
+The assistant works on the open project with the same edits the window
+makes. Every change is one step in **Edit ▸ Undo**, saved with the project
+and journalled like any other, and shows in the chat as a card.
+
+It can **read**:
+
+- the project: tempo, time signature and loop; every track with its
+  pedal chain, each pedal's parameters with their values and ranges; the
+  mixer; the clips and placed patterns;
+- drum patterns, step by step;
+- the pedals you can add (stock and your library) and the installed drum
+  kits with their pads;
+- the audio engine: whether it is running, the devices, sample rate,
+  buffer size, latency, the input and output meters, and plugins that
+  failed to load.
+
+It can **change**:
+
+- the tempo and time signature, and the loop;
+- tracks: add an audio or a drum track, rename, arm, set the fader, pan,
+  mute and solo (and the master's fader and mute);
+- pedal chains: add a pedal (with its knobs set in the same step), remove,
+  reorder, bypass, and set parameters by name;
+- drum patterns: write a new one, rewrite one, and place it on a drum
+  track at a bar.
+
+It asks first, with **Yes** and **No** in the chat, before it **removes a
+track**, **deletes a pattern** or **deletes a clip**. Audio files are never
+deleted or changed; a deleted clip's recording stays in the project
+folder.
+
+It cannot record, play or stop, open plugins' windows, change your audio
+devices, or save, open or delete projects.
+
 ## Where your key is kept
 
 Your API key goes into the macOS **Keychain**, under
@@ -96,10 +132,13 @@ the endpoint only:
 - when you send a message, press **Retry**, or the assistant carries on
   after a change it made.
 
-Each message sends your key, a short description of the assistant, and
-the conversation so far: your messages, its replies, and the changes it
-made with what came of them. Older parts of a long conversation are left
-out. No audio and no file is ever sent.
+Each message sends your key, a short description of the assistant, a
+summary of the project (its name, tempo and track names), and the
+conversation so far: your messages, its replies, and what its tools read
+and changed. When it reads the project or the engine, those details
+(track and pedal names and settings, clip and pattern names, device names
+and levels) are sent as part of the conversation. Older parts of a long
+conversation are left out. No audio and no file is ever sent.
 
 The conversation is kept on your Mac in
 `~/Library/Application Support/com.jbouder.cantina/assistant-thread.json`

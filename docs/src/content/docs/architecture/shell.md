@@ -32,3 +32,4 @@ While a stream is open, a pump thread wakes 60 times a second, reads the meters,
 1. Add the method to `Engine` in `engine.rs`, going through `apply` if it edits the project.
 2. Add a `#[tauri::command]` wrapper in `commands.rs` and register it in `lib.rs`.
 3. Add it to the UI's engine client in `ui/src/lib/engine.ts`, including the browser stand-in, so `npm run dev` and the screenshots keep working.
+4. If the assistant should be able to do it too, add a tool to `TOOLS` in `assistant/tools.rs` that builds the same `Command`. See [assistant](/architecture/assistant/#the-tools).

@@ -1652,6 +1652,122 @@ pub struct Engine {
     scanning: bool,
 }
 
+/// The assistant's tools work on the engine through the same methods
+/// and the same `apply` as the UI.
+impl crate::assistant::tools::Host for Engine {
+    fn project(&self) -> &Project {
+        &self.project
+    }
+
+    fn revision(&self) -> u64 {
+        self.project.revision
+    }
+
+    fn apply(&mut self, command: Command) -> Result<()> {
+        Engine::apply(self, command).map(drop)
+    }
+
+    fn pedal_kinds(&self) -> Vec<(String, String)> {
+        stock_kinds()
+            .iter()
+            .map(|k| (k.spec.clone(), k.name.clone()))
+            .chain(
+                self.library
+                    .entries()
+                    .iter()
+                    .map(|e| (format!("pedal:{}", e.id), e.name.clone())),
+            )
+            .collect()
+    }
+
+    fn pedal_kind(&mut self, spec: &str) -> Result<(String, Vec<ParamInfo>)> {
+        let kind = self.catalog.get(spec, &mut self.irs, &self.designs)?;
+        Ok((kind.name.clone(), kind.params.clone()))
+    }
+
+    fn add_pedal(
+        &mut self,
+        track: TrackId,
+        spec: &str,
+        index: Option<usize>,
+        values: Option<Vec<f32>>,
+    ) -> Result<PedalId> {
+        self.chain_add_with(track, spec, index, values)
+    }
+
+    fn kits(&self) -> Vec<(String, String)> {
+        self.kits
+            .entries()
+            .iter()
+            .filter(|k| !self.is_broken(&k.path))
+            .map(|k| (k.id.clone(), k.name.clone()))
+            .collect()
+    }
+
+    fn pads(&self, kit: &str) -> Vec<String> {
+        self.kit_status(kit)
+            .pads
+            .into_iter()
+            .map(|p| p.id)
+            .collect()
+    }
+
+    fn add_drum_track(&mut self, kit: Option<String>) -> Result<TrackId> {
+        let id = TrackId(self.project.fresh_id());
+        self.track_add_drums(kit)?;
+        Ok(id)
+    }
+
+    fn remove_track(&mut self, track: TrackId) -> Result<()> {
+        self.track_remove(track.0).map(drop)
+    }
+
+    fn engine_report(&self) -> serde_json::Value {
+        let status = self.status();
+        let rate = status.sample_rate;
+        let ms = |frames: f64| (frames / rate * 10_000.0).round() / 10.0;
+        let db = |level: f32| {
+            if level <= 0.0 {
+                None
+            } else {
+                Some((cantina_dsp::linear_to_db(level) * 10.0).round() / 10.0)
+            }
+        };
+        let live = self.live.as_ref().map(|l| {
+            let stats = l.stream.stats();
+            let (input, output) = (l.input_levels.peek(0), l.output_levels.peek(0));
+            serde_json::json!({
+                "inputPeakDb": db(input.peak),
+                "outputPeakDb": db(output.peak),
+                "inputClipping": input.peak >= 0.99,
+                "outputUnderrunFrames": stats.output_underruns.load(Ordering::Relaxed),
+                "inputOverrunFrames": stats.input_overruns.load(Ordering::Relaxed),
+            })
+        });
+        serde_json::json!({
+            "running": status.running,
+            "input": status.input_name,
+            "output": status.output_name,
+            "sampleRate": rate,
+            "bufferFrames": status.buffer_frames,
+            "bufferMs": ms(status.buffer_frames as f64),
+            "latency": {
+                "inputMs": ms(status.latency.input_frames as f64),
+                "outputMs": ms(status.latency.output_frames as f64),
+                "pluginCompensationMs": ms(status.latency.compensation_frames as f64),
+                "roundTripMs": ms((status.latency.input_frames + status.latency.output_frames) as f64),
+            },
+            "live": live,
+            "lastError": status.error,
+            "notice": status.notice,
+            "pluginsFailedToScan": self.plugins.failed.iter().map(|f| serde_json::json!({
+                "name": f.name,
+                "why": f.why,
+            })).collect::<Vec<_>>(),
+        })
+    }
+}
+
 /// What the meter pump reads to fill in a frame.
 #[derive(Default)]
 struct TransportState {
@@ -3808,6 +3924,19 @@ impl Engine {
         spec: &str,
         index: Option<usize>,
     ) -> Result<EngineStatus> {
+        self.chain_add_with(TrackId(track), spec, index, None)?;
+        Ok(self.status())
+    }
+
+    /// Adds a pedal with these parameter values, or its defaults, as one
+    /// edit, and returns its id.
+    fn chain_add_with(
+        &mut self,
+        track: TrackId,
+        spec: &str,
+        index: Option<usize>,
+        values: Option<Vec<f32>>,
+    ) -> Result<PedalId> {
         // A new cabinet starts on the first impulse installed.
         let spec = match (spec, self.irs.first_id()) {
             ("cab", Some(first)) => format!("cab:{first}"),
@@ -3828,17 +3957,26 @@ impl Engine {
             }
         }
         let kind = self.catalog.get(&spec, &mut self.irs, &self.designs)?;
+        let defaults: Vec<f32> = kind.params.iter().map(|p| p.default).collect();
+        let values = match values {
+            Some(v) if v.len() == defaults.len() => {
+                kind.params.iter().zip(v).map(|(p, v)| p.clamp(v)).collect()
+            }
+            _ => defaults,
+        };
+        let id = PedalId(self.project.fresh_id());
         let pedal = Pedal {
-            id: PedalId(self.project.fresh_id()),
+            id,
             spec: spec.clone(),
-            values: kind.params.iter().map(|p| p.default).collect(),
+            values,
             bypassed: false,
         };
         self.apply(Command::InsertPedal {
-            track: TrackId(track),
+            track,
             index: index.unwrap_or(usize::MAX),
             pedal,
-        })
+        })?;
+        Ok(id)
     }
 
     pub fn chain_remove(&mut self, id: u64) -> Result<EngineStatus> {
