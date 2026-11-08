@@ -13,6 +13,9 @@
 pub mod chat;
 pub mod keychain;
 pub mod provider;
+#[cfg(test)]
+mod tests;
+pub mod tools;
 
 use serde::Serialize;
 
@@ -54,10 +57,58 @@ pub fn system_prompt() -> String {
     "You are the assistant built into Cantina, a macOS studio for guitar and bass players: \
      a live pedal chain per track, multitrack recording, drum tracks with step patterns, \
      Audio Unit and CLAP plugins, a pedal designer and a stage of visualizer scenes. \
-     Answer the player's questions about playing, tone and the app. Be brief and concrete; \
-     use Markdown, with short lists and code blocks only where they help. If you are not \
-     sure how Cantina does something, say so rather than guessing."
+     Answer the player's questions about playing, tone and the app, and change the project \
+     with your tools when they ask you to.\n\n\
+     Working with the project:\n\
+     - Call get_project before changing anything, for the ids, and again if an id is refused.\n\
+     - Make the change asked for, and no more. Do not remove or delete anything the player \
+     did not ask to lose; the app asks them before a removal anyway.\n\
+     - Every change you make is one undoable step, shown to the player as a card with Undo.\n\
+     - A pedal chain runs from the input (position 0) to the output.\n\
+     - If a tool returns an error, read it, fix the call and try again, or tell the player \
+     what stopped you.\n\
+     - After changing things, say in a sentence or two what you did.\n\n\
+     Be brief and concrete; use Markdown, with short lists and code blocks only where they \
+     help. If you are not sure how Cantina does something, say so rather than guessing."
         .to_string()
+}
+
+/// The engine, or a stand-in for it in tests, reached for one call at a time.
+pub trait Lock: Send {
+    /// Runs `f` with the host locked.
+    fn with<R>(&self, f: impl FnOnce(&mut dyn tools::Host) -> R) -> R;
+}
+
+impl Lock for tauri::AppHandle {
+    fn with<R>(&self, f: impl FnOnce(&mut dyn tools::Host) -> R) -> R {
+        use tauri::Manager;
+        let state = self.state::<crate::engine::EngineState>();
+        let mut engine = state.lock();
+        f(&mut *engine)
+    }
+}
+
+/// The tools of [`tools::TOOLS`] on a host, locked for each call only,
+/// so the engine is free while the model writes.
+pub struct HostTools<L: Lock>(pub L);
+
+impl<L: Lock> chat::Toolbox for HostTools<L> {
+    fn specs(&self) -> Vec<serde_json::Value> {
+        tools::specs()
+    }
+
+    fn confirm(&self, name: &str, arguments: &serde_json::Value) -> Option<String> {
+        self.0.with(|host| tools::confirm(host, name, arguments))
+    }
+
+    fn run(&mut self, name: &str, arguments: &serde_json::Value) -> chat::Outcome {
+        self.0.with(|host| tools::run(host, name, arguments))
+    }
+
+    fn system(&self) -> String {
+        let brief = self.0.with(|host| tools::brief(host.project()));
+        format!("{}\n\n{brief}", system_prompt())
+    }
 }
 
 /// The conversation as the shell keeps it: the thread, and the request

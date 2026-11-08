@@ -94,6 +94,46 @@ else; otherwise Edit ▸ Undo steps back through the history as usual.
 `converse` takes a `Model` and a `Toolbox`, so tests drive it with a
 scripted model (`chat::script`) and no network or engine.
 
+## The tools
+
+`assistant/tools.rs` is the registry. Every tool is one entry in `TOOLS`:
+a name, a description for the model, a JSON Schema for its arguments, an
+optional question for the player, and the function that runs it.
+`specs()` turns the table into the model's function definitions, and
+`run()` checks the arguments against the compiled schema before calling
+the tool, so a malformed call never reaches the project.
+
+| Reads | Edits | Asks first |
+| --- | --- | --- |
+| `get_project`, `get_pattern`, `list_pedal_kinds`, `list_kits`, `get_engine` | `set_tempo`, `add_track`, `add_drum_track`, `rename_track`, `set_mix`, `arm_track`, `add_pedal`, `remove_pedal`, `move_pedal`, `set_pedal_params`, `bypass_pedal`, `add_pattern`, `set_pattern`, `place_pattern`, `set_loop` | `remove_track`, `delete_pattern`, `delete_clip` |
+
+Tools run against a `Host`: the project, its revision, `apply`, and the
+few things only the engine knows (pedal kinds and their parameters, the
+kits and their pads, adding a pedal or a drum track, removing a track,
+the engine report). `Engine` implements it in `engine.rs` with the same
+methods the UI's commands call:
+
+- **Every edit is a `Command` through `Engine::apply`**, so it is
+  undoable, journalled and reconciled into the live graph, and the status
+  is pushed to the window as for any edit. Nothing in `tools.rs` touches
+  the graph or the project directly.
+- **One tool call is one undo step.** A tool that changes several things
+  (`set_mix`, or `add_pedal` with its knobs) builds one `Command::Batch`
+  or one `InsertPedal` with its values, never several applies.
+- **A failure is a result, not a crash.** An unknown id, a parameter that
+  does not exist, a schema mismatch or an engine refusal comes back to the
+  model as `{"error": …}`, naming what was wrong (and, for a parameter,
+  what the pedal has), so it can call again.
+- **Values are held to range.** Parameters are set by name in their own
+  unit, a choice by its name, and clamped by `ParamInfo::clamp` as a knob
+  would be.
+
+`HostTools` is the loop's `Toolbox` over the registry. It locks the
+engine for each call only (the `Lock` trait: the `AppHandle` in the app,
+a mutex around `tools::fake::FakeHost` in tests), so playback and editing
+carry on while the model writes. The system prompt gets a one-line
+summary of the project (`brief`) on every step.
+
 ## Testing
 
 `provider.rs` tests run against a one-thread HTTP server on localhost
@@ -103,7 +143,14 @@ list; and a streamed chat, fed a byte at a time. `chat.rs` tests run the
 loop against a scripted model: streaming into the thread, tools and their
 results going back, bad arguments recovered from, a confirmation answered
 both ways, a failure and Retry, Stop mid-reply, a runaway model stopped,
-and the thread file across a relaunch. The browser stand-in in `ui/src/lib/engine.ts` has a fake provider
+and the thread file across a relaunch. `tools.rs` tests run every tool
+on `FakeHost` (a project with a history, no engine): edits as single undo
+steps with their cards, reads that change nothing, mistakes that change
+nothing and say why, patterns written, read, placed and looped, and the
+questions destructive tools ask. `assistant/tests.rs` puts it together: a
+scripted model reading the project and building a chain through the real
+loop and the real tools, fixing a refused call, and a removal waiting on
+the player. The browser stand-in in `ui/src/lib/engine.ts` has a fake provider
 at `https://droids.example/v1` so `npm run dev` and the screenshots work;
 `?assistant` starts with it connected, and `?chat` opens the panel with
 a conversation in it.

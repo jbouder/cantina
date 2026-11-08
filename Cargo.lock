@@ -367,6 +367,7 @@ dependencies = [
  "cantina-engine",
  "cantina-hosting",
  "cantina-project",
+ "jsonschema",
  "muda",
  "objc2",
  "reqwest",

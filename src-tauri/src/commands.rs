@@ -952,7 +952,7 @@ async fn answer(
             connection,
             client: provider::chat_client(),
         };
-        let mut tools = chat::NoTools(crate::assistant::system_prompt());
+        let mut tools = crate::assistant::HostTools(app.clone());
         let sink = |event: chat::Event| {
             let _ = channel.send(event);
         };

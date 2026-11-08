@@ -151,9 +151,11 @@ pub trait Toolbox: Send {
     fn system(&self) -> String;
 }
 
-/// A toolbox with no tools: the chat on its own.
+/// A toolbox with no tools: the chat on its own, for tests.
+#[cfg(test)]
 pub struct NoTools(pub String);
 
+#[cfg(test)]
 impl Toolbox for NoTools {
     fn specs(&self) -> Vec<Value> {
         Vec::new()
