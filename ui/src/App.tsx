@@ -15,6 +15,7 @@ import { ProjectName, type ProjectNameMode } from "./components/ProjectName";
 import { Projects } from "./components/Projects";
 import { Recovery } from "./components/Recovery";
 import { Settings } from "./components/Settings";
+import { Shortcuts } from "./components/Shortcuts";
 import { StageView } from "./components/StageView";
 import { Timeline, type TimelineEdit, type TimelineEditState } from "./components/Timeline";
 import { Transport } from "./components/Transport";
@@ -191,6 +192,9 @@ export function App() {
       // Not remembered this time.
     }
   }, []);
+  // Help ▸ Keyboard Shortcuts. In a browser `?shortcuts` opens it.
+  const [shortcutsOpen, setShortcutsOpen] = useState(() => params?.has("shortcuts") ?? false);
+  const closeShortcuts = useCallback(() => setShortcutsOpen(false), []);
   // Counts Track ▸ Rename Track for the editor.
   const [renameRequest, setRenameRequest] = useState(0);
   // Counts File ▸ Bounce Track in Place for the editor.
@@ -577,6 +581,7 @@ export function App() {
       },
     },
     help: { enabled: true, run: () => openLink("docs").catch(failed) },
+    shortcuts: { enabled: true, run: () => setShortcutsOpen(true) },
     releaseNotes: { enabled: true, run: () => openLink("releases").catch(failed) },
     reportIssue: { enabled: true, run: () => openLink("issue").catch(failed) },
     metronome: {
@@ -825,6 +830,7 @@ export function App() {
           opening={projectsIntent.opening ?? null}
         />
       ) : null}
+      {shortcutsOpen ? <Shortcuts onClose={closeShortcuts} /> : null}
       {naming && status ? (
         <ProjectName
           mode={naming}

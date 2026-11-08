@@ -114,6 +114,7 @@ UPDATE_GOLDEN=1 cargo test -p cantina-dsp --test golden   # a stock pedal's soun
 UPDATE_GOLDEN=1 cargo test -p cantina mixdown             # the mixdown changed on purpose
 UPDATE_SCHEMAS=1 cargo test -p cantina-project schemas    # a file format changed
 node scripts/skill-references.mjs                         # after the schemas or the node catalog
+UPDATE_SHORTCUTS=1 npx vitest run shortcuts               # after a shortcut or menu item changed
 ```
 
 A golden file that changes says so in the pull request, with why. If you

@@ -147,6 +147,7 @@ Regenerating what is generated:
 UPDATE_GOLDEN=1 cargo test -p cantina-dsp --test golden   # a stock pedal's sound changed on purpose
 UPDATE_SCHEMAS=1 cargo test -p cantina-project schemas    # a file format changed
 node scripts/skill-references.mjs                         # after the schemas or the node catalog
+UPDATE_SHORTCUTS=1 npx vitest run shortcuts               # after a shortcut or menu item changed
 scripts/skill-fixtures.sh                                 # every skill example checks and renders
 ```
 
