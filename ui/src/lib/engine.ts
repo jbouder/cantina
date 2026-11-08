@@ -14,6 +14,7 @@ import fuzzDef from "../../../pedals/fuzz.pedal.json";
 import overdriveDef from "../../../pedals/overdrive.pedal.json";
 import phaserDef from "../../../pedals/phaser.pedal.json";
 import tremoloDef from "../../../pedals/tremolo.pedal.json";
+import { ACTIONS, type ActionId, type ActionState } from "./actions";
 import { type AnalysisFrame, analysisOf, decodeFrame, encodeFrame } from "./frame";
 import {
   type BrokenFile,
@@ -2080,6 +2081,31 @@ export async function chainSetParam(id: number, param: number, value: number): P
     if (p) p.value = value;
   }
   mock.project.dirty = true;
+}
+
+/**
+ * Tells the menu bar which items apply, are checked and what they say.
+ * The shell keeps the native items in step; nothing in a browser, which
+ * has no menu bar.
+ */
+export async function menuState(items: ({ id: ActionId } & ActionState)[]): Promise<void> {
+  if (inTauri) await invoke("menu_state", { items });
+}
+
+/**
+ * Menu bar items chosen, by action id. Returns a function that stops
+ * listening. Nothing in a browser.
+ */
+export function onMenuAction(listener: (id: ActionId) => void): () => void {
+  if (!inTauri) return () => {};
+  let active = true;
+  const stop = listen<string>("menu://action", (e) => {
+    if (active && e.payload in ACTIONS) listener(e.payload as ActionId);
+  });
+  return () => {
+    active = false;
+    stop.then((unlisten) => unlisten());
+  };
 }
 
 /**

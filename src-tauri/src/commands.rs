@@ -713,3 +713,10 @@ pub async fn track_bounce(app: tauri::AppHandle, id: u64) -> Result<EngineStatus
 pub fn render_cancel() {
     crate::engine::cancel_render();
 }
+
+/// The UI's view of which menu items apply: enabled, checked and label,
+/// one entry per action. See `menu.rs`.
+#[tauri::command]
+pub fn menu_state(app: tauri::AppHandle, items: Vec<crate::menu::ItemState>) -> Result<(), String> {
+    crate::menu::apply(&app, &items).map_err(|e| e.to_string())
+}

@@ -23,6 +23,7 @@ While a stream is open, a pump thread wakes 60 times a second, reads the meters,
 - **Projects** (`project.rs`): where projects live and opening, creating and recovering them.
 - **Designed pedals** (`pedals.rs`): the user's library in `~/Music/Cantina/Pedals` and the copies a project keeps.
 - **Plugin editors**: native windows opened, ticked and closed on the main thread. See [hosting](/architecture/hosting/#editor-windows).
+- **The menu bar** (`menu.rs`): built from the action registry the UI shares. See [menus and shortcuts](/architecture/menus/).
 - **The plugin scanner**: the app binary run with `--scan-plugins` is the scanner's [child process](/architecture/hosting/#the-scanner).
 
 ## Adding a command

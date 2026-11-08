@@ -30,3 +30,7 @@ tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-process = "2"
 tauri-plugin-updater = "2"
+
+[dev-dependencies]
+# Parses the menu accelerators in the menu tests; the version Tauri uses.
+muda = "0.20"
