@@ -72,6 +72,41 @@ export interface EngineStatus {
   metronome: MetronomeStatus;
   /** Record counts in four beats first. An app setting. */
   countIn: boolean;
+  /** The assistant's connection, never its key. An app setting. */
+  assistant: AssistantStatus;
+}
+
+/** The assistant's endpoint and model. Mirrors `AssistantSettings` in src-tauri. */
+export interface AssistantSettings {
+  /** Nothing shows and nothing is sent until this is on. */
+  enabled: boolean;
+  /** An OpenAI-compatible API's base URL, such as `https://api.openai.com/v1`. */
+  endpoint: string;
+  /** The model's id at the endpoint. */
+  model: string;
+}
+
+/** The assistant as the shell reports it. Mirrors `AssistantStatus` in src-tauri. */
+export interface AssistantStatus extends AssistantSettings {
+  /** An API key is saved in the Keychain. The key itself never comes back. */
+  hasKey: boolean;
+}
+
+/** What kind of thing went wrong talking to the provider. Mirrors `ProblemKind` in src-tauri. */
+export type AssistantProblemKind =
+  | "off"
+  | "badUrl"
+  | "badKey"
+  | "unknownModel"
+  | "rateLimited"
+  | "offline"
+  | "server"
+  | "other";
+
+/** A failed request to the provider, in plain words. Mirrors `Problem` in src-tauri. */
+export interface AssistantProblem {
+  kind: AssistantProblemKind;
+  message: string;
 }
 
 /** The metronome's settings. Mirrors `MetronomeSettings` in src-tauri. */
@@ -457,6 +492,8 @@ const mockSettings: AudioSettings = {
 
 const mockParams = inTauri ? null : new URLSearchParams(window.location.search);
 const MOCK_RATE = 48000;
+/** The stand-in assistant's fake provider. */
+const MOCK_ENDPOINT = "https://droids.example/v1";
 /** The stand-in scanned ten minutes ago. */
 const MOCK_SCANNED_AT = Math.floor(Date.now() / 1000) - 600;
 
@@ -971,6 +1008,9 @@ const mock: EngineStatus = {
     sounds: ["Standard", "Woodblock", "Cowbell", "Drum", "Hi-hat"],
   },
   countIn: !(mockParams?.has("nocountin") ?? false),
+  assistant: mockParams?.has("assistant")
+    ? { enabled: true, endpoint: MOCK_ENDPOINT, model: "droid-large", hasKey: true }
+    : { enabled: false, endpoint: "", model: "", hasKey: false },
 
   library: {
     pedalsDir: "/Users/you/Music/Cantina/Pedals",
@@ -1053,6 +1093,7 @@ function mockStatus(): EngineStatus {
     audition: mock.audition ? { ...mock.audition } : null,
     metronome: { ...mock.metronome, sounds: [...mock.metronome.sounds] },
     countIn: mock.countIn,
+    assistant: { ...mock.assistant },
     sampleRate: mockSettings.sampleRate,
     bufferFrames: mockSettings.bufferFrames,
     inputUid: mockSettings.inputUid,
@@ -1180,6 +1221,97 @@ export async function metronomeSet(metronome: Metronome): Promise<EngineStatus> 
   };
   mockPublish();
   return mockStatus();
+}
+
+// ----- the assistant's connection -----
+
+/*
+ * The stand-in has a fake provider at MOCK_ENDPOINT with two models and a
+ * key of anything but "bad". An endpoint with "bad" in it does not answer,
+ * one without "/v1" has no API, and any other model is unknown.
+ */
+const MOCK_MODELS = ["droid-large", "droid-small"];
+let mockKey: string | null = mockParams?.has("assistant") ? "sk-stand-in" : null;
+
+function mockProblem(kind: AssistantProblemKind, message: string): AssistantProblem {
+  return { kind, message };
+}
+
+/** Rejects as the shell would, or resolves with the stand-in's model list. */
+function mockModels(): string[] {
+  const a = mock.assistant;
+  if (!a.enabled) throw mockProblem("off", "The assistant is off. Turn it on in Settings.");
+  if (!/^https?:\/\/\S+/.test(a.endpoint)) {
+    throw mockProblem(
+      "badUrl",
+      `"${a.endpoint}" is not a web address. It should start with https://.`,
+    );
+  }
+  if (a.endpoint.includes("bad")) {
+    throw mockProblem(
+      "badUrl",
+      `Could not connect to ${a.endpoint}. Check the URL and your connection.`,
+    );
+  }
+  if (!a.endpoint.includes("/v1")) {
+    throw mockProblem(
+      "badUrl",
+      "Nothing answered at that URL. It should be the API's base, usually ending in /v1.",
+    );
+  }
+  if (mockKey === "bad" || !mockKey) {
+    throw mockProblem("badKey", "The endpoint refused the API key. Check it, or paste a new one.");
+  }
+  return [...MOCK_MODELS];
+}
+
+/** Turns the assistant on or off and sets its endpoint and model. An app setting, not undoable. */
+export async function assistantConfigure(settings: AssistantSettings): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("assistant_configure", { settings });
+  mock.assistant = {
+    enabled: settings.enabled,
+    endpoint: settings.endpoint.trim(),
+    model: settings.model.trim(),
+    hasKey: settings.enabled && mockKey !== null,
+  };
+  mockPublish();
+  return mockStatus();
+}
+
+/** Saves the API key in the Keychain, or removes it when empty. It never comes back. */
+export async function assistantSetKey(key: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("assistant_set_key", { key });
+  mockKey = key.trim() || null;
+  mock.assistant = { ...mock.assistant, hasKey: mock.assistant.enabled && mockKey !== null };
+  mockPublish();
+  return mockStatus();
+}
+
+/** The models the endpoint offers. Rejects with an `AssistantProblem`. */
+export async function assistantModels(): Promise<string[]> {
+  if (inTauri) return invoke<string[]>("assistant_models");
+  await new Promise((r) => window.setTimeout(r, 300));
+  return mockModels();
+}
+
+/** Checks the endpoint, key and model. Rejects with an `AssistantProblem`. */
+export async function assistantTest(): Promise<void> {
+  if (inTauri) return invoke<void>("assistant_test");
+  await new Promise((r) => window.setTimeout(r, 500));
+  const models = mockModels();
+  if (!mock.assistant.model) throw mockProblem("unknownModel", "Pick a model to talk to.");
+  if (!models.includes(mock.assistant.model)) {
+    throw mockProblem(
+      "unknownModel",
+      `The endpoint has no model called "${mock.assistant.model}". Pick one from the list.`,
+    );
+  }
+}
+
+/** A rejection from an assistant command as a problem, whatever shape it came in. */
+export function asProblem(e: unknown): AssistantProblem {
+  if (e && typeof e === "object" && "kind" in e && "message" in e) return e as AssistantProblem;
+  return { kind: "other", message: String(e) };
 }
 
 /** Frames at a rate as milliseconds, to one decimal. */
@@ -1323,8 +1455,10 @@ function mockFreeName(name: string) {
   if (mockProjects.includes(n)) throw new Error(`there is already a project called ${n}`);
 }
 
-/** Opens one of the Help menu's links in the browser. Nothing in the stand-in. */
-export async function openLink(which: "docs" | "shortcuts" | "releases" | "issue"): Promise<void> {
+/** Opens one of the Help menu's links, or a guide Settings points to, in the browser. Nothing in the stand-in. */
+export async function openLink(
+  which: "docs" | "shortcuts" | "releases" | "issue" | "assistant",
+): Promise<void> {
   if (inTauri) await invoke("open_link", { which });
 }
 

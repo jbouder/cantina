@@ -11,6 +11,7 @@ import {
 } from "../lib/engine";
 import { useReduceFlashing } from "../lib/motion";
 import { SKINS, useSkin } from "../skins";
+import { AssistantSettings } from "./AssistantSettings";
 import { Button } from "./Button";
 import { DevicePicker } from "./DevicePicker";
 import { Lcd } from "./Lcd";
@@ -28,6 +29,8 @@ type Props = {
   onUpdate: (update: UpdateInfo) => void;
   /** Check for a release as the sheet opens, for Cantina ▸ Check for Updates. */
   checkForUpdates?: boolean;
+  /** A section to scroll to as the sheet opens. */
+  section?: "assistant" | null;
 };
 
 const WARN_CHOICES = [5, 10, 20, 50, 100];
@@ -113,7 +116,7 @@ function Updates({
 
 /**
  * The settings sheet: the engine, audio devices, the latency warning, the
- * skin picker, Reduce flashing and updates.
+ * skin picker, Reduce flashing, the assistant and updates.
  */
 export function Settings({
   checkForUpdates,
@@ -123,6 +126,7 @@ export function Settings({
   onClose,
   onStatusChange,
   onUpdate,
+  section,
 }: Props) {
   const [skin, setSkin] = useSkin();
   const [reduceFlashing, setReduceFlashing] = useReduceFlashing();
@@ -209,6 +213,11 @@ export function Settings({
           </Button>
         </div>
       </section>
+      <AssistantSettings
+        assistant={status.assistant}
+        onStatusChange={onStatusChange}
+        reveal={section === "assistant"}
+      />
       <Updates onUpdate={onUpdate} checkNowOnOpen={checkForUpdates ?? false} />
     </Sheet>
   );

@@ -61,6 +61,21 @@ impl MetronomeSettings {
     }
 }
 
+/// The assistant's connection: off until the player turns it on. The API
+/// key is not kept here but in the login Keychain (`assistant::keychain`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AssistantSettings {
+    /// Nothing is shown and nothing is sent anywhere until this is on.
+    pub enabled: bool,
+    /// The base URL of an OpenAI-compatible API, such as
+    /// `https://api.openai.com/v1`; `/chat/completions` and `/models` are
+    /// appended to it.
+    pub endpoint: String,
+    /// The model to ask, by the id the endpoint lists it under.
+    pub model: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
@@ -77,6 +92,8 @@ pub struct Settings {
     pub recent_projects: Vec<String>,
     /// Record counts in a bar of four beats before the take starts.
     pub count_in: bool,
+    /// The assistant's endpoint and model, and whether it is on.
+    pub assistant: AssistantSettings,
 }
 
 impl Default for Settings {
@@ -89,6 +106,7 @@ impl Default for Settings {
             metronome: MetronomeSettings::default(),
             recent_projects: Vec::new(),
             count_in: true,
+            assistant: AssistantSettings::default(),
         }
     }
 }
@@ -144,6 +162,16 @@ mod tests {
             ..MetronomeSettings::default()
         };
         assert_eq!(unknown.sound_index(), 0);
+        // The assistant is off until turned on, and no key is ever written.
+        assert!(!loaded.assistant.enabled);
+        s.assistant = AssistantSettings {
+            enabled: true,
+            endpoint: "http://localhost:11434/v1".into(),
+            model: "llama3.2".into(),
+        };
+        s.save(&path).unwrap();
+        assert_eq!(Settings::load(&path).unwrap().assistant, s.assistant);
+        assert!(!fs::read_to_string(&path).unwrap().contains("key"));
         fs::remove_dir_all(dir).unwrap();
     }
 }

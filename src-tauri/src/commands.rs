@@ -7,6 +7,7 @@ use cantina_project::Tempo;
 use tauri::ipc::{Channel, InvokeResponseBody, Response};
 use tauri::State;
 
+use crate::assistant::provider::{self, Problem};
 use crate::engine::{DesignerResult, DeviceEntry, Engine, EngineState, EngineStatus};
 use crate::settings::{AudioSettings, MetronomeSettings};
 
@@ -834,4 +835,50 @@ pub fn loop_set(
     region: Option<cantina_project::LoopRegion>,
 ) -> Result<EngineStatus, String> {
     engine.lock().loop_set(region).map_err(fail)
+}
+
+// ----- the assistant -----
+
+/// Turns the assistant on or off and sets its endpoint and model.
+#[tauri::command]
+pub fn assistant_configure(
+    engine: State<'_, EngineState>,
+    settings: crate::settings::AssistantSettings,
+) -> EngineStatus {
+    engine.lock().assistant_configure(settings)
+}
+
+/// Saves the API key in the Keychain, or removes it when empty. The key
+/// is never sent back to the UI.
+#[tauri::command]
+pub fn assistant_set_key(
+    engine: State<'_, EngineState>,
+    key: String,
+) -> Result<EngineStatus, String> {
+    engine.lock().assistant_set_key(&key).map_err(fail)
+}
+
+/// The connection from the settings, read under a short lock so no
+/// request holds the engine.
+fn assistant_connection(
+    app: &tauri::AppHandle,
+) -> Result<crate::assistant::provider::Connection, Problem> {
+    use tauri::Manager;
+    let settings = app.state::<EngineState>().lock().assistant_settings();
+    crate::assistant::connection(&settings)
+}
+
+/// The models the endpoint offers. Makes no request while the assistant is off.
+#[tauri::command]
+pub async fn assistant_models(app: tauri::AppHandle) -> Result<Vec<String>, Problem> {
+    let connection = assistant_connection(&app)?;
+    connection.models(&provider::client()).await
+}
+
+/// Checks the endpoint, the key and the model, and says what is wrong in
+/// plain words. Makes no request while the assistant is off.
+#[tauri::command]
+pub async fn assistant_test(app: tauri::AppHandle) -> Result<(), Problem> {
+    let connection = assistant_connection(&app)?;
+    connection.test(&provider::client()).await
 }

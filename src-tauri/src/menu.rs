@@ -239,6 +239,7 @@ pub fn link_url(which: &str, version: &str) -> Option<String> {
     match which {
         "docs" => Some(DOCS.to_string()),
         "shortcuts" => Some(format!("{DOCS}guides/menus/")),
+        "assistant" => Some(format!("{DOCS}guides/assistant/")),
         "releases" => Some(format!("{REPO}/releases")),
         "issue" => {
             let body = format!(
@@ -436,6 +437,9 @@ mod tests {
     #[test]
     fn help_links_are_a_fixed_list() {
         assert_eq!(link_url("docs", "1.0.0").unwrap(), DOCS);
+        assert!(link_url("assistant", "1.0.0")
+            .unwrap()
+            .ends_with("/guides/assistant/"));
         assert!(link_url("releases", "1.0.0")
             .unwrap()
             .ends_with("/releases"));
