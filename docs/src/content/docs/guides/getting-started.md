@@ -96,8 +96,10 @@ undone with the arrows next to the project name, or ⌘Z. The
 
 With a track armed, **Record** (or R) counts in four beats, then starts the
 transport and records what comes in; **Stop** (or Space) ends the take, which lands on the track as a
-clip. Space plays from the playhead. **Save** writes the project to
-`~/Music/Cantina/`, and **Projects…** opens another.
+clip. Space plays from the playhead. **Save** (⌘S) writes the project to
+`~/Music/Cantina/`, and **Projects…** (⌘O) opens another. The **File**
+menu also renames and duplicates projects, reopens recent ones and imports
+WAV files; [Menus](/guides/menus/) lists every item.
 
 ## Next
 

@@ -13,7 +13,8 @@ hear when you play the song from the top.
 
 ## Export the mix
 
-Choose **Export…** next to the project name, or press ⌘E.
+Choose **Export…** next to the project name or **File ▸ Export Mixdown…**,
+or press ⌘E.
 
 ![The export sheet over the studio](../../../assets/guides/export.png)
 
@@ -44,7 +45,8 @@ and the export is of the project as it was when you pressed the button.
 
 ## Bounce a track in place
 
-Select the track and choose **Bounce** in the editor's header. Cantina
+Select the track and choose **Bounce** in the editor's header, or
+**File ▸ Bounce Track in Place**. Cantina
 renders the track's clips, or a drum track's patterns through its kit,
 through every pedal that is on, and puts the result on the track as one
 clip, from where the track's first clip starts to where its last one's

@@ -1,4 +1,4 @@
-import { type FormEvent, type KeyboardEvent, useEffect, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import {
   type AuditionStatus,
   clipRemove,
@@ -48,6 +48,8 @@ type Props = {
   irs: IrInfo[];
   /** The tab to open on; the track's kind picks one when unset. */
   initialTab?: EditorTab | undefined;
+  /** Counts File ▸ Bounce Track in Place; each new value bounces the track once. */
+  bounceRequest?: number;
   /** Opens the picker, which adds at the end of the chain. */
   onAdd: () => void;
   onDesign: (pedal: number) => void;
@@ -78,6 +80,7 @@ export function Editor({
   readouts,
   irs,
   initialTab,
+  bounceRequest = 0,
   onAdd,
   onDesign,
   onStatus,
@@ -103,6 +106,13 @@ export function Editor({
       .then(onStatus, (e) => onError(String(e)))
       .finally(() => setBouncing(false));
   };
+  // A bounce asked for from the menu, once per request.
+  const bounced = useRef(bounceRequest);
+  useEffect(() => {
+    if (bounceRequest === bounced.current) return;
+    bounced.current = bounceRequest;
+    if (hasContent && !bouncing) bounce();
+  });
 
   useEffect(() => {
     setName(track.name);

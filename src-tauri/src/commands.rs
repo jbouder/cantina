@@ -720,3 +720,50 @@ pub fn render_cancel() {
 pub fn menu_state(app: tauri::AppHandle, items: Vec<crate::menu::ItemState>) -> Result<(), String> {
     crate::menu::apply(&app, &items).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn project_rename(
+    engine: State<'_, EngineState>,
+    name: String,
+) -> Result<EngineStatus, String> {
+    engine.lock().project_rename(&name).map_err(fail)
+}
+
+#[tauri::command]
+pub fn project_duplicate(
+    engine: State<'_, EngineState>,
+    name: String,
+) -> Result<EngineStatus, String> {
+    engine.lock().project_duplicate(&name).map_err(fail)
+}
+
+/// Shows the open project's folder (`project`) or the library folder
+/// (`library`) in Finder.
+#[tauri::command]
+pub fn reveal(engine: State<'_, EngineState>, what: String) -> Result<(), String> {
+    let (path, select) = engine.lock().reveal_path(&what).map_err(fail)?;
+    let mut open = std::process::Command::new("open");
+    if select {
+        open.arg("-R");
+    }
+    open.arg(&path).status().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn audio_import(
+    engine: State<'_, EngineState>,
+    paths: Vec<String>,
+    track: u64,
+    start: u64,
+) -> Result<EngineStatus, String> {
+    engine
+        .lock()
+        .audio_import(&paths, track, start)
+        .map_err(fail)
+}
+
+#[tauri::command]
+pub fn kit_import(engine: State<'_, EngineState>, dir: String) -> Result<EngineStatus, String> {
+    engine.lock().kit_import(&dir).map_err(fail)
+}

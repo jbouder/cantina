@@ -73,6 +73,8 @@ pub struct Settings {
     /// Latency compensation above this many milliseconds is flagged.
     pub latency_warn_ms: f32,
     pub metronome: MetronomeSettings,
+    /// Projects opened lately, newest first, for File ▸ Open Recent.
+    pub recent_projects: Vec<String>,
 }
 
 impl Default for Settings {
@@ -83,6 +85,7 @@ impl Default for Settings {
             editor_positions: HashMap::new(),
             latency_warn_ms: crate::engine::DEFAULT_LATENCY_WARN_MS,
             metronome: MetronomeSettings::default(),
+            recent_projects: Vec::new(),
         }
     }
 }

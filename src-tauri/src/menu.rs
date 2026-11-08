@@ -29,6 +29,19 @@ const REGISTRY: &str = include_str!("../../ui/src/lib/actions.json");
 /// The event a chosen menu item emits to the main window, with its id.
 pub const ACTION_EVENT: &str = "menu://action";
 
+/// The event File ▸ Open Recent emits to the main window, with the
+/// project's name. The UI opens it as the Projects sheet would.
+pub const OPEN_RECENT_EVENT: &str = "menu://open-recent";
+
+/// Ids of Open Recent's items: the prefix and a project's name, or Clear.
+const RECENT_PREFIX: &str = "recent:";
+const RECENT_CLEAR: &str = "recent-clear";
+
+/// Shown in the About window.
+const CREDITS: &str = "A guitar studio for the Mac. Drum samples and \
+cabinet impulse responses are credited in kits/CREDITS.md and \
+irs/CREDITS.md; the visualizer scenes come from music-visualizer.";
+
 #[derive(Debug, Deserialize)]
 struct Registry {
     actions: BTreeMap<String, Action>,
@@ -95,6 +108,7 @@ const PREDEFINED: &[&str] = &[
     "minimize",
     "maximize",
     "bringAllToFront",
+    "openRecent",
 ];
 
 fn registry() -> Registry {
@@ -104,6 +118,9 @@ fn registry() -> Registry {
 /// The menu bar's action items by id, so `menu_state` can update them.
 pub struct MenuItems<R: Runtime>(HashMap<String, MenuItemKind<R>>);
 
+/// File ▸ Open Recent, filled by `set_recent`.
+pub struct RecentMenu<R: Runtime>(Submenu<R>);
+
 fn predefined<R: Runtime>(app: &AppHandle<R>, name: &str) -> tauri::Result<PredefinedMenuItem<R>> {
     match name {
         "about" => PredefinedMenuItem::about(
@@ -112,7 +129,11 @@ fn predefined<R: Runtime>(app: &AppHandle<R>, name: &str) -> tauri::Result<Prede
             Some(AboutMetadata {
                 name: Some("Cantina".into()),
                 version: Some(app.package_info().version.to_string()),
+                copyright: Some("© 2026 Johnny Bouder. MIT License.".into()),
                 license: Some("MIT".into()),
+                comments: Some(CREDITS.into()),
+                website: Some("https://cantina-docs.vibeproject.workers.dev/".into()),
+                website_label: Some("Cantina docs".into()),
                 ..Default::default()
             }),
         ),
@@ -145,6 +166,11 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         for item in &spec.items {
             match entry(item) {
                 Entry::Separator => submenu.append(&PredefinedMenuItem::separator(app)?)?,
+                Entry::Predefined("openRecent") => {
+                    let recent = Submenu::new(app, "Open Recent", true)?;
+                    submenu.append(&recent)?;
+                    app.manage(RecentMenu(recent));
+                }
                 Entry::Predefined(name) => submenu.append(&predefined(app, name)?)?,
                 Entry::Action(id) => {
                     let action = &registry.actions[id];
@@ -178,11 +204,53 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     Ok(menu)
 }
 
-/// Sends a chosen action item to the main window. Predefined items are
-/// handled by macOS and never reach here.
-pub fn on_event<R: Runtime>(app: &AppHandle<R>, id: &str) {
+/// Fills File ▸ Open Recent with `names`, newest first, and Clear Menu.
+pub fn set_recent<R: Runtime>(app: &AppHandle<R>, names: &[String]) {
+    let Some(menu) = app.try_state::<RecentMenu<R>>() else {
+        return;
+    };
+    let fill = || -> tauri::Result<()> {
+        let menu = &menu.0;
+        for item in menu.items()? {
+            menu.remove(&item)?;
+        }
+        for name in names {
+            let id = format!("{RECENT_PREFIX}{name}");
+            menu.append(&MenuItem::with_id(app, id, name, true, None::<&str>)?)?;
+        }
+        if !names.is_empty() {
+            menu.append(&PredefinedMenuItem::separator(app)?)?;
+        }
+        menu.append(&MenuItem::with_id(
+            app,
+            RECENT_CLEAR,
+            "Clear Menu",
+            !names.is_empty(),
+            None::<&str>,
+        )?)
+    };
+    if let Err(e) = fill() {
+        eprintln!("[menu] could not fill Open Recent: {e}");
+    }
+}
+
+/// Sends a chosen action item to the main window, and handles Open
+/// Recent. Predefined items are handled by macOS and never reach here.
+pub fn on_event(app: &AppHandle, id: &str) {
+    if id == RECENT_CLEAR {
+        app.state::<crate::engine::EngineState>()
+            .lock()
+            .recent_clear();
+        return;
+    }
+    if let Some(name) = id.strip_prefix(RECENT_PREFIX) {
+        if let Err(e) = app.emit_to("main", OPEN_RECENT_EVENT, name) {
+            eprintln!("[menu] could not open {name}: {e}");
+        }
+        return;
+    }
     if app
-        .try_state::<MenuItems<R>>()
+        .try_state::<MenuItems<tauri::Wry>>()
         .is_some_and(|items| items.0.contains_key(id))
     {
         if let Err(e) = app.emit_to("main", ACTION_EVENT, id) {

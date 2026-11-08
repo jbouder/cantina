@@ -32,7 +32,8 @@ pattern written on one plays on the others. The open hat is cut off by the
 closed one, as on a real kit.
 
 To make your own kit, copy one of the stock kits from `kits/` in the
-repository to `~/Music/Cantina/Kits/` and swap the samples, or describe one
+repository to `~/Music/Cantina/Kits/` and swap the samples (or bring in a
+kit folder with **File ▸ Import Kit…**, which checks it loads first), or describe one
 as a [kit recipe](/reference/kit-format/#kit-recipes) and let
 `cantina-cli synth-kit` make the samples. The
 [kit format](/reference/kit-format/) describes every field.

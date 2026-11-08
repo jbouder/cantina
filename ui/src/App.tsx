@@ -11,6 +11,7 @@ import { Notice } from "./components/Notice";
 import { PedalPicker } from "./components/PedalPicker";
 import { Performance } from "./components/Performance";
 import { ProjectBar } from "./components/ProjectBar";
+import { ProjectName, type ProjectNameMode } from "./components/ProjectName";
 import { Projects } from "./components/Projects";
 import { Recovery } from "./components/Recovery";
 import { Settings } from "./components/Settings";
@@ -21,7 +22,12 @@ import { UpdateBanner } from "./components/UpdateBanner";
 import { Window } from "./components/Window";
 import { type ActionId, actionForKey, type Bindings, isTyping, menuStates } from "./lib/actions";
 import {
+  audioImport,
   brokenOf,
+  chooseAudioPaths,
+  chooseImportPaths,
+  chooseKitDir,
+  choosePatternImportPaths,
   designerNew,
   dismissNotice,
   type EngineStatus,
@@ -29,6 +35,7 @@ import {
   engineStatus,
   engineStop,
   inTauri,
+  kitImport,
   type MeterFrame,
   menuState,
   metronomeSet,
@@ -36,12 +43,17 @@ import {
   onFileDrop,
   onMenuAction,
   onMeters,
+  onOpenRecent,
   onStatus,
   patternImport,
   pedalImport,
+  projectOpen,
   projectRedo,
+  projectSave,
   projectUndo,
+  reveal,
   SILENT,
+  trackAdd,
   transportPlay,
   transportRecord,
   transportStop,
@@ -96,7 +108,10 @@ export function App() {
   const [projectsOpen, setProjectsOpen] = useState(() => params?.has("projects") ?? false);
   const [exportOpen, setExportOpen] = useState(() => params?.has("export") ?? false);
   const [pickerOpen, setPickerOpen] = useState(() => params?.has("picker") ?? false);
-  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    setCheckUpdates(false);
+  }, []);
   // In a browser `?stage` opens the stage, `?perform` performance mode
   // (with `?board` its pedalboard), and `?scene=<id>` picks the scene.
   const [stageOpen, setStageOpen] = useState(() => params?.has("stage") ?? false);
@@ -106,7 +121,25 @@ export function App() {
     setStageOpen(false);
     setPerforming(true);
   }, []);
-  const closeProjects = useCallback(() => setProjectsOpen(false), []);
+  const closeProjects = useCallback(() => {
+    setProjectsOpen(false);
+    setProjectsIntent({});
+  }, []);
+  // Why the Projects sheet opened from the menu: New Project focuses the
+  // name, Open Recent asks before dropping unsaved edits.
+  const [projectsIntent, setProjectsIntent] = useState<{ startNew?: boolean; opening?: string }>(
+    {},
+  );
+  // File ▸ Rename and File ▸ Duplicate.
+  // In a browser `?rename` and `?duplicate` open the sheet, for screenshots.
+  const [naming, setNaming] = useState<ProjectNameMode | null>(() =>
+    params?.has("rename") ? "rename" : params?.has("duplicate") ? "duplicate" : null,
+  );
+  const closeNaming = useCallback(() => setNaming(null), []);
+  // Cantina ▸ Check for Updates opens Settings and checks.
+  const [checkUpdates, setCheckUpdates] = useState(false);
+  // Counts File ▸ Bounce Track in Place for the editor.
+  const [bounceRequest, setBounceRequest] = useState(0);
   const closeExport = useCallback(() => setExportOpen(false), []);
   const closePicker = useCallback(() => setPickerOpen(false), []);
   // Whether a text field has focus, so Undo and Redo stay available to
@@ -252,9 +285,90 @@ export function App() {
     (status.audition !== null ||
       status.metronome.on ||
       status.project.tracks.some((t) => t.clips.length > 0 || t.patternClips.length > 0));
+  const project = status?.project ?? null;
+  const has = status !== null;
+  const idle = has && !frame.recording;
+  const bounceable =
+    selected !== null &&
+    (selected.kit ? selected.patternClips.length > 0 : selected.clips.length > 0);
+  const failed = (e: unknown) => setError(String(e));
   const bindings: Bindings = {
-    settings: { enabled: status !== null, run: () => setSettingsOpen(true) },
-    export: { enabled: status !== null, run: () => setExportOpen(true) },
+    settings: { enabled: has, run: () => setSettingsOpen(true) },
+    checkUpdates: {
+      enabled: has,
+      run: () => {
+        setCheckUpdates(true);
+        setSettingsOpen(true);
+      },
+    },
+    newProject: {
+      enabled: idle,
+      run: () => {
+        setProjectsIntent({ startNew: true });
+        setProjectsOpen(true);
+      },
+    },
+    openProject: {
+      enabled: idle,
+      run: () => {
+        setProjectsIntent({});
+        setProjectsOpen(true);
+      },
+    },
+    save: { enabled: project?.dirty ?? false, run: () => report(projectSave()) },
+    duplicateProject: { enabled: idle, run: () => setNaming("duplicate") },
+    renameProject: { enabled: idle, run: () => setNaming("rename") },
+    importAudio: {
+      enabled: idle,
+      run: () => {
+        if (!status) return;
+        const start = Math.round(frame.position * status.project.sampleRate);
+        chooseAudioPaths().then(async (paths) => {
+          if (paths.length === 0) return;
+          // Onto the selected audio track, or a new one.
+          let track = selected && !selected.kit ? selected.id : null;
+          if (track === null) {
+            const added = await trackAdd();
+            track = added.project.tracks.filter((t) => !t.kit).at(-1)?.id ?? null;
+            setStatus(added);
+          }
+          if (track === null) return;
+          setSelectedTrack(track);
+          report(audioImport(paths, track, start));
+        }, failed);
+      },
+    },
+    importPedal: {
+      enabled: has,
+      run: () =>
+        chooseImportPaths().then((paths) => {
+          for (const path of paths) report(pedalImport(path, selected?.id));
+        }, failed),
+    },
+    importPattern: {
+      enabled: has,
+      run: () => {
+        if (!status) return;
+        const drums = selected?.kit ? selected.id : undefined;
+        choosePatternImportPaths(status.library.patternsDir).then((paths) => {
+          for (const path of paths) report(patternImport(path, drums));
+        }, failed);
+      },
+    },
+    importKit: {
+      enabled: has,
+      run: () =>
+        chooseKitDir().then((dir) => {
+          if (dir) report(kitImport(dir));
+        }, failed),
+    },
+    export: { enabled: has, run: () => setExportOpen(true) },
+    bounce: {
+      enabled: idle && !rolling && bounceable,
+      run: () => setBounceRequest((n) => n + 1),
+    },
+    revealProject: { enabled: has, run: () => reveal("project").catch(failed) },
+    revealLibrary: { enabled: has, run: () => reveal("library").catch(failed) },
     // In a text field ⌘Z is the field's own undo.
     undo: {
       enabled: typing || (status?.project.undoLabel ?? null) !== null,
@@ -292,6 +406,8 @@ export function App() {
   };
   const bound = useRef(bindings);
   bound.current = bindings;
+  const keys = useRef(status);
+  keys.current = status;
   const menu = JSON.stringify(menuStates(bindings));
   useEffect(() => {
     menuState(JSON.parse(menu)).catch((e) => setError(String(e)));
@@ -309,9 +425,22 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     const stopMenu = onMenuAction(run);
+    // File ▸ Open Recent: opened at once, or through the Projects sheet,
+    // which asks before dropping unsaved edits.
+    const stopRecent = onOpenRecent((name) => {
+      const s = keys.current;
+      if (!s || s.project.name === name) return;
+      if (s.project.dirty) {
+        setProjectsIntent({ opening: name });
+        setProjectsOpen(true);
+      } else {
+        projectOpen(name).then(setStatus, (e) => setError(String(e)));
+      }
+    });
     return () => {
       window.removeEventListener("keydown", onKey);
       stopMenu();
+      stopRecent();
     };
   }, []);
 
@@ -453,6 +582,7 @@ export function App() {
                 readouts={readouts}
                 irs={status.irs}
                 initialTab={initialTab}
+                bounceRequest={bounceRequest}
                 onAdd={() => setPickerOpen(true)}
                 onDesign={(pedal) => design(pedal, selected.id)}
                 onStatus={setStatus}
@@ -484,6 +614,7 @@ export function App() {
           onClose={closeSettings}
           onStatusChange={setStatus}
           onUpdate={setUpdate}
+          checkForUpdates={checkUpdates}
         />
       ) : null}
       {exportOpen && status ? (
@@ -498,6 +629,16 @@ export function App() {
           current={status.project.name}
           dirty={status.project.dirty}
           onClose={closeProjects}
+          onStatus={setStatus}
+          startNew={projectsIntent.startNew ?? false}
+          opening={projectsIntent.opening ?? null}
+        />
+      ) : null}
+      {naming && status ? (
+        <ProjectName
+          mode={naming}
+          current={status.project.name}
+          onClose={closeNaming}
           onStatus={setStatus}
         />
       ) : null}

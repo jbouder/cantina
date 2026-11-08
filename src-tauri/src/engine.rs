@@ -3019,6 +3019,152 @@ impl Engine {
         Ok(self.publish())
     }
 
+    /// Renames the open project: saves it, then moves its folder to the
+    /// new name. Like saving, it is not an edit, so there is nothing to
+    /// undo; the undo history stays.
+    pub fn project_rename(&mut self, name: &str) -> Result<EngineStatus> {
+        if !self.recording.is_empty() {
+            bail!("stop recording before renaming the project");
+        }
+        let (name, dir) = self.projects.free_dir(name)?;
+        self.project_save()?;
+        if let Some(live) = &mut self.live {
+            live.transport().stop();
+        }
+        let old = self.project.name.clone();
+        std::fs::rename(&self.project_dir, &dir).with_context(|| {
+            format!(
+                "renaming {} to {}",
+                self.project_dir.display(),
+                dir.display()
+            )
+        })?;
+        self.project.name = name;
+        self.project_dir = dir;
+        self.journal = Journal::in_dir(&self.project_dir);
+        cantina_project::save(&self.project, &self.project_dir)?;
+        self.settings.recent_projects.retain(|n| *n != old);
+        self.remember_project();
+        self.sync()?;
+        Ok(self.publish())
+    }
+
+    /// Copies the open project, as it is now, to a new name and switches
+    /// to the copy, as Save As does. The original stays as it was last
+    /// saved, and keeps any unsaved edits in its journal for recovery.
+    pub fn project_duplicate(&mut self, name: &str) -> Result<EngineStatus> {
+        if !self.recording.is_empty() {
+            bail!("stop recording before duplicating the project");
+        }
+        let (name, dir) = self.projects.free_dir(name)?;
+        if let Some(live) = &mut self.live {
+            live.transport().stop();
+        }
+        self.capture_plugin_states();
+        crate::project::copy_project_dir(&self.project_dir, &dir)?;
+        self.project.name = name;
+        self.project_dir = dir;
+        self.journal = Journal::in_dir(&self.project_dir);
+        self.write_plugin_states()?;
+        self.write_designs()?;
+        cantina_project::save(&self.project, &self.project_dir)?;
+        self.recovery = None;
+        self.dirty = false;
+        self.remember_project();
+        self.sync()?;
+        Ok(self.publish())
+    }
+
+    /// Where a project folder or the library is, to show in Finder.
+    pub fn reveal_path(&self, what: &str) -> Result<(PathBuf, bool)> {
+        match what {
+            // Select the project's folder in its parent.
+            "project" => Ok((self.project_dir.clone(), true)),
+            // Open the folder that holds the projects and the library.
+            "library" => Ok((self.projects.root().to_path_buf(), false)),
+            other => bail!("nothing to show called {other}"),
+        }
+    }
+
+    /// Copies WAV files into the project's `audio/` folder and puts each
+    /// on `track` at `start`, one after the other. A file at another
+    /// sample rate is converted, and one with more than two channels is
+    /// folded to stereo, in the copy; the original is never touched.
+    /// Each file is one edit.
+    pub fn audio_import(
+        &mut self,
+        paths: &[String],
+        track: u64,
+        start: u64,
+    ) -> Result<EngineStatus> {
+        let track = TrackId(track);
+        let target = self
+            .project
+            .track(track)
+            .with_context(|| format!("no track {track}"))?;
+        if target.kit.is_some() {
+            bail!("audio goes on an audio track, not a drum track");
+        }
+        let audio_dir = cantina_project::audio_dir(&self.project_dir);
+        std::fs::create_dir_all(&audio_dir)
+            .with_context(|| format!("creating {}", audio_dir.display()))?;
+        let mut at = start;
+        let mut status = None;
+        for path in paths {
+            let path = Path::new(path);
+            let (info, channels) = wav::read_all(path).with_context(|| {
+                format!("{} is not a WAV file Cantina can read", path.display())
+            })?;
+            let channels = fit_audio(
+                channels,
+                f64::from(info.sample_rate),
+                self.project.sample_rate,
+            );
+            let length = channels.first().map_or(0, Vec::len) as u64;
+            if length == 0 {
+                bail!("{} holds no audio", path.display());
+            }
+            let stem = path
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "import".into());
+            let (file, _) = take_name(&audio_dir, &stem);
+            wav::write(&audio_dir.join(&file), self.project.sample_rate, &channels)?;
+            let clip = Clip {
+                id: ClipId(self.project.fresh_id()),
+                name: stem,
+                file,
+                start: at,
+                offset: 0,
+                length,
+            };
+            at += length;
+            status = Some(self.apply(Command::InsertClip { track, clip })?);
+        }
+        Ok(status.unwrap_or_else(|| self.publish()))
+    }
+
+    /// Copies a kit folder into the user's kits, after checking that it
+    /// loads, and makes it available to drum tracks.
+    pub fn kit_import(&mut self, dir: &str) -> Result<EngineStatus> {
+        let from = Path::new(dir);
+        kit::load(from)
+            .with_context(|| format!("{} is not a kit Cantina can load", from.display()))?;
+        let name = from
+            .file_name()
+            .context("a kit is a folder with a name")?
+            .to_os_string();
+        let to = self.projects.kits_dir().join(&name);
+        if to.exists() {
+            bail!(
+                "there is already a kit folder called {}",
+                name.to_string_lossy()
+            );
+        }
+        crate::project::copy_project_dir(from, &to)?;
+        Ok(self.kits_rescan())
+    }
+
     fn switch_to(&mut self, project: Project, dir: PathBuf) -> Result<()> {
         if !self.recording.is_empty() {
             self.transport_stop()?;
@@ -3062,10 +3208,39 @@ impl Engine {
     }
 
     fn remember_project(&mut self) {
-        if self.settings.last_project.as_deref() != Some(self.project.name.as_str()) {
-            self.settings.last_project = Some(self.project.name.clone());
+        let name = self.project.name.clone();
+        let recent = remember_recent(&self.settings.recent_projects, &name);
+        if self.settings.last_project.as_deref() != Some(name.as_str())
+            || recent != self.settings.recent_projects
+        {
+            self.settings.last_project = Some(name);
+            self.settings.recent_projects = recent;
             self.persist();
         }
+        crate::menu::set_recent(&self.app, &self.recent_projects());
+    }
+
+    /// The projects for File ▸ Open Recent, newest first, leaving out
+    /// any that no longer exist.
+    pub fn recent_projects(&self) -> Vec<String> {
+        self.settings
+            .recent_projects
+            .iter()
+            .filter(|name| {
+                self.projects
+                    .dir_for(name)
+                    .join(cantina_project::PROJECT_FILE)
+                    .is_file()
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// Empties File ▸ Open Recent.
+    pub fn recent_clear(&mut self) {
+        self.settings.recent_projects.clear();
+        self.persist();
+        crate::menu::set_recent(&self.app, &[]);
     }
 
     // ----- tracks -----
@@ -4209,6 +4384,41 @@ pub(crate) fn tempo_map(tempo: &Tempo) -> TempoMap {
     )
 }
 
+/// File ▸ Open Recent after opening `name`: it first, no repeats, ten at
+/// most.
+fn remember_recent(recent: &[String], name: &str) -> Vec<String> {
+    std::iter::once(name.to_string())
+        .chain(recent.iter().filter(|n| *n != name).cloned())
+        .take(10)
+        .collect()
+}
+
+/// An imported file's channels made fit for the player: at the project's
+/// rate, and at most stereo, with any further channels folded into left
+/// and right in turn.
+fn fit_audio(channels: Vec<Vec<f32>>, from: f64, to: f64) -> Vec<Vec<f32>> {
+    let channels: Vec<Vec<f32>> = if from == to {
+        channels
+    } else {
+        channels
+            .iter()
+            .map(|c| cantina_dsp::resample(c, from, to))
+            .collect()
+    };
+    if channels.len() <= CHANNELS {
+        return channels;
+    }
+    let len = channels.iter().map(Vec::len).max().unwrap_or(0);
+    let mut out = vec![vec![0.0; len]; CHANNELS];
+    let per_side = channels.len().div_ceil(CHANNELS) as f32;
+    for (i, channel) in channels.iter().enumerate() {
+        for (o, x) in out[i % CHANNELS].iter_mut().zip(channel) {
+            *o += x / per_side;
+        }
+    }
+    out
+}
+
 /// A file name in `audio/` that is not taken, and the clip name to go
 /// with it: `Guitar-3.wav` and `Guitar 3`.
 fn take_name(audio_dir: &Path, track_name: &str) -> (String, String) {
@@ -4458,6 +4668,37 @@ fn spawn_meter_pump(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn open_recent_puts_the_latest_first_without_repeats() {
+        let names = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(remember_recent(&[], "A"), names(&["A"]));
+        assert_eq!(
+            remember_recent(&names(&["A", "B", "C"]), "C"),
+            names(&["C", "A", "B"])
+        );
+        let many: Vec<String> = (0..12).map(|i| i.to_string()).collect();
+        let kept = remember_recent(&many, "new");
+        assert_eq!(kept.len(), 10);
+        assert_eq!(kept[0], "new");
+    }
+
+    #[test]
+    fn imported_audio_is_fitted_to_the_project() {
+        // Same rate and mono: untouched.
+        let mono = vec![vec![0.5_f32; 100]];
+        assert_eq!(fit_audio(mono.clone(), 48_000.0, 48_000.0), mono);
+        // Another rate: resampled to the project's length.
+        let fitted = fit_audio(vec![vec![0.0; 44_100]], 44_100.0, 48_000.0);
+        assert_eq!(fitted[0].len(), 48_000);
+        // Four channels: folded to stereo, the level kept.
+        let quad = vec![vec![1.0_f32; 4]; 4];
+        let folded = fit_audio(quad, 48_000.0, 48_000.0);
+        assert_eq!(folded.len(), 2);
+        assert!(folded
+            .iter()
+            .all(|c| c.iter().all(|x| (x - 1.0).abs() < 1e-6)));
+    }
 
     #[test]
     fn takes_move_earlier_by_the_correction() {
