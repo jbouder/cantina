@@ -54,6 +54,7 @@ import {
   onMeters,
   onOpenRecent,
   onStatus,
+  openLink,
   patternImport,
   pedalImport,
   projectOpen,
@@ -76,7 +77,9 @@ import {
   updateCheck,
 } from "./lib/engine";
 import { readoutsByPedal } from "./lib/readouts";
+import { openStageWindow } from "./lib/stage";
 import { samplesPerTick } from "./lib/timeline";
+import { SKINS, type SkinId, useSkin } from "./skins";
 
 const IDLE: MeterFrame = {
   input: SILENT,
@@ -92,6 +95,7 @@ const IDLE: MeterFrame = {
 const params = inTauri ? null : new URLSearchParams(window.location.search);
 
 const SPLIT_KEY = "cantina.split";
+const METERS_KEY = "cantina.meters";
 /** Room for the strip, the ruler, two tracks and the master at the default window. */
 const DEFAULT_SPLIT = 352;
 const MIN_PANE = 160;
@@ -168,6 +172,25 @@ export function App() {
   // The timeline's clip edits, for the Edit menu.
   const timelineEdit = useRef<TimelineEdit | null>(null);
   const [clipEdit, setClipEdit] = useState<TimelineEditState>({ selected: false, canSplit: false });
+  const [skin, setSkin] = useSkin();
+  // View ▸ Show Meters, remembered for next time.
+  // In a browser `?nometers` hides them, for screenshots.
+  const [metersShown, setMetersShown] = useState(() => {
+    if (params?.has("nometers")) return false;
+    try {
+      return window.localStorage.getItem(METERS_KEY) !== "hidden";
+    } catch {
+      return true;
+    }
+  });
+  const showMeters = useCallback((on: boolean) => {
+    setMetersShown(on);
+    try {
+      window.localStorage.setItem(METERS_KEY, on ? "shown" : "hidden");
+    } catch {
+      // Not remembered this time.
+    }
+  }, []);
   // Counts Track ▸ Rename Track for the editor.
   const [renameRequest, setRenameRequest] = useState(0);
   // Counts File ▸ Bounce Track in Place for the editor.
@@ -324,6 +347,13 @@ export function App() {
     selected !== null &&
     (selected.kit ? selected.patternClips.length > 0 : selected.clips.length > 0);
   const failed = (e: unknown) => setError(String(e));
+  // View ▸ Skin: one checked item per skin, as the Settings picker.
+  const skinBindings = Object.fromEntries(
+    SKINS.map((s) => [
+      `skin-${s.id}`,
+      { enabled: true, checked: skin === s.id, run: () => setSkin(s.id) },
+    ]),
+  ) as Pick<Bindings, `skin-${SkinId}`>;
   const chainBypassed =
     selected !== null && selected.chain.length > 0 && selected.chain.every((p) => p.bypassed);
   const bindings: Bindings = {
@@ -517,6 +547,38 @@ export function App() {
         if (selected) report(chainBypass(selected.id, !chainBypassed));
       },
     },
+    arrange: {
+      enabled: true,
+      run: () => {
+        setStageOpen(false);
+        setPerforming(false);
+        setDesigning(null);
+      },
+    },
+    // The selected track's first designed pedal, or a new design on it.
+    designer: {
+      enabled: selected !== null,
+      run: () => {
+        if (!selected) return;
+        const designed = selected.chain.find((p) => p.spec.startsWith("pedal:"));
+        design(designed?.id ?? null, selected.id);
+      },
+    },
+    stage: { enabled: has, run: () => setStageOpen(true) },
+    ...skinBindings,
+    zoomIn: { enabled: has, run: () => timelineEdit.current?.zoomIn() },
+    zoomOut: { enabled: has, run: () => timelineEdit.current?.zoomOut() },
+    zoomFit: { enabled: has, run: () => timelineEdit.current?.fit() },
+    showMeters: { enabled: true, checked: metersShown, run: () => showMeters(!metersShown) },
+    stageWindow: {
+      enabled: inTauri,
+      run: () => {
+        openStageWindow().catch(failed);
+      },
+    },
+    help: { enabled: true, run: () => openLink("docs").catch(failed) },
+    releaseNotes: { enabled: true, run: () => openLink("releases").catch(failed) },
+    reportIssue: { enabled: true, run: () => openLink("issue").catch(failed) },
     metronome: {
       enabled: status !== null,
       checked: status?.metronome.on ?? false,
@@ -611,10 +673,12 @@ export function App() {
         </>
       }
       meters={
-        <>
-          <Meter label="In" level={frame.input} />
-          <Meter label="Out" level={frame.output} />
-        </>
+        metersShown ? (
+          <>
+            <Meter label="In" level={frame.input} />
+            <Meter label="Out" level={frame.output} />
+          </>
+        ) : null
       }
     >
       <main className="flex min-h-0 flex-1 flex-col gap-3 p-window">

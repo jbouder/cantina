@@ -22,8 +22,19 @@ export interface ActionSpec {
 export const ACTIONS = registry.actions as Record<ActionId, ActionSpec>;
 export const ACTION_IDS = Object.keys(ACTIONS) as ActionId[];
 
-/** One menu of the menu bar: action ids, `-` separators and `@` macOS items. */
-export const MENUS: { title: string; items: string[] }[] = registry.menus;
+/** A menu: action ids, `-` separators, `@` macOS items and submenus. */
+export interface MenuSpec {
+  title: string;
+  items: (string | MenuSpec)[];
+}
+
+/** The menu bar, menu by menu. */
+export const MENUS: MenuSpec[] = registry.menus;
+
+/** Every name in a menu and its submenus, in order. */
+export function menuNames(menu: MenuSpec): string[] {
+  return menu.items.flatMap((item) => (typeof item === "string" ? [item] : menuNames(item)));
+}
 
 /** Where an action stands now: whether it applies, whether it is on, and its label. */
 export interface ActionState {
@@ -71,6 +82,8 @@ export interface KeyPress {
 const NAMED: Record<string, string> = {
   space: " ",
   comma: ",",
+  equal: "=",
+  minus: "-",
   period: ".",
   slash: "/",
   enter: "Enter",

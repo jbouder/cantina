@@ -80,10 +80,32 @@ These act on the selected track, and are greyed out with none.
 The keys in these menus have no ⌘, so they do nothing while you are typing
 in a text field. The menu shows them without a shortcut for that reason.
 
-## View and Window
+## View
 
-| Item | Key | What it does |
+| Item | Shortcut | What it does |
 | --- | --- | --- |
-| Performance Mode | P | The [stage](/guides/stage/) full screen. |
+| Arrange | | Back to the arrangement: closes the stage, performance mode and the pedal designer. |
+| Pedal Designer | | Opens the selected track's first designed pedal in the [designer](/guides/designer/), or starts a new design on it. |
+| Stage | | The [stage](/guides/stage/) sheet. |
+| Performance Mode | P | The stage full screen. |
+| Skin | | One item per [skin](/guides/skins/), the current one checked. The same choice as in Settings. |
+| Zoom In, Zoom Out, Zoom to Fit | ⌘=, ⌘−, ⌘0 | Zoom the timeline, or fit the whole song. |
+| Show Meters | | Checked while the in and out meters show under the toolbar. Remembered for next time. |
 | Enter Full Screen | ⌃⌘F | The window full screen. |
-| Minimize, Zoom, Bring All to Front | ⌘M | As in every Mac app. |
+
+## Window
+
+| Item | Shortcut | What it does |
+| --- | --- | --- |
+| Minimize, Zoom | ⌘M | As in every Mac app. |
+| Stage on Second Display | | Opens the stage in its own window on another display, as performance mode's **Second display** does. |
+| Bring All to Front | | As in every Mac app. |
+
+## Help
+
+| Item | What it does |
+| --- | --- |
+| Search | macOS's own: finds any menu item by name. |
+| Cantina Help | Opens this site. |
+| Release Notes | Opens the releases on GitHub. |
+| Report an Issue… | Opens a new GitHub issue with your Cantina version filled in. |

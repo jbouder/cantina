@@ -47,7 +47,8 @@ CSS files and an entry in a list.
 
 ## Pick a skin
 
-Open **Settings** with the gear and choose under **Skin**. The studio
+Open **Settings** with the gear and choose under **Skin**, or pick one from
+**View ▸ Skin**. The studio
 changes at once, and the choice is remembered for next time.
 
 Neon's edge pulses on the beat. **Reduce flashing** in Settings stills it,
@@ -136,6 +137,10 @@ the saved choice and the screenshot script all read this list. The preview
 colours draw the swatch in Settings, and a test checks that they match the
 skin's tokens: `--frame`, `--title-on`, `--lcd-bg`, `--lcd-fg`, `--silver`
 and `--led-on`, falling back to Classic's.
+
+Give it a **View ▸ Skin** item too: add `"skin-ember": { "label": "Ember", "checkable": true }`
+to the actions in `ui/src/lib/actions.json` and put it in the Skin submenu.
+A test fails until every skin has one.
 
 ```ts
 {

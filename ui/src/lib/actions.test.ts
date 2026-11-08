@@ -1,3 +1,4 @@
+import { SKINS } from "@cantina/skins";
 import { describe, expect, it } from "vitest";
 import {
   ACTION_IDS,
@@ -8,6 +9,7 @@ import {
   type KeyPress,
   MENUS,
   matchesAccelerator,
+  menuNames,
   menuStates,
 } from "./actions";
 
@@ -26,8 +28,12 @@ const el = (tag: string, type?: string) =>
 
 describe("the registry", () => {
   it("puts every action in exactly one menu", () => {
-    const placed = MENUS.flatMap((m) => m.items).filter((i) => i !== "-" && !i.startsWith("@"));
+    const placed = MENUS.flatMap(menuNames).filter((i) => i !== "-" && !i.startsWith("@"));
     expect([...placed].sort()).toEqual([...ACTION_IDS].sort());
+  });
+
+  it("has a Skin item for every skin", () => {
+    for (const skin of SKINS) expect(ACTIONS).toHaveProperty(`skin-${skin.id}`);
   });
 
   it("gives an action an accelerator or a key, never both", () => {
@@ -54,6 +60,9 @@ describe("matchesAccelerator", () => {
 
   it("reads named keys", () => {
     expect(matchesAccelerator("CmdOrCtrl+Comma", press(",", { metaKey: true }))).toBe(true);
+    expect(matchesAccelerator("CmdOrCtrl+Equal", press("=", { metaKey: true }))).toBe(true);
+    expect(matchesAccelerator("CmdOrCtrl+Minus", press("-", { metaKey: true }))).toBe(true);
+    expect(matchesAccelerator("CmdOrCtrl+0", press("0", { metaKey: true }))).toBe(true);
   });
 });
 

@@ -68,7 +68,15 @@ struct Action {
 #[serde(deny_unknown_fields)]
 struct MenuSpec {
     title: String,
-    items: Vec<String>,
+    items: Vec<Item>,
+}
+
+/// A menu's item: a name (an action, `-` or `@` item) or a submenu.
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum Item {
+    Name(String),
+    Submenu(MenuSpec),
 }
 
 /// One entry in a menu's `items`.
@@ -162,46 +170,97 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     let menu = Menu::new(app)?;
     let mut items = HashMap::new();
     for spec in &registry.menus {
-        let submenu = Submenu::new(app, &spec.title, true)?;
-        for item in &spec.items {
-            match entry(item) {
-                Entry::Separator => submenu.append(&PredefinedMenuItem::separator(app)?)?,
-                Entry::Predefined("openRecent") => {
-                    let recent = Submenu::new(app, "Open Recent", true)?;
-                    submenu.append(&recent)?;
-                    app.manage(RecentMenu(recent));
-                }
-                Entry::Predefined(name) => submenu.append(&predefined(app, name)?)?,
-                Entry::Action(id) => {
-                    let action = &registry.actions[id];
-                    let accelerator = action.accelerator.as_deref();
-                    let kind = if action.checkable {
-                        let item = CheckMenuItem::with_id(
-                            app,
-                            id,
-                            &action.label,
-                            true,
-                            false,
-                            accelerator,
-                        )?;
-                        submenu.append(&item)?;
-                        MenuItemKind::Check(item)
-                    } else {
-                        let item = MenuItem::with_id(app, id, &action.label, true, accelerator)?;
-                        submenu.append(&item)?;
-                        MenuItemKind::MenuItem(item)
-                    };
-                    items.insert(id.to_owned(), kind);
-                }
-            }
-        }
-        if spec.title == "Window" {
-            submenu.set_as_windows_menu_for_nsapp()?;
+        let submenu = submenu(app, &registry, spec, &mut items)?;
+        match spec.title.as_str() {
+            "Window" => submenu.set_as_windows_menu_for_nsapp()?,
+            // macOS adds its search field to the Help menu.
+            "Help" => submenu.set_as_help_menu_for_nsapp()?,
+            _ => {}
         }
         menu.append(&submenu as &dyn IsMenuItem<R>)?;
     }
     app.manage(MenuItems(items));
     Ok(menu)
+}
+
+/// One menu of the registry, its submenus built too.
+fn submenu<R: Runtime>(
+    app: &AppHandle<R>,
+    registry: &Registry,
+    spec: &MenuSpec,
+    items: &mut HashMap<String, MenuItemKind<R>>,
+) -> tauri::Result<Submenu<R>> {
+    let submenu = Submenu::new(app, &spec.title, true)?;
+    for item in &spec.items {
+        let name = match item {
+            Item::Submenu(inner) => {
+                submenu.append(&self::submenu(app, registry, inner, items)?)?;
+                continue;
+            }
+            Item::Name(name) => name,
+        };
+        match entry(name) {
+            Entry::Separator => submenu.append(&PredefinedMenuItem::separator(app)?)?,
+            Entry::Predefined("openRecent") => {
+                let recent = Submenu::new(app, "Open Recent", true)?;
+                submenu.append(&recent)?;
+                app.manage(RecentMenu(recent));
+            }
+            Entry::Predefined(name) => submenu.append(&predefined(app, name)?)?,
+            Entry::Action(id) => {
+                let action = &registry.actions[id];
+                let accelerator = action.accelerator.as_deref();
+                let kind = if action.checkable {
+                    let item =
+                        CheckMenuItem::with_id(app, id, &action.label, true, false, accelerator)?;
+                    submenu.append(&item)?;
+                    MenuItemKind::Check(item)
+                } else {
+                    let item = MenuItem::with_id(app, id, &action.label, true, accelerator)?;
+                    submenu.append(&item)?;
+                    MenuItemKind::MenuItem(item)
+                };
+                items.insert(id.to_owned(), kind);
+            }
+        }
+    }
+    Ok(submenu)
+}
+
+/// The docs site.
+const DOCS: &str = "https://cantina-docs.vibeproject.workers.dev/";
+/// The repository on GitHub.
+const REPO: &str = "https://github.com/jbouder/cantina";
+
+/// Where the Help menu's links go, by name. A fixed list, so the web view
+/// can never ask the shell to open an arbitrary URL. `version` fills in
+/// the new issue's body.
+pub fn link_url(which: &str, version: &str) -> Option<String> {
+    match which {
+        "docs" => Some(DOCS.to_string()),
+        "shortcuts" => Some(format!("{DOCS}guides/menus/")),
+        "releases" => Some(format!("{REPO}/releases")),
+        "issue" => {
+            let body = format!(
+                "What happened, and what you expected:\n\n\n---\nCantina {version} on macOS"
+            );
+            Some(format!("{REPO}/issues/new?body={}", percent_encode(&body)))
+        }
+        _ => None,
+    }
+}
+
+/// Encodes a query value: everything but unreserved characters as %XX.
+fn percent_encode(text: &str) -> String {
+    let mut out = String::with_capacity(text.len() * 3);
+    for byte in text.bytes() {
+        if byte.is_ascii_alphanumeric() || b"-_.~".contains(&byte) {
+            out.push(byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
 }
 
 /// Fills File ▸ Open Recent with `names`, newest first, and Clear Menu.
@@ -308,11 +367,16 @@ mod tests {
 
     #[test]
     fn every_action_is_in_exactly_one_menu() {
-        let registry = registry();
-        let mut seen = HashSet::new();
-        for spec in &registry.menus {
+        fn walk<'a>(registry: &Registry, spec: &'a MenuSpec, seen: &mut HashSet<&'a str>) {
             for item in &spec.items {
-                match entry(item) {
+                let name = match item {
+                    Item::Submenu(inner) => {
+                        walk(registry, inner, seen);
+                        continue;
+                    }
+                    Item::Name(name) => name,
+                };
+                match entry(name) {
                     Entry::Separator => {}
                     Entry::Predefined(name) => {
                         assert!(
@@ -330,6 +394,11 @@ mod tests {
                     }
                 }
             }
+        }
+        let registry = registry();
+        let mut seen = HashSet::new();
+        for spec in &registry.menus {
+            walk(&registry, spec, &mut seen);
         }
         for id in registry.actions.keys() {
             assert!(seen.contains(id.as_str()), "{id} is in no menu");
@@ -365,9 +434,22 @@ mod tests {
     }
 
     #[test]
+    fn help_links_are_a_fixed_list() {
+        assert_eq!(link_url("docs", "1.0.0").unwrap(), DOCS);
+        assert!(link_url("releases", "1.0.0")
+            .unwrap()
+            .ends_with("/releases"));
+        let issue = link_url("issue", "1.2.3").unwrap();
+        assert!(issue.starts_with("https://github.com/jbouder/cantina/issues/new?body="));
+        assert!(issue.contains("Cantina%201.2.3%20on%20macOS"));
+        assert!(!issue[issue.find('=').unwrap()..].contains(' '));
+        assert_eq!(link_url("https://example.com", "1.0.0"), None);
+    }
+
+    #[test]
     fn the_app_menu_comes_first() {
         let registry = registry();
         assert_eq!(registry.menus[0].title, "Cantina");
-        assert_eq!(registry.menus[0].items[0], "@about");
+        assert!(matches!(&registry.menus[0].items[0], Item::Name(n) if n == "@about"));
     }
 }
