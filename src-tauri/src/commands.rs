@@ -767,3 +767,34 @@ pub fn audio_import(
 pub fn kit_import(engine: State<'_, EngineState>, dir: String) -> Result<EngineStatus, String> {
     engine.lock().kit_import(&dir).map_err(fail)
 }
+
+#[tauri::command]
+pub fn clip_paste(
+    engine: State<'_, EngineState>,
+    track: u64,
+    start: u64,
+    name: String,
+    file: String,
+    offset: u64,
+    length: u64,
+) -> Result<EngineStatus, String> {
+    engine
+        .lock()
+        .clip_paste(track, start, &name, &file, offset, length)
+        .map_err(fail)
+}
+
+#[tauri::command]
+pub fn pattern_clip_paste(
+    engine: State<'_, EngineState>,
+    track: u64,
+    start: u64,
+    pattern: u64,
+    offset: u64,
+    length: u64,
+) -> Result<EngineStatus, String> {
+    engine
+        .lock()
+        .pattern_clip_paste(track, start, pattern, offset, length)
+        .map_err(fail)
+}

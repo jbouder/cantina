@@ -3,6 +3,7 @@ import {
   type MouseEvent,
   type PointerEvent,
   type ReactNode,
+  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -12,8 +13,10 @@ import {
 } from "react";
 import {
   type ClipInfo,
+  type CopiedClip,
   clipDuplicate,
   clipMove,
+  clipPaste,
   clipRemove,
   clipSplit,
   clipTrim,
@@ -108,7 +111,26 @@ type Props = {
   onSelectTrack: (id: number) => void;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
+  /** Filled with the clip edits the Edit menu runs on the selected clip. */
+  editRef?: RefObject<TimelineEdit | null>;
+  /** What the Edit menu can do now; called when that changes. */
+  onEditState?: (state: TimelineEditState) => void;
 };
+
+/** The Edit menu's view of the timeline: which clip edits apply now. */
+export interface TimelineEditState {
+  /** A clip is selected: Duplicate, Delete, Cut and Copy apply. */
+  selected: boolean;
+  /** The playhead is inside the selected clip. */
+  canSplit: boolean;
+}
+
+/** The clip edits the Edit menu runs on the selected clip. */
+export interface TimelineEdit {
+  duplicate: () => void;
+  remove: () => void;
+  splitAtPlayhead: () => void;
+}
 
 /** A drag in progress: which edge, and the clip's geometry so far. */
 interface Drag {
@@ -159,7 +181,7 @@ const LABEL_WIDTH = 288;
  * to split at the pointer, right-click for the clip's menu, and click the
  * ruler to move the playhead. The keyboard does the same on the selected
  * clip: Delete, Cmd-D to duplicate, S to split at the playhead, the arrows
- * to nudge by a grid step. Waveforms come from peak caches built in a
+ * to nudge by a grid step, and Cut, Copy and Paste from the Edit menu. Waveforms come from peak caches built in a
  * worker; the canvas only ever reads one level of them per column.
  */
 export function Timeline({
@@ -179,6 +201,8 @@ export function Timeline({
   onSelectTrack,
   onStatus,
   onError,
+  editRef,
+  onEditState,
 }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const container = useRef<HTMLDivElement>(null);
@@ -585,6 +609,111 @@ export function Timeline({
       (e) => onError(String(e)),
     );
 
+  // ----- the Edit menu -----
+
+  const here = Math.round(playhead);
+  const canSplitHere = selected !== null && canSplit(selected.clip, here);
+  if (editRef) {
+    editRef.current = {
+      duplicate: () => {
+        if (selected) duplicate(selected.track, selected.clip);
+      },
+      remove: () => {
+        if (selected) run(remove(selected.clip));
+      },
+      splitAtPlayhead: () => {
+        if (selected && canSplit(selected.clip, here)) run(split(selected.clip, here));
+      },
+    };
+  }
+  const editState = selected !== null;
+  useEffect(() => {
+    onEditState?.({ selected: editState, canSplit: canSplitHere });
+  }, [onEditState, editState, canSplitHere]);
+
+  // Cut, Copy and Paste are the system's own, so text fields keep them.
+  // With the timeline focused they act on clips: the web view raises the
+  // clipboard events, and cancelling `before…` is how WebKit enables the
+  // menu item. The copied clip stays in the timeline, not the system
+  // clipboard, and pastes onto the selected track at the playhead.
+  const clipboard = useRef<CopiedClip | null>(null);
+  const selectedRef = useRef(false);
+  selectedRef.current = selected !== null;
+  const clipEdits = useRef<Record<"copy" | "cut" | "paste", () => boolean>>({
+    copy: () => false,
+    cut: () => false,
+    paste: () => false,
+  });
+  clipEdits.current = {
+    copy: () => {
+      if (!selected) return false;
+      clipboard.current = copyOf(selected.track, selected.clip);
+      return true;
+    },
+    cut: () => {
+      if (!selected) return false;
+      clipboard.current = copyOf(selected.track, selected.clip);
+      run(remove(selected.clip));
+      return true;
+    },
+    paste: () => {
+      const copied = clipboard.current;
+      const track = tracks.find((t) => t.id === selectedTrack);
+      if (!copied || !track) return false;
+      const start = copied.kind === "pattern" ? Math.round(playhead / spt) : here;
+      clipPaste(copied, track.id, start).then(
+        (status) => {
+          onStatus(status);
+          const now = status.project.tracks.find((t) => t.id === track.id);
+          const clips = copied.kind === "pattern" ? now?.patternClips : now?.clips;
+          setSelectedClip(Math.max(...(clips ?? []).map((c) => c.id)));
+        },
+        (e) => onError(String(e)),
+      );
+      return true;
+    },
+  };
+  useEffect(() => {
+    const focused = () => document.activeElement === canvas.current;
+    const enable = (e: Event, ok: () => boolean) => {
+      if (focused() && ok()) e.preventDefault();
+    };
+    const act = (e: Event, edit: () => boolean) => {
+      if (focused() && edit()) e.preventDefault();
+    };
+    const handlers: [string, (e: Event) => void][] = [
+      ["beforecopy", (e) => enable(e, () => selectedRef.current)],
+      ["beforecut", (e) => enable(e, () => selectedRef.current)],
+      ["beforepaste", (e) => enable(e, () => clipboard.current !== null)],
+      ["copy", (e) => act(e, () => clipEdits.current.copy())],
+      ["cut", (e) => act(e, () => clipEdits.current.cut())],
+      ["paste", (e) => act(e, () => clipEdits.current.paste())],
+    ];
+    for (const [type, handler] of handlers) document.addEventListener(type, handler);
+    return () => {
+      for (const [type, handler] of handlers) document.removeEventListener(type, handler);
+    };
+  }, []);
+  /** What Copy keeps of a clip. */
+  const copyOf = (track: TrackStatus, clip: ClipInfo): CopiedClip => {
+    if (!isPattern(clip)) {
+      return {
+        kind: "audio",
+        name: clip.name,
+        file: clip.file,
+        offset: clip.offset,
+        length: clip.length,
+      };
+    }
+    const original = track.patternClips.find((c) => c.id === clip.id);
+    return {
+      kind: "pattern",
+      pattern: original?.pattern ?? 0,
+      offset: original?.offset ?? 0,
+      length: original?.length ?? 0,
+    };
+  };
+
   const menuItems = (target: NonNullable<typeof selected>, at: number): MenuItem[] => {
     const { track, clip } = target;
     const here = Math.round(playhead);
@@ -648,11 +777,7 @@ export function Timeline({
   // ----- the keyboard -----
 
   const onKeyDown = (e: KeyboardEvent<HTMLCanvasElement>) => {
-    if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "d") {
-      e.preventDefault();
-      if (selected) duplicate(selected.track, selected.clip);
-      return;
-    }
+    // ⌘D, like the rest of the Edit menu, comes from the menu bar.
     if (e.metaKey || e.ctrlKey) return;
     switch (e.key) {
       case "Delete":
@@ -774,7 +899,7 @@ export function Timeline({
           <canvas
             ref={canvas}
             tabIndex={0}
-            aria-label="Timeline. Drag clips to move them, drag an edge to trim, Alt-click to split, right-click a clip for its menu, click the ruler to move the playhead. With a clip selected: Delete removes it, Command-D duplicates it, S splits it at the playhead, the arrow keys nudge it. Drop a pattern from the drum grid on a drum track to place it."
+            aria-label="Timeline. Drag clips to move them, drag an edge to trim, Alt-click to split, right-click a clip for its menu, click the ruler to move the playhead. With a clip selected: Delete removes it, Command-D duplicates it, Command-X and Command-C cut and copy it, S splits it at the playhead, the arrow keys nudge it. Command-V pastes a copied clip on the selected track at the playhead. Drop a pattern from the drum grid on a drum track to place it."
             aria-disabled={!running}
             style={{ width, height, touchAction: "none" }}
             className={`block ${cursor}`}

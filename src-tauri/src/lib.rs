@@ -137,6 +137,8 @@ pub fn run() {
             commands::reveal,
             commands::audio_import,
             commands::kit_import,
+            commands::clip_paste,
+            commands::pattern_clip_paste,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Cantina shell")

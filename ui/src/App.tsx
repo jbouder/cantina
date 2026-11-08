@@ -16,11 +16,18 @@ import { Projects } from "./components/Projects";
 import { Recovery } from "./components/Recovery";
 import { Settings } from "./components/Settings";
 import { StageView } from "./components/StageView";
-import { Timeline } from "./components/Timeline";
+import { Timeline, type TimelineEdit, type TimelineEditState } from "./components/Timeline";
 import { Transport } from "./components/Transport";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { Window } from "./components/Window";
-import { type ActionId, actionForKey, type Bindings, isTyping, menuStates } from "./lib/actions";
+import {
+  type ActionId,
+  actionForKey,
+  type Bindings,
+  editTitle,
+  isTyping,
+  menuStates,
+} from "./lib/actions";
 import {
   audioImport,
   brokenOf,
@@ -138,6 +145,9 @@ export function App() {
   const closeNaming = useCallback(() => setNaming(null), []);
   // Cantina ▸ Check for Updates opens Settings and checks.
   const [checkUpdates, setCheckUpdates] = useState(false);
+  // The timeline's clip edits, for the Edit menu.
+  const timelineEdit = useRef<TimelineEdit | null>(null);
+  const [clipEdit, setClipEdit] = useState<TimelineEditState>({ selected: false, canSplit: false });
   // Counts File ▸ Bounce Track in Place for the editor.
   const [bounceRequest, setBounceRequest] = useState(0);
   const closeExport = useCallback(() => setExportOpen(false), []);
@@ -372,6 +382,7 @@ export function App() {
     // In a text field ⌘Z is the field's own undo.
     undo: {
       enabled: typing || (status?.project.undoLabel ?? null) !== null,
+      label: typing ? "Undo" : editTitle("Undo", status?.project.undoLabel ?? null),
       run: () => {
         if (isTyping(document.activeElement)) document.execCommand("undo");
         else report(projectUndo());
@@ -379,10 +390,24 @@ export function App() {
     },
     redo: {
       enabled: typing || (status?.project.redoLabel ?? null) !== null,
+      label: typing ? "Redo" : editTitle("Redo", status?.project.redoLabel ?? null),
       run: () => {
         if (isTyping(document.activeElement)) document.execCommand("redo");
         else report(projectRedo());
       },
+    },
+    // The selected clip in the timeline.
+    duplicate: {
+      enabled: clipEdit.selected && !typing,
+      run: () => timelineEdit.current?.duplicate(),
+    },
+    delete: {
+      enabled: clipEdit.selected && !typing,
+      run: () => timelineEdit.current?.remove(),
+    },
+    split: {
+      enabled: clipEdit.canSplit && !typing,
+      run: () => timelineEdit.current?.splitAtPlayhead(),
     },
     play: {
       enabled: running && (rolling || hasClips),
@@ -556,6 +581,8 @@ export function App() {
                 onSelectTrack={setSelectedTrack}
                 onStatus={setStatus}
                 onError={setError}
+                editRef={timelineEdit}
+                onEditState={setClipEdit}
               />
             </div>
             <Divider

@@ -1789,6 +1789,45 @@ export async function clipDuplicate(id: number): Promise<EngineStatus> {
   return mockEdit(`add clip ${clip.name}`);
 }
 
+/** A clip as Copy keeps it, to paste later: an audio clip's file and trim, or a pattern clip's pattern and trim in ticks. */
+export type CopiedClip =
+  | { kind: "audio"; name: string; file: string; offset: number; length: number }
+  | { kind: "pattern"; pattern: number; offset: number; length: number };
+
+/**
+ * Pastes a copied clip onto `track` at `start` (samples for audio, ticks
+ * for a pattern), or in the first space after it that holds the clip.
+ */
+export async function clipPaste(
+  copied: CopiedClip,
+  track: number,
+  start: number,
+): Promise<EngineStatus> {
+  start = Math.max(0, Math.round(start));
+  if (copied.kind === "audio") {
+    const { name, file, offset, length } = copied;
+    if (inTauri) {
+      return invoke<EngineStatus>("clip_paste", { track, start, name, file, offset, length });
+    }
+    const t = mockTrack(track);
+    if (t.kit) throw new Error(`${t.name} is a drum track; paste audio on an audio track`);
+    const at = mockFreeStart(t.clips, { start: start - length, length });
+    t.clips.push({ id: mockNextId++, name, file, start: at, offset, length });
+    t.clips.sort((a, b) => a.start - b.start);
+    return mockEdit(`add clip ${name}`);
+  }
+  const { pattern, offset, length } = copied;
+  if (inTauri) {
+    return invoke<EngineStatus>("pattern_clip_paste", { track, start, pattern, offset, length });
+  }
+  const t = mockTrack(track);
+  if (!t.kit) throw new Error(`${t.name} is an audio track; paste a pattern on a drum track`);
+  const at = mockFreeStart(t.patternClips, { start: start - length, length });
+  t.patternClips.push({ id: mockNextId++, pattern, start: at, offset, length });
+  sortPatternClips(t);
+  return mockEdit("place pattern");
+}
+
 export async function clipSplit(id: number, at: number): Promise<EngineStatus> {
   at = Math.round(at);
   if (inTauri) return invoke<EngineStatus>("clip_split", { id, at });
