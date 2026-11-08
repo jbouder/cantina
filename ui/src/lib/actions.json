@@ -78,9 +78,56 @@
       "label": "Record",
       "key": "R"
     },
+    "countIn": {
+      "label": "Count In",
+      "checkable": true
+    },
     "metronome": {
       "label": "Metronome",
       "key": "K",
+      "checkable": true
+    },
+    "goToStart": {
+      "label": "Go to Start",
+      "key": "Home"
+    },
+    "goToEnd": {
+      "label": "Go to End",
+      "key": "End"
+    },
+    "tempo": {
+      "label": "Tempo…"
+    },
+    "newAudioTrack": {
+      "label": "New Audio Track",
+      "accelerator": "Alt+CmdOrCtrl+N"
+    },
+    "newDrumTrack": {
+      "label": "New Drum Track"
+    },
+    "arm": {
+      "label": "Arm for Recording",
+      "checkable": true
+    },
+    "mute": {
+      "label": "Mute",
+      "checkable": true
+    },
+    "solo": {
+      "label": "Solo",
+      "checkable": true
+    },
+    "renameTrack": {
+      "label": "Rename Track…"
+    },
+    "removeTrack": {
+      "label": "Remove Track"
+    },
+    "addPedal": {
+      "label": "Add Pedal…"
+    },
+    "bypassChain": {
+      "label": "Bypass Chain",
       "checkable": true
     },
     "perform": {
@@ -148,7 +195,35 @@
     },
     {
       "title": "Transport",
-      "items": ["play", "record", "-", "metronome"]
+      "items": [
+        "play",
+        "record",
+        "countIn",
+        "-",
+        "metronome",
+        "-",
+        "goToStart",
+        "goToEnd",
+        "-",
+        "tempo"
+      ]
+    },
+    {
+      "title": "Track",
+      "items": [
+        "newAudioTrack",
+        "newDrumTrack",
+        "-",
+        "arm",
+        "mute",
+        "solo",
+        "-",
+        "renameTrack",
+        "removeTrack",
+        "-",
+        "addPedal",
+        "bypassChain"
+      ]
     },
     {
       "title": "View",

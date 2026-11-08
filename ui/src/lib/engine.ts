@@ -70,6 +70,8 @@ export interface EngineStatus {
   /** The library folders: where they are, their pattern files, and what will not load. */
   library: LibraryStatus;
   metronome: MetronomeStatus;
+  /** Record counts in four beats first. An app setting. */
+  countIn: boolean;
 }
 
 /** The metronome's settings. Mirrors `MetronomeSettings` in src-tauri. */
@@ -955,6 +957,8 @@ const mock: EngineStatus = {
     levelDb: -6,
     sounds: ["Standard", "Woodblock", "Cowbell", "Drum", "Hi-hat"],
   },
+  countIn: !(mockParams?.has("nocountin") ?? false),
+
   library: {
     pedalsDir: "/Users/you/Music/Cantina/Pedals",
     kitsDir: "/Users/you/Music/Cantina/Kits",
@@ -1034,6 +1038,7 @@ function mockStatus(): EngineStatus {
     },
     audition: mock.audition ? { ...mock.audition } : null,
     metronome: { ...mock.metronome, sounds: [...mock.metronome.sounds] },
+    countIn: mock.countIn,
     sampleRate: mockSettings.sampleRate,
     bufferFrames: mockSettings.bufferFrames,
     inputUid: mockSettings.inputUid,
@@ -1691,6 +1696,20 @@ export async function pedalSetBypass(id: number, on: boolean): Promise<EngineSta
   return mockEdit(on ? "bypass pedal" : "turn pedal on");
 }
 
+/** Bypasses every pedal on a track, or turns them all on, as one edit. */
+export async function chainBypass(track: number, on: boolean): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("chain_bypass", { track, on });
+  for (const pedal of mockTrack(track).chain) pedal.bypassed = on;
+  return mockEdit(on ? "bypass pedal" : "turn pedal on");
+}
+
+/** Turns Record's count-in on or off. An app setting, not undoable. */
+export async function countInSet(on: boolean): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("count_in_set", { on });
+  mock.countIn = on;
+  return mockStatus();
+}
+
 /** Plays the input through one audio track's chain: arms it and disarms the rest. */
 export async function chainSelect(id: number): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("chain_select", { id });
@@ -1887,7 +1906,7 @@ export async function transportPlay(): Promise<EngineStatus> {
 export async function transportRecord(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("transport_record");
   if (!mock.project.tracks.some((t) => t.armed)) throw new Error("arm a track before recording");
-  mockTransport.countIn = MOCK_COUNT_BEATS * mockBeatSeconds();
+  mockTransport.countIn = mock.countIn ? MOCK_COUNT_BEATS * mockBeatSeconds() : 0;
   mockTransport.recording = true;
   return mockStatus();
 }

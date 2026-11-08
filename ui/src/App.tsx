@@ -31,10 +31,12 @@ import {
 import {
   audioImport,
   brokenOf,
+  chainBypass,
   chooseAudioPaths,
   chooseImportPaths,
   chooseKitDir,
   choosePatternImportPaths,
+  countInSet,
   designerNew,
   dismissNotice,
   type EngineStatus,
@@ -60,7 +62,13 @@ import {
   projectUndo,
   reveal,
   SILENT,
+  stripMute,
+  stripSolo,
   trackAdd,
+  trackAddDrums,
+  trackArm,
+  trackRemove,
+  transportLocate,
   transportPlay,
   transportRecord,
   transportStop,
@@ -68,6 +76,7 @@ import {
   updateCheck,
 } from "./lib/engine";
 import { readoutsByPedal } from "./lib/readouts";
+import { samplesPerTick } from "./lib/timeline";
 
 const IDLE: MeterFrame = {
   input: SILENT,
@@ -95,6 +104,17 @@ function loadSplit(): number {
     // Storage can be unavailable; the default is fine.
   }
   return DEFAULT_SPLIT;
+}
+
+/** The end of the song: the end of the last clip on any track, in samples. */
+function songEnd(status: EngineStatus): number {
+  const spt = samplesPerTick(status.project.tempo, status.project.sampleRate);
+  let end = 0;
+  for (const t of status.project.tracks) {
+    for (const c of t.clips) end = Math.max(end, c.start + c.length);
+    for (const c of t.patternClips) end = Math.max(end, (c.start + c.length) * spt);
+  }
+  return Math.round(end);
 }
 
 export function App() {
@@ -148,6 +168,8 @@ export function App() {
   // The timeline's clip edits, for the Edit menu.
   const timelineEdit = useRef<TimelineEdit | null>(null);
   const [clipEdit, setClipEdit] = useState<TimelineEditState>({ selected: false, canSplit: false });
+  // Counts Track ▸ Rename Track for the editor.
+  const [renameRequest, setRenameRequest] = useState(0);
   // Counts File ▸ Bounce Track in Place for the editor.
   const [bounceRequest, setBounceRequest] = useState(0);
   const closeExport = useCallback(() => setExportOpen(false), []);
@@ -302,6 +324,8 @@ export function App() {
     selected !== null &&
     (selected.kit ? selected.patternClips.length > 0 : selected.clips.length > 0);
   const failed = (e: unknown) => setError(String(e));
+  const chainBypassed =
+    selected !== null && selected.chain.length > 0 && selected.chain.every((p) => p.bypassed);
   const bindings: Bindings = {
     settings: { enabled: has, run: () => setSettingsOpen(true) },
     checkUpdates: {
@@ -417,6 +441,81 @@ export function App() {
     record: {
       enabled: running && !rolling && tracks.some((t) => t.armed && !t.kit),
       run: () => report(transportRecord()),
+    },
+    countIn: {
+      enabled: has,
+      checked: status?.countIn ?? true,
+      run: () => report(countInSet(!(status?.countIn ?? true))),
+    },
+    goToStart: { enabled: running && !frame.recording, run: () => report(transportLocate(0)) },
+    goToEnd: {
+      enabled: running && !frame.recording,
+      run: () => {
+        if (status) report(transportLocate(songEnd(status)));
+      },
+    },
+    tempo: {
+      enabled: has,
+      run: () => {
+        const field = document.getElementById("tempo-bpm") as HTMLInputElement | null;
+        field?.focus();
+        field?.select();
+      },
+    },
+    newAudioTrack: {
+      enabled: idle,
+      run: () =>
+        trackAdd().then((s) => {
+          setStatus(s);
+          setSelectedTrack(s.project.tracks.at(-1)?.id ?? null);
+        }, failed),
+    },
+    newDrumTrack: {
+      enabled: idle && (status?.kits.length ?? 0) > 0,
+      run: () =>
+        trackAddDrums().then((s) => {
+          setStatus(s);
+          setSelectedTrack(s.project.tracks.at(-1)?.id ?? null);
+        }, failed),
+    },
+    arm: {
+      enabled: selected !== null && !selected.kit && !frame.recording,
+      checked: selected?.armed ?? false,
+      run: () => {
+        if (selected) report(trackArm(selected.id, !selected.armed));
+      },
+    },
+    mute: {
+      enabled: selected !== null,
+      checked: selected?.strip.mute ?? false,
+      run: () => {
+        if (selected) report(stripMute(selected.id, !selected.strip.mute));
+      },
+    },
+    solo: {
+      enabled: selected !== null,
+      checked: selected?.strip.solo ?? false,
+      run: () => {
+        if (selected) report(stripSolo(selected.id, !selected.strip.solo));
+      },
+    },
+    renameTrack: {
+      enabled: selected !== null,
+      run: () => setRenameRequest((n) => n + 1),
+    },
+    removeTrack: {
+      enabled: selected !== null && !frame.recording,
+      run: () => {
+        if (selected) report(trackRemove(selected.id));
+      },
+    },
+    addPedal: { enabled: selected !== null, run: () => setPickerOpen(true) },
+    bypassChain: {
+      enabled: (selected?.chain.length ?? 0) > 0,
+      checked: chainBypassed,
+      run: () => {
+        if (selected) report(chainBypass(selected.id, !chainBypassed));
+      },
     },
     metronome: {
       enabled: status !== null,
@@ -610,6 +709,7 @@ export function App() {
                 irs={status.irs}
                 initialTab={initialTab}
                 bounceRequest={bounceRequest}
+                renameRequest={renameRequest}
                 onAdd={() => setPickerOpen(true)}
                 onDesign={(pedal) => design(pedal, selected.id)}
                 onStatus={setStatus}

@@ -75,6 +75,8 @@ pub struct Settings {
     pub metronome: MetronomeSettings,
     /// Projects opened lately, newest first, for File ▸ Open Recent.
     pub recent_projects: Vec<String>,
+    /// Record counts in a bar of four beats before the take starts.
+    pub count_in: bool,
 }
 
 impl Default for Settings {
@@ -86,6 +88,7 @@ impl Default for Settings {
             latency_warn_ms: crate::engine::DEFAULT_LATENCY_WARN_MS,
             metronome: MetronomeSettings::default(),
             recent_projects: Vec::new(),
+            count_in: true,
         }
     }
 }
