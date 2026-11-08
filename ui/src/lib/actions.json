@@ -1,19 +1,89 @@
 {
   "actions": {
-    "settings": { "label": "Settings…", "accelerator": "CmdOrCtrl+Comma" },
-    "export": { "label": "Export Mixdown…", "accelerator": "CmdOrCtrl+E" },
-    "undo": { "label": "Undo", "accelerator": "CmdOrCtrl+Z" },
-    "redo": { "label": "Redo", "accelerator": "Shift+CmdOrCtrl+Z" },
-    "play": { "label": "Play", "key": "Space" },
-    "record": { "label": "Record", "key": "R" },
-    "metronome": { "label": "Metronome", "key": "K", "checkable": true },
-    "perform": { "label": "Performance Mode", "key": "P" }
+    "settings": {
+      "label": "Settings…",
+      "accelerator": "CmdOrCtrl+Comma"
+    },
+    "checkUpdates": {
+      "label": "Check for Updates…"
+    },
+    "newProject": {
+      "label": "New Project…",
+      "accelerator": "CmdOrCtrl+N"
+    },
+    "openProject": {
+      "label": "Open…",
+      "accelerator": "CmdOrCtrl+O"
+    },
+    "save": {
+      "label": "Save",
+      "accelerator": "CmdOrCtrl+S"
+    },
+    "duplicateProject": {
+      "label": "Duplicate…",
+      "accelerator": "Shift+CmdOrCtrl+S"
+    },
+    "renameProject": {
+      "label": "Rename…"
+    },
+    "importAudio": {
+      "label": "Import Audio…",
+      "accelerator": "Shift+CmdOrCtrl+I"
+    },
+    "importPedal": {
+      "label": "Import Pedal…"
+    },
+    "importPattern": {
+      "label": "Import Pattern…"
+    },
+    "importKit": {
+      "label": "Import Kit…"
+    },
+    "export": {
+      "label": "Export Mixdown…",
+      "accelerator": "CmdOrCtrl+E"
+    },
+    "bounce": {
+      "label": "Bounce Track in Place"
+    },
+    "revealProject": {
+      "label": "Show Project in Finder"
+    },
+    "revealLibrary": {
+      "label": "Show Library in Finder"
+    },
+    "undo": {
+      "label": "Undo",
+      "accelerator": "CmdOrCtrl+Z"
+    },
+    "redo": {
+      "label": "Redo",
+      "accelerator": "Shift+CmdOrCtrl+Z"
+    },
+    "play": {
+      "label": "Play",
+      "key": "Space"
+    },
+    "record": {
+      "label": "Record",
+      "key": "R"
+    },
+    "metronome": {
+      "label": "Metronome",
+      "key": "K",
+      "checkable": true
+    },
+    "perform": {
+      "label": "Performance Mode",
+      "key": "P"
+    }
   },
   "menus": [
     {
       "title": "Cantina",
       "items": [
         "@about",
+        "checkUpdates",
         "-",
         "settings",
         "-",
@@ -26,13 +96,45 @@
         "@quit"
       ]
     },
-    { "title": "File", "items": ["export", "-", "@closeWindow"] },
+    {
+      "title": "File",
+      "items": [
+        "newProject",
+        "openProject",
+        "@openRecent",
+        "-",
+        "@closeWindow",
+        "save",
+        "duplicateProject",
+        "renameProject",
+        "-",
+        "importAudio",
+        "importPedal",
+        "importPattern",
+        "importKit",
+        "-",
+        "export",
+        "bounce",
+        "-",
+        "revealProject",
+        "revealLibrary"
+      ]
+    },
     {
       "title": "Edit",
       "items": ["undo", "redo", "-", "@cut", "@copy", "@paste", "@selectAll"]
     },
-    { "title": "Transport", "items": ["play", "record", "-", "metronome"] },
-    { "title": "View", "items": ["perform", "-", "@fullscreen"] },
-    { "title": "Window", "items": ["@minimize", "@maximize", "-", "@bringAllToFront"] }
+    {
+      "title": "Transport",
+      "items": ["play", "record", "-", "metronome"]
+    },
+    {
+      "title": "View",
+      "items": ["perform", "-", "@fullscreen"]
+    },
+    {
+      "title": "Window",
+      "items": ["@minimize", "@maximize", "-", "@bringAllToFront"]
+    }
   ]
 }

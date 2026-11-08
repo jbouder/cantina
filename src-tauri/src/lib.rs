@@ -36,6 +36,8 @@ pub fn run() {
             match menu::build(app.handle()) {
                 Ok(bar) => {
                     app.set_menu(bar)?;
+                    let recent = app.state::<EngineState>().lock().recent_projects();
+                    menu::set_recent(app.handle(), &recent);
                 }
                 Err(e) => eprintln!("[menu] could not build the menu bar: {e}"),
             }
@@ -130,6 +132,11 @@ pub fn run() {
             commands::track_bounce,
             commands::render_cancel,
             commands::menu_state,
+            commands::project_rename,
+            commands::project_duplicate,
+            commands::reveal,
+            commands::audio_import,
+            commands::kit_import,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Cantina shell")

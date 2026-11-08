@@ -7,7 +7,7 @@ sidebar:
 
 Every command the menu bar and the keyboard can run is an **action** in one
 registry, `ui/src/lib/actions.json`. The [shell](/architecture/shell/) builds the
-native menu bar from it, and the [UI](/architecture/ui/) reads the same file to
+native menu bar from it ([what each item does](/guides/menus/)), and the [UI](/architecture/ui/) reads the same file to
 match keys and run handlers. A menu item and its shortcut cannot disagree,
 because there is only one place that says what they are.
 
@@ -30,6 +30,11 @@ because there is only one place that says what they are.
 - A **menu** lists action ids, `-` for a separator, and `@` for items macOS
   implements itself (`@copy`, `@paste`, `@quit`, `@minimize`, and the rest
   listed in `src-tauri/src/menu.rs`). The first menu is the app menu.
+- `@openRecent` is the one item the shell fills itself: File ▸ Open Recent,
+  from the recent projects kept in the settings. Choosing a project emits
+  `menu://open-recent` with its name, and the UI opens it as the Projects
+  sheet would, asking first when there are unsaved edits. **Clear Menu** is
+  handled in the shell.
 
 ## From a menu item to a handler
 

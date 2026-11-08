@@ -101,6 +101,22 @@ impl Projects {
         Ok((project, dir))
     }
 
+    /// The folder a project called `name` would have: the checked name
+    /// and a folder not yet in use, for renaming and duplicating.
+    pub fn free_dir(&self, name: &str) -> Result<(String, PathBuf)> {
+        let name = check_name(name)?;
+        let dir = self.dir_for(&name);
+        if dir.exists() {
+            bail!("there is already a project called {name}");
+        }
+        Ok((name, dir))
+    }
+
+    /// The projects folder itself, which also holds the library folders.
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
     pub fn open(&self, name: &str) -> Result<(Project, PathBuf)> {
         let name = check_name(name)?;
         let dir = self.dir_for(&name);
@@ -136,6 +152,31 @@ impl Projects {
     }
 }
 
+/// Copies a project folder: everything in it but the journal, whose
+/// unsaved edits belong to the original.
+pub fn copy_project_dir(from: &Path, to: &Path) -> Result<()> {
+    copy_dir(from, to, true)
+}
+
+fn copy_dir(from: &Path, to: &Path, top: bool) -> Result<()> {
+    std::fs::create_dir_all(to).with_context(|| format!("creating {}", to.display()))?;
+    for entry in std::fs::read_dir(from).with_context(|| format!("reading {}", from.display()))? {
+        let entry = entry?;
+        let name = entry.file_name();
+        if top && name == cantina_project::JOURNAL_FILE {
+            continue;
+        }
+        let (src, dst) = (entry.path(), to.join(&name));
+        if entry.file_type()?.is_dir() {
+            copy_dir(&src, &dst, false)?;
+        } else {
+            std::fs::copy(&src, &dst)
+                .with_context(|| format!("copying {} to {}", src.display(), dst.display()))?;
+        }
+    }
+    Ok(())
+}
+
 /// A project name that is safe as a directory name.
 fn check_name(name: &str) -> Result<String> {
     let name = name.trim();
@@ -154,6 +195,41 @@ fn check_name(name: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_copy_leaves_the_journal_behind() {
+        let root = std::env::temp_dir().join(format!("cantina-copy-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let from = root.join("A.cantina");
+        std::fs::create_dir_all(from.join("audio")).unwrap();
+        std::fs::write(from.join("project.json"), "{}").unwrap();
+        std::fs::write(from.join("audio/take-1.wav"), "riff").unwrap();
+        std::fs::write(from.join(cantina_project::JOURNAL_FILE), "edits").unwrap();
+        let to = root.join("B.cantina");
+        copy_project_dir(&from, &to).unwrap();
+        assert!(to.join("project.json").is_file());
+        assert_eq!(
+            std::fs::read_to_string(to.join("audio/take-1.wav")).unwrap(),
+            "riff"
+        );
+        assert!(!to.join(cantina_project::JOURNAL_FILE).exists());
+        assert!(from.join(cantina_project::JOURNAL_FILE).exists());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn free_dir_refuses_a_name_in_use() {
+        let root = std::env::temp_dir().join(format!("cantina-free-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let projects = Projects::at(root.clone());
+        projects.create("Song", 48_000.0).unwrap();
+        assert!(projects.free_dir("Song").is_err());
+        assert!(projects.free_dir("a/b").is_err());
+        let (name, dir) = projects.free_dir(" Song 2 ").unwrap();
+        assert_eq!(name, "Song 2");
+        assert_eq!(dir, projects.dir_for("Song 2"));
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn names_are_checked() {

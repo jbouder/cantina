@@ -1265,6 +1265,49 @@ export async function projectOpen(name: string): Promise<EngineStatus> {
   return mockStatus();
 }
 
+/**
+ * Renames the open project: saves it and moves its folder. Not an edit,
+ * so nothing to undo; the undo history stays.
+ */
+export async function projectRename(name: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("project_rename", { name });
+  mockFreeName(name);
+  const at = mockProjects.indexOf(mock.project.name);
+  if (at >= 0) mockProjects.splice(at, 1, name.trim());
+  mock.project.name = name.trim();
+  mock.project.dir = `/Users/you/Music/Cantina/${name.trim()}.cantina`;
+  mock.project.dirty = false;
+  return mockStatus();
+}
+
+/**
+ * Copies the open project as it is now to a new name and switches to the
+ * copy, as Save As does; the original stays as last saved.
+ */
+export async function projectDuplicate(name: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("project_duplicate", { name });
+  mockFreeName(name);
+  mockProjects.push(name.trim());
+  mock.project.name = name.trim();
+  mock.project.dir = `/Users/you/Music/Cantina/${name.trim()}.cantina`;
+  mock.project.dirty = false;
+  return mockStatus();
+}
+
+function mockFreeName(name: string) {
+  const n = name.trim();
+  if (!n) throw new Error("a project needs a name");
+  if (/[/\\:]/.test(n) || n.startsWith(".")) {
+    throw new Error("a project name cannot contain / \\ or : or start with a dot");
+  }
+  if (mockProjects.includes(n)) throw new Error(`there is already a project called ${n}`);
+}
+
+/** Shows the open project's folder, or the library folder, in Finder. Nothing in a browser. */
+export async function reveal(what: "project" | "library"): Promise<void> {
+  if (inTauri) await invoke("reveal", { what });
+}
+
 export async function projectSave(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("project_save");
   mock.project.dirty = false;
@@ -1956,6 +1999,56 @@ export async function pedalImport(path: string, track?: number): Promise<EngineS
   return mockEdit("add pedal");
 }
 
+/**
+ * Copies WAV files into the project and puts them on an audio track at
+ * `start`, one after another. A file at another sample rate is converted
+ * in the copy; the original is never touched. Each file is one edit.
+ */
+export async function audioImport(
+  paths: string[],
+  track: number,
+  start: number,
+): Promise<EngineStatus> {
+  start = Math.round(start);
+  if (inTauri) return invoke<EngineStatus>("audio_import", { paths, track, start });
+  const target = mockTrack(track);
+  if (target.kit) throw new Error("audio goes on an audio track, not a drum track");
+  let at = start;
+  for (const path of paths) {
+    const name = (path.split("/").pop() ?? "import").replace(/\.wav$/i, "");
+    const clip = mockClip(mockNextId++, name, at / MOCK_RATE, 8);
+    target.clips.push(clip);
+    at += clip.length;
+  }
+  return mockEdit(`add clip ${paths.length === 1 ? "import" : "imports"}`);
+}
+
+/** Copies a kit folder into the user's kits after checking it loads. */
+export async function kitImport(dir: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("kit_import", { dir });
+  const id = dir.split("/").pop() ?? "kit";
+  if (mockKits.some((k) => k.id === id))
+    throw new Error(`there is already a kit folder called ${id}`);
+  mockKits.push({ id, name: id });
+  return mockStatus();
+}
+
+/** Asks for WAV files to import; empty when the user cancels. */
+export async function chooseAudioPaths(): Promise<string[]> {
+  if (!inTauri) return ["/Users/you/Desktop/Backing.wav"];
+  const chosen = await openDialog({
+    multiple: true,
+    filters: [{ name: "WAV audio", extensions: ["wav", "wave"] }],
+  });
+  return chosen ?? [];
+}
+
+/** Asks for a kit folder, one holding a `kit.json`; null when the user cancels. */
+export async function chooseKitDir(): Promise<string | null> {
+  if (!inTauri) return "/Users/you/Downloads/Garage";
+  return openDialog({ directory: true, multiple: false });
+}
+
 /** Looks for library pedals again. */
 export async function pedalsRescan(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("pedals_rescan");
@@ -2090,6 +2183,22 @@ export async function chainSetParam(id: number, param: number, value: number): P
  */
 export async function menuState(items: ({ id: ActionId } & ActionState)[]): Promise<void> {
   if (inTauri) await invoke("menu_state", { items });
+}
+
+/**
+ * A project chosen from File ▸ Open Recent, by name. Returns a function
+ * that stops listening. Nothing in a browser.
+ */
+export function onOpenRecent(listener: (name: string) => void): () => void {
+  if (!inTauri) return () => {};
+  let active = true;
+  const stop = listen<string>("menu://open-recent", (e) => {
+    if (active) listener(e.payload);
+  });
+  return () => {
+    active = false;
+    stop.then((unlisten) => unlisten());
+  };
 }
 
 /**

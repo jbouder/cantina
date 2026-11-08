@@ -1,5 +1,5 @@
 import type { SkinPreview } from "@cantina/skins";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   appVersion,
   type EngineStatus,
@@ -26,6 +26,8 @@ type Props = {
   onStatusChange: (status: EngineStatus) => void;
   /** A newer release was found: the window offers to install it. */
   onUpdate: (update: UpdateInfo) => void;
+  /** Check for a release as the sheet opens, for Cantina ▸ Check for Updates. */
+  checkForUpdates?: boolean;
 };
 
 const WARN_CHOICES = [5, 10, 20, 50, 100];
@@ -51,7 +53,13 @@ function SkinSwatch({ preview }: { preview: SkinPreview }) {
 }
 
 /** The running version and a button that asks the release feed for a newer one. */
-function Updates({ onUpdate }: { onUpdate: (update: UpdateInfo) => void }) {
+function Updates({
+  onUpdate,
+  checkNowOnOpen,
+}: {
+  onUpdate: (update: UpdateInfo) => void;
+  checkNowOnOpen: boolean;
+}) {
   const [version, setVersion] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -75,6 +83,14 @@ function Updates({ onUpdate }: { onUpdate: (update: UpdateInfo) => void }) {
       )
       .finally(() => setChecking(false));
   };
+  // Cantina ▸ Check for Updates opens the sheet and checks at once.
+  const checkOnOpen = useRef(checkNowOnOpen);
+  useEffect(() => {
+    if (checkOnOpen.current) {
+      checkOnOpen.current = false;
+      checkNow();
+    }
+  });
   return (
     <section aria-labelledby="updates-label" className="grid gap-2">
       <h3 id="updates-label" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
@@ -100,6 +116,7 @@ function Updates({ onUpdate }: { onUpdate: (update: UpdateInfo) => void }) {
  * skin picker, Reduce flashing and updates.
  */
 export function Settings({
+  checkForUpdates,
   status,
   busy,
   onToggleEngine,
@@ -192,7 +209,7 @@ export function Settings({
           </Button>
         </div>
       </section>
-      <Updates onUpdate={onUpdate} />
+      <Updates onUpdate={onUpdate} checkNowOnOpen={checkForUpdates ?? false} />
     </Sheet>
   );
 }
