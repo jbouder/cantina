@@ -151,6 +151,11 @@
     "stage": {
       "label": "Stage"
     },
+    "assistant": {
+      "label": "Assistant",
+      "accelerator": "CmdOrCtrl+J",
+      "checkable": true
+    },
     "skin-classic": {
       "label": "Classic",
       "checkable": true
@@ -307,6 +312,7 @@
         "designer",
         "stage",
         "perform",
+        "assistant",
         "-",
         {
           "title": "Skin",

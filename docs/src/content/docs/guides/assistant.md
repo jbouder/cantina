@@ -50,6 +50,30 @@ A model running on your Mac keeps everything on your Mac.
 Smaller local models answer more slowly and make more mistakes with
 Cantina's tools than the large hosted ones.
 
+## The chat panel
+
+Once the assistant is on, with an endpoint and a model, a speech-bubble
+key appears beside **Engine** at the top right. Press it, choose
+**View ▸ Assistant** or press **⌘J** to open the chat at the right of the
+window; the same again closes it.
+
+![The chat panel beside the studio, with a reply, a change it made and its Undo](../../../assets/guides/assistant-chat.png)
+
+- Type a message and press **Return** to send it (**Shift-Return** for a
+  new line). The reply appears as it is written; **Stop** ends it there,
+  keeping what was written so far.
+- When the assistant changes your project, the change shows as a card,
+  such as *Added Overdrive to Guitar*, with an **Undo** link. Undo works
+  while that change is still the last thing that happened to the
+  project; after anything else, use **Edit ▸ Undo**, which steps back
+  through the assistant's changes like any others.
+- Before anything that removes something, the panel asks, with **Yes**
+  and **No**. Nothing is removed until you say yes.
+- If a request fails (no network, a rate limit, a refused key) the reason
+  shows in the thread with **Retry**.
+- **Clear** forgets the conversation. Otherwise it is kept, and is there
+  the next time you open Cantina.
+
 ## Where your key is kept
 
 Your API key goes into the macOS **Keychain**, under
@@ -68,10 +92,18 @@ Nothing is sent while the assistant is off. With it on, Cantina contacts
 the endpoint only:
 
 - to list its models, when you open Settings or change the endpoint or key;
-- when you press **Test connection**.
+- when you press **Test connection**;
+- when you send a message, press **Retry**, or the assistant carries on
+  after a change it made.
 
-Each of these sends your key and, for the test, the model's name and a
-two-word prompt. No audio, no project and no file is ever sent.
+Each message sends your key, a short description of the assistant, and
+the conversation so far: your messages, its replies, and the changes it
+made with what came of them. Older parts of a long conversation are left
+out. No audio and no file is ever sent.
+
+The conversation is kept on your Mac in
+`~/Library/Application Support/com.jbouder.cantina/assistant-thread.json`
+until you press **Clear**.
 
 ## Turn it off
 

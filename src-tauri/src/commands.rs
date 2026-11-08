@@ -7,6 +7,7 @@ use cantina_project::Tempo;
 use tauri::ipc::{Channel, InvokeResponseBody, Response};
 use tauri::State;
 
+use crate::assistant::chat;
 use crate::assistant::provider::{self, Problem};
 use crate::engine::{DesignerResult, DeviceEntry, Engine, EngineState, EngineStatus};
 use crate::settings::{AudioSettings, MetronomeSettings};
@@ -881,4 +882,157 @@ pub async fn assistant_models(app: tauri::AppHandle) -> Result<Vec<String>, Prob
 pub async fn assistant_test(app: tauri::AppHandle) -> Result<(), Problem> {
     let connection = assistant_connection(&app)?;
     connection.test(&provider::client()).await
+}
+
+/// The chat thread so far, kept between launches.
+#[tauri::command]
+pub fn assistant_thread(session: State<'_, crate::assistant::Session>) -> Vec<chat::Item> {
+    session.items()
+}
+
+/// Adds the player's message and answers it, streaming events over the
+/// channel until `Done`. Makes no request while the assistant is off.
+#[tauri::command]
+pub async fn assistant_send(
+    app: tauri::AppHandle,
+    text: String,
+    channel: Channel<chat::Event>,
+) -> Result<(), Problem> {
+    let text = text.trim().to_string();
+    if text.is_empty() {
+        return Ok(());
+    }
+    let connection = assistant_connection(&app)?;
+    answer(app, connection, Some(text), channel).await
+}
+
+/// Asks again after a failure, or for a new last reply.
+#[tauri::command]
+pub async fn assistant_retry(
+    app: tauri::AppHandle,
+    channel: Channel<chat::Event>,
+) -> Result<(), Problem> {
+    let connection = assistant_connection(&app)?;
+    answer(app, connection, None, channel).await
+}
+
+/// Runs one conversation turn: `text` is the player's new message, or
+/// none to retry the last.
+async fn answer(
+    app: tauri::AppHandle,
+    connection: provider::Connection,
+    text: Option<String>,
+    channel: Channel<chat::Event>,
+) -> Result<(), Problem> {
+    use tauri::Manager;
+    let session = app.state::<crate::assistant::Session>();
+    let cancel = session.begin()?;
+    // Ends the turn however this returns, a dropped future included.
+    struct End<'a>(&'a crate::assistant::Session);
+    impl Drop for End<'_> {
+        fn drop(&mut self) {
+            self.0.end();
+        }
+    }
+    let _end = End(&session);
+    let ready = {
+        let mut thread = session.thread.lock().unwrap_or_else(|e| e.into_inner());
+        match text {
+            Some(text) => {
+                let item = chat::Item::User { text };
+                thread.push(item.clone());
+                let _ = channel.send(chat::Event::Item { item });
+                true
+            }
+            None => thread.rewind_for_retry(),
+        }
+    };
+    if ready {
+        let model = chat::Remote {
+            connection,
+            client: provider::chat_client(),
+        };
+        let mut tools = chat::NoTools(crate::assistant::system_prompt());
+        let sink = |event: chat::Event| {
+            let _ = channel.send(event);
+        };
+        let ask = |id: &str| session.ask(id);
+        chat::converse(&model, &mut tools, &session.thread, &sink, &cancel, &ask).await;
+    } else {
+        let _ = channel.send(chat::Event::Done);
+    }
+    Ok(())
+}
+
+/// Stops the answer being written.
+#[tauri::command]
+pub fn assistant_stop(session: State<'_, crate::assistant::Session>) {
+    session.stop();
+}
+
+/// The player's answer to a tool that asked first.
+#[tauri::command]
+pub fn assistant_confirm(session: State<'_, crate::assistant::Session>, id: String, yes: bool) {
+    session.answer(&id, yes);
+}
+
+/// Forgets the thread. Not while an answer is being written.
+#[tauri::command]
+pub fn assistant_clear(session: State<'_, crate::assistant::Session>) -> Result<(), String> {
+    if session.busy() {
+        return Err("Stop the answer first.".into());
+    }
+    session
+        .thread
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clear();
+    Ok(())
+}
+
+/// Opens a web link from a reply in the browser: http and https only.
+#[tauri::command]
+pub fn assistant_open_url(url: String) -> Result<(), String> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err(format!("not a web link: {url}"));
+    }
+    std::process::Command::new("open")
+        .arg(&url)
+        .status()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Undoes the edit behind a tool card, if nothing has changed since, and
+/// marks the card undone.
+#[tauri::command]
+pub fn assistant_undo(
+    engine: State<'_, EngineState>,
+    session: State<'_, crate::assistant::Session>,
+    id: String,
+) -> Result<EngineStatus, String> {
+    let mut thread = session.thread.lock().unwrap_or_else(|e| e.into_inner());
+    let revision = thread.items.iter().find_map(|item| match item {
+        chat::Item::Call {
+            id: call,
+            undo: Some(revision),
+            undone: false,
+            ..
+        } if *call == id => Some(*revision),
+        _ => None,
+    });
+    let revision = revision.ok_or("That change cannot be undone from here.")?;
+    let status = engine.lock().assistant_undo(revision).map_err(fail)?;
+    for item in &mut thread.items {
+        if let chat::Item::Call {
+            id: call, undone, ..
+        } = item
+        {
+            if *call == id {
+                *undone = true;
+            }
+        }
+    }
+    thread.save();
+    Ok(status)
 }
