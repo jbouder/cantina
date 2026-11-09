@@ -1,6 +1,6 @@
 ---
 title: "Jam"
-description: "Jam mode is a practice room: drums from a stock groove or your own patterns, a backing (a chord progression played by a built-in guitar or bass, an audio file or a project's track), your rig on the input, on an endless loop you steer while you play: sections at the next bar, tempo nudges, tap tempo and a count-in; and Keep that, for the riff you were not recording."
+description: "Jam mode is a practice room: stock jams and your own saved ones, drums from a stock groove or your own patterns, a backing (a chord progression played by a built-in guitar or bass, an audio file or a project's track), your rig on the input, on an endless loop you steer while you play: sections at the next bar, tempo nudges, tap tempo and a count-in; and Keep that, for the riff you were not recording."
 ---
 
 Practising should not mean setting up a project, tracks and clips. Jam
@@ -37,6 +37,48 @@ back the next time you open it, tempo and all.
   are left out and named.
 
 The meters show your input and what comes out.
+
+## Jams: saving and opening
+
+The **Jams** list at the top opens a jam: one of the stock jams, a
+groove, a backing, a tempo, a key and a rig for each common style, or
+one of yours. Opening one replaces the jam playing; the music goes on,
+with a new tempo from the next bar.
+
+**Save…** writes the jam as it is (groove, backing, progression, tempo,
+key and rig) to `~/Music/Cantina/Jams/<name>.jam.json` with a name, a
+genre and a line on it. It then shows under *Yours*. Saving under a
+name you already have replaces that jam; the stock jams are never
+changed. A jam file dropped into that folder appears in the list within
+a second, and one that does not load is listed with the reason, as
+other library files are. The [jam format](/reference/jam-format/)
+describes the file, so you, or a [coding agent](/guides/agents/), can
+write one.
+
+![Save jam, with a name, genre and description, in the Toxic skin](../../../assets/guides/jam-save.png)
+
+The stock jams:
+
+| Jam | Groove | Tempo | Key | Rig | Backing |
+| --- | --- | --- | --- | --- | --- |
+| Alternative in G | Alternative | 112 | G major | alternative | guitar, `I \| V \| vi \| IV` |
+| Grunge in E | Grunge | 100 | E minor | grunge | bass, `i \| bIII \| bVII \| IV` |
+| Slow Burn in D | Half-time | 80 | D minor | shoegaze | guitar, `i \| bVI \| bIII \| bVII` |
+| Blues in A | Blues shuffle | 96 | A major | blues | bass, the 12-bar blues |
+| Minor Blues in E | Blues shuffle | 78 | E minor | blues | bass, the minor blues |
+| Country in G | Rock | 112 | G major | country | bass, `I \| IV \| I \| V` |
+| Funk in E | Funk | 100 | E minor | funk-clean | bass, `i7 \| i7 \| IV7 \| IV7` |
+| Hip-hop in C | Hip-hop | 90 | C minor | jazz-clean | bass, `i7 \| bVImaj7 \| iv7 \| V7` |
+| Jazz in B♭ | Jazz | 140 | B♭ major | jazz-clean | bass, `ii7 \| V7 \| Imaj7 \| Imaj7` |
+| Djent in B | Djent | 120 | B minor | djent | bass, `i5 \| i5 \| bII5 \| i5` |
+| Heavy Metal in E | Heavy metal | 152 | E minor | heavy-metal | bass, `i5 \| bVI5 \| bVII5 \| i5` |
+| Metalcore in D | Metalcore | 140 | D minor | metalcore | bass, `i5 \| bVI5 \| bIII5 \| bVII5` |
+| Thrash in E | Thrash | 200 | E minor | thrash | bass, `i5 \| i5 \| bII5 \| i5` |
+| Pop in C | Pop | 108 | C major | alternative | guitar, `I \| V \| vi \| IV` |
+| Punk in D | Punk | 184 | D major | punk | bass, `I5 \| IV5 \| V5 \| IV5` |
+| Reggae in A | Reggae | 76 | A major | funk-clean | bass, `I \| IV \| I \| V` |
+| Hard Rock in A | Hard rock | 132 | A major | hard-rock | bass, `I5 \| I5 \| bVII5 \| IV5` |
+| Rock in E | Rock | 120 | E major | classic-rock | bass, `I \| bVII \| IV \| I` |
 
 ## Backing
 

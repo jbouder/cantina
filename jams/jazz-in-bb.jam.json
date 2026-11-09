@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Jazz in B♭",
+  "genre": "Jazz",
+  "description": "ii–V–I in B♭ with a walking-root bass.",
+  "tempo": 140,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "Bb",
+    "mode": "major"
+  },
+  "drums": {
+    "kit": "jazz",
+    "groove": "Jazz",
+    "levelDb": 0
+  },
+  "rig": "jazz-clean",
+  "backing": {
+    "kind": "progression",
+    "chords": "ii7 | V7 | Imaj7 | Imaj7",
+    "instrument": "bass",
+    "rhythm": "quarter",
+    "rig": "bass-clean",
+    "levelDb": -2
+  }
+}

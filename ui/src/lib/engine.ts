@@ -82,6 +82,8 @@ export interface EngineStatus {
   grooves: StockGroove[];
   /** Every rig the picker offers: the stock ones, then the user's. */
   rigs: RigInfo[];
+  /** Every jam the Jam view offers: the stock ones, then the user's. */
+  jams: JamInfo[];
   /** The rig heard on a track in place of its chain. Session state, never saved. */
   rigAudition: RigAudition | null;
   /** What the player plays through, and the trim it gives rigs. An app setting. */
@@ -90,6 +92,23 @@ export interface EngineStatus {
   drumRows: Record<number, DrumRows>;
   /** The jam, while jam mode is open. Session state, not part of the project. */
   jam: JamStatus | null;
+}
+
+/** A pattern a jam keeps of its own: a pattern without the project's id. */
+export type JamPattern = Omit<PatternInfo, "id"> & { id?: number };
+
+/** A jam the Jam view offers. Mirrors `JamInfo` in src-tauri. */
+export interface JamInfo {
+  name: string;
+  genre: string;
+  description: string;
+  /** Ships with Cantina: read-only. */
+  stock: boolean;
+  /** The file, which names the jam. */
+  path: string;
+  tempo: number;
+  /** `A minor`. */
+  key: string;
 }
 
 /** A key: its tonic and whether it is major or minor. Mirrors `Key` in cantina-project. */
@@ -114,8 +133,8 @@ export interface Jam {
     kit: string;
     /** A stock groove, by its genre; each section plays its pattern. */
     groove?: string | null;
-    /** Patterns of the jam's own, by section, in place of the groove's. */
-    patterns?: Partial<Record<GrooveSection, PatternInfo>>;
+    /** Patterns of the jam's own, by section, in place of the groove's; files have no ids. */
+    patterns?: Partial<Record<GrooveSection, JamPattern>>;
     /** The drums' level in dB, −60 to 12. */
     levelDb: number;
   };
@@ -1252,6 +1271,40 @@ const mockGrooves: StockGroove[] = Object.entries(GROOVE_FILES)
       a.name.localeCompare(b.name),
   );
 
+/** The stock jams, read from the repository's `jams/` at build time. */
+const JAM_FILES = import.meta.glob<Jam>("../../../jams/*.jam.json", {
+  eager: true,
+  import: "default",
+});
+
+function jamInfo(jam: Jam, path: string, stock: boolean): JamInfo {
+  return {
+    name: jam.name,
+    genre: jam.genre ?? "",
+    description: jam.description ?? "",
+    stock,
+    path,
+    tempo: jam.backing?.kind === "audio" ? jam.backing.bpm : jam.tempo,
+    key: `${jam.key.tonic} ${jam.key.mode}`,
+  };
+}
+
+const mockStockJamFiles = new Map<string, Jam>(
+  Object.entries(JAM_FILES).map(([file, jam]) => [
+    `/Applications/Cantina.app/Contents/Resources/${file.replace(/^(\.\.\/)+/, "")}`,
+    jam,
+  ]),
+);
+const mockUserJams: { info: JamInfo; file: Jam }[] = [];
+
+function mockJams(): JamInfo[] {
+  const stock = [...mockStockJamFiles].map(([path, jam]) => jamInfo(jam, path, true));
+  const by = (a: JamInfo, b: JamInfo) =>
+    a.genre.toLowerCase().localeCompare(b.genre.toLowerCase()) ||
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+  return [...stock.sort(by), ...mockUserJams.map((j) => j.info).sort(by)];
+}
+
 /** A rig file as the stand-in reads it. */
 interface RigFile {
   version: number;
@@ -1539,6 +1592,7 @@ const mock: EngineStatus = {
   audition: mockParams?.has("audition") ? { track: MOCK_DRUMS, pattern: 11, groove: null } : null,
   grooves: [],
   rigs: [],
+  jams: [],
   // `?rigaudition` hears the Metalcore rig on the guitar track, for screenshots.
   // `?calibrated=-12` starts the profile calibrated at that peak, for screenshots.
   instrumentProfile: (() => {
@@ -1592,6 +1646,7 @@ const mock: EngineStatus = {
     kitsDir: "/Users/you/Music/Cantina/Kits",
     patternsDir: "/Users/you/Music/Cantina/Patterns",
     rigsDir: "/Users/you/Music/Cantina/Rigs",
+    jamsDir: "/Users/you/Music/Cantina/Jams",
     patterns: mockParams?.has("library")
       ? [
           {
@@ -1687,6 +1742,7 @@ function mockStatus(): EngineStatus {
     instrumentProfile: { ...mock.instrumentProfile, tuning: [...mock.instrumentProfile.tuning] },
     drumRows: structuredClone(mock.drumRows),
     jam: mockJam ? mockJamStatus(mockJam) : null,
+    jams: mockJams(),
     metronome: { ...mock.metronome, sounds: [...mock.metronome.sounds] },
     countIn: mock.countIn,
     assistant: { ...mock.assistant },
@@ -3287,6 +3343,40 @@ export async function jamKeepPlace(into: KeepInto): Promise<EngineStatus> {
   mock.notice = `Kept ${Math.floor(kept.seconds / 60)}:${(kept.seconds % 60).toFixed(1).padStart(4, "0")} of jamming in ${mock.project.name}`;
   mock.noticeSeq += 1;
   return mockEdit("keep jam take");
+}
+
+/**
+ * Saves the jam as it is now to `~/Music/Cantina/Jams` as `name`, with a
+ * genre and a line on it; one of that name is replaced only when asked.
+ */
+export async function jamSave(
+  name: string,
+  genre: string,
+  description: string,
+  replace = false,
+): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("jam_save", { name, genre, description, replace });
+  if (!mockJam) throw new Error("open a jam first");
+  if (!name.trim()) throw new Error("a jam needs a name");
+  const path = `/Users/you/Music/Cantina/Jams/${rigSlug(name)}.jam.json`;
+  const at = mockUserJams.findIndex((j) => j.info.path === path);
+  if (at >= 0 && !replace) throw new Error(`you already have a jam called ${name.trim()}`);
+  mockJam.setup.name = name.trim();
+  mockJam.setup.genre = genre.trim();
+  mockJam.setup.description = description.trim();
+  const file = structuredClone(mockJam.setup);
+  const entry = { info: jamInfo(file, path, false), file };
+  if (at >= 0) mockUserJams[at] = entry;
+  else mockUserJams.push(entry);
+  return mockStatus();
+}
+
+/** Opens a jam file, stock or the user's, in place of the jam playing. */
+export async function jamLoad(path: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("jam_load", { path });
+  const jam = mockStockJamFiles.get(path) ?? mockUserJams.find((j) => j.info.path === path)?.file;
+  if (!jam) throw new Error(`no jam at ${path}`);
+  return jamSet(structuredClone(jam));
 }
 
 /** Sets how many minutes of input a jam keeps: 1, 2, 5 or 10. New rings start empty. */

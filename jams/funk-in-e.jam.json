@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Funk in E",
+  "genre": "Funk",
+  "description": "A Dorian vamp for sixteenth-note chops.",
+  "tempo": 100,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "E",
+    "mode": "minor"
+  },
+  "drums": {
+    "kit": "vintage",
+    "groove": "Funk",
+    "levelDb": 0
+  },
+  "rig": "funk-clean",
+  "backing": {
+    "kind": "progression",
+    "chords": "i7 | i7 | IV7 | IV7",
+    "instrument": "bass",
+    "rhythm": "eighth",
+    "rig": "bass-funk",
+    "levelDb": -3
+  }
+}

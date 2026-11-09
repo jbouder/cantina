@@ -1,0 +1,526 @@
+{
+  "$defs": {
+    "Backing": {
+      "description": "What plays along with the drums.",
+      "oneOf": [
+        {
+          "description": "The drums alone.",
+          "properties": {
+            "kind": {
+              "const": "none",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A chord progression in the jam's key, played by a built-in guitar or bass through a rig. It follows the jam's tempo.",
+          "properties": {
+            "chords": {
+              "description": "Roman numerals or chord names, `|` between bars.",
+              "minLength": 1,
+              "type": "string"
+            },
+            "instrument": {
+              "$ref": "#/$defs/Instrument",
+              "description": "Which voice plays it."
+            },
+            "kind": {
+              "const": "progression",
+              "type": "string"
+            },
+            "levelDb": {
+              "default": 0.0,
+              "description": "Its level in decibels, −60 to 12.",
+              "format": "float",
+              "maximum": 12,
+              "minimum": -60,
+              "type": "number"
+            },
+            "rhythm": {
+              "$ref": "#/$defs/Rhythm",
+              "default": "half",
+              "description": "How often each chord is played."
+            },
+            "rig": {
+              "description": "The rig the voice plays through, by its file's name less `.rig.json`; none is the voice dry.",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "chords",
+            "instrument"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A WAV file, played from the jam's first bar at its own tempo, round and round; the drums play at its tempo.",
+          "properties": {
+            "bpm": {
+              "description": "The file's tempo, which the jam takes.",
+              "format": "double",
+              "maximum": 300.0,
+              "minimum": 30.0,
+              "type": "number"
+            },
+            "file": {
+              "description": "Where the file is.",
+              "minLength": 1,
+              "type": "string"
+            },
+            "kind": {
+              "const": "audio",
+              "type": "string"
+            },
+            "levelDb": {
+              "default": 0.0,
+              "description": "Its level in decibels, −60 to 12.",
+              "format": "float",
+              "maximum": 12,
+              "minimum": -60,
+              "type": "number"
+            }
+          },
+          "required": [
+            "kind",
+            "file",
+            "bpm"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "An audio track of a project, its clips through its chain, round and round from the start to the end of its last clip; the drums play at the project's tempo.",
+          "properties": {
+            "kind": {
+              "const": "track",
+              "type": "string"
+            },
+            "levelDb": {
+              "default": 0.0,
+              "description": "Its level in decibels, −60 to 12.",
+              "format": "float",
+              "maximum": 12,
+              "minimum": -60,
+              "type": "number"
+            },
+            "project": {
+              "description": "The project's name.",
+              "minLength": 1,
+              "type": "string"
+            },
+            "track": {
+              "description": "The track's name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "project",
+            "track"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Humanize": {
+      "description": "How far hits stray, like a drummer's hands: up to ±48 ticks (a sixty-fourth of a bar of 4/4) late or early at a `timing` of 1, and up to ±30% in velocity at a `velocity` of 1. Each pass of a pattern is a little different, and the same every time it plays.",
+      "properties": {
+        "timing": {
+          "default": 0.0,
+          "description": "0 is on the grid, 1 the most.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "velocity": {
+          "default": 0.0,
+          "description": "0 is as written, 1 the most.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "Instrument": {
+      "description": "What the tab is for. It sets how many strings it may have.",
+      "oneOf": [
+        {
+          "const": "guitar",
+          "description": "A guitar: 6, 7 or 8 strings.",
+          "type": "string"
+        },
+        {
+          "const": "bass",
+          "description": "A bass: 4, 5 or 6 strings.",
+          "type": "string"
+        }
+      ]
+    },
+    "JamDrums": {
+      "description": "The drums of a jam.",
+      "properties": {
+        "groove": {
+          "description": "A stock groove, by its genre (`Rock`, `Blues shuffle`): each section plays that groove's pattern for it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kit": {
+          "description": "The kit, by id.",
+          "type": "string"
+        },
+        "levelDb": {
+          "default": 0.0,
+          "description": "The drums' level in decibels, −60 to 12.",
+          "format": "float",
+          "maximum": 12,
+          "minimum": -60,
+          "type": "number"
+        },
+        "patterns": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Pattern"
+          },
+          "description": "Patterns of the jam's own, by section, played in place of the groove's: pattern files' objects, without an id.",
+          "type": "object"
+        }
+      },
+      "required": [
+        "kit"
+      ],
+      "type": "object"
+    },
+    "Key": {
+      "description": "A key: its tonic and whether it is major or minor.",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/Mode",
+          "description": "Major or minor."
+        },
+        "tonic": {
+          "description": "A note name: `A`, `F#`, `Bb`.",
+          "pattern": "^[A-Ga-g][#b♯♭]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tonic",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "Meter": {
+      "description": "A time signature, as a groove states it.",
+      "properties": {
+        "denominator": {
+          "description": "The note value of a beat: 4 for quarter notes, 8 for eighths.",
+          "enum": [
+            2,
+            4,
+            8,
+            16
+          ],
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "numerator": {
+          "description": "Beats in a bar.",
+          "format": "uint8",
+          "maximum": 16,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "type": "object"
+    },
+    "Mode": {
+      "description": "Major or minor.",
+      "oneOf": [
+        {
+          "const": "major",
+          "description": "Ionian.",
+          "type": "string"
+        },
+        {
+          "const": "minor",
+          "description": "Natural minor.",
+          "type": "string"
+        }
+      ]
+    },
+    "Pattern": {
+      "description": "A step sequencer pattern: a grid of pads against steps, with a velocity per cell. Patterns belong to the project and refer to pads by the ids the kit format uses (`kick`, `snare`, `hh-closed`…), so a pattern plays on any drum track whose kit has those pads.",
+      "properties": {
+        "humanize": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Humanize"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How far the hits stray from the grid and from their velocity, for the whole pattern; a row can have its own."
+        },
+        "length": {
+          "description": "Steps in the pattern, which loops after the last.",
+          "format": "uint16",
+          "maximum": 128,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "name": {
+          "description": "Shown in the pattern picker.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "rows": {
+          "default": [],
+          "description": "One row per pad that has hits.",
+          "items": {
+            "$ref": "#/$defs/PatternRow"
+          },
+          "type": "array"
+        },
+        "seed": {
+          "description": "Seeds the humanizing and the chance of each step, so the pattern plays the same way every time; change it for another take.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "stepsPerBeat": {
+          "description": "Steps per quarter note: 2 for eighths, 4 for sixteenths, 8 for thirty-seconds; 3 and 6 for triplets.",
+          "enum": [
+            1,
+            2,
+            3,
+            4,
+            6,
+            8
+          ],
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "swing": {
+          "description": "0 is straight; 1 delays every second step by a third of a step, a triplet feel.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "stepsPerBeat",
+        "length",
+        "swing"
+      ],
+      "type": "object"
+    },
+    "PatternRow": {
+      "description": "One pad's steps. `steps` holds exactly the pattern's length of velocities from 0 (no hit) to 1.",
+      "properties": {
+        "humanize": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Humanize"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "This row's own humanizing, instead of the pattern's."
+        },
+        "marks": {
+          "description": "Steps that play by chance, ratchet or flam, in step order.",
+          "items": {
+            "$ref": "#/$defs/StepMark"
+          },
+          "type": "array"
+        },
+        "pad": {
+          "description": "The pad's id in the kit format.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "steps": {
+          "description": "Velocity per step, 0 for no hit.",
+          "items": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "swing": {
+          "description": "This row's own swing, 0 to 1, instead of the pattern's.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "pad",
+        "steps"
+      ],
+      "type": "object"
+    },
+    "Rhythm": {
+      "description": "How often a progression's chords are played.",
+      "oneOf": [
+        {
+          "const": "whole",
+          "description": "Once, ringing for as long as the chord lasts.",
+          "type": "string"
+        },
+        {
+          "const": "half",
+          "description": "On every other beat.",
+          "type": "string"
+        },
+        {
+          "const": "quarter",
+          "description": "On every beat.",
+          "type": "string"
+        },
+        {
+          "const": "eighth",
+          "description": "Twice a beat.",
+          "type": "string"
+        }
+      ]
+    },
+    "StepMark": {
+      "description": "What a step does beyond its velocity: whether it plays, how many times, and with a grace note before it.",
+      "properties": {
+        "chance": {
+          "description": "The chance it plays on a pass, 0 to 1.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "flam": {
+          "description": "A soft grace note just before it.",
+          "type": "boolean"
+        },
+        "ratchet": {
+          "description": "Hits in the step, evenly spaced: 1, or 2 to 4 for a ratchet.",
+          "format": "uint8",
+          "maximum": 4,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "step": {
+          "description": "The step, from 0.",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "step"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "What plays along while you practise: drums from a stock groove (named by its genre) or patterns of the jam's own by section, a backing (a chord progression played by a built-in guitar or bass through a rig, an audio file, or a project's track), a tempo, a key and the rig the input plays through (named by its file less `.rig.json`).",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "backing": {
+      "$ref": "#/$defs/Backing",
+      "description": "What plays with the drums."
+    },
+    "description": {
+      "description": "One line on what it is.",
+      "type": "string"
+    },
+    "drums": {
+      "$ref": "#/$defs/JamDrums",
+      "description": "The drums."
+    },
+    "genre": {
+      "description": "The style it is for: `Blues`, `Rock`…",
+      "type": "string"
+    },
+    "key": {
+      "$ref": "#/$defs/Key",
+      "default": {
+        "mode": "minor",
+        "tonic": "E"
+      },
+      "description": "The key the backing plays in."
+    },
+    "name": {
+      "description": "Shown in the jam list.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "rig": {
+      "description": "The rig the input plays through, by its file's name less `.rig.json`; none plays the input dry.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tempo": {
+      "description": "Beats per minute, 30 to 300.",
+      "format": "double",
+      "maximum": 300.0,
+      "minimum": 30.0,
+      "type": "number"
+    },
+    "timeSignature": {
+      "$ref": "#/$defs/Meter",
+      "default": {
+        "denominator": 4,
+        "numerator": 4
+      },
+      "description": "The meter every section plays in."
+    },
+    "version": {
+      "description": "The format version, 1.",
+      "format": "uint32",
+      "maximum": 1,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version",
+    "name",
+    "tempo",
+    "drums"
+  ],
+  "title": "Cantina jam",
+  "type": "object"
+}

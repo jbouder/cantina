@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Blues in A",
+  "genre": "Blues",
+  "description": "A 12-bar shuffle with a walking-root bass under it.",
+  "tempo": 96,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "A",
+    "mode": "major"
+  },
+  "drums": {
+    "kit": "vintage",
+    "groove": "Blues shuffle",
+    "levelDb": 0
+  },
+  "rig": "blues",
+  "backing": {
+    "kind": "progression",
+    "chords": "I7 | I7 | I7 | I7 | IV7 | IV7 | I7 | I7 | V7 | IV7 | I7 | V7",
+    "instrument": "bass",
+    "rhythm": "quarter",
+    "rig": "bass-clean",
+    "levelDb": -2
+  }
+}

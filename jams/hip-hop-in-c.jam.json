@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Hip-hop in C",
+  "genre": "Hip-hop",
+  "description": "A minor seventh loop to rap or play over.",
+  "tempo": 90,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "C",
+    "mode": "minor"
+  },
+  "drums": {
+    "kit": "hiphop-808",
+    "groove": "Hip-hop",
+    "levelDb": 0
+  },
+  "rig": "jazz-clean",
+  "backing": {
+    "kind": "progression",
+    "chords": "i7 | bVImaj7 | iv7 | V7",
+    "instrument": "bass",
+    "rhythm": "whole",
+    "rig": "bass-clean",
+    "levelDb": -3
+  }
+}

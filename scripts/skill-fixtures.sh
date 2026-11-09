@@ -10,6 +10,7 @@
 # Patterns: check against the stock rock kit and render at 140 bpm.
 # Kit recipes: check, synthesise and check the kit that comes out.
 # Rigs: check, then render over their instrument's DI, judged as pedals are.
+# Jams: check, with no warnings: every groove, kit and rig they name is stock.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -47,6 +48,12 @@ while IFS= read -r file; do
         if (bad.length) { console.error(bad.join("; ")); process.exit(1); }
         console.log(`ok ${process.argv[2]}: peak ${s.peakDb.toFixed(1)} dBFS, rms ${s.rmsDb.toFixed(1)} dBFS, latency ${s.latency}`);
       ' "$out" "$rel" || fail "$rel" "levels"
+      ;;
+    *.jam.json)
+      # A jam names stock grooves, kits and rigs: check it, warnings and all.
+      out="$("$cli" check "$file")" || { fail "$rel" "check"; continue; }
+      if grep -q "^warning" <<<"$out"; then fail "$rel" "warnings: $out"; continue; fi
+      echo "ok $rel"
       ;;
     *.pattern.json)
       "$cli" check "$file" --kit "$root/kits/rock" >/dev/null || { fail "$rel" "check"; continue; }

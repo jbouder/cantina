@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Thrash in E",
+  "genre": "Metal",
+  "description": "Fast Phrygian riffing ground.",
+  "tempo": 200,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "E",
+    "mode": "minor"
+  },
+  "drums": {
+    "kit": "metal-triggered",
+    "groove": "Thrash",
+    "levelDb": 0
+  },
+  "rig": "thrash",
+  "backing": {
+    "kind": "progression",
+    "chords": "i5 | i5 | bII5 | i5",
+    "instrument": "bass",
+    "rhythm": "eighth",
+    "rig": "bass-metal",
+    "levelDb": -3
+  }
+}

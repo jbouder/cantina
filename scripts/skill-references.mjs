@@ -130,6 +130,7 @@ function formats() {
     ["pattern", "`*.pattern.json` in `~/Music/Cantina/Patterns/`"],
     ["tab", "`*.tab.json`; inside a project, as a clip's `tab`"],
     ["rig", "`*.rig.json`, checked and rendered by `cantina-cli`"],
+    ["jam", "`*.jam.json`, checked by `cantina-cli`"],
     ["project", "`project.json` in a `Name.cantina/` folder"],
   ];
   const lines = [

@@ -146,6 +146,71 @@ pub fn rig() -> Value {
     s
 }
 
+/// The schema for a `<name>.jam.json`: what plays along while you
+/// practise. Whether its groove, kit and rigs are installed is left to
+/// `cantina-cli check`.
+pub fn jam() -> Value {
+    let mut s = schemars::schema_for!(crate::Jam).to_value();
+    s["$id"] = json!(format!("{SITE}/jam.schema.json"));
+    s["title"] = json!("Cantina jam");
+    s["description"] = json!(
+        "What plays along while you practise: drums from a stock groove (named by its genre) \
+         or patterns of the jam's own by section, a backing (a chord progression played by a \
+         built-in guitar or bass through a rig, an audio file, or a project's track), a tempo, \
+         a key and the rig the input plays through (named by its file less `.rig.json`)."
+    );
+    let props = &mut s["properties"];
+    props["$schema"] = json!({ "type": "string" });
+    props["version"]["minimum"] = json!(1);
+    props["version"]["maximum"] = json!(crate::JAM_VERSION);
+    props["name"]["minLength"] = json!(1);
+    let (slow, fast) = crate::JAM_TEMPO;
+    props["tempo"]["minimum"] = json!(slow);
+    props["tempo"]["maximum"] = json!(fast);
+    let defs = &mut s["$defs"];
+    // A jam's patterns are written as pattern files are, without an id.
+    let pattern = &mut defs["Pattern"];
+    if let Some(p) = pattern["properties"].as_object_mut() {
+        p.remove("id");
+    }
+    if let Some(r) = pattern["required"].as_array_mut() {
+        r.retain(|r| r != "id");
+    }
+    if let Some(d) = defs.as_object_mut() {
+        d.remove("PatternId");
+    }
+    limit_pattern(&mut defs["Pattern"]);
+    limit_row(defs);
+    defs["Key"]["properties"]["tonic"]["pattern"] = json!("^[A-Ga-g][#b♯♭]*$");
+    let meter = &mut defs["Meter"]["properties"];
+    meter["numerator"]["minimum"] = json!(1);
+    meter["numerator"]["maximum"] = json!(16);
+    meter["denominator"]["enum"] = json!([2, 4, 8, 16]);
+    let level = &mut defs["JamDrums"]["properties"]["levelDb"];
+    level["minimum"] = json!(-60);
+    level["maximum"] = json!(12);
+    if let Some(variants) = defs["Backing"]["oneOf"].as_array_mut() {
+        for v in variants {
+            let props = &mut v["properties"];
+            if props.get("levelDb").is_some() {
+                props["levelDb"]["minimum"] = json!(-60);
+                props["levelDb"]["maximum"] = json!(12);
+            }
+            if props.get("bpm").is_some() {
+                props["bpm"]["minimum"] = json!(slow);
+                props["bpm"]["maximum"] = json!(fast);
+            }
+            for field in ["chords", "file", "project", "track"] {
+                if props.get(field).is_some() {
+                    props[field]["minLength"] = json!(1);
+                }
+            }
+        }
+    }
+    tidy(&mut s);
+    s
+}
+
 /// A usable tempo and time signature.
 fn limit_tempo(defs: &mut Value) {
     let t = &mut defs["Tempo"]["properties"];
@@ -254,7 +319,7 @@ mod tests {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
     }
 
-    fn all() -> [(&'static str, Value); 7] {
+    fn all() -> [(&'static str, Value); 8] {
         [
             ("pedal", cantina_dsp::schema::pedal()),
             ("kit", cantina_dsp::schema::kit()),
@@ -263,6 +328,7 @@ mod tests {
             ("tab", tab()),
             ("project", project()),
             ("rig", rig()),
+            ("jam", jam()),
         ]
     }
 
@@ -316,7 +382,7 @@ mod tests {
 
     #[test]
     fn schemas_every_stock_file_validates() {
-        let [pedal, kit, recipe, pattern_s, tab_s, project_s, rig_s] =
+        let [pedal, kit, recipe, pattern_s, tab_s, project_s, rig_s, jam_s] =
             all().map(|(_, s)| validator(&s));
         let pedals = files(&root().join("pedals"), ".pedal.json");
         assert!(!pedals.is_empty(), "no stock pedals found");
@@ -333,6 +399,13 @@ mod tests {
             assert_valid(&rig_s, r);
             crate::rig_from_json(&std::fs::read_to_string(r).unwrap())
                 .unwrap_or_else(|e| panic!("{}: {e}", r.display()));
+        }
+        let jams = files(&root().join("jams"), ".jam.json");
+        assert!(!jams.is_empty(), "no stock jams found");
+        for j in &jams {
+            assert_valid(&jam_s, j);
+            crate::jam_from_json(&std::fs::read_to_string(j).unwrap())
+                .unwrap_or_else(|e| panic!("{}: {e:?}", j.display()));
         }
         let v10 = root().join("crates/project/tests/fixtures/v10.json");
         assert_valid(&project_s, &v10);

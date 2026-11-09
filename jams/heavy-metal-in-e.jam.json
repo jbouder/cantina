@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Heavy Metal in E",
+  "genre": "Metal",
+  "description": "Galloping E minor with the classic Aeolian turn.",
+  "tempo": 152,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "E",
+    "mode": "minor"
+  },
+  "drums": {
+    "kit": "metal",
+    "groove": "Heavy metal",
+    "levelDb": 0
+  },
+  "rig": "heavy-metal",
+  "backing": {
+    "kind": "progression",
+    "chords": "i5 | bVI5 | bVII5 | i5",
+    "instrument": "bass",
+    "rhythm": "eighth",
+    "rig": "bass-metal",
+    "levelDb": -3
+  }
+}

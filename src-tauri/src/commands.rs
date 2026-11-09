@@ -625,6 +625,27 @@ pub fn jam_capture_set(
     engine.lock().jam_capture_set(minutes).map_err(fail)
 }
 
+/// Saves the jam to the Jams library folder.
+#[tauri::command]
+pub fn jam_save(
+    engine: State<'_, EngineState>,
+    name: String,
+    genre: String,
+    description: String,
+    replace: bool,
+) -> Result<EngineStatus, String> {
+    engine
+        .lock()
+        .jam_save(&name, &genre, &description, replace)
+        .map_err(fail)
+}
+
+/// Opens a jam file in place of the jam playing.
+#[tauri::command]
+pub fn jam_load(engine: State<'_, EngineState>, path: String) -> Result<EngineStatus, String> {
+    engine.lock().jam_load(&path).map_err(fail)
+}
+
 /// Plays the jam from the top.
 #[tauri::command]
 pub fn jam_play(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {

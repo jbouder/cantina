@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Grunge in E",
+  "genre": "Alternative",
+  "description": "Minor, heavy and slow enough to lean on.",
+  "tempo": 100,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "E",
+    "mode": "minor"
+  },
+  "drums": {
+    "kit": "rock",
+    "groove": "Grunge",
+    "levelDb": 0
+  },
+  "rig": "grunge",
+  "backing": {
+    "kind": "progression",
+    "chords": "i | bIII | bVII | IV",
+    "instrument": "bass",
+    "rhythm": "quarter",
+    "rig": "bass-rock",
+    "levelDb": -2
+  }
+}

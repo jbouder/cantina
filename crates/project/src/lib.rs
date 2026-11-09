@@ -29,7 +29,8 @@ pub use file::{
 pub use fill::generate_fill;
 pub use history::{History, UNDO_LIMIT};
 pub use jam::{
-    pitch_class, section_name, Backing, Jam, JamDrums, Key, Mode, Rhythm, JAM_TEMPO, JAM_VERSION,
+    jam_file_name, jam_from_json, jam_to_json, pitch_class, section_name, Backing, Jam, JamDrums,
+    Key, Mode, Rhythm, JAM_SUFFIX, JAM_TEMPO, JAM_VERSION,
 };
 pub use journal::{replay, Entry as JournalEntry, Journal, Read as JournalRead, JOURNAL_FILE};
 pub use model::{

@@ -115,6 +115,7 @@ pub fn check(path: &Path, options: &CheckOptions) -> Result<Report, Failure> {
         Format::Tab => check_tab(&text, &mut warnings),
         Format::Project => check_project(&text, &file, options, &mut warnings),
         Format::Rig => check_rig(&text, options, &mut warnings),
+        Format::Jam => check_jam(&text, options, &mut warnings),
     }
     .map_err(fail)?;
     Ok(Report {
@@ -216,6 +217,172 @@ fn check_rig(
         rig.chain.len(),
         latency
     ))
+}
+
+/// A jam: its rules, then what it names. A groove that is not a stock
+/// genre fails it, unless the jam has patterns of its own to play; a kit,
+/// rig or audio file that is not installed is a warning, since the app
+/// plays the first kit and leaves out the rest.
+fn check_jam(
+    text: &str,
+    options: &CheckOptions,
+    warnings: &mut Vec<String>,
+) -> Result<String, Vec<String>> {
+    use cantina_project::{Backing, Section};
+    let jam = cantina_project::jam_from_json(text)?;
+    let mut sections: Vec<Section> = jam.drums.patterns.keys().copied().collect();
+    if let Some(genre) = &jam.drums.groove {
+        let mut found = Vec::new();
+        for folder in entries(&crate::groove_dir()) {
+            for file in entries(&folder) {
+                let Ok(text) = std::fs::read_to_string(&file) else {
+                    continue;
+                };
+                if let Ok((_, Some(g))) = groove_from_json(&text) {
+                    if &g.genre == genre {
+                        found.push(g);
+                    }
+                }
+            }
+        }
+        if found.is_empty() {
+            let problem = format!("there is no stock groove for the genre {genre:?}");
+            if jam.drums.patterns.is_empty() {
+                return Err(vec![problem]);
+            }
+            warnings.push(problem);
+        }
+        // As the app does: the genre's grooves in the jam's meter.
+        found.retain(|g| g.time_signature == jam.time_signature);
+        if found.is_empty() && jam.drums.patterns.is_empty() {
+            return Err(vec![format!(
+                "the {genre} grooves are not in {}/{}",
+                jam.time_signature.numerator, jam.time_signature.denominator
+            )]);
+        }
+        for g in &found {
+            if !(g.tempo.min..=g.tempo.max).contains(&jam.tempo) {
+                warnings.push(format!(
+                    "{} bpm is outside the {} to {} bpm the {genre} {} suits",
+                    jam.tempo,
+                    g.tempo.min,
+                    g.tempo.max,
+                    cantina_project::section_name(g.section)
+                ));
+            }
+            if !sections.contains(&g.section) {
+                sections.push(g.section);
+            }
+        }
+    }
+    sections.sort();
+    let kits = crate::kit_roots(&options.kit_roots);
+    match kits
+        .iter()
+        .map(|r| r.join(&jam.drums.kit))
+        .find(|d| d.join(cantina_engine::kit::KIT_FILE).is_file())
+    {
+        None => warnings.push(format!(
+            "the kit {:?} is not installed; the app plays the first kit it has",
+            jam.drums.kit
+        )),
+        Some(dir) => {
+            if let Ok((kit, _)) = cantina_engine::kit::load(&dir) {
+                for (section, p) in &jam.drums.patterns {
+                    for row in &p.rows {
+                        if !kit.pads.iter().any(|pad| pad.id == row.pad) {
+                            warnings.push(format!(
+                                "the {} pattern plays {:?}, which the kit {:?} has no pad for",
+                                cantina_project::section_name(*section),
+                                row.pad,
+                                jam.drums.kit
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let roots = crate::rig::RigRoots::with_defaults(&options.ir_roots, &options.pedal_roots);
+    let mut rig = |id: &str, what: &str| {
+        let file = cantina_project::rig_file_name(id);
+        let Some(path) = crate::rig_dirs()
+            .into_iter()
+            .map(|d| d.join(&file))
+            .find(|p| p.is_file())
+        else {
+            warnings.push(format!(
+                "{what} rig {id:?} is not installed; the app leaves it out"
+            ));
+            return;
+        };
+        let read = std::fs::read_to_string(&path)
+            .map_err(|e| vec![e.to_string()])
+            .and_then(|t| cantina_project::rig_from_json(&t).map_err(|e| e.problems()));
+        match read.and_then(|r| crate::rig::build(&r, &roots, 2)) {
+            Ok(mut built) => warnings.append(&mut built.missing),
+            Err(p) => warnings.push(format!(
+                "{what} rig {id:?} does not build: {}",
+                p.join("; ")
+            )),
+        }
+    };
+    if let Some(id) = &jam.rig {
+        rig(id, "the input's");
+    }
+    let backing = match &jam.backing {
+        Backing::None => "drums only".to_string(),
+        Backing::Progression {
+            chords,
+            instrument,
+            rig: voice_rig,
+            ..
+        } => {
+            if let Some(id) = voice_rig {
+                rig(id, "the backing's");
+            }
+            let tonic = cantina_project::pitch_class(&jam.key.tonic).unwrap_or(0);
+            let bars = cantina_project::parse_progression(chords, tonic)
+                .map(|b| b.len())
+                .unwrap_or(0);
+            format!(
+                "{} plays {bars} bars of chords",
+                match instrument {
+                    cantina_project::Instrument::Guitar => "a guitar",
+                    cantina_project::Instrument::Bass => "a bass",
+                }
+            )
+        }
+        Backing::Audio { file, bpm, .. } => {
+            if !Path::new(file).is_file() {
+                warnings.push(format!("the backing's file {file} is not there"));
+            }
+            format!("audio at {bpm} bpm")
+        }
+        Backing::Track { project, track, .. } => format!("{track} from {project}"),
+    };
+    Ok(format!(
+        "jam {:?}: {} on {} at {} bpm in {} {}, {} sections; {backing}",
+        jam.name,
+        jam.drums.groove.as_deref().unwrap_or("its own patterns"),
+        jam.drums.kit,
+        jam.tempo,
+        jam.key.tonic,
+        match jam.key.mode {
+            cantina_project::Mode::Major => "major",
+            cantina_project::Mode::Minor => "minor",
+        },
+        sections.len(),
+    ))
+}
+
+/// The entries of a folder, sorted; none when it cannot be read.
+fn entries(dir: &Path) -> Vec<PathBuf> {
+    let mut out: Vec<PathBuf> = std::fs::read_dir(dir)
+        .map(|r| r.flatten().map(|e| e.path()).collect())
+        .unwrap_or_default();
+    out.sort();
+    out
 }
 
 fn check_kit(dir: &Path) -> Result<String, Vec<String>> {

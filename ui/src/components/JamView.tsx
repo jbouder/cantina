@@ -7,6 +7,7 @@ import {
   type Jam,
   jamCaptureSet,
   jamKeep,
+  jamLoad,
   jamSection,
   jamSet,
   jamTempo,
@@ -28,6 +29,7 @@ import { Lcd } from "./Lcd";
 import { Led } from "./Led";
 import { Meter } from "./Meter";
 import { Metronome } from "./Metronome";
+import { SaveJamSheet } from "./SaveJamSheet";
 import { Select } from "./Select";
 
 type Props = {
@@ -66,6 +68,10 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
   const rolling = frame.playing || frame.countIn > 0;
 
   const [taps, setTaps] = useState<number[]>([]);
+  // `?savejam` opens the save sheet, for screenshots.
+  const [saving, setSaving] = useState(() =>
+    new URLSearchParams(window.location.search).has("savejam"),
+  );
 
   const place = jam
     ? jamPlace(
@@ -143,11 +149,41 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
     >
       <div className="surface-panel grid content-start gap-3 p-3">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">Jam</h2>
-          <Button onClick={onLeave} title="Back to the project">
-            Leave
-          </Button>
+          <h2 className="m-0 min-w-0 truncate font-bold text-[11px] uppercase tracking-[0.1em]">
+            {setup.name === "Jam" ? "Jam" : `Jam · ${setup.name}`}
+          </h2>
+          <span className="flex gap-1">
+            <Button onClick={() => setSaving(true)} title="Save this jam to your Jams">
+              Save…
+            </Button>
+            <Button onClick={onLeave} title="Back to the project">
+              Leave
+            </Button>
+          </span>
         </div>
+        <Select
+          id={`${ids}-jams`}
+          label="Jams"
+          hint="Stock, or your own"
+          value=""
+          onChange={(e) => {
+            if (e.target.value) report(jamLoad(e.target.value));
+          }}
+        >
+          <option value="">Open…</option>
+          {[true, false].map((stock) => {
+            const list = status.jams.filter((j) => j.stock === stock);
+            return list.length > 0 ? (
+              <optgroup key={String(stock)} label={stock ? "Stock" : "Yours"}>
+                {list.map((j) => (
+                  <option key={j.path} value={j.path}>
+                    {j.name} ({j.key}, {Math.round(j.tempo)} bpm)
+                  </option>
+                ))}
+              </optgroup>
+            ) : null;
+          })}
+        </Select>
         <Select
           id={`${ids}-groove`}
           label="Groove"
@@ -179,7 +215,9 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
                 key={section}
                 id={`${ids}-pattern-${section}`}
                 label={SECTION_LABELS[section]}
-                value={String(setup.drums.patterns?.[section]?.id ?? "")}
+                value={String(
+                  patterns.find((p) => p.name === setup.drums.patterns?.[section]?.name)?.id ?? "",
+                )}
                 onChange={(e) => {
                   const chosen = patterns.find((p) => String(p.id) === e.target.value);
                   const own = { ...setup.drums.patterns };
@@ -465,6 +503,15 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
           />
         </section>
       </div>
+      {saving ? (
+        <SaveJamSheet
+          setup={setup}
+          mine={status.jams.filter((j) => !j.stock).map((j) => j.name)}
+          onClose={() => setSaving(false)}
+          onStatus={onStatus}
+          onError={onError}
+        />
+      ) : null}
       {jam.kept ? (
         <KeepSheet
           kept={jam.kept}
