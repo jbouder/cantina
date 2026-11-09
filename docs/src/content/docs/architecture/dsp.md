@@ -15,6 +15,7 @@ sidebar:
 - **User pedals**: the `pedal` module reads a [pedal file](/reference/pedal-format/), checks it and names the node behind every problem, and compiles it into a `PedalProcessor` that allocates nothing while it runs. `pedal::kinds()` lists every node kind and field, which is what the designer's menus and the format reference come from.
 - **Drums**: the `kit` module is the drum kit format, and `Sampler` plays a loaded kit with velocity layers and choke groups. The sequencer that decides when to hit a pad is in the engine, next to the tempo map.
 - **Rendering**: `Renderer` runs a processor over whole signals in blocks, as a stream would, for tests and offline work.
+- **Fretboard**: the `fretboard` module cleans a transcription for a tuning and chooses a string and fret for every note, as a hand would; see [fitting](/architecture/transcription/#fitting-notes-to-the-fretboard). Pure functions, no audio.
 - **Resampling**: `resample` converts a whole signal between rates with a Kaiser-windowed sinc, for mixdowns at a rate other than the project's.
 
 ## Rules

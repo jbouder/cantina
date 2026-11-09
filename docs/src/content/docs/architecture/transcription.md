@@ -35,20 +35,64 @@ library, off the audio thread.
   1. Basic Pitch's note creation (thresholding onsets and frames into
      notes), ported from Python to Rust.
   2. A range limit from the tuning: no note below the lowest open string
-     or above the highest fret. Notes below the range move up an octave.
-  3. Harmonic suppression: a quieter note an octave, a twelfth or two
-     octaves above a louder note that starts at the same time is dropped.
+     or above the highest fret. Notes below the range move up an octave,
+     and a note moved onto one already sounding is dropped.
+  3. Harmonic suppression: a note an octave, a twelfth or two octaves
+     above a louder note it sounds with is dropped, unless another note
+     at a different interval (a fifth, a third) makes the group a chord.
+     So a power chord keeps its octave.
   4. Bend merging: a note a semitone or two above the one before it,
-     where the contour glides between them, becomes a bend on the first
-     note rather than a second note.
+     arriving as that note's contour rises to it, becomes a bend on the
+     first note rather than a second note.
 
-  Steps 2 to 4 belong to [fitting notes to the fretboard](https://github.com/jbouder/cantina/issues/173),
-  which already knows the tuning and the techniques.
+  Steps 2 to 4 are `cantina_dsp::fretboard::clean`, next to the fitting
+  that chooses strings and frets (see [fitting](#fitting-notes-to-the-fretboard)
+  below).
 
 Transcription will never touch the source audio file. It will read the
 clip through the same streaming reader playback uses, resample to
 22 050 Hz and run window by window, so it can report progress and stop
 between windows.
+
+## Fitting notes to the fretboard
+
+The same E can be played in five places, so after transcription every
+note still needs a string and a fret. `cantina_dsp::fretboard::fit`
+chooses them as a shortest path over the notes, grouped into chords by
+start time (within 35 ms, the spread of a strum). Each group's candidates
+are every way to put its notes on different strings. A candidate's cost
+adds up what a hand feels:
+
+- **Stretch**: fretted notes more than three frets apart cost more, and
+  more than five apart are not considered.
+- **Strings together**: a silent string between two that sound costs a
+  lot, so a G5 is 355, not 3x00.
+- **Open strings** are cheaper in the first five frets, where players use
+  them, and dearer above.
+- **Height**: each fret up costs a little, so the lower of two equal
+  shapes wins.
+- **Movement**: shifting the hand from one group to the next costs per
+  fret, and more past four.
+- **Ringing strings**: playing on a string whose note is still sounding
+  costs extra.
+- **Repeats**: the same pitch again is played in the same place.
+- **Region**: given a region such as frets 7 to 10, notes outside it cost
+  far more than any other choice, so they move into it wherever they
+  can. `refit` applies this to a selection and leaves the rest alone.
+
+A note the fretboard cannot reach, or one too many for the strings, gets
+no place. `techniques` then reads what timing and loudness show:
+
+- a **hammer-on** or **pull-off** is a note on the same string straight
+  after another, a fret to five frets away and noticeably softer;
+- a **palm mute** is a short note on one of the three lowest strings,
+  under 150 ms and under 60% of the gap to the next note there;
+- a **bend** is a rise of half a semitone or more, to the nearest half.
+
+Slides, vibrato and harmonics are not detected; the player adds them in
+the editor. Every hand-written reference take fits with every note
+placed, chords within a stretch and on adjacent strings, and nothing
+above the 7th fret. That is a unit test, `every_reference_take_fits_playably`.
 
 ## The reference takes
 
