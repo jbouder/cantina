@@ -33,6 +33,8 @@ type Props = {
   onError: (message: string) => void;
   /** Starts open, for screenshots. */
   initiallyOpen?: boolean;
+  /** The instrument the list starts on: the profile's. */
+  defaultInstrument?: Instrument;
 };
 
 /** What the form under the list is doing, if anything. */
@@ -59,10 +61,11 @@ export function RigPicker({
   onStatus,
   onError,
   initiallyOpen = false,
+  defaultInstrument = "guitar",
 }: Props) {
   const id = useId();
   const [open, setOpen] = useState(initiallyOpen);
-  const [instrument, setInstrument] = useState<Instrument>("guitar");
+  const [instrument, setInstrument] = useState<Instrument>(defaultInstrument);
   const [genre, setGenre] = useState("");
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);

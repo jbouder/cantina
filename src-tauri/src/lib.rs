@@ -127,6 +127,7 @@ pub fn run() {
             commands::rig_delete,
             commands::rig_import,
             commands::rig_export,
+            commands::instrument_profile_set,
             commands::pattern_replace,
             commands::drum_rows_set,
             commands::pattern_clip_set_fill,

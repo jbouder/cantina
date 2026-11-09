@@ -116,6 +116,9 @@ pub struct EngineStatus {
     /// The rig being heard on a track in place of its chain, if one is.
     /// Session state, not part of the project.
     pub rig_audition: Option<RigAuditionStatus>,
+    /// What the player plays through, and the trim it gives a rig's
+    /// input. An app setting.
+    pub instrument_profile: InstrumentProfileStatus,
     /// Rows muted or soloed on drum tracks, by track id. Session state.
     pub drum_rows: HashMap<u64, RowMix>,
 }
@@ -132,6 +135,17 @@ pub struct RigAuditionStatus {
     pub hearing_rig: bool,
     /// The rig's pedals that are not installed and are left out.
     pub missing: Vec<String>,
+}
+
+/// The instrument profile and the trim it gives rigs. Mirrors
+/// `InstrumentProfile` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstrumentProfileStatus {
+    #[serde(flatten)]
+    pub profile: crate::settings::InstrumentProfile,
+    /// Decibels added to every rig's input gain when it is applied.
+    pub trim_db: f32,
 }
 
 /// What a saved rig says about itself. Mirrors `RigDraft` in the UI.
@@ -2653,6 +2667,10 @@ impl Engine {
                 .chain(&self.library_status.rigs)
                 .cloned()
                 .collect(),
+            instrument_profile: InstrumentProfileStatus {
+                profile: self.settings.instrument.clone(),
+                trim_db: self.settings.instrument.trim_db(),
+            },
             rig_audition: self.rig_audition.as_ref().map(|a| RigAuditionStatus {
                 track: a.track.0,
                 path: a.path.clone(),
@@ -2912,6 +2930,26 @@ impl Engine {
         if let Some(live) = &mut self.live {
             live.set_metronome(&self.settings.metronome);
         }
+        self.persist();
+        Ok(self.publish())
+    }
+
+    /// Sets what the player plays through. Rigs applied or auditioned
+    /// from now on trim their input from it; chains already on tracks
+    /// keep theirs. An app setting, not undoable.
+    pub fn instrument_profile_set(
+        &mut self,
+        profile: crate::settings::InstrumentProfile,
+    ) -> Result<EngineStatus> {
+        if let Some(peak) = profile.calibrated_peak_db {
+            if !(peak.is_finite() && (-90.0..=6.0).contains(&peak)) {
+                bail!("a calibration of {peak} dBFS is not a level an input gives");
+            }
+        }
+        if !(1..=12).contains(&profile.tuning.len()) || profile.tuning.iter().any(|n| *n > 127) {
+            bail!("a tuning is one to twelve strings, as MIDI notes");
+        }
+        self.settings.instrument = profile;
         self.persist();
         Ok(self.publish())
     }
@@ -3467,7 +3505,8 @@ impl Engine {
     }
 
     /// A rig's pedals as a chain's, ids from `first`: an input gain pedal
-    /// first when the rig asks for one, the values its parameter names
+    /// first when the rig's input gain and the instrument profile's trim
+    /// add up to any, the values its parameter names
     /// resolve to, the plugins' states to restore, and a line for each
     /// pedal left out because it is not installed. A name or value that
     /// is wrong fails the whole rig.
@@ -3482,11 +3521,12 @@ impl Engine {
         let mut missing = Vec::new();
         let mut problems = Vec::new();
         let mut next = first;
-        if rig.input_gain_db != 0.0 {
+        let input = rig.input_gain_db + self.settings.instrument.trim_db();
+        if input.abs() >= 0.05 {
             pedals.push(Pedal {
                 id: PedalId(next),
                 spec: "gain".into(),
-                values: vec![rig.input_gain_db],
+                values: vec![input.clamp(-60.0, 24.0)],
                 bypassed: false,
             });
             next += 1;
@@ -3651,7 +3691,10 @@ impl Engine {
 
     /// Writes an audio track's chain to the Rigs library folder as a rig
     /// called `draft.name`: every parameter by name and, for a plugin,
-    /// its state. Refuses to overwrite a rig of that name unless asked.
+    /// its state. A Gain pedal first in the chain, as applying a rig puts
+    /// there, is the rig's input gain less the instrument profile's trim,
+    /// so the rig applies the same again. Refuses to overwrite a rig of
+    /// that name unless asked.
     pub fn rig_save(&mut self, track: u64, draft: RigDraft) -> Result<EngineStatus> {
         let name = draft.name.trim().to_string();
         if name.is_empty() {
@@ -3662,9 +3705,18 @@ impl Engine {
             bail!("{} has no pedals to save", t.name);
         }
         self.capture_plugin_states();
+        let trim = self.settings.instrument.trim_db();
+        let (input_gain_db, pedals) = match t.chain.split_first() {
+            Some((first, rest)) if first.spec == "gain" && !first.bypassed => {
+                let gain = first.values.first().copied().unwrap_or(0.0) - trim;
+                let max = cantina_project::MAX_INPUT_GAIN_DB;
+                (((gain * 10.0).round() / 10.0).clamp(-max, max), rest)
+            }
+            _ => (0.0, &t.chain[..]),
+        };
         let mut chain = Vec::new();
         let mut local = Vec::new();
-        for p in &t.chain {
+        for p in pedals {
             let params = self
                 .catalog
                 .get(&p.spec, &mut self.irs, &self.designs)?
@@ -3696,7 +3748,7 @@ impl Engine {
             genre: draft.genre.trim().to_string(),
             description: draft.description.trim().to_string(),
             instrument: draft.instrument,
-            input_gain_db: 0.0,
+            input_gain_db,
             chain,
         };
         rig.validate().map_err(|e| anyhow!("{e}"))?;

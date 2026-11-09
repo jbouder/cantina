@@ -19,7 +19,7 @@ While a stream is open, a pump thread wakes 60 times a second, reads the meters,
 
 ## What else it owns
 
-- **Settings** (`settings.rs`): devices, sample rate, buffer size, the latency warning, editor window positions, the metronome, the recent projects and the assistant's endpoint and model, kept in `~/Library/Application Support/com.jbouder.cantina/settings.json`.
+- **Settings** (`settings.rs`): devices, sample rate, buffer size, the latency warning, editor window positions, the metronome, the recent projects, the assistant's endpoint and model and the instrument profile (which trims rigs' input gain), kept in `~/Library/Application Support/com.jbouder.cantina/settings.json`.
 - **Projects** (`project.rs`): where projects live and opening, creating, renaming, duplicating and recovering them.
 - **Designed pedals** (`pedals.rs`): the user's library in `~/Music/Cantina/Pedals` and the copies a project keeps.
 - **Rigs** (`rigs.rs`): the stock rigs in the bundle's `rigs/` and the user's in `~/Music/Cantina/Rigs`. Applying one is a `Command::Batch` of removes and inserts, so it is one undo. Auditioning one builds its pedals with ids no project pedal has and syncs the graph with them in place of the track's chain, without touching the project; every swap fades the track's strip out, commits the new graph and fades it back in, so it never clicks.

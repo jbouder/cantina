@@ -5,6 +5,7 @@ import {
   clipTranscribe,
   type EngineStatus,
   type Instrument,
+  type InstrumentProfile,
   renderCancel,
   type TabGrid,
 } from "../lib/engine";
@@ -16,6 +17,8 @@ import { Sheet } from "./Sheet";
 
 type Props = {
   clip: ClipInfo;
+  /** What the player plays through: the instrument and tuning a new tab starts on. */
+  profile?: InstrumentProfile;
   onStatus: (status: EngineStatus) => void;
   onClose: () => void;
 };
@@ -76,12 +79,14 @@ function tuningIndex(instrument: Instrument, tuning: number[] | undefined): numb
  * Stop. A clip with a transcribed tab can also be re-quantised to
  * another grid without listening again.
  */
-export function TranscribeSheet({ clip, onStatus, onClose }: Props) {
-  const [instrument, setInstrument] = useState<Instrument>(clip.tab?.instrument ?? "guitar");
-  const [strings, setStrings] = useState(
-    clip.tab?.tuning.length ?? (instrument === "bass" ? 4 : 6),
-  );
-  const [tuning, setTuning] = useState(() => tuningIndex(instrument, clip.tab?.tuning));
+export function TranscribeSheet({ clip, profile, onStatus, onClose }: Props) {
+  // A clip with a tab keeps its own; a new one starts on the profile's
+  // instrument and tuning, when Cantina offers that tuning.
+  const start =
+    clip.tab ?? (profile && TUNINGS[profile.instrument][profile.tuning.length] ? profile : null);
+  const [instrument, setInstrument] = useState<Instrument>(start?.instrument ?? "guitar");
+  const [strings, setStrings] = useState(start?.tuning.length ?? (instrument === "bass" ? 4 : 6));
+  const [tuning, setTuning] = useState(() => tuningIndex(instrument, start?.tuning));
   const [capo, setCapo] = useState(clip.tab?.capo ?? 0);
   const [grid, setGrid] = useState<TabGrid>("1/16");
   const [running, setRunning] = useState(false);

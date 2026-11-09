@@ -154,10 +154,11 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(() => params?.has("settings") ?? false);
   // `?chat` opens the assistant's panel (with `?assistant` connected).
   const [assistantOpen, setAssistantOpen] = useState(() => params?.has("chat") ?? false);
-  // `?settings=assistant` opens Settings scrolled to the assistant.
-  const [settingsSection, setSettingsSection] = useState<"assistant" | null>(() =>
-    params?.get("settings") === "assistant" ? "assistant" : null,
-  );
+  // `?settings=assistant` (or `instrument`) opens Settings scrolled to that section.
+  const [settingsSection, setSettingsSection] = useState<"assistant" | "instrument" | null>(() => {
+    const asked = params?.get("settings");
+    return asked === "assistant" || asked === "instrument" ? asked : null;
+  });
   const [projectsOpen, setProjectsOpen] = useState(() => params?.has("projects") ?? false);
   const [exportOpen, setExportOpen] = useState(() => params?.has("export") ?? false);
   const [pickerOpen, setPickerOpen] = useState(() => params?.has("picker") ?? false);
@@ -860,6 +861,7 @@ export function App() {
                   rigs={status.rigs}
                   rigAudition={status.rigAudition}
                   rigsOpen={params?.has("rigs") ?? false}
+                  profile={status.instrumentProfile}
                   drumRows={status.drumRows}
                   tempo={status.project.tempo}
                   position={frame.position}
