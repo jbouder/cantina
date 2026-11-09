@@ -1,4 +1,4 @@
-import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import {
   type AuditionStatus,
   clipRemove,
@@ -8,10 +8,13 @@ import {
   type IrInfo,
   type KitInfo,
   type LibraryStatus,
+  type PatternClipInfo,
   type PatternInfo,
   type PedalKindInfo,
   type Practice,
+  patternClipGenerateFill,
   patternClipRemove,
+  patternClipSetFill,
   type StockGroove,
   type Tempo,
   type TrackStatus,
@@ -409,9 +412,15 @@ function ClipList({ track, patterns, sampleRate, tempo, onStatus, onError }: Cli
               key={clip.id}
               className="surface-lcd flex items-center gap-2 py-1 pr-1 pl-3 font-lcd text-base"
             >
-              <span className="lcd-text">
+              <span className="lcd-text min-w-0 flex-1 truncate">
                 {name} · bar {at} · {bars} bar{bars === "1" ? "" : "s"}
               </span>
+              <FillControls
+                clip={clip}
+                label={`${name} at bar ${at}`}
+                patterns={patterns}
+                run={run}
+              />
               <Button
                 aria-label={`Delete ${name} at bar ${at}`}
                 onClick={() => run(patternClipRemove(clip.id))}
@@ -440,5 +449,99 @@ function ClipList({ track, patterns, sampleRate, tempo, onStatus, onError }: Cli
         />
       ) : null}
     </>
+  );
+}
+
+/** How often a fill comes round, as the menu offers it. */
+const FILL_EVERY = [0, 2, 4, 8, 16];
+
+/**
+ * A pattern clip's fill: which pattern plays on fill bars, every how many
+ * bars, and whether its last bar is one. **Generate** writes a fill from
+ * the clip's own pattern and picks it. Each change is one undoable edit.
+ */
+function FillControls({
+  clip,
+  label,
+  patterns,
+  run,
+}: {
+  clip: PatternClipInfo;
+  label: string;
+  patterns: PatternInfo[];
+  run: (action: Promise<EngineStatus>) => void;
+}) {
+  const id = useId();
+  const fill = clip.fill;
+  const set = (next: { pattern?: number | null; every?: number; atEnd?: boolean }) => {
+    const pattern = next.pattern === undefined ? fill?.pattern : next.pattern;
+    if (pattern === null || pattern === undefined) {
+      run(patternClipSetFill(clip.id, null));
+      return;
+    }
+    run(
+      patternClipSetFill(clip.id, {
+        pattern,
+        every: next.every ?? fill?.every ?? 4,
+        atEnd: next.atEnd ?? fill?.atEnd ?? true,
+      }),
+    );
+  };
+  const others = patterns.filter((p) => p.id !== clip.pattern);
+  return (
+    <span className="flex items-center gap-1">
+      <label htmlFor={`${id}-fill`} className="sr-only">
+        Fill for {label}
+      </label>
+      <select
+        id={`${id}-fill`}
+        value={fill?.pattern ?? ""}
+        onChange={(e) => set({ pattern: e.target.value === "" ? null : Number(e.target.value) })}
+        className="surface-lcd min-h-8 max-w-40 appearance-none truncate px-2 font-lcd text-sm"
+      >
+        <option value="">No fill</option>
+        {others.map((p) => (
+          <option key={p.id} value={p.id}>
+            Fill: {p.name}
+          </option>
+        ))}
+      </select>
+      {fill ? (
+        <>
+          <label htmlFor={`${id}-every`} className="sr-only">
+            How often {label} plays its fill
+          </label>
+          <select
+            id={`${id}-every`}
+            value={fill.every}
+            onChange={(e) => set({ every: Number(e.target.value) })}
+            className="surface-lcd min-h-8 appearance-none px-2 font-lcd text-sm"
+          >
+            {FILL_EVERY.map((n) => (
+              <option key={n} value={n}>
+                {n === 0 ? "Not repeating" : `Every ${n} bars`}
+              </option>
+            ))}
+          </select>
+          <Button
+            aria-pressed={fill.atEnd}
+            variant={fill.atEnd ? "transport" : "panel"}
+            onClick={() => set({ atEnd: !fill.atEnd })}
+            title="Play the fill on the clip's last bar, into what comes next"
+            className="min-h-8 px-2"
+          >
+            At end
+          </Button>
+        </>
+      ) : null}
+      <Button
+        onClick={() => run(patternClipGenerateFill(clip.id, Date.now() % 1_000_000))}
+        title="Write a fill from this clip's pattern and play it every four bars and at the end"
+        aria-label={`Generate a fill for ${label}`}
+        className="min-h-8 px-2"
+      >
+        Generate
+      </Button>
+    </span>
   );
 }

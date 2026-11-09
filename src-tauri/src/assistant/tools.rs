@@ -647,6 +647,7 @@ pub static TOOLS: &[Tool] = &[
                 start,
                 offset: 0,
                 length,
+                fill: None,
             };
             let summary = format!(
                 "Placed {} on {} at bar {}",

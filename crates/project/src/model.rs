@@ -13,7 +13,7 @@ use crate::tab::Tab;
 
 /// The format version this crate writes. The loader upgrades older files;
 /// see `file.rs` for the migrations.
-pub const FORMAT_VERSION: u32 = 7;
+pub const FORMAT_VERSION: u32 = 8;
 
 /// Ticks per quarter note in pattern and pattern clip positions. The
 /// same as the engine's tempo map, so a tick here is a tick there.
@@ -89,6 +89,34 @@ pub struct PatternClip {
     pub offset: u64,
     /// Ticks long.
     pub length: u64,
+    /// Bars where another pattern plays instead: a fill.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fill: Option<Fill>,
+}
+
+/// When a pattern clip plays a fill: every few bars, at its end, or
+/// both. Bars count from the clip's start, at the project's time
+/// signature; a fill bar plays the first bar of the fill pattern.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Fill {
+    /// The pattern played on fill bars.
+    pub pattern: PatternId,
+    /// The last bar of every this many is a fill; 0 for none. At most 64.
+    #[serde(default)]
+    pub every: u16,
+    /// The clip's last bar is a fill, leading into what comes next.
+    #[serde(default)]
+    pub at_end: bool,
+}
+
+impl Fill {
+    /// Whether bar `bar` (from 0) of a clip `bars` bars long is a fill.
+    pub fn plays_at(&self, bar: u64, bars: u64) -> bool {
+        (self.every > 0 && (bar + 1) % u64::from(self.every) == 0)
+            || (self.at_end && bar + 1 == bars)
+    }
 }
 
 impl PatternClip {
@@ -605,9 +633,11 @@ impl Project {
 
     /// True when a pattern is on the timeline somewhere.
     pub fn pattern_in_use(&self, id: PatternId) -> bool {
-        self.tracks
-            .iter()
-            .any(|t| t.pattern_clips.iter().any(|c| c.pattern == id))
+        self.tracks.iter().any(|t| {
+            t.pattern_clips
+                .iter()
+                .any(|c| c.pattern == id || c.fill.as_ref().is_some_and(|f| f.pattern == id))
+        })
     }
 
     /// Every id in use, across tracks, clips, pedals and patterns.
@@ -697,6 +727,20 @@ impl Project {
                         "pattern clip {} refers to pattern {}, which does not exist",
                         clip.id, clip.pattern
                     ));
+                }
+                if let Some(fill) = &clip.fill {
+                    if self.pattern(fill.pattern).is_none() {
+                        return Err(format!(
+                            "pattern clip {}'s fill refers to pattern {}, which does not exist",
+                            clip.id, fill.pattern
+                        ));
+                    }
+                    if fill.every > 64 {
+                        return Err(format!(
+                            "pattern clip {} plays a fill every {} bars; at most 64",
+                            clip.id, fill.every
+                        ));
+                    }
                 }
                 if !track.is_drums() {
                     return Err(format!(
@@ -813,6 +857,7 @@ mod tests {
             start: 0,
             offset: 0,
             length: 3840,
+            fill: None,
         });
         assert_eq!(p.validate(), Ok(()));
         assert!(p.pattern_in_use(PatternId(5)));

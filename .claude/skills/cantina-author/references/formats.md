@@ -252,7 +252,7 @@ A whole project. Saved as `project.json` inside a `Name.cantina/` directory next
 | `sampleRate` | yes | number (> 0) | The rate every file in `audio/` is at, and the rate the engine must run at to play them. |
 | `tempo` |  | `Tempo` | Tempo and time signature. Default `{"bpm":120,"denominator":4,"numerator":4}`. |
 | `tracks` |  | array of `Track` | Tracks, top to bottom. Default `[]`. |
-| `version` | yes | exactly `7` | The format version, `FORMAT_VERSION` when written; older files are upgraded on load. |
+| `version` | yes | exactly `8` | The format version, `FORMAT_VERSION` when written; older files are upgraded on load. |
 
 Where it goes: `project.json` in a `Name.cantina/` folder. Schema: `https://cantina-docs.vibeproject.workers.dev/schemas/project.schema.json`.
 
@@ -278,6 +278,16 @@ A region of a file in `audio/` placed on the timeline. The file is never modifie
 | `offset` | yes | integer (≥ 0) | Frame into the file the clip starts from. |
 | `start` | yes | integer (≥ 0) | Timeline sample the clip starts at. |
 | `tab` |  | `Tab` | The tab of what the clip plays, anchored to its file so it stays on the notes when the clip moves or is trimmed. |
+
+### `Fill`
+
+When a pattern clip plays a fill: every few bars, at its end, or both. Bars count from the clip's start, at the project's time signature; a fill bar plays the first bar of the fill pattern.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `atEnd` |  | boolean | The clip's last bar is a fill, leading into what comes next. Default `false`. |
+| `every` |  | integer (≥ 0) | The last bar of every this many is a fill; 0 for none. At most 64. Default `0`. |
+| `pattern` | yes | `PatternId` | The pattern played on fill bars. |
 
 ### `HeardNote`
 
@@ -320,6 +330,7 @@ A pattern placed on a drum track. Positions are in ticks, so the clip follows th
 
 | Field | Required | Takes | What it is |
 | --- | --- | --- | --- |
+| `fill` |  | `Fill` | Bars where another pattern plays instead: a fill. |
 | `id` | yes | `PatternClipId` | Unique within the project. |
 | `length` | yes | integer (≥ 1) | Ticks long. |
 | `offset` | yes | integer (≥ 0) | Ticks into the pattern it starts from. |

@@ -466,6 +466,7 @@ mod tests {
             start: 0,
             offset: 0,
             length: ticks,
+            fill: None,
         });
         drums.strip.pan = 0.3;
         project.tracks.push(drums);

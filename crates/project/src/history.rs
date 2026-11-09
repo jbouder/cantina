@@ -622,6 +622,7 @@ mod tests {
                     start: *s as u64,
                     offset: 0,
                     length: *l as u64,
+                    fill: None,
                 },
             },
             Op::RemovePlaced(c) => Command::RemovePatternClip {
