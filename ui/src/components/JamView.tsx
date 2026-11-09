@@ -20,6 +20,7 @@ import {
   tapTempo,
 } from "../lib/jam";
 import { Button } from "./Button";
+import { JamBacking, rigId } from "./JamBacking";
 import { Lcd } from "./Lcd";
 import { Led } from "./Led";
 import { Meter } from "./Meter";
@@ -38,11 +39,6 @@ type Props = {
 
 /** A groove from the project's own patterns rather than a stock genre. */
 const PROJECT = "\u0000project";
-
-/** The rig id a rig file names: its file name less `.rig.json`. */
-function rigId(path: string): string {
-  return (path.split("/").pop() ?? path).replace(/\.rig\.json$/, "");
-}
 
 /**
  * Jam mode: drums to play along with and your rig on the input, heard in
@@ -92,6 +88,8 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
       if (n >= 1 && n <= JAM_SECTIONS.length) {
         const section = JAM_SECTIONS[n - 1];
         if (section && k.jam.sections.includes(section)) k.report(jamSection(section));
+      } else if (k.jam.tempoLocked && ["ArrowUp", "ArrowDown", "t", "T"].includes(e.key)) {
+        return;
       } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
         const step = (e.shiftKey ? 5 : 1) * (e.key === "ArrowUp" ? 1 : -1);
         k.report(jamTempo(clampTempo(Math.round(k.jam.tempo) + step)));
@@ -274,14 +272,14 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
         </div>
       </div>
 
-      <div className="surface-panel grid content-start gap-4 p-3">
-        <Lcd aria-live="polite" className="grid gap-1 py-3 text-center">
-          <span className="block text-4xl">
+      <div className="surface-panel grid content-start gap-3 p-3">
+        <Lcd aria-live="polite" className="grid gap-0.5 py-2 text-center">
+          <span className="block text-3xl">
             {playingSection
               ? SECTION_LABELS[playingSection]
               : SECTION_LABELS[jam.marks[0]?.section ?? "verse"]}
           </span>
-          <span className="block text-2xl tabular-nums">
+          <span className="block text-xl tabular-nums">
             {frame.countIn > 0
               ? `Count ${frame.countIn}`
               : rolling && place
@@ -290,7 +288,7 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
             {" · "}
             {Math.round((rolling && place ? place.bpm : tempo) * 10) / 10} bpm
           </span>
-          <span className="block min-h-6 text-base text-ink-dim">
+          <span className="block min-h-6 text-base">
             {rolling && place?.next
               ? `${SECTION_LABELS[place.next.section]} at bar ${place.next.bar}`
               : null}
@@ -308,7 +306,7 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
             aria-pressed={rolling}
             onClick={onPlay}
             title="Play or stop (Space)"
-            className="min-h-14 min-w-32 text-sm"
+            className="min-h-12 min-w-32 text-sm"
           >
             {rolling ? (
               <svg aria-hidden="true" viewBox="0 0 16 16" className="size-5 fill-current">
@@ -336,6 +334,7 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Button
             aria-label="Slower"
+            disabled={jam.tempoLocked}
             title="Slower (↓, ⇧↓ by 5)"
             onClick={() => report(jamTempo(clampTempo(Math.round(tempo) - 1)))}
           >
@@ -355,6 +354,7 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
             max={300}
             step={1}
             defaultValue={tempo}
+            disabled={jam.tempoLocked}
             onKeyDown={(e) => {
               if (e.key === "Enter") e.currentTarget.blur();
             }}
@@ -366,16 +366,22 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
           />
           <Button
             aria-label="Faster"
+            disabled={jam.tempoLocked}
             title="Faster (↑, ⇧↑ by 5)"
             onClick={() => report(jamTempo(clampTempo(Math.round(tempo) + 1)))}
           >
             +
           </Button>
-          <Button onClick={tap} title="Tap the beat (T)">
+          <Button onClick={tap} title="Tap the beat (T)" disabled={jam.tempoLocked}>
             Tap
           </Button>
         </div>
 
+        {jam.tempoLocked ? (
+          <p className="m-0 text-center text-ink-dim text-xs">
+            The backing is audio at its own tempo: the drums follow it.
+          </p>
+        ) : null}
         <ul
           aria-label="Sections"
           className="m-0 grid list-none grid-cols-3 gap-2 p-0 sm:grid-cols-6"
@@ -393,7 +399,7 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
                   aria-pressed={playing}
                   aria-label={`${SECTION_LABELS[section]}, key ${i + 1}`}
                   onClick={() => report(jamSection(section as GrooveSection))}
-                  className="surface-pbutton grid min-h-20 w-full place-items-center gap-1 border-0 px-2 py-2 disabled:opacity-40"
+                  className="surface-pbutton grid min-h-16 w-full place-items-center gap-1 border-0 px-2 py-1.5 disabled:opacity-40"
                 >
                   <Led on={playing} label={SECTION_LABELS[section]} />
                   <span className="font-bold text-[11px] uppercase tracking-[0.06em]">
@@ -413,6 +419,20 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
           Space plays · 1–6 sections at the next bar · ↑ ↓ tempo · T tap. Jamming never edits{" "}
           {status.project.name}.
         </p>
+        <section
+          aria-label="Backing"
+          className="grid gap-3 border-0 border-ink-dim border-t border-solid pt-3"
+        >
+          <JamBacking
+            backing={setup.backing ?? { kind: "none" }}
+            presets={jam.presets}
+            rigs={rigs}
+            project={status.project.name}
+            missing={jam.backingMissing}
+            onChange={(backing) => change({ backing })}
+            onError={onError}
+          />
+        </section>
       </div>
     </section>
   );

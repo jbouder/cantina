@@ -592,6 +592,15 @@ pub fn jam_set(
     engine.lock().jam_set(setup).map_err(fail)
 }
 
+/// The audio tracks of a project a jam can play as its backing.
+#[tauri::command]
+pub fn jam_tracks(
+    engine: State<'_, EngineState>,
+    project: String,
+) -> Result<Vec<crate::engine::JamTrackInfo>, String> {
+    engine.lock().jam_tracks(&project).map_err(fail)
+}
+
 /// Plays the jam from the top.
 #[tauri::command]
 pub fn jam_play(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
