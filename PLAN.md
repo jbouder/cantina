@@ -23,6 +23,7 @@ where the band plays.
 | Processor threading | One `Processor` object that moves between the UI thread and the audio thread with the graph swap; the engine will own a main-thread handle per processor from M1 | CLAP splits plugins into a main-thread half and an audio-thread half and the M0 spike found the single-object trait cannot express that. Keeping the main half on the UI thread and talking to the audio half through queues matches how parameters already travel. |
 | Plugin process model | In-process on the audio thread | What every mainstream DAW except Bitwig does. Scanning runs in a child process so a crashing plugin cannot take the app down at startup. Sandboxing is a later project. |
 | Docs | Astro with Starlight in `docs/`, published to Cloudflare | Great docs from the start. Starlight gives search, navigation and dark mode for free, Cloudflare gives a preview deployment per pull request. Tracked in the M10 Docs milestone, which runs alongside the others. |
+| Transcription | Basic Pitch on the device, run in Rust by tract, then Cantina's own cleanup | Measured on six reference takes (#170): mean note F1 0.69 with 10 ms onset error, where a pitch tracker alone manages 0.55 and cannot see chords. 228 KB, Apache-2.0, ~57× real time on an M1 Pro, and the audio never leaves the machine. tract matches ONNX Runtime to 1.5e-6 with nothing native to sign; chat providers do not take audio. Decided 2026-11-08. |
 | License | MIT | AU and CLAP cover the plugin need, so VST3 is dropped for good. Permissive is simplest for contributors and lets anyone reuse the `dsp` crate. Decided 2026-10-31 before the first commit. |
 
 ## Architecture
@@ -149,6 +150,26 @@ without the app, and picked up by the app.
   picker without a restart and a broken one says why.
 - A guide to authoring with an agent, plus generated schema and CLI
   reference pages on the docs site.
+
+### M14 Tabs
+
+Transcribe a recorded clip into a tab, fit it to the fretboard, read,
+edit, play and export it.
+
+Spike outcome (2026-11-08): Basic Pitch through tract, decided above.
+Its errors on the reference takes are harmonics read as notes, driven
+chords transcribed an octave low and bends split in two, so fitting
+(#173) owns range limits, harmonic suppression and bend merging. The
+numbers and limits are on the
+[transcription](https://cantina-docs.vibeproject.workers.dev/architecture/transcription/)
+page.
+
+- Spike: how to transcribe a recording into notes.
+- A versioned tab format inside the project.
+- Transcribe a clip, off the audio thread, and quantise to the tempo map.
+- Fit notes to strings and frets.
+- A tab viewer, an editor, a player with practice speed, and exports.
+- A guide to tabs.
 
 ### Later
 

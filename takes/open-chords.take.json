@@ -1,0 +1,16 @@
+{
+  "description": "Clean open chords strummed down, G C D Em, each ringing into the next.",
+  "instrument": "guitar",
+  "tempo": 90,
+  "drive": 0.0,
+  "strum_ms": 12,
+  "notes": [
+    { "pitch": ["G2", "B2", "D3", "G3", "B3", "G4"], "beat": 0, "length": 2 },
+    { "pitch": ["G2", "B2", "D3", "G3", "B3", "G4"], "beat": 2, "length": 2, "velocity": 0.6 },
+    { "pitch": ["C3", "E3", "G3", "C4", "E4"], "beat": 4, "length": 2 },
+    { "pitch": ["C3", "E3", "G3", "C4", "E4"], "beat": 6, "length": 2, "velocity": 0.6 },
+    { "pitch": ["D3", "A3", "D4", "F#4"], "beat": 8, "length": 2 },
+    { "pitch": ["D3", "A3", "D4", "F#4"], "beat": 10, "length": 2, "velocity": 0.6 },
+    { "pitch": ["E2", "B2", "E3", "G3", "B3", "E4"], "beat": 12, "length": 4 }
+  ]
+}

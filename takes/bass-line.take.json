@@ -1,0 +1,29 @@
+{
+  "description": "A fingered bass line on a four-string: roots, octaves and passing notes.",
+  "instrument": "bass",
+  "tempo": 100,
+  "drive": 0.0,
+  "notes": [
+    { "pitch": "E1", "beat": 0, "length": 0.5 },
+    { "pitch": "E1", "beat": 0.5, "length": 0.5 },
+    { "pitch": "E2", "beat": 1, "length": 0.5 },
+    { "pitch": "E1", "beat": 1.5, "length": 0.5 },
+    { "pitch": "G1", "beat": 2, "length": 1 },
+    { "pitch": "A1", "beat": 3, "length": 1 },
+    { "pitch": "A1", "beat": 4, "length": 0.5 },
+    { "pitch": "A1", "beat": 4.5, "length": 0.5 },
+    { "pitch": "A2", "beat": 5, "length": 0.5 },
+    { "pitch": "A1", "beat": 5.5, "length": 0.5 },
+    { "pitch": "C2", "beat": 6, "length": 1 },
+    { "pitch": "B1", "beat": 7, "length": 1 },
+    { "pitch": "D2", "beat": 8, "length": 0.5 },
+    { "pitch": "D2", "beat": 8.5, "length": 0.5 },
+    { "pitch": "F#2", "beat": 9, "length": 0.5 },
+    { "pitch": "A2", "beat": 9.5, "length": 0.5 },
+    { "pitch": "G2", "beat": 10, "length": 0.5 },
+    { "pitch": "F#2", "beat": 10.5, "length": 0.5 },
+    { "pitch": "E2", "beat": 11, "length": 0.5 },
+    { "pitch": "D2", "beat": 11.5, "length": 0.5 },
+    { "pitch": "E1", "beat": 12, "length": 4 }
+  ]
+}

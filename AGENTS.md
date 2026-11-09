@@ -25,6 +25,7 @@ decisions and the milestones; the architecture lives on the docs site, in
   (`pedal/`), the drum kit format and sampler, kit recipes, the offline
   renderer, and the JSON Schemas behind the `schema` feature
   (`schema.rs`). `tests/golden.rs` holds every stock pedal's sound.
+  `examples/make_takes` renders the transcription reference takes.
 - `crates/hosting` — Audio Units (`au.rs`) and CLAP (`clap.rs`) as
   `Processor`s, editor windows, the scanner (`scan.rs`, run in a child
   process).
@@ -48,7 +49,8 @@ decisions and the milestones; the architecture lives on the docs site, in
   with music-visualizer. `packages/skins` — `@cantina/skins`, the six
   skins' shared palette.
 - `pedals/`, `kits/`, `irs/`, `recipes/` — stock pedals (JSON), drum kits,
-  cabinet impulse responses, kit recipes. Third-party audio is credited in
+  cabinet impulse responses, kit recipes. `takes/` holds the
+  hand-written ground truth for the transcription reference takes. Third-party audio is credited in
   each folder's `CREDITS.md`.
 - `schemas/` — JSON Schemas for pedals, kits, kit recipes, patterns and
   projects, generated from the Rust types. Do not hand-edit.

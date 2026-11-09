@@ -1,0 +1,12 @@
+[package]
+name = "tract-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Spike probe: does tract run Basic Pitch's ONNX model, how fast, and does it match ONNX Runtime"
+
+# Standalone: not a member of the cantina workspace.
+[workspace]
+
+[dependencies]
+tract-onnx = "0.23"
