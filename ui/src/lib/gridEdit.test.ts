@@ -12,7 +12,10 @@ import {
   regionOf,
   setCells,
   shiftRegion,
+  stepMark,
   strokeCells,
+  withPatternFeel,
+  withRowFeel,
 } from "./gridEdit";
 
 const pads = ["kick", "snare", "hh-closed"];
@@ -60,7 +63,7 @@ describe("the grid's gestures", () => {
     expect(inRegion(region, 1, 2)).toBe(true);
     expect(inRegion(region, 2, 2)).toBe(false);
     const cells = copyRegion(beat(), pads, region);
-    expect(cells).toEqual([
+    expect(cells.map((line) => line.map((c) => c.value))).toEqual([
       [1, 0, 0, 0],
       [0, 0, 1, 0],
     ]);
@@ -100,5 +103,41 @@ describe("the grid's gestures", () => {
     expect(doublePattern({ ...beat(), length: 128, rows: [] })).toBeNull();
     expect(row(halvePattern(beat()) as PatternInfo, "kick")).toEqual([1, 0, 0, 0]);
     expect(halvePattern({ ...beat(), length: 1, rows: [] })).toBeNull();
+  });
+
+  it("steps marks on hits, and marks travel with their cells", () => {
+    const flam = stepMark(beat(), [{ pad: "snare", step: 2 }], "flam") as PatternInfo;
+    expect(flam.rows.find((r) => r.pad === "snare")?.marks).toEqual([{ step: 2, flam: true }]);
+    // Ratchets go 1, 2, 3, 4, 1; chance 100, 75, 50, 25, 100.
+    let p = beat();
+    const counts: (number | undefined)[] = [];
+    for (let i = 0; i < 4; i++) {
+      p = stepMark(p, [{ pad: "kick", step: 0 }], "ratchet") as PatternInfo;
+      counts.push(p.rows[0]?.marks?.[0]?.ratchet);
+    }
+    expect(counts).toEqual([2, 3, 4, undefined]);
+    expect(stepMark(beat(), [{ pad: "kick", step: 1 }], "chance")).toBeNull();
+    // Shifting carries the mark; erasing the hit drops it.
+    const moved = shiftRegion(flam, pads, { top: 1, bottom: 1, from: 0, to: 7 }, 1);
+    expect(moved.rows.find((r) => r.pad === "snare")?.marks).toEqual([{ step: 3, flam: true }]);
+    const erased = setCells(flam, [{ pad: "snare", step: 2, value: 0 }]);
+    expect(erased.rows.find((r) => r.pad === "snare")?.marks).toBeUndefined();
+    // Doubling copies marks into the second half.
+    expect(doublePattern(flam)?.rows.find((r) => r.pad === "snare")?.marks).toEqual([
+      { step: 2, flam: true },
+      { step: 10, flam: true },
+    ]);
+  });
+
+  it("sets a pattern's and a row's feel", () => {
+    const p = withPatternFeel(beat(), { timing: 0.4, velocity: 0.2 }, 9);
+    expect(p.humanize).toEqual({ timing: 0.4, velocity: 0.2 });
+    expect(p.seed).toBe(9);
+    expect(withPatternFeel(p, null, 0).humanize).toBeUndefined();
+    const r = withRowFeel(beat(), "snare", { swing: 0.5 });
+    expect(r.rows.find((x) => x.pad === "snare")?.swing).toBe(0.5);
+    expect(
+      withRowFeel(r, "snare", { swing: null }).rows.find((x) => x.pad === "snare")?.swing,
+    ).toBeUndefined();
   });
 });

@@ -1673,17 +1673,59 @@ pub(crate) fn score_for(
 /// A pattern with its pads resolved against a kit, leaving out the rows
 /// `mix` silences.
 fn pattern_data(pattern: &Pattern, kit: &LoadedKit, mix: Option<&RowMix>) -> Arc<PatternData> {
-    Arc::new(PatternData {
-        steps_per_beat: pattern.steps_per_beat as u32,
-        length: pattern.length as u32,
-        swing: pattern.swing,
-        rows: pattern
-            .rows
+    let mut rows = Vec::new();
+    let mut feel = Vec::new();
+    for row in &pattern.rows {
+        if !mix.is_none_or(|m| m.plays(&row.pad)) {
+            continue;
+        }
+        if let Some(i) = kit.pad_index(&row.pad) {
+            rows.push((i, row.steps.clone()));
+            feel.push(row_feel(row));
+        }
+    }
+    // The hits are worked out here, off the audio thread.
+    Arc::new(PatternData::with_feel(
+        pattern.steps_per_beat as u32,
+        pattern.length as u32,
+        pattern.swing,
+        rows,
+        feel,
+        pattern_humanize(pattern),
+        pattern.seed,
+    ))
+}
+
+/// A row's feel as the sequencer takes it.
+fn row_feel(row: &cantina_project::PatternRow) -> cantina_engine::sequencer::RowFeel {
+    cantina_engine::sequencer::RowFeel {
+        swing: row.swing,
+        humanize: row.humanize.map(|h| cantina_engine::sequencer::Humanize {
+            timing: h.timing,
+            velocity: h.velocity,
+        }),
+        marks: row
+            .marks
             .iter()
-            .filter(|row| mix.is_none_or(|m| m.plays(&row.pad)))
-            .filter_map(|row| kit.pad_index(&row.pad).map(|i| (i, row.steps.clone())))
+            .map(|m| cantina_engine::sequencer::Mark {
+                step: u32::from(m.step),
+                chance: m.chance,
+                ratchet: m.ratchet,
+                flam: m.flam,
+            })
             .collect(),
-    })
+    }
+}
+
+/// A pattern's own humanize as the sequencer takes it.
+fn pattern_humanize(pattern: &Pattern) -> cantina_engine::sequencer::Humanize {
+    pattern
+        .humanize
+        .map(|h| cantina_engine::sequencer::Humanize {
+            timing: h.timing,
+            velocity: h.velocity,
+        })
+        .unwrap_or_default()
 }
 
 /// The installed drum kits: found once, each loaded the first time a
@@ -5766,6 +5808,7 @@ mod tests {
         groove.rows.push(cantina_project::PatternRow {
             pad: "kick".into(),
             steps: [vec![1.0], vec![0.0; 15]].concat(),
+            ..Default::default()
         });
         let audition: Auditioning = Some((
             TrackId(1),
@@ -5795,6 +5838,7 @@ mod tests {
             beat.rows.push(cantina_project::PatternRow {
                 pad: pad.into(),
                 steps: [vec![1.0], vec![0.0; 15]].concat(),
+                ..Default::default()
             });
         }
         project.patterns.push(beat);

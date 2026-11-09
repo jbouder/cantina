@@ -28,9 +28,26 @@ use rtrb::{Consumer, Producer, RingBuffer};
 use crate::graph::{BlockContext, Node};
 use crate::tempo::PPQ;
 
+/// Passes of a pattern the hit table covers when it humanizes or plays by
+/// chance: each pass is a little different, and after this many the
+/// same passes come round again.
+pub const PASSES: u32 = 8;
+/// The most a hit is moved by timing humanize, in ticks.
+pub const HUMANIZE_TICKS: f64 = 48.0;
+/// The most a hit's velocity is moved by velocity humanize, as a fraction.
+pub const HUMANIZE_VELOCITY: f32 = 0.3;
+/// How far before its step a flam's grace note falls, in ticks.
+pub const FLAM_TICKS: f64 = 30.0;
+/// A flam's grace note against the hit it leads into.
+pub const FLAM_VELOCITY: f32 = 0.45;
+
 /// A pattern as the sequencer plays it: a grid of velocities, with pads
-/// already resolved to the kit's pad indices.
-#[derive(Debug, Clone, PartialEq)]
+/// already resolved to the kit's pad indices, and how it feels.
+///
+/// [`PatternData::built`] works out every hit (swing, humanize, chance,
+/// ratchets and flams) into a table off the audio thread; the audio
+/// thread only looks hits up in it.
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PatternData {
     /// Steps per quarter note.
     pub steps_per_beat: u32,
@@ -40,9 +57,190 @@ pub struct PatternData {
     pub swing: f32,
     /// Pad index in the kit and that pad's velocities, one per step.
     pub rows: Vec<(usize, Vec<f32>)>,
+    /// Each row's own feel, in the order of `rows`; missing rows are plain.
+    pub feel: Vec<RowFeel>,
+    /// The pattern's humanize, for rows without their own.
+    pub humanize: Humanize,
+    /// Seeds humanize and chance.
+    pub seed: u32,
+    hits: Vec<Hit>,
+    passes: u32,
+}
+
+/// How far hits stray: 0 to 1 for timing and for velocity.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Humanize {
+    /// Up to [`HUMANIZE_TICKS`] early or late at 1.
+    pub timing: f32,
+    /// Up to [`HUMANIZE_VELOCITY`] softer or harder at 1.
+    pub velocity: f32,
+}
+
+/// A row's own swing, humanize and step marks.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RowFeel {
+    /// Instead of the pattern's swing.
+    pub swing: Option<f32>,
+    /// Instead of the pattern's humanize.
+    pub humanize: Option<Humanize>,
+    /// Steps that play by chance, ratchet or flam.
+    pub marks: Vec<Mark>,
+}
+
+/// What a step does beyond its velocity.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Mark {
+    /// The step, from 0.
+    pub step: u32,
+    /// The chance it plays on a pass, 0 to 1.
+    pub chance: f32,
+    /// Hits in the step, 1 to 4.
+    pub ratchet: u8,
+    /// A soft grace note just before it.
+    pub flam: bool,
+}
+
+/// One hit in the table: where its step is and where it sounds, in ticks
+/// from the start of the table's first pass.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Hit {
+    /// The step's own tick, which decides whether a clip plays it.
+    pub base: f64,
+    /// Where it sounds: swung, humanized, ratcheted or a flam's grace.
+    pub tick: f64,
+    /// Pad index in the kit.
+    pub pad: usize,
+    /// 0 to 1.
+    pub velocity: f32,
+}
+
+/// A number from 0 to 1 that depends only on its inputs (splitmix64).
+fn chance_of(seed: u32, row: usize, step: u32, pass: u32, salt: u64) -> f64 {
+    let mut z = (u64::from(seed) << 32)
+        ^ ((row as u64) << 48)
+        ^ (u64::from(step) << 16)
+        ^ (u64::from(pass) << 8)
+        ^ salt;
+    z = z.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^= z >> 31;
+    (z >> 11) as f64 / (1u64 << 53) as f64
 }
 
 impl PatternData {
+    /// A plain pattern: these rows, this swing, no humanize or marks,
+    /// with its hits worked out.
+    pub fn plain(
+        steps_per_beat: u32,
+        length: u32,
+        swing: f32,
+        rows: Vec<(usize, Vec<f32>)>,
+    ) -> Self {
+        Self {
+            steps_per_beat,
+            length,
+            swing,
+            rows,
+            ..Self::default()
+        }
+        .built()
+    }
+
+    /// A pattern with a feel, its hits worked out.
+    pub fn with_feel(
+        steps_per_beat: u32,
+        length: u32,
+        swing: f32,
+        rows: Vec<(usize, Vec<f32>)>,
+        feel: Vec<RowFeel>,
+        humanize: Humanize,
+        seed: u32,
+    ) -> Self {
+        Self {
+            steps_per_beat,
+            length,
+            swing,
+            rows,
+            feel,
+            humanize,
+            seed,
+            ..Self::default()
+        }
+        .built()
+    }
+
+    /// Works out every hit into the table the audio thread reads. Call
+    /// it, off the audio thread, after setting the fields.
+    pub fn built(mut self) -> Self {
+        let varies = self.humanize != Humanize::default()
+            || self.feel.iter().any(|f| {
+                f.humanize.is_some_and(|h| h != Humanize::default())
+                    || f.marks.iter().any(|m| m.chance < 1.0)
+            });
+        self.passes = if varies { PASSES } else { 1 };
+        let step = self.step_ticks() as f64;
+        let pass_ticks = self.ticks() as f64;
+        let mut hits = Vec::new();
+        for pass in 0..self.passes {
+            for (r, (pad, steps)) in self.rows.iter().enumerate() {
+                let feel = self.feel.get(r).cloned().unwrap_or_default();
+                let swing = f64::from(feel.swing.unwrap_or(self.swing));
+                let human = feel.humanize.unwrap_or(self.humanize);
+                for (s, &velocity) in steps.iter().enumerate() {
+                    if velocity <= 0.0 {
+                        continue;
+                    }
+                    let s = s as u32;
+                    let mark = feel.marks.iter().find(|m| m.step == s).copied();
+                    let roll = |salt| chance_of(self.seed, r, s, pass, salt);
+                    if let Some(m) = mark {
+                        if roll(1) >= f64::from(m.chance) {
+                            continue;
+                        }
+                    }
+                    let base = f64::from(pass) * pass_ticks + f64::from(s) * step;
+                    let shift = if s % 2 == 1 { swing * step / 3.0 } else { 0.0 };
+                    let late = (roll(2) * 2.0 - 1.0) * f64::from(human.timing) * HUMANIZE_TICKS;
+                    let louder = (roll(3) as f32 * 2.0 - 1.0) * human.velocity * HUMANIZE_VELOCITY;
+                    let velocity = (velocity * (1.0 + louder)).clamp(0.02, 1.0);
+                    let at = base + shift + late;
+                    let ratchet = mark.map_or(1, |m| m.ratchet.clamp(1, 4));
+                    for i in 0..ratchet {
+                        hits.push(Hit {
+                            base,
+                            tick: at + f64::from(i) * step / f64::from(ratchet),
+                            pad: *pad,
+                            velocity: velocity * (1.0 - 0.12 * f32::from(i)),
+                        });
+                    }
+                    if mark.is_some_and(|m| m.flam) {
+                        hits.push(Hit {
+                            base,
+                            tick: at - FLAM_TICKS,
+                            pad: *pad,
+                            velocity: (velocity * FLAM_VELOCITY).max(0.02),
+                        });
+                    }
+                }
+            }
+        }
+        hits.sort_by(|a, b| a.tick.total_cmp(&b.tick));
+        self.hits = hits;
+        self
+    }
+
+    /// The hits, by tick, over [`PatternData::cycle`] ticks.
+    pub fn hits(&self) -> &[Hit] {
+        &self.hits
+    }
+
+    /// Ticks the hit table covers: one pass, or [`PASSES`] when the
+    /// pattern varies from pass to pass.
+    pub fn cycle(&self) -> u64 {
+        self.ticks() * u64::from(self.passes.max(1))
+    }
+
     /// Ticks per step.
     pub fn step_ticks(&self) -> u64 {
         PPQ as u64 / self.steps_per_beat.max(1) as u64
@@ -55,6 +253,7 @@ impl PatternData {
 
     /// How far a step is delayed by the swing, in ticks: every second
     /// step by up to a third of a step.
+    #[cfg(test)]
     fn shift(&self, step: u32) -> f64 {
         if step % 2 == 1 {
             self.swing as f64 * self.step_ticks() as f64 / 3.0
@@ -172,7 +371,7 @@ impl Sequencer {
     }
 
     /// Queues every hit whose timeline sample lies in the block's span,
-    /// on the frame it sounds at.
+    /// on the frame it sounds at. Only reads the patterns' hit tables.
     fn queue_hits(&mut self, ctx: &BlockContext) {
         let (tempo, position, sample_rate) = (ctx.tempo, ctx.position, ctx.sample_rate);
         let end = position + ctx.span;
@@ -180,45 +379,47 @@ impl Sequencer {
         let t1 = tempo.samples_to_ticks(end, sample_rate);
         for placement in self.score.iter() {
             let pattern = &placement.pattern;
-            let step = pattern.step_ticks();
-            let cycle = pattern.ticks();
-            if step == 0 || cycle == 0 {
+            let cycle = pattern.cycle();
+            let hits = pattern.hits();
+            if cycle == 0 || hits.is_empty() {
                 continue;
             }
-            // A step base more than a step before the block cannot land
-            // in it even swung; one past the block's end cannot either.
-            if (placement.end() as f64) < t0 - step as f64 || (placement.start as f64) > t1 {
+            // A hit sounds at most a step plus humanize and a flam from
+            // its own step; nothing further from the block can land in it.
+            let reach = pattern.step_ticks() as f64 + HUMANIZE_TICKS + FLAM_TICKS;
+            if (placement.end() as f64) < t0 - reach || (placement.start as f64) > t1 + reach {
                 continue;
             }
-            // Where step 0 of the pattern sits on the absolute tick line.
-            let origin = placement.start as i64 - (placement.offset % cycle) as i64;
-            let first = ((t0 - origin as f64) / step as f64).floor() as i64 - 1;
-            let mut k = first.max(0) as u64;
-            loop {
-                let base = origin + (k * step) as i64;
-                if base as f64 > t1 + step as f64 {
-                    break;
-                }
-                if base >= 0 && (base as u64) >= placement.start && (base as u64) < placement.end()
-                {
-                    let in_pattern = (k % pattern.length.max(1) as u64) as u32;
-                    let tick = base as f64 + pattern.shift(in_pattern);
-                    let sample = tempo.ticks_to_samples(tick, sample_rate);
-                    if sample >= position && sample < end {
-                        let frame = ctx.frame_of(sample);
-                        for (pad, steps) in &pattern.rows {
-                            let velocity = steps.get(in_pattern as usize).copied().unwrap_or(0.0);
-                            if velocity > 0.0 {
-                                if self.sampler.trigger(*pad, velocity, frame) {
-                                    self.stats.hits.fetch_add(1, Ordering::Relaxed);
-                                } else {
-                                    self.stats.dropped.fetch_add(1, Ordering::Relaxed);
-                                }
-                            }
-                        }
+            // Where the table's first tick sits on the timeline.
+            let origin = placement.start as f64 - (placement.offset % cycle) as f64;
+            let c = cycle as f64;
+            let first = ((t0 - reach - origin) / c).floor().max(0.0) as u64;
+            let last = ((t1 + reach - origin) / c).floor().max(0.0) as u64;
+            for n in first..=last {
+                let at = origin + n as f64 * c;
+                let from = hits.partition_point(|h| at + h.tick < t0);
+                for hit in &hits[from..] {
+                    let tick = at + hit.tick;
+                    if tick >= t1 {
+                        break;
+                    }
+                    let base = at + hit.base;
+                    if base < placement.start as f64 || base >= placement.end() as f64 {
+                        continue;
+                    }
+                    let sample = tempo.ticks_to_samples(tick.max(0.0), sample_rate);
+                    if sample < position || sample >= end {
+                        continue;
+                    }
+                    if self
+                        .sampler
+                        .trigger(hit.pad, hit.velocity, ctx.frame_of(sample))
+                    {
+                        self.stats.hits.fetch_add(1, Ordering::Relaxed);
+                    } else {
+                        self.stats.dropped.fetch_add(1, Ordering::Relaxed);
                     }
                 }
-                k += 1;
             }
         }
     }
@@ -336,12 +537,12 @@ mod tests {
         kick[8] = 1.0;
         snare[4] = 1.0;
         snare[12] = 1.0;
-        Arc::new(PatternData {
-            steps_per_beat: 4,
-            length: 16,
+        Arc::new(PatternData::plain(
+            4,
+            16,
             swing,
-            rows: vec![(0, kick), (1, snare)],
-        })
+            vec![(0, kick), (1, snare)],
+        ))
     }
 
     fn runtime_with_sequencer() -> (Runtime, Controller, SequencerHandle) {
@@ -423,12 +624,7 @@ mod tests {
         for (i, v) in hats.iter_mut().enumerate() {
             *v = if i % 2 == 0 { 1.0 } else { 0.5 };
         }
-        let pattern = Arc::new(PatternData {
-            steps_per_beat: 4,
-            length: 16,
-            swing: 0.5,
-            rows: vec![(0, hats)],
-        });
+        let pattern = Arc::new(PatternData::plain(4, 16, 0.5, vec![(0, hats)]));
         handle.set_score(vec![Placement::forever(pattern)]);
         controller.transport_mut().play();
         let out = render(&mut runtime, 96_000);
@@ -512,6 +708,7 @@ mod tests {
         controller.transport_mut().locate(0);
         let mut only_snare = (*rock(0.0)).clone();
         only_snare.rows.remove(0);
+        let only_snare = only_snare.built();
         handle.set_score(vec![Placement::forever(Arc::new(only_snare))]);
         let out = render(&mut runtime, 96_000);
         assert_eq!(hits(&out), vec![(24_000, 0.5), (72_000, 0.5)]);
@@ -531,6 +728,152 @@ mod tests {
         assert!(handle.score().is_empty(), "a refused score is not kept");
     }
 
+    /// One hit on the first step of a one-beat row, with a feel.
+    fn felt(feel: RowFeel, humanize: Humanize, seed: u32) -> PatternData {
+        PatternData {
+            steps_per_beat: 4,
+            length: 4,
+            swing: 0.0,
+            rows: vec![(0, vec![1.0, 0.0, 0.0, 0.0])],
+            feel: vec![feel],
+            humanize,
+            seed,
+            ..PatternData::default()
+        }
+        .built()
+    }
+
+    fn mark(step: u32) -> Mark {
+        Mark {
+            step,
+            chance: 1.0,
+            ratchet: 1,
+            flam: false,
+        }
+    }
+
+    #[test]
+    fn ratchets_flams_and_chance_are_in_the_table() {
+        let ratchet = felt(
+            RowFeel {
+                marks: vec![Mark {
+                    ratchet: 3,
+                    ..mark(0)
+                }],
+                ..RowFeel::default()
+            },
+            Humanize::default(),
+            0,
+        );
+        let ticks: Vec<f64> = ratchet.hits().iter().map(|h| h.tick).collect();
+        assert_eq!(ticks, vec![0.0, 80.0, 160.0], "three in one sixteenth");
+        assert!(ratchet.hits()[2].velocity < ratchet.hits()[0].velocity);
+
+        let flam = felt(
+            RowFeel {
+                marks: vec![Mark {
+                    flam: true,
+                    ..mark(0)
+                }],
+                ..RowFeel::default()
+            },
+            Humanize::default(),
+            0,
+        );
+        let hits = flam.hits();
+        assert_eq!(hits.len(), 2);
+        assert_eq!(
+            (hits[0].tick, hits[1].tick),
+            (-FLAM_TICKS, 0.0),
+            "grace first"
+        );
+        assert!((hits[0].velocity - FLAM_VELOCITY).abs() < 1e-6);
+        assert_eq!(hits[0].base, 0.0, "the grace belongs to its step");
+
+        // A half chance plays on some of the eight passes, never none or all.
+        let half = felt(
+            RowFeel {
+                marks: vec![Mark {
+                    chance: 0.5,
+                    ..mark(0)
+                }],
+                ..RowFeel::default()
+            },
+            Humanize::default(),
+            3,
+        );
+        assert_eq!(half.cycle(), 960 * u64::from(PASSES));
+        assert!(
+            (1..PASSES as usize).contains(&half.hits().len()),
+            "{}",
+            half.hits().len()
+        );
+        let never = felt(
+            RowFeel {
+                marks: vec![Mark {
+                    chance: 0.0,
+                    ..mark(0)
+                }],
+                ..RowFeel::default()
+            },
+            Humanize::default(),
+            3,
+        );
+        assert!(never.hits().is_empty());
+    }
+
+    #[test]
+    fn humanize_is_the_same_every_build_and_differs_by_pass_and_seed() {
+        let human = Humanize {
+            timing: 1.0,
+            velocity: 1.0,
+        };
+        let a = felt(RowFeel::default(), human, 1);
+        assert_eq!(a, felt(RowFeel::default(), human, 1), "deterministic");
+        assert_ne!(
+            a.hits(),
+            felt(RowFeel::default(), human, 2).hits(),
+            "seeded"
+        );
+        let offsets: Vec<f64> = a.hits().iter().map(|h| h.tick - h.base).collect();
+        assert_eq!(offsets.len(), PASSES as usize);
+        assert!(offsets.iter().all(|o| o.abs() <= HUMANIZE_TICKS));
+        assert!(offsets.windows(2).any(|w| w[0] != w[1]), "passes differ");
+        assert!(a
+            .hits()
+            .iter()
+            .all(|h| (1.0 - HUMANIZE_VELOCITY..=1.0).contains(&h.velocity)));
+        // A row's own humanize wins over the pattern's.
+        let row_off = felt(
+            RowFeel {
+                humanize: Some(Humanize::default()),
+                ..RowFeel::default()
+            },
+            human,
+            1,
+        );
+        assert!(row_off.hits().iter().all(|h| h.tick == h.base));
+    }
+
+    #[test]
+    fn a_rows_swing_overrides_the_patterns() {
+        let mut p = PatternData {
+            steps_per_beat: 4,
+            length: 4,
+            swing: 0.0,
+            rows: vec![(0, vec![0.0, 1.0, 0.0, 0.0])],
+            feel: vec![RowFeel {
+                swing: Some(1.0),
+                ..RowFeel::default()
+            }],
+            ..PatternData::default()
+        }
+        .built();
+        assert_eq!(p.hits()[0].tick, 240.0 + 80.0);
+        p.feel.clear();
+        assert_eq!(p.built().hits()[0].tick, 240.0);
+    }
+
     #[test]
     fn pattern_arithmetic() {
         let p = rock(1.0);
@@ -539,12 +882,7 @@ mod tests {
         assert_eq!(p.shift(0), 0.0);
         assert_eq!(p.shift(1), 80.0);
         assert_eq!(p.shift(2), 0.0);
-        let triplets = PatternData {
-            steps_per_beat: 3,
-            length: 12,
-            swing: 0.0,
-            rows: Vec::new(),
-        };
+        let triplets = PatternData::plain(3, 12, 0.0, Vec::new());
         assert_eq!(triplets.step_ticks(), 320);
         assert_eq!(triplets.ticks(), 3840);
         assert_eq!(Placement::forever(p).end(), u64::MAX);

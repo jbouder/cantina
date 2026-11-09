@@ -198,6 +198,34 @@ when the groove is added to a project:
   does not have are kept, so the pattern still plays them on another kit,
   and a notice names them.
 
+## Feel
+
+Grid-perfect drums sound programmed. Under the pattern controls:
+
+- **Humanize**, **Timing** and **Velocity** move every hit a little off
+  the grid (up to about a sixty-fourth note) and a little softer or
+  harder (up to 30%). Each pass of the pattern is slightly different, and
+  the same every time it plays, so a song sounds the same on every play
+  and every export. **New take** rolls it again.
+- For the row the focus is on, **Own swing** gives it a swing of its own,
+  hats swung with a straight kick for instance, and **Own humanize** its
+  own amounts.
+
+On a step (or a selection), from the keyboard:
+
+- **C** steps its **chance** through 100, 75, 50 and 25%: on each pass
+  the hit plays or not, the same way every time. The cell shows the
+  chance and is dimmer.
+- **R** steps a **ratchet** through 1 to 4 hits in the step, for rolls and
+  hat stutters; the cell shows ×2 to ×4.
+- **F** turns a **flam** on or off: a soft grace note just before the
+  hit; the cell shows f.
+
+Every change is one step of **Undo**, and travels with the step when you
+copy, shift or duplicate it.
+
+![Humanize set, a flam, a ratchet and two chances on the grid](../../../assets/guides/feel.png)
+
 ## Fills
 
 A loop that never changes sounds like a loop. Any pattern clip can play a

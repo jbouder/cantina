@@ -122,9 +122,11 @@ A step sequencer pattern as a file of its own: a grid of pads against steps, wit
 | Field | Required | Takes | What it is |
 | --- | --- | --- | --- |
 | `groove` |  | `Groove` |  |
+| `humanize` |  | `Humanize` | How far the hits stray from the grid and from their velocity, for the whole pattern; a row can have its own. |
 | `length` | yes | integer (≥ 1, ≤ 128) | Steps in the pattern, which loops after the last. |
 | `name` | yes | string (not empty) | Shown in the pattern picker. |
 | `rows` |  | array of `PatternRow` | One row per pad that has hits. Default `[]`. |
+| `seed` |  | integer (≥ 0) | Seeds the humanizing and the chance of each step, so the pattern plays the same way every time; change it for another take. |
 | `stepsPerBeat` | yes | `1`, `2`, `3`, `4`, `6`, `8` | Steps per quarter note: 2 for eighths, 4 for sixteenths, 8 for thirty-seconds; 3 and 6 for triplets. |
 | `swing` | yes | number (≥ 0, ≤ 1) | 0 is straight; 1 delays every second step by a third of a step, a triplet feel. |
 
@@ -142,6 +144,15 @@ What a stock groove is for: its genre, the section of a song, its time signature
 | `tempo` | yes | `TempoRange` | The tempos it suits, in beats per minute, 20 to 400, the slower first. |
 | `timeSignature` | yes | `Meter` | Its time signature; the pattern is a whole number of bars of it. |
 
+### `Humanize`
+
+How far hits stray, like a drummer's hands: up to ±48 ticks (a sixty-fourth of a bar of 4/4) late or early at a `timing` of 1, and up to ±30% in velocity at a `velocity` of 1. Each pass of a pattern is a little different, and the same every time it plays.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `timing` |  | number (≥ 0, ≤ 1) | 0 is on the grid, 1 the most. Default `0`. |
+| `velocity` |  | number (≥ 0, ≤ 1) | 0 is as written, 1 the most. Default `0`. |
+
 ### `Meter`
 
 A time signature, as a groove states it.
@@ -157,8 +168,22 @@ One pad's steps. `steps` holds exactly the pattern's length of velocities from 0
 
 | Field | Required | Takes | What it is |
 | --- | --- | --- | --- |
+| `humanize` |  | `Humanize` | This row's own humanizing, instead of the pattern's. |
+| `marks` |  | array of `StepMark` | Steps that play by chance, ratchet or flam, in step order. |
 | `pad` | yes | string (not empty) | The pad's id in the kit format. |
 | `steps` | yes | array of number (≥ 0, ≤ 1) | Velocity per step, 0 for no hit. |
+| `swing` |  | number (≥ 0, ≤ 1) | This row's own swing, 0 to 1, instead of the pattern's. |
+
+### `StepMark`
+
+What a step does beyond its velocity: whether it plays, how many times, and with a grace note before it.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `chance` |  | number (≥ 0, ≤ 1) | The chance it plays on a pass, 0 to 1. |
+| `flam` |  | boolean | A soft grace note just before it. |
+| `ratchet` |  | integer (≥ 1, ≤ 4) | Hits in the step, evenly spaced: 1, or 2 to 4 for a ratchet. |
+| `step` | yes | integer (≥ 0) | The step, from 0. |
 
 ### `TempoRange`
 
@@ -252,7 +277,7 @@ A whole project. Saved as `project.json` inside a `Name.cantina/` directory next
 | `sampleRate` | yes | number (> 0) | The rate every file in `audio/` is at, and the rate the engine must run at to play them. |
 | `tempo` |  | `Tempo` | Tempo and time signature. Default `{"bpm":120,"denominator":4,"numerator":4}`. |
 | `tracks` |  | array of `Track` | Tracks, top to bottom. Default `[]`. |
-| `version` | yes | exactly `8` | The format version, `FORMAT_VERSION` when written; older files are upgraded on load. |
+| `version` | yes | exactly `9` | The format version, `FORMAT_VERSION` when written; older files are upgraded on load. |
 
 Where it goes: `project.json` in a `Name.cantina/` folder. Schema: `https://cantina-docs.vibeproject.workers.dev/schemas/project.schema.json`.
 
@@ -301,6 +326,15 @@ A note as transcription heard it: a pitch and a time in seconds, not yet on a be
 | `pitch` | yes | integer (≥ 0, ≤ 127) | The MIDI note it started on. |
 | `velocity` | yes | number (≥ 0, ≤ 1) | How loud it was, 0 to 1. |
 
+### `Humanize`
+
+How far hits stray, like a drummer's hands: up to ±48 ticks (a sixty-fourth of a bar of 4/4) late or early at a `timing` of 1, and up to ±30% in velocity at a `velocity` of 1. Each pass of a pattern is a little different, and the same every time it plays.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `timing` |  | number (≥ 0, ≤ 1) | 0 is on the grid, 1 the most. Default `0`. |
+| `velocity` |  | number (≥ 0, ≤ 1) | 0 is as written, 1 the most. Default `0`. |
+
 ### `LoopRegion`
 
 A region of the timeline, in samples, that playback can loop over.
@@ -317,10 +351,12 @@ A step sequencer pattern: a grid of pads against steps, with a velocity per cell
 
 | Field | Required | Takes | What it is |
 | --- | --- | --- | --- |
+| `humanize` |  | `Humanize` | How far the hits stray from the grid and from their velocity, for the whole pattern; a row can have its own. |
 | `id` | yes | `PatternId` | Unique within the project. |
 | `length` | yes | integer (≥ 1, ≤ 128) | Steps in the pattern, which loops after the last. |
 | `name` | yes | string (not empty) | Shown in the pattern picker. |
 | `rows` |  | array of `PatternRow` | One row per pad that has hits. Default `[]`. |
+| `seed` |  | integer (≥ 0) | Seeds the humanizing and the chance of each step, so the pattern plays the same way every time; change it for another take. |
 | `stepsPerBeat` | yes | `1`, `2`, `3`, `4`, `6`, `8` | Steps per quarter note: 2 for eighths, 4 for sixteenths, 8 for thirty-seconds; 3 and 6 for triplets. |
 | `swing` | yes | number (≥ 0, ≤ 1) | 0 is straight; 1 delays every second step by a third of a step, a triplet feel. |
 
@@ -343,8 +379,11 @@ One pad's steps. `steps` holds exactly the pattern's length of velocities from 0
 
 | Field | Required | Takes | What it is |
 | --- | --- | --- | --- |
+| `humanize` |  | `Humanize` | This row's own humanizing, instead of the pattern's. |
+| `marks` |  | array of `StepMark` | Steps that play by chance, ratchet or flam, in step order. |
 | `pad` | yes | string (not empty) | The pad's id in the kit format. |
 | `steps` | yes | array of number (≥ 0, ≤ 1) | Velocity per step, 0 for no hit. |
+| `swing` |  | number (≥ 0, ≤ 1) | This row's own swing, 0 to 1, instead of the pattern's. |
 
 ### `Pedal`
 
@@ -356,6 +395,17 @@ A pedal in a chain: the spec the engine builds it from (a stock name, `au:…` o
 | `id` | yes | `PedalId` | Unique within the project. |
 | `spec` | yes | string | What the engine builds: a stock name, `au:…` or `clap:…`. |
 | `values` | yes | array of number | One value per parameter, in the processor's order. |
+
+### `StepMark`
+
+What a step does beyond its velocity: whether it plays, how many times, and with a grace note before it.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `chance` |  | number (≥ 0, ≤ 1) | The chance it plays on a pass, 0 to 1. |
+| `flam` |  | boolean | A soft grace note just before it. |
+| `ratchet` |  | integer (≥ 1, ≤ 4) | Hits in the step, evenly spaced: 1, or 2 to 4 for a ratchet. |
+| `step` | yes | integer (≥ 0) | The step, from 0. |
 
 ### `Strip`
 

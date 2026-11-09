@@ -238,23 +238,26 @@ pub fn render_pattern(
     let (_, loaded) = cantina_engine::kit::load(kit_dir)?;
     let loaded = Arc::new(loaded);
     let mut missing = Vec::new();
-    let rows = pattern
-        .rows
-        .iter()
-        .filter_map(|r| match loaded.pad_index(&r.pad) {
-            Some(i) => Some((i, r.steps.clone())),
-            None => {
-                missing.push(r.pad.clone());
-                None
+    let mut rows = Vec::new();
+    let mut feel = Vec::new();
+    for r in &pattern.rows {
+        match loaded.pad_index(&r.pad) {
+            Some(i) => {
+                rows.push((i, r.steps.clone()));
+                feel.push(row_feel(r));
             }
-        })
-        .collect();
-    let data = Arc::new(PatternData {
-        steps_per_beat: pattern.steps_per_beat as u32,
-        length: pattern.length as u32,
-        swing: pattern.swing,
+            None => missing.push(r.pad.clone()),
+        }
+    }
+    let data = Arc::new(PatternData::with_feel(
+        pattern.steps_per_beat as u32,
+        pattern.length as u32,
+        pattern.swing,
         rows,
-    });
+        feel,
+        pattern_humanize(pattern),
+        pattern.seed,
+    ));
     let ticks = data.ticks() * passes.max(1) as u64;
     let (mut sequencer, mut handle) = Sequencer::new(Arc::clone(&loaded));
     if !handle.set_score(vec![Placement {
@@ -302,4 +305,36 @@ pub fn read_wav(path: &Path) -> Result<(f64, Vec<Vec<f32>>)> {
 /// Writes channels as a 32-bit float WAV.
 pub fn write_wav(path: &Path, sample_rate: f64, channels: &[Vec<f32>]) -> Result<()> {
     cantina_engine::wav::write(path, sample_rate, channels)
+}
+
+/// A row's feel as the sequencer takes it.
+fn row_feel(row: &cantina_project::PatternRow) -> cantina_engine::sequencer::RowFeel {
+    cantina_engine::sequencer::RowFeel {
+        swing: row.swing,
+        humanize: row.humanize.map(|h| cantina_engine::sequencer::Humanize {
+            timing: h.timing,
+            velocity: h.velocity,
+        }),
+        marks: row
+            .marks
+            .iter()
+            .map(|m| cantina_engine::sequencer::Mark {
+                step: u32::from(m.step),
+                chance: m.chance,
+                ratchet: m.ratchet,
+                flam: m.flam,
+            })
+            .collect(),
+    }
+}
+
+/// A pattern's own humanize as the sequencer takes it.
+fn pattern_humanize(pattern: &Pattern) -> cantina_engine::sequencer::Humanize {
+    pattern
+        .humanize
+        .map(|h| cantina_engine::sequencer::Humanize {
+            timing: h.timing,
+            velocity: h.velocity,
+        })
+        .unwrap_or_default()
 }

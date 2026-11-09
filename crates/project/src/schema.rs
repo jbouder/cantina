@@ -178,6 +178,26 @@ fn limit_row(defs: &mut Value) {
     let row = &mut defs["PatternRow"]["properties"];
     row["pad"]["minLength"] = json!(1);
     row["steps"]["items"] = json!({ "type": "number", "minimum": 0, "maximum": 1 });
+    // Feel: amounts from 0 to 1, a ratchet of 1 to 4.
+    if let Some(swing) = row.get_mut("swing") {
+        swing["minimum"] = json!(0);
+        swing["maximum"] = json!(1);
+    }
+    for (def, fields) in [
+        ("Humanize", &["timing", "velocity"][..]),
+        ("StepMark", &["chance"][..]),
+    ] {
+        for f in fields {
+            if let Some(p) = defs[def]["properties"].get_mut(*f) {
+                p["minimum"] = json!(0);
+                p["maximum"] = json!(1);
+            }
+        }
+    }
+    if let Some(r) = defs["StepMark"]["properties"].get_mut("ratchet") {
+        r["minimum"] = json!(1);
+        r["maximum"] = json!(4);
+    }
 }
 
 /// Descriptions come from doc comments: one line each, without rustdoc's
@@ -280,10 +300,10 @@ mod tests {
         let recipes = files(&root().join("recipes"), ".recipe.json");
         assert!(!recipes.is_empty(), "no stock kit recipes found");
         recipes.iter().for_each(|r| assert_valid(&recipe, r));
-        let v8 = root().join("crates/project/tests/fixtures/v8.json");
-        assert_valid(&project_s, &v8);
+        let v9 = root().join("crates/project/tests/fixtures/v9.json");
+        assert_valid(&project_s, &v9);
         // Each pattern in a project, without its id, is a pattern file.
-        let project: Value = serde_json::from_str(&std::fs::read_to_string(v8).unwrap()).unwrap();
+        let project: Value = serde_json::from_str(&std::fs::read_to_string(v9).unwrap()).unwrap();
         for mut p in project["patterns"].as_array().unwrap().clone() {
             p.as_object_mut().unwrap().remove("id");
             assert!(pattern_s.is_valid(&p), "{p}");
@@ -352,9 +372,9 @@ mod tests {
 
     #[test]
     fn schemas_files_that_name_their_schema_still_load() {
-        let text = std::fs::read_to_string(root().join("crates/project/tests/fixtures/v8.json"))
+        let text = std::fs::read_to_string(root().join("crates/project/tests/fixtures/v9.json"))
             .unwrap()
             .replacen('{', r#"{ "$schema": "x","#, 1);
-        crate::load_str(&text, Path::new("v8.json")).unwrap();
+        crate::load_str(&text, Path::new("v9.json")).unwrap();
     }
 }

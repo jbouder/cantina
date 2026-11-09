@@ -26,9 +26,9 @@ pub use fill::generate_fill;
 pub use history::{History, UNDO_LIMIT};
 pub use journal::{replay, Entry as JournalEntry, Journal, Read as JournalRead, JOURNAL_FILE};
 pub use model::{
-    Clip, ClipId, Fill, Id, LoopRegion, Pattern, PatternClip, PatternClipId, PatternId, PatternRow,
-    Pedal, PedalId, Project, Strip, Tempo, Track, TrackId, DRUM_GAIN_DB, FORMAT_VERSION,
-    MAX_PATTERN_STEPS, PPQ,
+    Clip, ClipId, Fill, Humanize, Id, LoopRegion, Pattern, PatternClip, PatternClipId, PatternId,
+    PatternRow, Pedal, PedalId, Project, StepMark, Strip, Tempo, Track, TrackId, DRUM_GAIN_DB,
+    FORMAT_VERSION, MAX_PATTERN_STEPS, PPQ,
 };
 pub use pattern_file::{
     groove_from_json, imported, pattern_file_name, pattern_from_json, pattern_to_json, Feel,

@@ -229,6 +229,7 @@ mod tests {
         p.rows.push(PatternRow {
             pad: "kick".into(),
             steps: vec![1.0, 0.0, 0.5, 0.0],
+            ..Default::default()
         });
         p
     }

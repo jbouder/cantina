@@ -233,11 +233,40 @@ export interface PatternInfo {
   swing: number;
   /** One row per pad that has hits; `steps` holds `length` velocities. */
   rows: PatternRow[];
+  /** How far hits stray, for rows without their own. Absent for on the grid. */
+  humanize?: Humanize;
+  /** Seeds humanize and chance; absent is 0. */
+  seed?: number;
 }
 
 export interface PatternRow {
   pad: string;
   steps: number[];
+  /** This row's own swing, instead of the pattern's. */
+  swing?: number;
+  /** This row's own humanize, instead of the pattern's. */
+  humanize?: Humanize;
+  /** Steps that play by chance, ratchet or flam, in step order. */
+  marks?: StepMark[];
+}
+
+/** How far hits stray: 0 to 1. Mirrors `Humanize` in cantina-project. */
+export interface Humanize {
+  /** Up to 48 ticks early or late at 1. */
+  timing: number;
+  /** Up to 30% softer or harder at 1. */
+  velocity: number;
+}
+
+/** What a step does beyond its velocity. Mirrors `StepMark`; fields left out are plain. */
+export interface StepMark {
+  step: number;
+  /** 0 to 1; absent is 1. */
+  chance?: number;
+  /** 1 to 4 hits in the step; absent is 1. */
+  ratchet?: number;
+  /** A grace note just before. */
+  flam?: boolean;
 }
 
 /** Steps per beat a pattern may use, with their labels. */
@@ -1278,7 +1307,7 @@ function mockStatus(): EngineStatus {
       loop: mock.project.loop ? { ...mock.project.loop } : null,
       patterns: mock.project.patterns.map((p) => ({
         ...p,
-        rows: p.rows.map((r) => ({ pad: r.pad, steps: [...r.steps] })),
+        rows: p.rows.map((r) => structuredClone(r)),
       })),
       master: { ...mock.project.master },
     },
@@ -3086,6 +3115,29 @@ function openMeterChannel() {
   let t = 0;
   let sequence = 0;
   if (mockParams?.has("position")) mockTransport.position = Number(mockParams.get("position"));
+  // `?feel` humanizes the first pattern and marks a few steps, for screenshots.
+  if (mockParams?.has("feel")) {
+    const [p] = mock.project.patterns;
+    if (p) {
+      p.humanize = { timing: 0.35, velocity: 0.5 };
+      p.seed = 7;
+      const at = (pad: string) => p.rows.find((r) => r.pad === pad);
+      const hats = at("hh-closed");
+      if (hats)
+        hats.marks = [
+          { step: 6, chance: 0.5 },
+          { step: 10, chance: 0.75 },
+        ];
+      const snare = at("snare");
+      if (snare)
+        snare.marks = [
+          { step: 4, flam: true },
+          { step: 15, ratchet: 3 },
+        ];
+      const kick = at("kick");
+      if (kick) kick.swing = 0.6;
+    }
+  }
   // `?fill` has the drum track's first clip play a fill, for screenshots.
   if (mockParams?.has("fill")) {
     const drums = mock.project.tracks.find((t) => t.kit);

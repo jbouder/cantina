@@ -76,6 +76,7 @@ pub fn generate_fill(groove: &Pattern, beats: u32, pads: &[&str], seed: u64) -> 
         rows.push(PatternRow {
             pad: row.pad.clone(),
             steps,
+            ..Default::default()
         });
     }
     let fill_beats = if beats >= 2 {
@@ -114,6 +115,7 @@ pub fn generate_fill(groove: &Pattern, beats: u32, pads: &[&str], seed: u64) -> 
                 rows.push(PatternRow {
                     pad: pad.to_string(),
                     steps: vec![0.0; length],
+                    ..Default::default()
                 });
                 rows.len() - 1
             }
@@ -156,6 +158,8 @@ pub fn generate_fill(groove: &Pattern, beats: u32, pads: &[&str], seed: u64) -> 
         length: length as u16,
         swing: groove.swing,
         rows,
+        humanize: groove.humanize,
+        seed: groove.seed,
     }
 }
 
@@ -170,6 +174,7 @@ mod tests {
             steps: (0..16)
                 .map(|s| if hits.contains(&s) { 1.0 } else { 0.0 })
                 .collect(),
+            ..Default::default()
         };
         p.rows = vec![
             row("kick", &[0, 8, 10]),
