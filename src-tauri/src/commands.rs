@@ -571,6 +571,29 @@ pub fn drum_rows_set(
     engine.lock().drum_rows_set(track, rows).map_err(fail)
 }
 
+/// Sets, or with `null` removes, a pattern clip's fill.
+#[tauri::command]
+pub fn pattern_clip_set_fill(
+    engine: State<'_, EngineState>,
+    id: u64,
+    fill: Option<cantina_project::Fill>,
+) -> Result<EngineStatus, String> {
+    engine.lock().pattern_clip_set_fill(id, fill).map_err(fail)
+}
+
+/// Writes a fill for a pattern clip from its pattern and has it play it.
+#[tauri::command]
+pub fn pattern_clip_generate_fill(
+    engine: State<'_, EngineState>,
+    id: u64,
+    seed: u64,
+) -> Result<EngineStatus, String> {
+    engine
+        .lock()
+        .pattern_clip_generate_fill(id, seed)
+        .map_err(fail)
+}
+
 /// Sets the compensation above which the UI warns, in milliseconds.
 #[tauri::command]
 pub fn latency_warning_set(engine: State<'_, EngineState>, ms: f32) -> EngineStatus {

@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::model::{
-    Clip, ClipId, LoopRegion, Pattern, PatternClip, PatternClipId, PatternId, PatternRow, Pedal,
-    PedalId, Project, Strip, Tempo, Track, TrackId, MAX_PATTERN_STEPS,
+    Clip, ClipId, Fill, LoopRegion, Pattern, PatternClip, PatternClipId, PatternId, PatternRow,
+    Pedal, PedalId, Project, Strip, Tempo, Track, TrackId, MAX_PATTERN_STEPS,
 };
 use crate::tab::{Tab, TabNote};
 
@@ -347,6 +347,13 @@ pub enum Command {
         /// Ticks it plays.
         length: u64,
     },
+    /// Sets or, with `None`, removes a pattern clip's fill.
+    SetPatternClipFill {
+        /// The clip.
+        id: PatternClipId,
+        /// When it plays a fill, and which pattern.
+        fill: Option<Fill>,
+    },
     /// Cuts a pattern clip at tick `at`, strictly inside it. The right
     /// part becomes a new clip with `new_id`.
     SplitPatternClip {
@@ -431,6 +438,8 @@ impl Command {
             Command::MovePatternClip { .. } => "move pattern clip".into(),
             Command::TrimPatternClip { .. } => "trim pattern clip".into(),
             Command::SplitPatternClip { .. } => "split pattern clip".into(),
+            Command::SetPatternClipFill { fill: Some(_), .. } => "set fill".into(),
+            Command::SetPatternClipFill { fill: None, .. } => "remove fill".into(),
             Command::BounceTrack { track } => format!("bounce {}", track.name),
             Command::Batch { commands } => commands
                 .first()
@@ -994,6 +1003,21 @@ impl Command {
                     start: was,
                 })
             }
+            Command::SetPatternClipFill { id, fill } => {
+                if let Some(f) = fill {
+                    pattern_index(project, f.pattern)?;
+                    if f.every > 64 {
+                        return Err(CommandError::Invalid(format!(
+                            "a fill every {} bars; at most 64",
+                            f.every
+                        )));
+                    }
+                }
+                let (track, index) = pattern_clip_index(project, *id)?;
+                let clip = &mut project.tracks[track].pattern_clips[index];
+                let was = std::mem::replace(&mut clip.fill, fill.clone());
+                Ok(Command::SetPatternClipFill { id: *id, fill: was })
+            }
             Command::TrimPatternClip {
                 id,
                 start,
@@ -1046,6 +1070,7 @@ impl Command {
                     start: *at,
                     offset: clip.offset + left,
                     length: clip.length - left,
+                    fill: clip.fill.clone(),
                 };
                 clip.length = left;
                 clips.insert(index + 1, right);
@@ -2060,6 +2085,68 @@ mod tests {
     }
 
     #[test]
+    fn a_pattern_clip_plays_a_fill_set_and_undone_as_one_edit() {
+        let mut p = project();
+        p.tracks.push(Track::drums(TrackId(7), "Drums", "acoustic"));
+        p.patterns.push(Pattern::new(PatternId(9), "Beat"));
+        p.patterns.push(Pattern::new(PatternId(11), "Beat fill"));
+        p.tracks[2].pattern_clips.push(PatternClip {
+            id: PatternClipId(10),
+            pattern: PatternId(9),
+            start: 0,
+            offset: 0,
+            length: 3840 * 8,
+            fill: None,
+        });
+        let fill = Fill {
+            pattern: PatternId(11),
+            every: 4,
+            at_end: true,
+        };
+        let set = Command::SetPatternClipFill {
+            id: PatternClipId(10),
+            fill: Some(fill.clone()),
+        };
+        assert_eq!(set.label(), "set fill");
+        let filled = round_trip(&p, set);
+        assert_eq!(filled.tracks[2].pattern_clips[0].fill, Some(fill.clone()));
+        // A fill keeps its pattern on the timeline.
+        assert!(Command::RemovePattern { id: PatternId(11) }
+            .apply(&mut filled.clone())
+            .is_err());
+        // A fill pattern that does not exist, or too rare a fill, is refused.
+        for bad in [
+            Fill {
+                pattern: PatternId(99),
+                ..fill.clone()
+            },
+            Fill {
+                every: 65,
+                ..fill.clone()
+            },
+        ] {
+            let mut q = p.clone();
+            assert!(Command::SetPatternClipFill {
+                id: PatternClipId(10),
+                fill: Some(bad)
+            }
+            .apply(&mut q)
+            .is_err());
+            assert_eq!(q, p);
+        }
+        // Bars 4 and 8 of eight: every fourth, and the last.
+        let bars: Vec<u64> = (0..8).filter(|&b| fill.plays_at(b, 8)).collect();
+        assert_eq!(bars, vec![3, 7]);
+        let end_only = Fill { every: 0, ..fill };
+        assert_eq!(
+            (0..5)
+                .filter(|&b| end_only.plays_at(b, 5))
+                .collect::<Vec<_>>(),
+            vec![4]
+        );
+    }
+
+    #[test]
     fn pattern_clips() {
         let mut p = project();
         p.tracks.push(Track::drums(TrackId(7), "Drums", "acoustic"));
@@ -2072,6 +2159,7 @@ mod tests {
             start,
             offset: 0,
             length,
+            fill: None,
         };
         let placed = round_trip(
             &p,

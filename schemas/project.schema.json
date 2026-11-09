@@ -81,6 +81,32 @@
       "minimum": 0,
       "type": "integer"
     },
+    "Fill": {
+      "description": "When a pattern clip plays a fill: every few bars, at its end, or both. Bars count from the clip's start, at the project's time signature; a fill bar plays the first bar of the fill pattern.",
+      "properties": {
+        "atEnd": {
+          "default": false,
+          "description": "The clip's last bar is a fill, leading into what comes next.",
+          "type": "boolean"
+        },
+        "every": {
+          "default": 0,
+          "description": "The last bar of every this many is a fill; 0 for none. At most 64.",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "pattern": {
+          "$ref": "#/$defs/PatternId",
+          "description": "The pattern played on fill bars."
+        }
+      },
+      "required": [
+        "pattern"
+      ],
+      "type": "object"
+    },
     "HeardNote": {
       "description": "A note as transcription heard it: a pitch and a time in seconds, not yet on a beat or a string.",
       "properties": {
@@ -230,6 +256,17 @@
     "PatternClip": {
       "description": "A pattern placed on a drum track. Positions are in ticks, so the clip follows the tempo: change the tempo and it stays on its bars. The pattern loops inside the clip; `offset` ticks into the pattern play first, so trimming the front keeps the beats where they were.",
       "properties": {
+        "fill": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Fill"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Bars where another pattern plays instead: a fill."
+        },
         "id": {
           "$ref": "#/$defs/PatternClipId",
           "description": "Unique within the project."
@@ -700,7 +737,7 @@
       "type": "array"
     },
     "version": {
-      "const": 7,
+      "const": 8,
       "description": "The format version, `FORMAT_VERSION` when written; older files are upgraded on load.",
       "format": "uint32",
       "minimum": 0,

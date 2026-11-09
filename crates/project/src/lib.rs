@@ -7,6 +7,7 @@
 
 mod command;
 mod file;
+mod fill;
 mod history;
 mod journal;
 mod model;
@@ -21,10 +22,11 @@ pub use file::{
     audio_dir, create_layout, dir_for, list, load, load_str, save, LoadError, SaveError, AUDIO_DIR,
     EXTENSION, PEDALS_DIR, PLUGINS_DIR, PROJECT_FILE,
 };
+pub use fill::generate_fill;
 pub use history::{History, UNDO_LIMIT};
 pub use journal::{replay, Entry as JournalEntry, Journal, Read as JournalRead, JOURNAL_FILE};
 pub use model::{
-    Clip, ClipId, Id, LoopRegion, Pattern, PatternClip, PatternClipId, PatternId, PatternRow,
+    Clip, ClipId, Fill, Id, LoopRegion, Pattern, PatternClip, PatternClipId, PatternId, PatternRow,
     Pedal, PedalId, Project, Strip, Tempo, Track, TrackId, DRUM_GAIN_DB, FORMAT_VERSION,
     MAX_PATTERN_STEPS, PPQ,
 };

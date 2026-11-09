@@ -160,6 +160,32 @@ musical, changing the tempo leaves every clip on its bars; the clips
 only move in the sample timeline. The format went to version 4 with
 them.
 
+A clip may also play a **fill** (version 8):
+
+```json
+{ "id": 8, "pattern": 7, "start": 0, "offset": 0, "length": 30720,
+  "fill": { "pattern": 12, "every": 4, "atEnd": true } }
+```
+
+- **`pattern`** is the pattern played on fill bars; it counts as in use,
+  so it cannot be removed while a clip plays it.
+- **`every`** makes the last bar of every that many a fill (0 for none,
+  at most 64); **`atEnd`** makes the clip's last bar one.
+- Bars count from the clip's start, at the project's time signature. A
+  fill bar plays the fill pattern's first bar; the bars between play the
+  clip's own pattern exactly where they would have, so the groove carries
+  on after the fill instead of starting again. `score_for` cuts the clip
+  into placements accordingly, and `SetPatternClipFill` (with an inverse)
+  sets it.
+- **Generate fill** (`pattern_clip_generate_fill`) runs
+  `cantina_project::generate_fill`: one bar of the clip's pattern on the
+  pads the kit has, whose last one or two beats break into a snare roll,
+  a run down the toms, snare and toms in pairs, or kick-and-snare
+  accents, louder towards the bar line. The seed picks the length, the
+  style and small velocity differences, so the same seed writes the same
+  fill. The result is an ordinary pattern, added and set as the clip's
+  fill in one undoable edit.
+
 - **Place**: in the drum grid, **Place at playhead** puts the chosen
   pattern on the track at the playhead for one pass, or drag the same
   button onto the timeline and drop it on a drum track where it should

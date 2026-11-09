@@ -266,6 +266,9 @@ fn migrate(from: u32, mut value: Value) -> Value {
         // 6 -> 7: tabs. A clip may carry `tab`; a version 6 file has
         // none, so no clip has a tab.
         6 => value,
+        // 7 -> 8: fills. A pattern clip may carry `fill`; a version 7
+        // file has none, so no clip plays a fill.
+        7 => value,
         _ => value,
     }
 }
@@ -520,6 +523,44 @@ mod tests {
         // A clip without a tab writes no field, so old files stay as they were.
         let json = serde_json::to_value(&v6).unwrap();
         assert!(json["tracks"][0]["clips"][0].get("tab").is_none());
+    }
+
+    #[test]
+    fn a_version_8_file_has_a_fill_and_a_version_7_file_does_not() {
+        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+        let v8 = load_str(
+            &fs::read_to_string(fixtures.join("v8.json")).unwrap(),
+            Path::new("v8/project.json"),
+        )
+        .unwrap();
+        let drums = v8.tracks.iter().find(|t| t.is_drums()).unwrap();
+        let fill = drums.pattern_clips[0].fill.as_ref().expect("a fill");
+        assert_eq!((fill.pattern.0, fill.every, fill.at_end), (90, 4, true));
+        let text = serde_json::to_string(&v8).unwrap();
+        assert_eq!(load_str(&text, Path::new("v8/project.json")).unwrap(), v8);
+
+        let v7 = load_str(
+            &fs::read_to_string(fixtures.join("v7.json")).unwrap(),
+            Path::new("v7/project.json"),
+        )
+        .unwrap();
+        assert_eq!(v7.version, FORMAT_VERSION);
+        assert!(v7
+            .tracks
+            .iter()
+            .flat_map(|t| &t.pattern_clips)
+            .all(|c| c.fill.is_none()));
+        let json = serde_json::to_value(&v7).unwrap();
+        let drums = json["tracks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["kit"].is_string())
+            .unwrap();
+        assert!(
+            drums["patternClips"][0].get("fill").is_none(),
+            "no fill, no field"
+        );
     }
 
     #[test]

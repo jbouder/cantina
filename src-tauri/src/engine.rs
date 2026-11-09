@@ -1613,22 +1613,63 @@ pub(crate) fn score_for(
         let Some(pattern) = project.pattern(clip.pattern) else {
             continue;
         };
-        let pattern = data
+        let base = data
             .entry(clip.pattern)
             .or_insert_with(|| pattern_data(pattern, kit, mix))
             .clone();
-        score.push(Placement {
-            pattern,
-            start: clip.start,
-            offset: clip.offset,
-            length: clip.length,
+        let fill = clip.fill.as_ref().and_then(|f| {
+            let pattern = project.pattern(f.pattern)?;
+            let data = data
+                .entry(f.pattern)
+                .or_insert_with(|| pattern_data(pattern, kit, mix))
+                .clone();
+            Some((f, data))
         });
+        let Some((fill, fill_data)) = fill else {
+            score.push(Placement {
+                pattern: base,
+                start: clip.start,
+                offset: clip.offset,
+                length: clip.length,
+            });
+            continue;
+        };
+        // Bars count from the clip's start. A fill bar plays the fill
+        // pattern's first bar; the bars between play the clip's pattern
+        // as they would have, so the groove does not restart after a fill.
+        let tempo = &project.tempo;
+        let bar = u64::from(cantina_project::PPQ) * 4 / u64::from(tempo.denominator.max(1))
+            * u64::from(tempo.numerator.max(1));
+        let bars = clip.length.div_ceil(bar);
+        let mut b = 0;
+        while b < bars {
+            let from = b * bar;
+            if fill.plays_at(b, bars) {
+                score.push(Placement {
+                    pattern: fill_data.clone(),
+                    start: clip.start + from,
+                    offset: 0,
+                    length: bar.min(clip.length - from),
+                });
+                b += 1;
+                continue;
+            }
+            let mut end = b + 1;
+            while end < bars && !fill.plays_at(end, bars) {
+                end += 1;
+            }
+            score.push(Placement {
+                pattern: base.clone(),
+                start: clip.start + from,
+                offset: clip.offset + from,
+                length: (end * bar).min(clip.length) - from,
+            });
+            b = end;
+        }
     }
     score
 }
 
-/// A pattern with its pads resolved against a kit. Rows for pads the
-/// kit does not have are left out.
 /// A pattern with its pads resolved against a kit, leaving out the rows
 /// `mix` silences.
 fn pattern_data(pattern: &Pattern, kit: &LoadedKit, mix: Option<&RowMix>) -> Arc<PatternData> {
@@ -3067,7 +3108,8 @@ impl Engine {
             | Command::RemovePatternClip { .. }
             | Command::MovePatternClip { .. }
             | Command::TrimPatternClip { .. }
-            | Command::SplitPatternClip { .. } => {
+            | Command::SplitPatternClip { .. }
+            | Command::SetPatternClipFill { .. } => {
                 self.check_audition();
                 self.refresh_scores()
             }
@@ -3259,6 +3301,76 @@ impl Engine {
         })
     }
 
+    /// Sets, or with `None` removes, a pattern clip's fill.
+    pub fn pattern_clip_set_fill(
+        &mut self,
+        id: u64,
+        fill: Option<cantina_project::Fill>,
+    ) -> Result<EngineStatus> {
+        self.apply(Command::SetPatternClipFill {
+            id: PatternClipId(id),
+            fill,
+        })
+    }
+
+    /// Writes a fill for a pattern clip from its own pattern, on the
+    /// track's kit, as a new pattern, and has the clip play it (every
+    /// four bars and at its end, unless it already had a fill to follow):
+    /// one undoable edit. The same seed writes the same fill.
+    pub fn pattern_clip_generate_fill(&mut self, id: u64, seed: u64) -> Result<EngineStatus> {
+        let clip_id = PatternClipId(id);
+        let (track, clip) = self
+            .project
+            .tracks
+            .iter()
+            .find_map(|t| {
+                t.pattern_clips
+                    .iter()
+                    .find(|c| c.id == clip_id)
+                    .map(|c| (t, c))
+            })
+            .with_context(|| format!("no pattern clip {id}"))?;
+        let groove = self
+            .project
+            .pattern(clip.pattern)
+            .with_context(|| format!("no pattern {}", clip.pattern))?;
+        let kit = self.kits.get(track.kit.as_deref().unwrap_or_default());
+        let pads: Vec<&str> = kit.pads().iter().map(|p| p.id.as_str()).collect();
+        let tempo = &self.project.tempo;
+        let beats = u32::from(tempo.numerator.max(1)) * 4 / u32::from(tempo.denominator.max(1));
+        let fill = cantina_project::generate_fill(groove, beats.max(1), &pads, seed);
+        let taken: Vec<&str> = self
+            .project
+            .patterns
+            .iter()
+            .map(|p| p.name.as_str())
+            .collect();
+        let fill = cantina_project::imported(fill, PatternId(self.project.fresh_id()), &taken);
+        let settings = match &clip.fill {
+            Some(f) => cantina_project::Fill {
+                pattern: fill.id,
+                ..f.clone()
+            },
+            None => cantina_project::Fill {
+                pattern: fill.id,
+                every: 4,
+                at_end: true,
+            },
+        };
+        self.apply(Command::Batch {
+            commands: vec![
+                Command::InsertPattern {
+                    index: usize::MAX,
+                    pattern: fill,
+                },
+                Command::SetPatternClipFill {
+                    id: clip_id,
+                    fill: Some(settings),
+                },
+            ],
+        })
+    }
+
     pub fn pattern_remove(&mut self, id: u64) -> Result<EngineStatus> {
         self.apply(Command::RemovePattern { id: PatternId(id) })
     }
@@ -3335,6 +3447,7 @@ impl Engine {
             start,
             offset: 0,
             length,
+            fill: None,
         };
         self.apply(Command::InsertPatternClip {
             track: TrackId(track),
@@ -4256,6 +4369,7 @@ impl Engine {
             start,
             offset,
             length,
+            fill: None,
         };
         self.apply(Command::InsertPatternClip {
             track: TrackId(track),
@@ -5268,6 +5382,7 @@ fn is_light(command: &Command) -> bool {
             | Command::MovePatternClip { .. }
             | Command::TrimPatternClip { .. }
             | Command::SplitPatternClip { .. }
+            | Command::SetPatternClipFill { .. }
     )
 }
 
@@ -5708,6 +5823,52 @@ mod tests {
         };
         assert_eq!(rows(&soloed), 1);
         assert!(!soloed.plays("snare") && soloed.plays("kick"));
+    }
+
+    #[test]
+    fn a_clip_with_a_fill_plays_it_on_its_fill_bars() {
+        let (_, kit) =
+            kit::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../kits/rock")).unwrap();
+        let mut project = Project::new("P", 48_000.0);
+        let mut drums = Track::drums(TrackId(1), "Drums", "rock");
+        let bar = 3840;
+        drums.pattern_clips.push(cantina_project::PatternClip {
+            id: cantina_project::PatternClipId(4),
+            pattern: PatternId(5),
+            start: bar,
+            offset: 0,
+            length: bar * 8,
+            fill: Some(cantina_project::Fill {
+                pattern: PatternId(6),
+                every: 4,
+                at_end: true,
+            }),
+        });
+        project.tracks.push(drums);
+        project.patterns.push(Pattern::new(PatternId(5), "Beat"));
+        project
+            .patterns
+            .push(Pattern::new(PatternId(6), "Beat fill"));
+        let score = score_for(&project.tracks[0], &project, &kit, None, None);
+        // Bars 1-3, the fill on bar 4, bars 5-7, the fill on bar 8.
+        let spans: Vec<(u64, u64, u64)> = score
+            .iter()
+            .map(|p| (p.start, p.offset, p.length))
+            .collect();
+        assert_eq!(
+            spans,
+            vec![
+                (bar, 0, 3 * bar),
+                (4 * bar, 0, bar),
+                (5 * bar, 4 * bar, 3 * bar),
+                (8 * bar, 0, bar),
+            ]
+        );
+        assert!(
+            Arc::ptr_eq(&score[1].pattern, &score[3].pattern),
+            "the same fill"
+        );
+        assert!(!Arc::ptr_eq(&score[0].pattern, &score[1].pattern));
     }
 
     #[test]

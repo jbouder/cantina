@@ -198,6 +198,32 @@ when the groove is added to a project:
   does not have are kept, so the pattern still plays them on another kit,
   and a notice names them.
 
+## Fills
+
+A loop that never changes sounds like a loop. Any pattern clip can play a
+**fill**, another pattern, on some of its bars. In the **Clips** tab, each
+pattern clip has:
+
+- **Fill**: the pattern to play on fill bars, or **No fill**.
+- **Every 2, 4, 8 or 16 bars**: the last bar of each group is a fill
+  (counted from the clip's start), or **Not repeating**.
+- **At end**: the clip's last bar is a fill, leading into whatever comes
+  next, such as the chorus.
+- **Generate**: writes a new fill from the clip's own pattern, on this
+  track's kit, and picks it, playing every four bars and at the end (or
+  as the clip already had it). The groove plays for the first beat or
+  two of the bar, then breaks into a snare roll, a run down the toms,
+  snare and toms in turns, or kick-and-snare accents. Press it again for
+  another. The fill is an ordinary pattern, called "<pattern> fill",
+  that you can open in **Beats** and edit.
+
+A fill bar plays the first bar of the fill pattern, and the clip's own
+pattern carries on afterwards where it would have been. Stock grooves come
+with a fill for each genre, which you can add and choose here too. Every
+change is one step of **Undo**.
+
+![A pattern clip playing its fill every four bars and at its end](../../../assets/guides/fills.png)
+
 ## Library folders
 
 Cantina watches three folders for files written outside the app, by hand

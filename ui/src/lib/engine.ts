@@ -466,6 +466,18 @@ export interface PatternClipInfo {
   start: number;
   offset: number;
   length: number;
+  /** Bars where another pattern plays: a fill. Absent for none. */
+  fill?: PatternFill;
+}
+
+/** When a pattern clip plays a fill. Mirrors `Fill` in cantina-project. */
+export interface PatternFill {
+  /** The pattern played on fill bars. */
+  pattern: number;
+  /** The last bar of every this many is a fill; 0 for none. */
+  every: number;
+  /** The clip's last bar is a fill. */
+  atEnd: boolean;
 }
 
 /** A pedal in a chain. Mirrors `PedalInfo` in src-tauri. */
@@ -1937,6 +1949,61 @@ export async function patternClipAdd(
   return mockEdit("place pattern");
 }
 
+/** Sets, or with null removes, a pattern clip's fill. One undoable edit. */
+export async function patternClipSetFill(
+  id: number,
+  fill: PatternFill | null,
+): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pattern_clip_set_fill", { id, fill });
+  const { clip } = mockPatternClipAt(id);
+  if (fill) {
+    mockPatternById(fill.pattern);
+    clip.fill = { ...fill };
+  } else {
+    delete clip.fill;
+  }
+  return mockEdit(fill ? "set fill" : "remove fill");
+}
+
+/**
+ * Writes a fill from a pattern clip's own pattern, on its track's kit, as
+ * a new pattern, and has the clip play it: one undoable edit. The same
+ * seed writes the same fill.
+ */
+export async function patternClipGenerateFill(id: number, seed: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pattern_clip_generate_fill", { id, seed });
+  const { clip } = mockPatternClipAt(id);
+  const base = mockPatternById(clip.pattern);
+  // The stand-in's fill: the groove, then a snare roll over the last beat.
+  const bar = base.stepsPerBeat * 4;
+  const from = bar - base.stepsPerBeat;
+  const rows = base.rows.map((r) => ({
+    pad: r.pad,
+    steps: Array.from({ length: bar }, (_, s) =>
+      s >= from && r.pad !== "kick" ? 0 : (r.steps[s % r.steps.length] ?? 0),
+    ),
+  }));
+  const snare = rows.find((r) => r.pad === "snare");
+  for (let s = from; s < bar; s++) {
+    if (snare) snare.steps[s] = 0.5 + (0.5 * (s - from + 1)) / (bar - from);
+  }
+  const taken = new Set(mock.project.patterns.map((p) => p.name));
+  let name = `${base.name} fill`;
+  for (let n = 2; taken.has(name); n++) name = `${base.name} fill ${n}`;
+  const fill = {
+    id: mockNextId++,
+    name,
+    stepsPerBeat: base.stepsPerBeat,
+    length: bar,
+    swing: base.swing,
+    rows,
+  };
+  mock.project.patterns.push(fill);
+  clip.fill = { every: 4, atEnd: true, ...clip.fill, pattern: fill.id };
+  void seed;
+  return mockEdit(`add pattern ${name}`);
+}
+
 export async function patternClipRemove(id: number): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("pattern_clip_remove", { id });
   for (const t of mock.project.tracks) t.patternClips = t.patternClips.filter((c) => c.id !== id);
@@ -3019,6 +3086,13 @@ function openMeterChannel() {
   let t = 0;
   let sequence = 0;
   if (mockParams?.has("position")) mockTransport.position = Number(mockParams.get("position"));
+  // `?fill` has the drum track's first clip play a fill, for screenshots.
+  if (mockParams?.has("fill")) {
+    const drums = mock.project.tracks.find((t) => t.kit);
+    const [first] = drums?.patternClips ?? [];
+    const other = mock.project.patterns.find((p) => p.id !== first?.pattern);
+    if (first && other) first.fill = { pattern: other.id, every: 4, atEnd: true };
+  }
   window.setInterval(() => {
     t += 1 / 60;
     if (mockTransport.playing) mockTransport.position += mock.practice.speed / 60;
