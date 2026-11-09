@@ -189,7 +189,23 @@ export interface JamStatus {
   tempoLocked: boolean;
   /** The stock chord progressions, by genre. */
   presets: JamPreset[];
+  /** Minutes of the input kept for Keep that: 1, 2, 5 or 10. An app setting. */
+  captureMinutes: number;
+  /** The last take kept, waiting to go into a project. */
+  kept: JamKept | null;
 }
+
+/** A take Keep that wrote. Mirrors `KeptStatus` in src-tauri. */
+export interface JamKept {
+  seconds: number;
+  /** The dry input, in `Jams/Takes`. */
+  dry: string;
+  /** Through the rig. */
+  processed: string;
+}
+
+/** Where a kept take goes. Mirrors `KeepInto` in src-tauri. */
+export type KeepInto = { into: "open" } | { into: "new"; name: string } | { into: "takes" };
 
 /** A drum track's rows muted or soloed for listening while editing. Mirrors `RowMix` in src-tauri. */
 export interface DrumRows {
@@ -3201,7 +3217,84 @@ function mockJamStatus(jam: NonNullable<typeof mockJam>): JamStatus {
     backingMissing: [],
     tempoLocked: jam.setup.backing?.kind === "audio" || jam.setup.backing?.kind === "track",
     presets: MOCK_PRESETS.map((p) => ({ ...p })),
+    captureMinutes: mockCaptureMinutes,
+    kept: mockKept ? { ...mockKept } : null,
   };
+}
+
+let mockCaptureMinutes = 5;
+
+function mockTrackTemplate(id: number, name: string): TrackStatus {
+  return {
+    id,
+    name,
+    armed: false,
+    recording: false,
+    kit: null,
+    chain: [],
+    clips: [],
+    patternClips: [],
+    strip: { ...UNITY },
+    latencyFrames: 0,
+    pads: {},
+  };
+}
+// `?kept` has a take waiting, for screenshots.
+let mockKept: JamKept | null = mockParams?.has("kept")
+  ? {
+      seconds: 94.5,
+      dry: "/Users/you/Music/Cantina/Jams/Takes/Jam-3.wav",
+      processed: "/Users/you/Music/Cantina/Jams/Takes/Jam-3 processed.wav",
+    }
+  : null;
+
+/**
+ * Keep that: writes the last minutes of the jam's input, dry and through
+ * the rig, to a take in `Jams/Takes`, for `jamKeepPlace` to put in a project.
+ */
+export async function jamKeep(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("jam_keep");
+  if (!mockJam) throw new Error("open a jam first");
+  if (!mock.running) throw new Error("start the engine first");
+  const n = Math.floor(Math.random() * 90) + 2;
+  mockKept = {
+    seconds: Math.min(mockCaptureMinutes * 60, 30 + mockTransport.position),
+    dry: `/Users/you/Music/Cantina/Jams/Takes/Jam-${n}.wav`,
+    processed: `/Users/you/Music/Cantina/Jams/Takes/Jam-${n} processed.wav`,
+  };
+  return mockStatus();
+}
+
+/**
+ * Puts the take kept into the open project or a new one, as one undoable
+ * edit (the take on a track with the jam's rig, the processed take muted,
+ * and the drums that played under it), or leaves it in `Jams/Takes`.
+ */
+export async function jamKeepPlace(into: KeepInto): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("jam_keep_place", { into });
+  if (!mockKept) throw new Error("keep a take first");
+  const kept = mockKept;
+  mockKept = null;
+  if (into.into === "takes") return mockStatus();
+  if (into.into === "new") await projectNew(into.name);
+  const id = () => mockNextId++;
+  const take = mockTrackTemplate(id(), "Jam take");
+  take.clips = [mockClip(id(), "Jam take", 0, kept.seconds)];
+  const processed = mockTrackTemplate(id(), "Jam take, processed");
+  processed.clips = [mockClip(id(), "Jam take, processed", 0, kept.seconds)];
+  processed.strip = { ...processed.strip, mute: true };
+  mock.project.tracks.push(take, processed);
+  mock.notice = `Kept ${Math.floor(kept.seconds / 60)}:${(kept.seconds % 60).toFixed(1).padStart(4, "0")} of jamming in ${mock.project.name}`;
+  mock.noticeSeq += 1;
+  return mockEdit("keep jam take");
+}
+
+/** Sets how many minutes of input a jam keeps: 1, 2, 5 or 10. New rings start empty. */
+export async function jamCaptureSet(minutes: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("jam_capture_set", { minutes });
+  if (![1, 2, 5, 10].includes(minutes)) throw new Error(`the capture keeps 1, 2, 5 or 10 minutes`);
+  mockCaptureMinutes = minutes;
+  return mockStatus();
 }
 
 /** The stock progressions, as the shell lists them (cantina-project's `PRESETS`). */

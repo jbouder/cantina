@@ -189,6 +189,24 @@ impl Schedule {
             .map(|(t, _)| *t)
     }
 
+    /// Each section with where it starts and ends, in ticks; the last
+    /// ends at the end, or never (`u64::MAX`).
+    pub fn segments(&self) -> Vec<(u64, u64, Section)> {
+        self.sections
+            .iter()
+            .enumerate()
+            .map(|(i, (start, section))| {
+                let end = self
+                    .sections
+                    .get(i + 1)
+                    .map(|(t, _)| *t)
+                    .or(self.end)
+                    .unwrap_or(u64::MAX);
+                (*start, end, *section)
+            })
+            .collect()
+    }
+
     /// The tempo map the transport plays: one meter, the tempo changes.
     pub fn tempo_map(&self, meter: Meter) -> TempoMap {
         let mut map = TempoMap::new(
@@ -473,6 +491,76 @@ pub fn ending_chord(bars: &[Bar], instrument: Instrument, at: u64, ticks: u64) -
     out
 }
 
+/// Where a kept take goes in a project, and the drums that go with it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Placed {
+    /// The clip's first sample on the project's timeline.
+    pub start: u64,
+    /// Frames of the take left off its front, played before bar 1.
+    pub offset: u64,
+    /// The section, where its pattern clip starts in project ticks, how
+    /// far into the pattern it starts and how long it lasts.
+    pub drums: Vec<(Section, u64, u64, u64)>,
+}
+
+/// Lines a take up with a project: `start` is the jam's timeline sample of
+/// its first frame (before 0 when it began before the jam rolled), or
+/// none when the jam never rolled under it. The bar the take begins in
+/// goes on the project's bar `at` (in ticks), at `bpm`; the drums are the
+/// sections that played under the take, to whole bars.
+#[allow(clippy::too_many_arguments)]
+pub fn place_take(
+    start: Option<i64>,
+    frames: u64,
+    map: &TempoMap,
+    sample_rate: f64,
+    segments: &[(u64, u64, Section)],
+    pattern_ticks: impl Fn(Section) -> u64,
+    bar: u64,
+    at: u64,
+    bpm: f64,
+) -> Placed {
+    let per_tick = sample_rate * 60.0 / (bpm * f64::from(PPQ));
+    let project = |ticks: u64| (ticks as f64 * per_tick).round() as i64;
+    let Some(start) = start else {
+        return Placed {
+            start: project(at) as u64,
+            offset: 0,
+            drums: Vec::new(),
+        };
+    };
+    let jam_ticks = |sample: i64| map.samples_to_ticks(sample.max(0) as u64, sample_rate);
+    let first = jam_ticks(start);
+    let bar0 = (first / bar as f64).floor() as u64 * bar;
+    let end = jam_ticks(start + frames as i64);
+    let last = (end / bar as f64).ceil() as u64 * bar;
+    let into = start - map.ticks_to_samples(bar0 as f64, sample_rate) as i64;
+    let clip = project(at) + into;
+    let mut drums = Vec::new();
+    for (from, to, section) in segments {
+        let (from, to) = ((*from).max(bar0), (*to).min(last));
+        if from >= to {
+            continue;
+        }
+        let length = pattern_ticks(*section).max(1);
+        let begun = segments
+            .iter()
+            .find(|(f, t, s)| s == section && *f <= from && from < *t)
+            .map_or(from, |(f, _, _)| *f);
+        drums.push((
+            *section,
+            from - bar0 + at,
+            (from - begun) % length,
+            to - from,
+        ));
+    }
+    Placed {
+        start: clip.max(0) as u64,
+        offset: (-clip).max(0) as u64,
+        drums,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -734,5 +822,70 @@ mod tests {
             20.0 * rms.log10()
         );
         assert!(peak < 1.0 && rms > 0.01, "peak {peak} rms {rms}");
+    }
+
+    #[test]
+    fn a_take_lines_up_with_its_bars() {
+        let map = TempoMap::new(120.0, TimeSignature::COMMON);
+        // Verse from 0, a 1-bar fill at bar 5, verse again; a 2-bar verse.
+        let segments = vec![
+            (0, bars(4), Section::Verse),
+            (bars(4), bars(5), Section::Fill),
+            (bars(5), u64::MAX, Section::Verse),
+        ];
+        let ticks = |s: Section| if s == Section::Verse { bars(2) } else { BAR };
+        // A take from half way through bar 4 (beat 3) to bar 7, put on
+        // the project's bar 9 at the same tempo.
+        let start = 3 * 96_000 + 48_000;
+        let p = place_take(
+            Some(start),
+            3 * 96_000,
+            &map,
+            SR,
+            &segments,
+            ticks,
+            BAR,
+            bars(8),
+            120.0,
+        );
+        // Bar 4 lands on bar 9: the take starts half a bar into it.
+        assert_eq!((p.start, p.offset), (8 * 96_000 + 48_000, 0));
+        assert_eq!(
+            p.drums,
+            vec![
+                // Bar 4 is the second bar of a two-bar verse that began at bar 3.
+                (Section::Verse, bars(8), BAR, BAR),
+                (Section::Fill, bars(9), 0, BAR),
+                (Section::Verse, bars(10), 0, bars(2)),
+            ]
+        );
+        // Begun before the jam rolled: the part before bar 1 is cut off a
+        // new project's start.
+        let p = place_take(
+            Some(-12_000),
+            96_000,
+            &map,
+            SR,
+            &segments,
+            ticks,
+            BAR,
+            0,
+            120.0,
+        );
+        assert_eq!((p.start, p.offset), (0, 12_000));
+        assert_eq!(p.drums, vec![(Section::Verse, 0, 0, BAR)]);
+        // Never rolled: just the audio, at the bar asked for.
+        let p = place_take(
+            None,
+            96_000,
+            &map,
+            SR,
+            &segments,
+            ticks,
+            BAR,
+            bars(2),
+            120.0,
+        );
+        assert_eq!((p.start, p.drums.len()), (2 * 96_000, 0));
     }
 }

@@ -5,6 +5,8 @@ import {
   type EngineStatus,
   type GrooveSection,
   type Jam,
+  jamCaptureSet,
+  jamKeep,
   jamSection,
   jamSet,
   jamTempo,
@@ -21,6 +23,7 @@ import {
 } from "../lib/jam";
 import { Button } from "./Button";
 import { JamBacking, rigId } from "./JamBacking";
+import { KeepSheet } from "./KeepSheet";
 import { Lcd } from "./Lcd";
 import { Led } from "./Led";
 import { Meter } from "./Meter";
@@ -88,6 +91,9 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
       if (n >= 1 && n <= JAM_SECTIONS.length) {
         const section = JAM_SECTIONS[n - 1];
         if (section && k.jam.sections.includes(section)) k.report(jamSection(section));
+      } else if (e.key === "Enter") {
+        if (target?.tagName === "BUTTON") return;
+        k.report(jamKeep());
       } else if (k.jam.tempoLocked && ["ArrowUp", "ArrowDown", "t", "T"].includes(e.key)) {
         return;
       } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
@@ -266,6 +272,19 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
             Left out: {jam.missing.join("; ")}
           </p>
         ) : null}
+        <Select
+          id={`${ids}-capture`}
+          label="Keep that"
+          hint="Always keeps the last of your playing"
+          value={String(jam.captureMinutes)}
+          onChange={(e) => report(jamCaptureSet(Number(e.target.value)))}
+        >
+          {[1, 2, 5, 10].map((m) => (
+            <option key={m} value={m}>
+              {m} minute{m === 1 ? "" : "s"}
+            </option>
+          ))}
+        </Select>
         <div className="grid gap-1">
           <Meter label="In" level={frame.input} />
           <Meter label="Out" level={frame.output} />
@@ -329,6 +348,18 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
             Count in
           </Button>
           <Metronome metronome={status.metronome} onStatus={onStatus} onError={onError} />
+          <Button
+            variant="transport"
+            onClick={() => report(jamKeep())}
+            disabled={!status.running}
+            title={`Keep the last ${jam.captureMinutes} minutes you played (Return)`}
+            className="min-h-12"
+          >
+            <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
+              <path d="M3 1h8l3 3v11H2V1zm1.5 1.5v4h6v-4zM5 10h6v3.5H5z" />
+            </svg>
+            Keep that
+          </Button>
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-2">
@@ -416,8 +447,8 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
           })}
         </ul>
         <p className="m-0 text-center text-ink-dim text-xs">
-          Space plays · 1–6 sections at the next bar · ↑ ↓ tempo · T tap. Jamming never edits{" "}
-          {status.project.name}.
+          Space plays · 1–6 sections at the next bar · ↑ ↓ tempo · T tap · Return keeps. Jamming
+          never edits {status.project.name}.
         </p>
         <section
           aria-label="Backing"
@@ -434,6 +465,15 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
           />
         </section>
       </div>
+      {jam.kept ? (
+        <KeepSheet
+          kept={jam.kept}
+          project={status.project.name}
+          onClose={() => {}}
+          onStatus={onStatus}
+          onError={onError}
+        />
+      ) : null}
     </section>
   );
 }

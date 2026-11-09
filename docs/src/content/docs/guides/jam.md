@@ -1,6 +1,6 @@
 ---
 title: "Jam"
-description: "Jam mode is a practice room: drums from a stock groove or your own patterns, a backing (a chord progression played by a built-in guitar or bass, an audio file or a project's track), your rig on the input, on an endless loop you steer while you play: sections at the next bar, tempo nudges, tap tempo and a count-in."
+description: "Jam mode is a practice room: drums from a stock groove or your own patterns, a backing (a chord progression played by a built-in guitar or bass, an audio file or a project's track), your rig on the input, on an endless loop you steer while you play: sections at the next bar, tempo nudges, tap tempo and a count-in; and Keep that, for the riff you were not recording."
 ---
 
 Practising should not mean setting up a project, tracks and clips. Jam
@@ -153,6 +153,40 @@ starts a new count. While the jam plays, a new tempo lands on the next
 bar line, like a section. The drums, a chord backing and the click
 follow it at once and nothing clicks. With an audio backing the tempo
 is the backing's.
+
+## Keep that
+
+The best riff is always the one you were not recording. While a jam is
+open, Cantina keeps the last minutes of your playing: your dry input and
+the sound through the rig. It is always on; **Keep that** in the jam's
+settings says how long it keeps, 1, 2, 5 (the default) or 10 minutes.
+Changing it starts afresh.
+
+Press **Keep that** (or **Return**) and those minutes are written to two
+files in `~/Music/Cantina/Jams/Takes`: `Jam-1.wav`, the dry take, and
+`Jam-1 processed.wav`, through the rig. Then choose where they go:
+
+![Keep that asks where the take goes: into the open project, a new project, or just the files, in the Brushed metal skin](../../../assets/guides/jam-keep.png)
+
+- **Into** the open project, or a **new project** by name, which is
+  opened. Either way it is one edit, so **Undo** takes it back out:
+  - **Jam take**, an audio track with the jam's rig as its chain and the
+    dry take on it, so you can change the tone later;
+  - **Jam take, processed**, muted, with what you heard;
+  - **Jam drums**, a drum track on the jam's kit with the sections that
+    played under the take, their patterns added to the project.
+
+  The take lines up with the drums on the project's bars. An empty
+  project takes the jam's tempo and the take starts at bar 1; a project
+  with music in it keeps its tempo, and the take goes after its last bar.
+  A project has one tempo, the one the jam ended at: a take that spans a
+  tempo change lines up where it starts and drifts from the bars after
+  the change.
+- **Just keep the files**: the take stays in `Jams/Takes` and nothing
+  else changes.
+
+Keeping writes on the recorder's own thread while the jam plays on; the
+jam never stops for it.
 
 Keyboard shortcuts work anywhere in the view outside a text field or a
 menu; they are listed in [keyboard shortcuts](/reference/shortcuts/).

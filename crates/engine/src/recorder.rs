@@ -29,6 +29,7 @@ use cantina_dsp::{Buffer, MAX_CHANNELS};
 use hound::{SampleFormat, WavSpec, WavWriter};
 use rtrb::{Consumer, Producer, RingBuffer};
 
+use crate::capture::KeepJob;
 use crate::graph::{BlockContext, Node};
 
 /// Seconds of audio the ring can hold while the writer thread is busy.
@@ -67,7 +68,12 @@ enum Command {
 
 /// UI thread to writer thread.
 enum WriterCommand {
-    Open { generation: u64, path: PathBuf },
+    Open {
+        generation: u64,
+        path: PathBuf,
+    },
+    /// Write what a capture ring holds; see [`crate::capture`].
+    Keep(KeepJob),
 }
 
 /// Describes the next `frames * channels` samples in the data ring.
@@ -312,6 +318,15 @@ impl RecorderHandle {
         Ok(())
     }
 
+    /// Writes what capture rings hold to files on this recorder's writer
+    /// thread, off the audio thread and the caller's. The job reports on
+    /// its own channel when the files are written.
+    pub fn keep(&self, job: KeepJob) -> Result<()> {
+        self.writer
+            .send(WriterCommand::Keep(job))
+            .map_err(|_| anyhow::anyhow!("the recorder's writer thread has stopped"))
+    }
+
     /// Stops the recording. The node ends it at its next block, after its
     /// last frames, and the writer thread finalizes the file once they have
     /// reached it. A node that never runs another block, because its
@@ -343,6 +358,7 @@ impl WriterThread {
             while connected {
                 match self.commands.try_recv() {
                     Ok(WriterCommand::Open { generation, path }) => self.open(generation, path),
+                    Ok(WriterCommand::Keep(job)) => job.run(),
                     Err(mpsc::TryRecvError::Empty) => break,
                     Err(mpsc::TryRecvError::Disconnected) => connected = false,
                 }

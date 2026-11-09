@@ -601,6 +601,30 @@ pub fn jam_tracks(
     engine.lock().jam_tracks(&project).map_err(fail)
 }
 
+/// Keep that: writes the last minutes of the jam's input to a take.
+#[tauri::command]
+pub fn jam_keep(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().jam_keep().map_err(fail)
+}
+
+/// Puts the take kept into the open project, a new one, or nowhere.
+#[tauri::command]
+pub fn jam_keep_place(
+    engine: State<'_, EngineState>,
+    into: crate::engine::KeepInto,
+) -> Result<EngineStatus, String> {
+    engine.lock().jam_keep_place(into).map_err(fail)
+}
+
+/// Sets how many minutes of input a jam keeps.
+#[tauri::command]
+pub fn jam_capture_set(
+    engine: State<'_, EngineState>,
+    minutes: f32,
+) -> Result<EngineStatus, String> {
+    engine.lock().jam_capture_set(minutes).map_err(fail)
+}
+
 /// Plays the jam from the top.
 #[tauri::command]
 pub fn jam_play(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
