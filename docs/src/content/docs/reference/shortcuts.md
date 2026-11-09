@@ -86,6 +86,17 @@ With a step focused.
 | Space, Return | Adds or removes a hit |
 | ⇧↑ ⇧↓ | Makes the hit 10% harder or softer |
 | Home, End | Jumps to the ends of the row |
+| ⇧← ⇧→ | Selects across steps; ⌥⇧↑ and ⌥⇧↓ across rows |
+| ⌘C ⌘X ⌘V | Copies, cuts and pastes the selection or cell |
+| D | Duplicates the selection after itself, or doubles the pattern |
+| H | Halves the pattern |
+| [ ] | Shifts the selection or row a step left or right |
+| ⌫ | Clears the selection or cell |
+| ⌥⌫ | Clears the row |
+| M S | Mutes or solos the row while you listen |
+| Esc | Clears the selection |
+| ⇧-drag | Selects cells |
+| Drag across | Paints or erases hits |
 
 ## Groove browser
 

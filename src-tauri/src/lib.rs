@@ -118,6 +118,8 @@ pub fn run() {
             commands::pattern_set_swing,
             commands::pattern_audition,
             commands::groove_audition,
+            commands::pattern_replace,
+            commands::drum_rows_set,
             commands::pattern_clip_add,
             commands::pattern_clip_remove,
             commands::pattern_clip_move,

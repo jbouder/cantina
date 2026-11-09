@@ -857,6 +857,7 @@ export function App() {
                   audition={status.audition}
                   practice={status.practice}
                   grooves={status.grooves}
+                  drumRows={status.drumRows}
                   tempo={status.project.tempo}
                   position={frame.position}
                   playing={transport.playing}

@@ -552,6 +552,25 @@ pub fn groove_audition(
     engine.lock().groove_audition(track, path).map_err(fail)
 }
 
+/// Replaces a pattern whole, as one undoable edit.
+#[tauri::command]
+pub fn pattern_replace(
+    engine: State<'_, EngineState>,
+    pattern: cantina_project::Pattern,
+) -> Result<EngineStatus, String> {
+    engine.lock().pattern_replace(pattern).map_err(fail)
+}
+
+/// Mutes and solos rows of a drum track's patterns, for listening.
+#[tauri::command]
+pub fn drum_rows_set(
+    engine: State<'_, EngineState>,
+    track: u64,
+    rows: crate::engine::RowMix,
+) -> Result<EngineStatus, String> {
+    engine.lock().drum_rows_set(track, rows).map_err(fail)
+}
+
 /// Sets the compensation above which the UI warns, in milliseconds.
 #[tauri::command]
 pub fn latency_warning_set(engine: State<'_, EngineState>, ms: f32) -> EngineStatus {

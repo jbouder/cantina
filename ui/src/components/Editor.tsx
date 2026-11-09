@@ -3,6 +3,7 @@ import {
   type AuditionStatus,
   clipRemove,
   clock,
+  type DrumRows,
   type EngineStatus,
   type IrInfo,
   type KitInfo,
@@ -33,6 +34,9 @@ export function isEditorTab(value: unknown): value is EditorTab {
   return value === "beats" || value === "pedalboard" || value === "clips" || value === "tab";
 }
 
+/** No rows muted or soloed. */
+const NO_ROWS: DrumRows = { muted: [], soloed: [] };
+
 type Props = {
   track: TrackStatus;
   index: number;
@@ -48,6 +52,8 @@ type Props = {
   practice: Practice;
   /** The stock grooves, for the Beats tab. */
   grooves: StockGroove[];
+  /** Rows muted or soloed on drum tracks, by track id. */
+  drumRows: Record<number, DrumRows>;
   tempo: Tempo;
   position: number;
   playing: boolean;
@@ -86,6 +92,7 @@ export function Editor({
   audition,
   practice,
   grooves,
+  drumRows,
   tempo,
   position,
   playing,
@@ -296,6 +303,7 @@ export function Editor({
             kits={kits}
             library={library}
             grooves={grooves}
+            rows={drumRows[track.id] ?? NO_ROWS}
             audition={audition}
             tempo={tempo}
             position={position}

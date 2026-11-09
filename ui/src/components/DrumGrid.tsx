@@ -24,6 +24,8 @@ import {
   brokenOf,
   choosePatternExportPath,
   choosePatternImportPaths,
+  type DrumRows,
+  drumRowsSet,
   type EngineStatus,
   type KitInfo,
   kitsRescan,
@@ -36,6 +38,7 @@ import {
   patternImport,
   patternRemove,
   patternRename,
+  patternReplace,
   patternSetLength,
   patternSetResolution,
   patternSetStep,
@@ -46,6 +49,22 @@ import {
   type TrackStatus,
   trackSetKit,
 } from "../lib/engine";
+import {
+  type Cells,
+  clearRegion,
+  clearRow,
+  copyRegion,
+  doublePattern,
+  duplicateRegion,
+  halvePattern,
+  inRegion,
+  pasteCells,
+  type Region,
+  regionOf,
+  setCells,
+  shiftRegion,
+  strokeCells,
+} from "../lib/gridEdit";
 import { dropPatternAt, setPatternDrag, usePatternDrag } from "../lib/pattern-drag";
 import { DRAG_THRESHOLD } from "../lib/reorder";
 import { Button } from "./Button";
@@ -69,6 +88,8 @@ type Props = {
   library: LibraryStatus;
   /** The stock grooves, offered in the pattern menu by genre. */
   grooves: StockGroove[];
+  /** This track's rows muted or soloed for listening. */
+  rows: DrumRows;
   audition: AuditionStatus | null;
   tempo: Tempo;
   /** Playhead, in seconds. */
@@ -82,7 +103,16 @@ type Props = {
 interface Drag {
   pad: string;
   step: number;
+  startX: number;
   startY: number;
+  /** Decided by the first movement: up and down sets the velocity, across paints, ⇧ selects. */
+  mode: "undecided" | "velocity" | "paint" | "select";
+  /** What a paint stroke writes: a hit, or nothing when it started on one. */
+  paintValue: number;
+  /** The cells a paint stroke has crossed, by "pad:step". */
+  painted: Map<string, { pad: string; step: number; value: number }>;
+  /** The last cell the stroke reached, by row and step. */
+  last: { row: number; step: number };
   /** The velocity before the drag; a clear cell starts from the default. */
   from: number;
   /** What the cell shows now. */
@@ -104,6 +134,7 @@ export function DrumGrid({
   kits,
   library,
   grooves,
+  rows,
   audition,
   tempo,
   position,
@@ -135,6 +166,21 @@ export function DrumGrid({
   const swingPending = useRef<number | null>(null);
   const [focused, setFocused] = useState<{ pad: string; step: number } | null>(null);
   const grid = useRef<HTMLTableElement>(null);
+  // `?gridselect=top,bottom,from,to` starts with cells selected, for screenshots.
+  const [selection, setSelection] = useState<Region | null>(() => {
+    const [top, bottom, from, to] = (
+      new URLSearchParams(window.location.search).get("gridselect") ?? ""
+    )
+      .split(",")
+      .map(Number);
+    return [top, bottom, from, to].every((n) => Number.isInteger(n))
+      ? { top: top as number, bottom: bottom as number, from: from as number, to: to as number }
+      : null;
+  });
+  /** Where a ⇧-arrow selection grows from. */
+  const anchor = useRef<{ row: number; step: number } | null>(null);
+  /** What Copy kept: the grid's own clipboard, not the system's. */
+  const clipboard = useRef<Cells | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the fields follow the pattern shown
   useEffect(() => {
@@ -142,6 +188,13 @@ export function DrumGrid({
     setSwing(pattern?.swing ?? 0);
     setEditing(false);
   }, [pattern?.id, pattern?.name, pattern?.swing]);
+
+  // A selection belongs to the pattern it was made in.
+  const selectedIn = useRef(pattern?.id);
+  useEffect(() => {
+    if (selectedIn.current !== pattern?.id) setSelection(null);
+    selectedIn.current = pattern?.id;
+  }, [pattern?.id]);
 
   const pads = track.kit?.pads ?? [];
   const brokenKits = brokenOf(library, "kit");
@@ -182,24 +235,108 @@ export function DrumGrid({
 
   // ----- cells -----
 
-  const cellValue = (pad: string, s: number) =>
-    drag && drag.pad === pad && drag.step === s
-      ? drag.value
-      : pattern
-        ? velocityAt(pattern, pad, s)
-        : 0;
+  const cellValue = (pad: string, s: number) => {
+    const painted = drag?.mode === "paint" ? drag.painted.get(`${pad}:${s}`) : undefined;
+    if (painted) return painted.value;
+    if (drag && drag.mode === "velocity" && drag.pad === pad && drag.step === s) return drag.value;
+    return pattern ? velocityAt(pattern, pad, s) : 0;
+  };
+  const padIds = pads.map((p) => p.id);
+  const rowOf = (pad: string) => padIds.indexOf(pad);
+  /** Sends a whole new pattern: one gesture, one step of undo. */
+  const replace = (next: PatternInfo | null) => {
+    if (next) run(patternReplace(next));
+  };
+  /** The cell under a point, from the buttons' data attributes. */
+  const cellAt = (x: number, y: number) => {
+    const el = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-pad][data-step]");
+    const pad = el?.dataset.pad;
+    const step = Number(el?.dataset.step);
+    return pad !== undefined && Number.isFinite(step) ? { pad, row: rowOf(pad), step } : null;
+  };
+  /** The selection, or the focused cell as a region of one. */
+  const target = (): Region | null => {
+    if (selection) return selection;
+    if (!focused) return null;
+    const row = rowOf(focused.pad);
+    return row < 0 ? null : regionOf({ row, step: focused.step }, { row, step: focused.step });
+  };
+  const toggleRow = (pad: string, kind: "muted" | "soloed") => {
+    const list = rows[kind];
+    const next = list.includes(pad) ? list.filter((p) => p !== pad) : [...list, pad];
+    run(drumRowsSet(track.id, { ...rows, [kind]: next }));
+  };
+  /** A row muted, or left out by a solo. */
+  const silent = (pad: string) =>
+    rows.muted.includes(pad) || (rows.soloed.length > 0 && !rows.soloed.includes(pad));
+
+  // Copy, Cut and Paste are the system's: with a cell focused they act on
+  // the selection (or the cell), kept in the grid's own clipboard, and
+  // Paste writes it with its corner at the focused cell.
+  const edits = useRef<Record<"copy" | "cut" | "paste", () => boolean>>({
+    copy: () => false,
+    cut: () => false,
+    paste: () => false,
+  });
+  edits.current = {
+    copy: () => {
+      const r = target();
+      if (!pattern || !r) return false;
+      clipboard.current = copyRegion(pattern, padIds, r);
+      return true;
+    },
+    cut: () => {
+      const r = target();
+      if (!pattern || !r) return false;
+      clipboard.current = copyRegion(pattern, padIds, r);
+      replace(clearRegion(pattern, padIds, r));
+      return true;
+    },
+    paste: () => {
+      if (!pattern || !focused || !clipboard.current) return false;
+      replace(pasteCells(pattern, padIds, clipboard.current, rowOf(focused.pad), focused.step));
+      return true;
+    },
+  };
+  useEffect(() => {
+    const inGrid = () => grid.current?.contains(document.activeElement) ?? false;
+    const handlers: [string, (e: Event) => void][] = [
+      ["beforecopy", (e) => inGrid() && e.preventDefault()],
+      ["beforecut", (e) => inGrid() && e.preventDefault()],
+      ["beforepaste", (e) => inGrid() && clipboard.current !== null && e.preventDefault()],
+      ["copy", (e) => inGrid() && edits.current.copy() && e.preventDefault()],
+      ["cut", (e) => inGrid() && edits.current.cut() && e.preventDefault()],
+      ["paste", (e) => inGrid() && edits.current.paste() && e.preventDefault()],
+    ];
+    for (const [type, handler] of handlers) document.addEventListener(type, handler);
+    return () => {
+      for (const [type, handler] of handlers) document.removeEventListener(type, handler);
+    };
+  }, []);
 
   const onCellDown = (e: PointerEvent<HTMLButtonElement>, pad: string, s: number) => {
     if (e.button !== 0 || !pattern) return;
     const was = velocityAt(pattern, pad, s);
+    const row = rowOf(pad);
     const d: Drag = {
       pad,
       step: s,
+      startX: e.clientX,
       startY: e.clientY,
+      mode: e.shiftKey ? "select" : "undecided",
       from: was > 0 ? was : DEFAULT_VELOCITY,
       value: was,
       moved: false,
+      paintValue: was > 0 ? 0 : DEFAULT_VELOCITY,
+      painted: new Map(),
+      last: { row, step: s },
     };
+    if (e.shiftKey) {
+      // ⇧-click and drag selects, from the focused cell when there is one.
+      const from = focused && !selection ? { row: rowOf(focused.pad), step: focused.step } : null;
+      anchor.current = from ?? anchor.current ?? { row, step: s };
+      setSelection(regionOf(anchor.current, { row, step: s }));
+    }
     dragRef.current = d;
     e.currentTarget.setPointerCapture(e.pointerId);
   };
@@ -207,9 +344,34 @@ export function DrumGrid({
   const onCellMove = (e: PointerEvent<HTMLButtonElement>) => {
     const d = dragRef.current;
     if (!d) return;
+    const dx = e.clientX - d.startX;
     const dy = e.clientY - d.startY;
-    if (!d.moved && Math.abs(dy) < 4) return;
-    const next = { ...d, value: draggedVelocity(d.from, dy), moved: true };
+    let next = d;
+    if (d.mode === "undecided") {
+      if (Math.abs(dy) >= 4 && Math.abs(dy) > Math.abs(dx)) next = { ...d, mode: "velocity" };
+      else if (Math.abs(dx) >= 6) {
+        const first = { pad: d.pad, step: d.step, value: d.paintValue };
+        next = { ...d, mode: "paint", painted: new Map([[`${d.pad}:${d.step}`, first]]) };
+      } else return;
+    }
+    if (next.mode === "velocity") {
+      next = { ...next, value: draggedVelocity(next.from, dy), moved: true };
+    } else {
+      const cell = cellAt(e.clientX, e.clientY);
+      if (cell && cell.row >= 0) {
+        if (next.mode === "select") {
+          setSelection(regionOf(anchor.current ?? next.last, cell));
+        } else {
+          const painted = new Map(next.painted);
+          for (const c of strokeCells(next.last, cell)) {
+            const pad = padIds[c.row];
+            if (pad) painted.set(`${pad}:${c.step}`, { pad, step: c.step, value: next.paintValue });
+          }
+          next = { ...next, painted, last: { row: cell.row, step: cell.step } };
+        }
+      }
+      next = { ...next, moved: true };
+    }
     dragRef.current = next;
     setDrag(next);
   };
@@ -219,6 +381,13 @@ export function DrumGrid({
     dragRef.current = null;
     setDrag(null);
     if (!d || !pattern) return;
+    if (d.mode === "select") return;
+    if (d.mode === "paint") {
+      replace(setCells(pattern, [...d.painted.values()]));
+      return;
+    }
+    setSelection(null);
+    anchor.current = null;
     if (d.moved) {
       run(patternSetStep(pattern.id, pad, s, d.value));
     } else {
@@ -240,6 +409,49 @@ export function DrumGrid({
     const pad = pads[padIndex]?.id;
     if (!pad) return;
     const was = velocityAt(pattern, pad, s);
+    const here = { row: padIndex, step: s };
+    // ⇧← and ⇧→ (and ⌥⇧↑, ⌥⇧↓) grow the selection from where it started.
+    const grow = (to: { row: number; step: number }) => {
+      anchor.current ??= here;
+      const row = Math.max(0, Math.min(pads.length - 1, to.row));
+      const step = Math.max(0, Math.min(pattern.length - 1, to.step));
+      setSelection(regionOf(anchor.current, { row, step }));
+      focusCell(pads[row]?.id ?? pad, step);
+    };
+    const region = target();
+    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (!(e.metaKey || e.ctrlKey)) {
+      let done = true;
+      if (e.shiftKey && key === "ArrowLeft") grow({ row: padIndex, step: s - 1 });
+      else if (e.shiftKey && key === "ArrowRight") grow({ row: padIndex, step: s + 1 });
+      else if (e.shiftKey && e.altKey && key === "ArrowUp") grow({ row: padIndex - 1, step: s });
+      else if (e.shiftKey && e.altKey && key === "ArrowDown") grow({ row: padIndex + 1, step: s });
+      else if (key === "Escape" && selection) {
+        setSelection(null);
+        anchor.current = null;
+      } else if ((key === "Backspace" || key === "Delete") && e.altKey) {
+        replace(clearRow(pattern, pad));
+      } else if ((key === "Backspace" || key === "Delete") && region) {
+        replace(clearRegion(pattern, padIds, region));
+      } else if (key === "[" || key === "]") {
+        // Shifts the selection, or the focused cell's whole row.
+        const r = selection ?? { top: padIndex, bottom: padIndex, from: 0, to: pattern.length - 1 };
+        replace(shiftRegion(pattern, padIds, r, key === "]" ? 1 : -1));
+      } else if (key === "d" && !e.shiftKey) {
+        replace(selection ? duplicateRegion(pattern, padIds, selection) : doublePattern(pattern));
+      } else if (key === "h" && !e.shiftKey) {
+        replace(halvePattern(pattern));
+      } else if (key === "m" && !e.shiftKey) {
+        toggleRow(pad, "muted");
+      } else if (key === "s" && !e.shiftKey) {
+        toggleRow(pad, "soloed");
+      } else done = false;
+      if (done) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+    }
     switch (e.key) {
       case " ":
       case "Enter":
@@ -585,6 +797,24 @@ export function DrumGrid({
               className="surface-lcd min-h-8 w-20 px-2 text-center font-lcd text-base tabular-nums"
             />
             <span className="text-ink-dim">{lengthLabel(pattern, tempo)}</span>
+            <Button
+              disabled={pattern.length * 2 > 128}
+              onClick={() => replace(doublePattern(pattern))}
+              title="Double the pattern: play it twice in a row, twice as long (D with no selection)"
+              aria-label="Double the pattern"
+              className="normal-case!"
+            >
+              ×2
+            </Button>
+            <Button
+              disabled={pattern.length < 2}
+              onClick={() => replace(halvePattern(pattern))}
+              title="Halve the pattern: keep the first half (H)"
+              aria-label="Halve the pattern"
+              className="normal-case!"
+            >
+              ½
+            </Button>
           </span>
           <span className="grid w-48 gap-0.5">
             <span className="flex items-baseline justify-between">
@@ -620,7 +850,7 @@ export function DrumGrid({
         <div className="surface-lcd overflow-x-auto p-2">
           <table
             ref={grid}
-            aria-label={`${pattern.name}: ${pads.length} pads by ${pattern.length} steps. Space toggles a step, Shift with the up and down arrows sets its velocity.`}
+            aria-label={`${pattern.name}: ${pads.length} pads by ${pattern.length} steps. Space toggles a step, Shift with the up and down arrows sets its velocity, Shift with the left and right arrows selects.${selection ? ` ${selection.bottom - selection.top + 1} by ${selection.to - selection.from + 1} selected.` : ""}`}
             className="border-separate border-spacing-0"
           >
             <tbody>
@@ -628,15 +858,52 @@ export function DrumGrid({
                 <tr key={pad.id}>
                   <th
                     scope="row"
-                    className="lcd-text w-24 max-w-24 truncate pr-2 text-left font-lcd font-normal text-base"
+                    className={`lcd-text w-24 max-w-24 truncate pr-2 text-left font-lcd font-normal text-base ${silent(pad.id) ? "opacity-40" : ""}`}
                     title={pad.name}
                   >
                     {pad.name}
                   </th>
+                  <td className="p-0 pr-1">
+                    <span className="flex gap-0.5">
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        aria-pressed={rows.muted.includes(pad.id)}
+                        aria-label={`Mute ${pad.name} (M)`}
+                        title={`Mute ${pad.name} while you listen (M)`}
+                        onClick={() => toggleRow(pad.id, "muted")}
+                        className={`h-6 w-5 border-0 p-0 font-bold font-lcd text-xs ${rows.muted.includes(pad.id) ? "bg-lcd-fg text-lcd-bg" : "bg-tl-lane text-lcd-fg"}`}
+                      >
+                        M
+                      </button>
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        aria-pressed={rows.soloed.includes(pad.id)}
+                        aria-label={`Solo ${pad.name} (S)`}
+                        title={`Hear ${pad.name} alone while you listen (S)`}
+                        onClick={() => toggleRow(pad.id, "soloed")}
+                        className={`h-6 w-5 border-0 p-0 font-bold font-lcd text-xs ${rows.soloed.includes(pad.id) ? "bg-lcd-fg text-lcd-bg" : "bg-tl-lane text-lcd-fg"}`}
+                      >
+                        S
+                      </button>
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        aria-label={`Clear ${pad.name} (⌥⌫)`}
+                        title={`Clear every step of ${pad.name} (⌥⌫)`}
+                        onClick={() => replace(clearRow(pattern, pad.id))}
+                        className="h-6 w-5 border-0 bg-tl-lane p-0 font-lcd text-lcd-fg text-xs"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  </td>
                   {steps.map(({ s, key }) => {
                     const v = cellValue(pad.id, s);
                     const beat = isBeatStart(s, pattern);
                     const now = step === s;
+                    const picked = inRegion(selection, padIndex, s);
                     return (
                       <td key={key} className={`p-0 ${beat ? "pl-1.5" : "pl-0.5"}`}>
                         <button
@@ -657,7 +924,9 @@ export function DrumGrid({
                           onFocus={() => setFocused({ pad: pad.id, step: s })}
                           className={`relative my-0.5 block h-8 w-7 cursor-ns-resize touch-none overflow-hidden border-0 p-0 ${
                             now ? "bg-tl-bar" : beat ? "bg-tl-lane" : "bg-tl-bg"
-                          } ${now ? "outline outline-1 outline-tl-playhead" : ""}`}
+                          } ${now ? "outline outline-1 outline-tl-playhead" : ""} ${
+                            picked ? "outline-2 outline-focus outline-solid -outline-offset-2" : ""
+                          } ${silent(pad.id) ? "opacity-40" : ""}`}
                         >
                           {v > 0 ? (
                             <span
