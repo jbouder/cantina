@@ -263,6 +263,9 @@ fn migrate(from: u32, mut value: Value) -> Value {
         // 5 -> 6: a loop region. A project may carry `loop`; a version 5
         // file has none, so nothing loops.
         5 => value,
+        // 6 -> 7: tabs. A clip may carry `tab`; a version 6 file has
+        // none, so no clip has a tab.
+        6 => value,
         _ => value,
     }
 }
@@ -313,6 +316,7 @@ mod tests {
             start: 4800,
             offset: 100,
             length: 48_000,
+            tab: None,
         });
         p.tracks.push(t);
         p.tempo.bpm = 100.0;
@@ -479,6 +483,54 @@ mod tests {
         let json = serde_json::to_value(&project).unwrap();
         assert_eq!(json["tracks"][0]["chain"][0]["bypassed"], true);
         assert!(json["tracks"][0]["chain"][1].get("bypassed").is_none());
+    }
+
+    #[test]
+    fn a_version_7_file_has_a_tab_and_a_version_6_file_does_not() {
+        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+        let v7 = load_str(
+            &fs::read_to_string(fixtures.join("v7.json")).unwrap(),
+            Path::new("v7/project.json"),
+        )
+        .unwrap();
+        let tab = v7.tracks[0].clips[0].tab.as_ref().expect("a tab");
+        assert_eq!(tab.tuning, [38, 45, 50, 55, 59, 64], "drop D");
+        assert_eq!(tab.capo, 2);
+        assert_eq!(tab.origin, 4800);
+        assert_eq!(tab.notes.len(), 10);
+        assert_eq!(tab.heard.len(), 2);
+        assert_eq!(tab.heard[1].bend, 2.0);
+        // Drop D with a capo at 2: the open low string sounds E2.
+        assert_eq!(tab.pitch(&tab.notes[0]), Some(40));
+        // Saved and loaded again, nothing changes.
+        let text = serde_json::to_string(&v7).unwrap();
+        assert_eq!(load_str(&text, Path::new("v7/project.json")).unwrap(), v7);
+
+        let v6 = load_str(
+            &fs::read_to_string(fixtures.join("v6.json")).unwrap(),
+            Path::new("v6/project.json"),
+        )
+        .unwrap();
+        assert_eq!(v6.version, FORMAT_VERSION);
+        assert!(v6
+            .tracks
+            .iter()
+            .flat_map(|t| &t.clips)
+            .all(|c| c.tab.is_none()));
+        // A clip without a tab writes no field, so old files stay as they were.
+        let json = serde_json::to_value(&v6).unwrap();
+        assert!(json["tracks"][0]["clips"][0].get("tab").is_none());
+    }
+
+    #[test]
+    fn a_project_with_a_bad_tab_does_not_load() {
+        let text = fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/v7.json"),
+        )
+        .unwrap()
+        .replace(r#""string": 6,"#, r#""string": 9,"#);
+        let err = load_str(&text, Path::new("v7/project.json")).unwrap_err();
+        assert!(err.to_string().contains("strings run from 1 to 6"), "{err}");
     }
 
     #[test]

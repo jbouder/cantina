@@ -13,6 +13,7 @@ mod model;
 mod pattern_file;
 #[cfg(any(test, feature = "schema"))]
 pub mod schema;
+mod tab;
 
 pub use command::{Command, CommandError};
 pub use file::{
@@ -27,4 +28,8 @@ pub use model::{
 };
 pub use pattern_file::{
     imported, pattern_file_name, pattern_from_json, pattern_to_json, PATTERN_SUFFIX,
+};
+pub use tab::{
+    tab_from_json, tab_to_json, Bend, HeardNote, Instrument, Tab, TabNote, MAX_BEND, MAX_FRET,
+    TAB_SUFFIX,
 };

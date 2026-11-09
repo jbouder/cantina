@@ -138,6 +138,75 @@ One pad's steps. `steps` holds exactly the pattern's length of velocities from 0
 | `pad` | yes | string (not empty) | The pad's id in the kit format. |
 | `steps` | yes | array of number (≥ 0, ≤ 1) | Velocity per step, 0 for no hit. |
 
+## Cantina tab (`tab`)
+
+A guitar or bass part as strings and frets: the tuning, the capo, the tempo the notes were written against, and the notes with their techniques. Strings count from 1, the highest-pitched; frets count from the capo; times are ticks, 960 per quarter note, from the start of the tab.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `capo` |  | integer (≥ 0, ≤ 36) | The fret the capo is at; 0 for none. |
+| `heard` |  | array of `HeardNote` | For a transcribed tab, the notes as transcription heard them, before they were quantised to the grid and fitted to strings, so either can be redone without transcribing again. Empty for a tab written by hand. |
+| `instrument` | yes | `Instrument` | Guitar or bass, which sets how many strings it may have. |
+| `name` |  | string | Shown above the tab and in exports. Default `""`. |
+| `notes` |  | array of `TabNote` | The notes, in any order. Default `[]`. |
+| `tempo` |  | `Tempo` | The tempo and time signature the ticks were written against. Default `{"bpm":120,"denominator":4,"numerator":4}`. |
+| `tuning` | yes | array of integer (≥ 0, ≤ 127) (at least 4, at most 8) | The open strings from the lowest to the highest, as MIDI notes (40 is the low E of a guitar). Its length is the string count. |
+
+Where it goes: `*.tab.json`; inside a project, as a clip's `tab`. Schema: `https://cantina-docs.vibeproject.workers.dev/schemas/tab.schema.json`.
+
+### `Bend`
+
+A bend: the string pushed up by `semitones` after the note starts.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `release` |  | boolean | Let back down to the fretted pitch before the note ends. |
+| `semitones` | yes | number (> 0, ≤ 4) | How far up, in semitones: 1 is a half step, 2 a whole step. |
+
+### `HeardNote`
+
+A note as transcription heard it: a pitch and a time in seconds, not yet on a beat or a string.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `bend` |  | number (≥ -4, ≤ 4) | The furthest the pitch moved from `pitch` while it sounded, in semitones: a bend when positive. 0 when it held still. |
+| `length` | yes | number (> 0) | Seconds long. |
+| `onset` | yes | number (≥ 0) | Seconds after the tab's tick 0 that it starts. |
+| `pitch` | yes | integer (≥ 0, ≤ 127) | The MIDI note it started on. |
+| `velocity` | yes | number (≥ 0, ≤ 1) | How loud it was, 0 to 1. |
+
+### `TabNote`
+
+One note: where it is played, when, and how.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `bend` |  | `Bend` | A bend up, and whether it comes back down. |
+| `dead` |  | boolean | A dead note: the string muted by the fretting hand, a click with no pitch. Written as an x. |
+| `fret` | yes | integer (≥ 0, ≤ 36) | The fret, counted from the capo; 0 is the open string. |
+| `hammerOn` |  | boolean | Sounded by hammering onto the fret from the note before. |
+| `harmonic` |  | boolean | A natural harmonic, touched over the fret rather than pressed. |
+| `length` | yes | integer (≥ 1) | Ticks long. |
+| `letRing` |  | boolean | Left ringing past its length, into the notes after it. |
+| `palmMute` |  | boolean | Damped with the picking hand at the bridge. |
+| `pullOff` |  | boolean | Sounded by pulling off to this fret from the note before. |
+| `slide` |  | boolean | Slides into the next note on the same string. |
+| `start` | yes | integer (≥ 0) | Ticks from the start of the tab, 960 per quarter note. |
+| `string` | yes | integer (≥ 1, ≤ 8) | The string, 1 for the highest-pitched. |
+| `tap` |  | boolean | Tapped with the picking hand. |
+| `velocity` |  | number (≥ 0, ≤ 1) | How hard it was played, 0 to 1. |
+| `vibrato` |  | boolean | Vibrato with the fretting hand. |
+
+### `Tempo`
+
+Tempo and time signature. One of each for the whole timeline for now; the engine's tempo map can hold changes, and when the UI can edit them this grows into a list.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `bpm` |  | number (> 0) | Beats per minute. Default `120`. |
+| `denominator` |  | integer (≥ 1, ≤ 255) | The note value of a beat: 4 for quarter notes. Default `4`. |
+| `numerator` |  | integer (≥ 1, ≤ 255) | Beats in a bar. Default `4`. |
+
 ## Cantina project (`project`)
 
 A whole project. Saved as `project.json` inside a `Name.cantina/` directory next to `audio/`, `plugins/` and `pedals/`.
@@ -152,9 +221,18 @@ A whole project. Saved as `project.json` inside a `Name.cantina/` directory next
 | `sampleRate` | yes | number (> 0) | The rate every file in `audio/` is at, and the rate the engine must run at to play them. |
 | `tempo` |  | `Tempo` | Tempo and time signature. Default `{"bpm":120,"denominator":4,"numerator":4}`. |
 | `tracks` |  | array of `Track` | Tracks, top to bottom. Default `[]`. |
-| `version` | yes | exactly `6` | The format version, `FORMAT_VERSION` when written; older files are upgraded on load. |
+| `version` | yes | exactly `7` | The format version, `FORMAT_VERSION` when written; older files are upgraded on load. |
 
 Where it goes: `project.json` in a `Name.cantina/` folder. Schema: `https://cantina-docs.vibeproject.workers.dev/schemas/project.schema.json`.
+
+### `Bend`
+
+A bend: the string pushed up by `semitones` after the note starts.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `release` |  | boolean | Let back down to the fretted pitch before the note ends. |
+| `semitones` | yes | number (> 0, ≤ 4) | How far up, in semitones: 1 is a half step, 2 a whole step. |
 
 ### `Clip`
 
@@ -168,6 +246,19 @@ A region of a file in `audio/` placed on the timeline. The file is never modifie
 | `name` | yes | string | Shown on the clip. |
 | `offset` | yes | integer (≥ 0) | Frame into the file the clip starts from. |
 | `start` | yes | integer (≥ 0) | Timeline sample the clip starts at. |
+| `tab` |  | `Tab` | The tab of what the clip plays, anchored to its file so it stays on the notes when the clip moves or is trimmed. |
+
+### `HeardNote`
+
+A note as transcription heard it: a pitch and a time in seconds, not yet on a beat or a string.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `bend` |  | number (≥ -4, ≤ 4) | The furthest the pitch moved from `pitch` while it sounded, in semitones: a bend when positive. 0 when it held still. |
+| `length` | yes | number (> 0) | Seconds long. |
+| `onset` | yes | number (≥ 0) | Seconds after the tab's tick 0 that it starts. |
+| `pitch` | yes | integer (≥ 0, ≤ 127) | The MIDI note it started on. |
+| `velocity` | yes | number (≥ 0, ≤ 1) | How loud it was, 0 to 1. |
 
 ### `LoopRegion`
 
@@ -234,6 +325,43 @@ A mixer strip: what a track, or the master, does to its sum.
 | `mute` |  | boolean | Silences the strip. Default `false`. |
 | `pan` |  | number (≥ -1, ≤ 1) | -1 is hard left, 1 hard right. Ignored on the master. Default `0`. |
 | `solo` |  | boolean | Ignored on the master. Default `false`. |
+
+### `Tab`
+
+A tab: the tuning, the capo, the tempo it was written against and the notes.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `capo` |  | integer (≥ 0, ≤ 36) | The fret the capo is at; 0 for none. |
+| `heard` |  | array of `HeardNote` | For a transcribed tab, the notes as transcription heard them, before they were quantised to the grid and fitted to strings, so either can be redone without transcribing again. Empty for a tab written by hand. |
+| `instrument` | yes | `Instrument` | Guitar or bass, which sets how many strings it may have. |
+| `name` |  | string | Shown above the tab and in exports. Default `""`. |
+| `notes` |  | array of `TabNote` | The notes, in any order. Default `[]`. |
+| `origin` |  | integer (≥ 0) | On a clip, the frame of the clip's audio file where tick 0 falls. Not part of a tab file. |
+| `tempo` |  | `Tempo` | The tempo and time signature the ticks were written against. Default `{"bpm":120,"denominator":4,"numerator":4}`. |
+| `tuning` | yes | array of integer (≥ 0, ≤ 127) (at least 4, at most 8) | The open strings from the lowest to the highest, as MIDI notes (40 is the low E of a guitar). Its length is the string count. |
+
+### `TabNote`
+
+One note: where it is played, when, and how.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `bend` |  | `Bend` | A bend up, and whether it comes back down. |
+| `dead` |  | boolean | A dead note: the string muted by the fretting hand, a click with no pitch. Written as an x. |
+| `fret` | yes | integer (≥ 0, ≤ 36) | The fret, counted from the capo; 0 is the open string. |
+| `hammerOn` |  | boolean | Sounded by hammering onto the fret from the note before. |
+| `harmonic` |  | boolean | A natural harmonic, touched over the fret rather than pressed. |
+| `length` | yes | integer (≥ 1) | Ticks long. |
+| `letRing` |  | boolean | Left ringing past its length, into the notes after it. |
+| `palmMute` |  | boolean | Damped with the picking hand at the bridge. |
+| `pullOff` |  | boolean | Sounded by pulling off to this fret from the note before. |
+| `slide` |  | boolean | Slides into the next note on the same string. |
+| `start` | yes | integer (≥ 0) | Ticks from the start of the tab, 960 per quarter note. |
+| `string` | yes | integer (≥ 1, ≤ 8) | The string, 1 for the highest-pitched. |
+| `tap` |  | boolean | Tapped with the picking hand. |
+| `velocity` |  | number (≥ 0, ≤ 1) | How hard it was played, 0 to 1. |
+| `vibrato` |  | boolean | Vibrato with the fretting hand. |
 
 ### `Tempo`
 

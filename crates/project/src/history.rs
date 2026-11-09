@@ -207,6 +207,7 @@ mod tests {
             start: 1000,
             offset: 0,
             length: 48_000,
+            tab: None,
         });
         p.tracks.push(t);
         p.tracks.push(Track::new(TrackId(4), "Bass"));
@@ -510,6 +511,7 @@ mod tests {
                     start: *s as u64,
                     offset: 0,
                     length: *l as u64,
+                    tab: None,
                 },
             },
             Op::RemoveClip(c) => Command::RemoveClip {

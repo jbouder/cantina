@@ -551,6 +551,9 @@ impl Command {
                     start: *at,
                     offset: clip.offset + left,
                     length: clip.length - left,
+                    // Anchored to the file, so both halves read the same tab
+                    // and each shows the notes it plays.
+                    tab: clip.tab.clone(),
                 };
                 clip.length = left;
                 clips.insert(index + 1, right);
@@ -1107,6 +1110,7 @@ mod tests {
             start,
             offset: 0,
             length,
+            tab: None,
         }
     }
 
@@ -1123,6 +1127,69 @@ mod tests {
         p.tracks.push(t);
         p.tracks.push(Track::new(TrackId(4), "Bass"));
         p
+    }
+
+    #[test]
+    fn a_tab_stays_on_its_notes_through_moves_trims_and_splits() {
+        let mut p = project();
+        let mut tab = crate::Tab::new("Riff", crate::Instrument::Guitar, 6).unwrap();
+        tab.origin = 120;
+        // 120 bpm: 960 ticks is half a second, 24 000 frames at 48 kHz.
+        tab.tempo.bpm = 120.0;
+        tab.notes.push(crate::TabNote::new(6, 0, 0, 480));
+        p.tracks[0].clips[0].length = 48_000;
+        p.tracks[0].clips[0].tab = Some(tab);
+        let at = |p: &Project, id: u64, ticks: u64| {
+            p.clip(ClipId(id))
+                .unwrap()
+                .1
+                .tab_sample(ticks, 48_000.0)
+                .unwrap()
+        };
+        assert_eq!(at(&p, 3, 0), 120);
+        assert_eq!(at(&p, 3, 960), 24_120);
+
+        let moved = round_trip(
+            &p,
+            Command::MoveClip {
+                id: ClipId(3),
+                track: TrackId(4),
+                start: 10_000,
+            },
+        );
+        assert_eq!(at(&moved, 3, 960), 34_120, "the tab moves with the clip");
+
+        // Trim the front past the first note: the audio stays where it
+        // was on the timeline, and so does the tab.
+        let trimmed = round_trip(
+            &p,
+            Command::TrimClip {
+                id: ClipId(3),
+                start: 1_000,
+                offset: 1_000,
+                length: 47_000,
+            },
+        );
+        assert_eq!(at(&trimmed, 3, 960), 24_120);
+        let clip = trimmed.clip(ClipId(3)).unwrap().1;
+        assert!(!clip.plays_frame(clip.tab.as_ref().unwrap().file_frame(0, 48_000.0)));
+        assert!(clip.plays_frame(clip.tab.as_ref().unwrap().file_frame(960, 48_000.0)));
+
+        // Both halves of a split keep the tab, each on the same notes.
+        let split = round_trip(
+            &p,
+            Command::SplitClip {
+                id: ClipId(3),
+                at: 12_000,
+                new_id: ClipId(9),
+            },
+        );
+        assert_eq!(at(&split, 3, 960), 24_120);
+        assert_eq!(at(&split, 9, 960), 24_120);
+
+        // Removing the clip takes the tab with it, and undo brings it back.
+        let removed = round_trip(&p, Command::RemoveClip { id: ClipId(3) });
+        assert!(removed.clip(ClipId(3)).is_none());
     }
 
     /// Applies, checks the inverse restores the original, then reapplies.

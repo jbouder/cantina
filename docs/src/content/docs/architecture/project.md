@@ -75,6 +75,14 @@ field's doc comment as its description; a file may name it in a
   only allowed while the project has no audio.
 - **Drum tracks** carry a `kit` id and **`patterns`** on the project
   hold the step grids; see [drums](/architecture/drums/).
+- **Tabs** sit on the clip they describe, as `tab`. A tab's notes are
+  in ticks (960 per quarter note) at the tempo it was written against,
+  and its `origin` is the frame of the clip's file where tick 0 falls.
+  Anchored to the file rather than the timeline, the tab stays on its
+  notes when the clip is moved, trimmed or split: both halves of a split
+  keep the tab and each plays its part of it. `Clip::tab_sample` turns a
+  tick into a timeline sample. Version 7 added it; older clips have no
+  tab. The format is on the [tab schema](/reference/schemas/tab/) page.
 - **Designed pedals** have the spec `pedal:<id>`; the definition is
   `pedals/<id>.pedal.json` in the project, written on Save for every
   such pedal the chains use (drafts included) and read back on open,
@@ -83,10 +91,11 @@ field's doc comment as its description; a file may name it in a
 
 ## Schemas
 
-The four formats Cantina reads have JSON Schemas in `schemas/` at the root
+The formats Cantina reads have JSON Schemas in `schemas/` at the root
 of the repository, served by this site under `/schemas/`:
 [pedal](/schemas/pedal.schema.json), [kit](/schemas/kit.schema.json),
-[pattern](/schemas/pattern.schema.json) and
+[kit recipe](/schemas/kit-recipe.schema.json),
+[pattern](/schemas/pattern.schema.json), [tab](/schemas/tab.schema.json) and
 [project](/schemas/project.schema.json). They are generated from the serde
 types with `schemars`, behind the `schema` feature of `cantina-dsp` and
 `cantina-project`, plus the limits that live in validation (step counts,

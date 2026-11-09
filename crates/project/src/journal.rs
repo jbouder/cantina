@@ -173,6 +173,7 @@ mod tests {
             start: id * 1000,
             offset: 0,
             length: 500,
+            tab: None,
         }
     }
 

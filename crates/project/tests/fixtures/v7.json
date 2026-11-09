@@ -1,0 +1,278 @@
+{
+  "version": 7,
+  "name": "Fixture",
+  "sampleRate": 48000.0,
+  "tempo": {
+    "bpm": 110.0,
+    "numerator": 4,
+    "denominator": 4
+  },
+  "tracks": [
+    {
+      "id": 1,
+      "name": "Guitar",
+      "armed": true,
+      "chain": [
+        {
+          "id": 2,
+          "spec": "gain",
+          "values": [
+            -3.0
+          ],
+          "bypassed": true
+        },
+        {
+          "id": 3,
+          "spec": "overdrive",
+          "values": [
+            20.0,
+            3000.0,
+            -6.0
+          ]
+        }
+      ],
+      "clips": [
+        {
+          "id": 4,
+          "name": "Guitar 1",
+          "file": "Guitar-1.wav",
+          "start": 0,
+          "offset": 0,
+          "length": 96000,
+          "tab": {
+            "name": "Guitar 1",
+            "instrument": "guitar",
+            "tuning": [
+              38,
+              45,
+              50,
+              55,
+              59,
+              64
+            ],
+            "capo": 2,
+            "tempo": {
+              "bpm": 110.0,
+              "numerator": 4,
+              "denominator": 4
+            },
+            "origin": 4800,
+            "notes": [
+              {
+                "string": 6,
+                "fret": 0,
+                "start": 0,
+                "length": 480,
+                "palmMute": true
+              },
+              {
+                "string": 6,
+                "fret": 0,
+                "start": 480,
+                "length": 480,
+                "palmMute": true,
+                "velocity": 0.7
+              },
+              {
+                "string": 5,
+                "fret": 2,
+                "start": 960,
+                "length": 240,
+                "hammerOn": true
+              },
+              {
+                "string": 4,
+                "fret": 4,
+                "start": 1200,
+                "length": 240,
+                "pullOff": true
+              },
+              {
+                "string": 3,
+                "fret": 7,
+                "start": 1440,
+                "length": 1440,
+                "bend": {
+                  "semitones": 2.0,
+                  "release": true
+                },
+                "vibrato": true
+              },
+              {
+                "string": 2,
+                "fret": 5,
+                "start": 2880,
+                "length": 480,
+                "slide": true
+              },
+              {
+                "string": 2,
+                "fret": 7,
+                "start": 3360,
+                "length": 480,
+                "letRing": true
+              },
+              {
+                "string": 1,
+                "fret": 12,
+                "start": 3840,
+                "length": 960,
+                "harmonic": true
+              },
+              {
+                "string": 1,
+                "fret": 0,
+                "start": 4800,
+                "length": 240,
+                "dead": true
+              },
+              {
+                "string": 1,
+                "fret": 17,
+                "start": 5040,
+                "length": 240,
+                "tap": true
+              }
+            ],
+            "heard": [
+              {
+                "pitch": 40,
+                "onset": 0.012,
+                "length": 0.24,
+                "velocity": 0.9
+              },
+              {
+                "pitch": 55,
+                "onset": 0.82,
+                "length": 0.78,
+                "velocity": 0.8,
+                "bend": 2.0
+              }
+            ]
+          }
+        }
+      ],
+      "strip": {
+        "gainDb": -2.0,
+        "pan": -0.3,
+        "mute": false,
+        "solo": false
+      }
+    },
+    {
+      "id": 6,
+      "name": "Drums",
+      "armed": false,
+      "kit": "acoustic",
+      "chain": [],
+      "clips": [],
+      "patternClips": [
+        {
+          "id": 8,
+          "pattern": 7,
+          "start": 0,
+          "offset": 0,
+          "length": 15360
+        },
+        {
+          "id": 9,
+          "pattern": 7,
+          "start": 19200,
+          "offset": 960,
+          "length": 6720
+        }
+      ],
+      "strip": {
+        "gainDb": 0.0,
+        "pan": 0.0,
+        "mute": false,
+        "solo": false
+      }
+    }
+  ],
+  "patterns": [
+    {
+      "id": 7,
+      "name": "Beat",
+      "stepsPerBeat": 4,
+      "length": 16,
+      "swing": 0.2,
+      "rows": [
+        {
+          "pad": "hh-closed",
+          "steps": [
+            0.8,
+            0,
+            0.5,
+            0,
+            0.8,
+            0,
+            0.5,
+            0,
+            0.8,
+            0,
+            0.5,
+            0,
+            0.8,
+            0,
+            0.5,
+            0
+          ]
+        },
+        {
+          "pad": "kick",
+          "steps": [
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.9,
+            0,
+            0.6,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "pad": "snare",
+          "steps": [
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0.3
+          ]
+        }
+      ]
+    }
+  ],
+  "master": {
+    "gainDb": -1.0,
+    "pan": 0.0,
+    "mute": false,
+    "solo": false
+  },
+  "loop": {
+    "start": 96000,
+    "end": 192000,
+    "on": true
+  }
+}
