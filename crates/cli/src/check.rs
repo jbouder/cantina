@@ -538,7 +538,11 @@ mod tests {
         }
         let r = check(&root().join("rigs/bass-metal.rig.json"), &o).unwrap();
         assert_eq!(r.format, Format::Rig);
-        assert!(r.summary.contains("\"Bass Metal\" (bass, Metal): 5 pedals"), "{}", r.summary);
+        assert!(
+            r.summary.contains("\"Bass Metal\" (bass, Metal): 5 pedals"),
+            "{}",
+            r.summary
+        );
         assert!(r.warnings.is_empty(), "{:?}", r.warnings);
         let r = check(
             &root().join("crates/project/tests/fixtures/v5.json"),
