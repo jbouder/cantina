@@ -122,6 +122,7 @@ pub fn run() {
             commands::drum_rows_set,
             commands::pattern_clip_set_fill,
             commands::pad_mix_set,
+            commands::pad_hit,
             commands::pattern_clip_generate_fill,
             commands::pattern_clip_add,
             commands::pattern_clip_remove,

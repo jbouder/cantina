@@ -384,6 +384,17 @@
       ]
     },
     {
+      "title": "Live pads",
+      "note": "With a pad focused, in the Pads panel of the Beats tab.",
+      "keys": [
+        ["A S D F G H J K L ;", "Play the kit's first ten pads, in order"],
+        ["Z X C V B N", "Play the next six"],
+        ["⇧ with a pad key", "Plays it as an accent, at full strength"],
+        ["← →", "In step entry, move the cursor a step"],
+        ["Esc", "Stops recording or step entry"]
+      ]
+    },
+    {
       "title": "Groove browser",
       "note": "With the groove list focused.",
       "keys": [

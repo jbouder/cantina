@@ -322,7 +322,12 @@ pub struct Sequencer {
     incoming: Consumer<Box<Score>>,
     retired: Producer<Box<Score>>,
     stats: Arc<SequencerStats>,
+    /// Pads played live, by pad index and velocity, from the UI thread.
+    live: Consumer<(usize, f32)>,
 }
+
+/// Live hits that can wait for the audio thread; more are dropped.
+const LIVE_QUEUE: usize = 64;
 
 /// The UI-thread half.
 pub struct SequencerHandle {
@@ -330,6 +335,7 @@ pub struct SequencerHandle {
     retired: Consumer<Box<Score>>,
     score: Score,
     stats: Arc<SequencerStats>,
+    live: Producer<(usize, f32)>,
 }
 
 impl Sequencer {
@@ -338,18 +344,21 @@ impl Sequencer {
         let (outgoing, incoming) = RingBuffer::new(SCORE_QUEUE);
         let (retired_in, retired_out) = RingBuffer::new(RETIRED_QUEUE);
         let stats = Arc::new(SequencerStats::default());
+        let (live_in, live_out) = RingBuffer::new(LIVE_QUEUE);
         let sequencer = Sequencer {
             sampler: Sampler::new(kit),
             score: Box::default(),
             incoming,
             retired: retired_in,
             stats: Arc::clone(&stats),
+            live: live_out,
         };
         let handle = SequencerHandle {
             outgoing,
             retired: retired_out,
             score: Vec::new(),
             stats,
+            live: live_in,
         };
         (sequencer, handle)
     }
@@ -452,6 +461,15 @@ impl Node for Sequencer {
 
     fn process(&mut self, ctx: &BlockContext, buffer: &mut Buffer) {
         self.swap_in_latest();
+        // Pads played live sound at the start of the next block, whether
+        // or not the transport rolls: the shortest way to the speakers.
+        while let Ok((pad, velocity)) = self.live.pop() {
+            if self.sampler.trigger(pad, velocity, 0) {
+                self.stats.hits.fetch_add(1, Ordering::Relaxed);
+            } else {
+                self.stats.dropped.fetch_add(1, Ordering::Relaxed);
+            }
+        }
         if ctx.playing && buffer.frames() > 0 {
             self.queue_hits(ctx);
         }
@@ -482,6 +500,12 @@ impl SequencerHandle {
             }
             Err(_) => false,
         }
+    }
+
+    /// Plays a pad now: it sounds at the start of the audio thread's next
+    /// block. Returns false when the queue is full.
+    pub fn hit(&mut self, pad: usize, velocity: f32) -> bool {
+        self.live.push((pad, velocity.clamp(0.0, 1.0))).is_ok()
     }
 
     /// Drops every score the audio thread has retired. Returns how many.
@@ -872,6 +896,16 @@ mod tests {
         assert_eq!(p.hits()[0].tick, 240.0 + 80.0);
         p.feel.clear();
         assert_eq!(p.built().hits()[0].tick, 240.0);
+    }
+
+    #[test]
+    fn a_live_hit_sounds_at_the_next_block_even_when_stopped() {
+        let (mut runtime, mut controller, mut handle) = runtime_with_sequencer();
+        let _ = &mut controller;
+        assert!(handle.hit(1, 0.5));
+        let out = render(&mut runtime, 256);
+        assert_eq!(hits(&out), vec![(0, 0.25)], "the snare, at once");
+        assert_eq!(handle.stats().hits.load(Ordering::Relaxed), 1);
     }
 
     #[test]

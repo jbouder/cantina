@@ -2003,6 +2003,12 @@ export async function patternClipAdd(
   return mockEdit("place pattern");
 }
 
+/** Plays a pad of a drum track now: it sounds at the next audio block. Not an edit. */
+export async function padHit(track: number, pad: string, velocity: number): Promise<void> {
+  if (inTauri) return invoke("pad_hit", { track, pad, velocity });
+  if (!mockTrack(track).kit) throw new Error("not a drum track");
+}
+
 /** Sets a pad's mix on a drum track; null (or the kit's own) puts it back. One undoable edit. */
 export async function padMixSet(
   track: number,

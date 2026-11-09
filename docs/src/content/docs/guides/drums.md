@@ -198,6 +198,27 @@ when the groove is added to a project:
   does not have are kept, so the pattern still plays them on another kit,
   and a notice names them.
 
+## Play and record the pads
+
+**Pads**, beside **Mixer**, shows the kit as pads to play: click one
+(higher on the pad is harder), or with a pad focused use the keys under
+them, **A S D F G H J K L ;** for the first ten pads in the kit's order
+and **Z X C V B N** for the next six; ⇧ plays an accent. A hit goes
+straight to the drum track's sampler and sounds at once, through the
+track's pedals, whether the song is playing or not.
+
+- **Record** loops the pattern shown from the top and starts playing.
+  Play along: each hit lands on the nearest step, and when the pattern
+  comes round, what you played that pass is added to it as one step of
+  **Undo**, keeping the louder hit where one was already there. Keep
+  playing to add more on the next pass; press **Record** again, or Esc,
+  to stop.
+- **Step** writes a hit at a cursor, then moves the cursor on a step,
+  for programming a beat one hit at a time without a tempo; ← and →
+  move the cursor. Each hit is one step of **Undo**.
+
+![The pads, recording into the pattern](../../../assets/guides/pads.png)
+
 ## The pad mixer
 
 **Mixer**, beside **Grooves**, opens the pad mixer: for each pad of the
