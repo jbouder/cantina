@@ -541,6 +541,17 @@ pub fn pattern_audition(
     engine.lock().pattern_audition(track, pattern).map_err(fail)
 }
 
+/// Loops a stock groove's file on a drum track to hear it before adding
+/// it; both `null` stops.
+#[tauri::command]
+pub fn groove_audition(
+    engine: State<'_, EngineState>,
+    track: Option<u64>,
+    path: Option<String>,
+) -> Result<EngineStatus, String> {
+    engine.lock().groove_audition(track, path).map_err(fail)
+}
+
 /// Sets the compensation above which the UI warns, in milliseconds.
 #[tauri::command]
 pub fn latency_warning_set(engine: State<'_, EngineState>, ms: f32) -> EngineStatus {
