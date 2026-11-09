@@ -4,8 +4,7 @@ Each folder holds a one-line prompt (`prompt.txt`) and the file written for
 it by following this skill: read the references, draft, `cantina-cli
 check`, `cantina-cli render`, adjust. They are kept so a change to a format
 or to `cantina-cli` that breaks an authoring path shows up:
-`scripts/skill-fixtures.sh` checks and renders every one; run it by hand
-when a format or `cantina-cli` changes (it is not part of CI).
+`scripts/skill-fixtures.sh` checks and renders every one in CI.
 
 | Prompt | Output |
 | --- | --- |

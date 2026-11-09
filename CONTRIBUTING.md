@@ -98,7 +98,7 @@ npm run build                                  # the UI; the shell embeds ui/dis
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-scripts/skill-fixtures.sh                      # skill examples check and render; by hand, not in CI
+scripts/skill-fixtures.sh                      # every skill example checks and renders
 RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 (cd docs && npm run build)                     # for a docs change; fails on a broken link
 ```

@@ -150,7 +150,7 @@ UPDATE_GOLDEN=1 cargo test -p cantina-dsp --test golden   # a stock pedal's soun
 UPDATE_SCHEMAS=1 cargo test -p cantina-project schemas    # a file format changed
 node scripts/skill-references.mjs                         # after the schemas or the node catalog
 UPDATE_SHORTCUTS=1 npx vitest run shortcuts               # after a shortcut or menu item changed
-scripts/skill-fixtures.sh                                 # every skill example checks and renders (by hand, not in CI)
+scripts/skill-fixtures.sh                                 # every skill example checks and renders
 ```
 
 The docs site: `cd docs && npm install && npm run dev`; `npm run build`
@@ -167,9 +167,8 @@ touches rather than the whole suite:
   `cargo test -p <crate>`); a change to a public item, `cargo doc` for
   that crate with `RUSTDOCFLAGS="-D warnings"`.
 - **A format or the schemas**: regenerate as below, then
-  `node scripts/skill-references.mjs --check`. When the change could
-  break how the cantina-author skill writes files, also run
-  `scripts/skill-fixtures.sh`; CI no longer does.
+  `node scripts/skill-references.mjs --check` and
+  `scripts/skill-fixtures.sh`.
 - **Scenes** (`packages/scenes`): `npm run test:scenes`.
 - **Docs**: `npm run build` in `docs/`.
 
