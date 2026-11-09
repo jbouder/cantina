@@ -1575,6 +1575,7 @@ pub(crate) mod fake {
                     pedals: "/nonexistent/Pedals".into(),
                     kits: "/nonexistent/Kits".into(),
                     patterns: "/nonexistent/Patterns".into(),
+                    rigs: "/nonexistent/Rigs".into(),
                 },
                 |l| l.folders.clone(),
             )

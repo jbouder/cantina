@@ -1,6 +1,7 @@
 import { type FormEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import {
   type AuditionStatus,
+  brokenOf,
   clipRemove,
   clock,
   type DrumRows,
@@ -15,6 +16,8 @@ import {
   patternClipGenerateFill,
   patternClipRemove,
   patternClipSetFill,
+  type RigAudition,
+  type RigInfo,
   type StockGroove,
   type Tempo,
   type TrackStatus,
@@ -27,6 +30,7 @@ import { Button } from "./Button";
 import { DrumGrid } from "./DrumGrid";
 import { RenderBar, useRenderProgress } from "./ExportSheet";
 import { PedalChain } from "./PedalChain";
+import { RigPicker } from "./RigPicker";
 import { TabView } from "./TabView";
 import { TranscribeSheet } from "./TranscribeSheet";
 
@@ -55,6 +59,11 @@ type Props = {
   practice: Practice;
   /** The stock grooves, for the Beats tab. */
   grooves: StockGroove[];
+  /** The rigs, and the one being auditioned, for an audio track's pedalboard. */
+  rigs: RigInfo[];
+  rigAudition: RigAudition | null;
+  /** The rig picker starts open: `?rigs` in the browser, for screenshots. */
+  rigsOpen?: boolean;
   /** Rows muted or soloed on drum tracks, by track id. */
   drumRows: Record<number, DrumRows>;
   tempo: Tempo;
@@ -95,6 +104,9 @@ export function Editor({
   audition,
   practice,
   grooves,
+  rigs,
+  rigAudition,
+  rigsOpen = false,
   drumRows,
   tempo,
   position,
@@ -315,17 +327,30 @@ export function Editor({
             onError={onError}
           />
         ) : shown === "pedalboard" ? (
-          <PedalChain
-            chain={track.chain}
-            sampleRate={sampleRate}
-            kinds={kinds}
-            readouts={readouts}
-            irs={irs}
-            onAdd={onAdd}
-            onDesign={onDesign}
-            onStatus={onStatus}
-            onError={onError}
-          />
+          <div className="grid gap-3">
+            {track.kit ? null : (
+              <RigPicker
+                track={track}
+                rigs={rigs}
+                audition={rigAudition}
+                broken={brokenOf(library, "rig")}
+                onStatus={onStatus}
+                onError={onError}
+                initiallyOpen={rigsOpen}
+              />
+            )}
+            <PedalChain
+              chain={track.chain}
+              sampleRate={sampleRate}
+              kinds={kinds}
+              readouts={readouts}
+              irs={irs}
+              onAdd={onAdd}
+              onDesign={onDesign}
+              onStatus={onStatus}
+              onError={onError}
+            />
+          </div>
         ) : shown === "tab" ? (
           <TabView
             clips={tabbed}

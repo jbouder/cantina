@@ -61,11 +61,13 @@ numbers.
    | Pedal | `~/Music/Cantina/Pedals/<id>.pedal.json` (the id is the file stem: lower case, dashes) |
    | Kit | `~/Music/Cantina/Kits/<id>/` with `kit.json` and the samples |
    | Pattern | `~/Music/Cantina/Patterns/<Name>.pattern.json` |
+   | Rig | `~/Music/Cantina/Rigs/<id>.rig.json` |
    | Project | `~/Music/Cantina/<Name>.cantina/project.json` |
 
    Then tell the person where it is and what to do in the app: a pedal is in
    the pedal picker under *Your pedals*; a kit in a drum track's **Kit**
-   list; a pattern in the **Pattern** menu under *Import from the library*.
+   list; a pattern in the **Pattern** menu under *Import from the library*;
+   a rig in the **Rigs** picker on an audio track's pedalboard.
 
 ## Kits
 

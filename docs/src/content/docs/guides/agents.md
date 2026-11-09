@@ -88,8 +88,9 @@ The [command line](/reference/cli/) reference has every command and flag.
 | `~/Music/Cantina/Pedals/` | `<id>.pedal.json` | the pedal picker, under *Your pedals* |
 | `~/Music/Cantina/Kits/` | a folder per kit with `kit.json` and samples | a drum track's **Kit** list |
 | `~/Music/Cantina/Patterns/` | `<Name>.pattern.json` | the **Pattern** menu, under *Import from the library* |
+| `~/Music/Cantina/Rigs/` | `<id>.rig.json` | the rig picker on an audio track's pedalboard, marked *yours* |
 
-Cantina watches the three folders while it runs. A file added or changed
+Cantina watches the four folders while it runs. A file added or changed
 there appears within a second; a file that does not load is listed as
 *will not load* with the same reason `cantina-cli check` gives, and cannot
 be picked until it is fixed. See [library folders](/guides/drums/#library-folders).

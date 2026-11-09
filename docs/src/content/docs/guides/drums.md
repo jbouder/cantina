@@ -354,7 +354,7 @@ when the groove is added to a project:
 
 ## Library folders
 
-Cantina watches three folders for files written outside the app, by hand
+Cantina watches four folders for files written outside the app, by hand
 or by a coding agent:
 
 | Folder | Holds |
@@ -362,6 +362,7 @@ or by a coding agent:
 | `~/Music/Cantina/Kits/` | Kit folders, each with a `kit.json` and its samples |
 | `~/Music/Cantina/Patterns/` | `*.pattern.json` files |
 | `~/Music/Cantina/Pedals/` | `*.pedal.json` files (see [designing pedals](/guides/designer/)) |
+| `~/Music/Cantina/Rigs/` | `*.rig.json` files (see [rigs](/guides/rigs/)) |
 
 A file saved there appears within a second, with no restart and no
 **Rescan**: a kit in the **Kit** list, a pattern in the **Pattern** menu

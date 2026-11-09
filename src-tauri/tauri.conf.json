@@ -32,7 +32,8 @@
       "../kits/": "kits/",
       "../irs/": "irs/",
       "../pedals/": "pedals/",
-      "../patterns/": "patterns/"
+      "../patterns/": "patterns/",
+      "../rigs/": "rigs/"
     },
     "icon": [
       "icons/32x32.png",

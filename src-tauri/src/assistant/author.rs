@@ -385,6 +385,7 @@ pub(crate) mod testing {
                 pedals: root.join("Pedals"),
                 kits: root.join("Kits"),
                 patterns: root.join("Patterns"),
+                rigs: root.join("Rigs"),
             };
             for dir in folders.all() {
                 std::fs::create_dir_all(dir).unwrap();

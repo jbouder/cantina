@@ -79,6 +79,10 @@ export interface EngineStatus {
   practice: Practice;
   /** The stock grooves that ship with the app, read-only, by genre then section. */
   grooves: StockGroove[];
+  /** Every rig the picker offers: the stock ones, then the user's. */
+  rigs: RigInfo[];
+  /** The rig heard on a track in place of its chain. Session state, never saved. */
+  rigAudition: RigAudition | null;
   /** Rows muted or soloed on drum tracks, by track id. Session state, never saved. */
   drumRows: Record<number, DrumRows>;
 }
@@ -87,6 +91,40 @@ export interface EngineStatus {
 export interface DrumRows {
   muted: string[];
   soloed: string[];
+}
+
+/** A rig the picker offers. Mirrors `RigInfo` in src-tauri. */
+export interface RigInfo {
+  name: string;
+  genre: string;
+  description: string;
+  instrument: Instrument;
+  /** Ships with Cantina: read-only. */
+  stock: boolean;
+  /** The file, which names the rig. */
+  path: string;
+  /** The pedals by spec, first to last. */
+  chain: string[];
+}
+
+/** A rig heard on a track in place of its chain. Mirrors `RigAuditionStatus` in src-tauri. */
+export interface RigAudition {
+  track: number;
+  path: string;
+  /** Hearing the rig (A) rather than the track's own chain (B). */
+  hearingRig: boolean;
+  /** The rig's pedals that are not installed and are left out. */
+  missing: string[];
+}
+
+/** What a saved rig says about itself. Mirrors `RigDraft` in src-tauri. */
+export interface RigDraft {
+  name: string;
+  genre: string;
+  description: string;
+  instrument: Instrument;
+  /** Overwrite a rig of the same name. */
+  replace?: boolean;
 }
 
 /** The part of a song a groove is for. */
@@ -1076,6 +1114,139 @@ const mockGrooves: StockGroove[] = Object.entries(GROOVE_FILES)
       a.name.localeCompare(b.name),
   );
 
+/** A rig file as the stand-in reads it. */
+interface RigFile {
+  version: number;
+  name: string;
+  genre?: string;
+  description?: string;
+  instrument: Instrument;
+  inputGainDb?: number;
+  chain: {
+    pedal: string;
+    params?: Record<string, number | boolean | string>;
+    bypassed?: boolean;
+  }[];
+}
+
+/** The stock rigs, read from the repository's `rigs/` at build time. */
+const RIG_FILES = import.meta.glob<RigFile>("../../../rigs/*.rig.json", {
+  eager: true,
+  import: "default",
+});
+
+const MOCK_RIGS_DIR = "/Users/you/Music/Cantina/Rigs";
+
+function rigInfo(rig: RigFile, path: string, stock: boolean): RigInfo {
+  return {
+    name: rig.name,
+    genre: rig.genre ?? "",
+    description: rig.description ?? "",
+    instrument: rig.instrument,
+    stock,
+    path,
+    chain: rig.chain.map((p) => p.pedal),
+  };
+}
+
+/** Guitar before bass, then by genre and name, as the shell sorts them. */
+function sortRigs<T>(rigs: T[], key: (r: T) => RigInfo): T[] {
+  return rigs.sort((a, b) => {
+    const x = key(a);
+    const y = key(b);
+    return (
+      Number(x.instrument !== "guitar") - Number(y.instrument !== "guitar") ||
+      x.genre.toLowerCase().localeCompare(y.genre.toLowerCase()) ||
+      x.name.toLowerCase().localeCompare(y.name.toLowerCase())
+    );
+  });
+}
+
+const mockStockRigFiles = new Map<string, RigFile>(
+  Object.entries(RIG_FILES).map(([file, rig]) => [
+    `/Applications/Cantina.app/Contents/Resources/${file.replace(/^(\.\.\/)+/, "")}`,
+    rig,
+  ]),
+);
+const mockStockRigs: RigInfo[] = sortRigs(
+  [...mockStockRigFiles].map(([path, rig]) => rigInfo(rig, path, true)),
+  (r) => r,
+);
+
+/** The user's rigs in the stand-in: `?myrigs` starts with one. */
+const mockUserRigs: { info: RigInfo; file: RigFile }[] = [];
+if (mockParams?.has("myrigs")) {
+  const file: RigFile = {
+    version: 1,
+    name: "Friday Crunch",
+    genre: "Rock",
+    description: "My tone for the Friday band: a pushed amp with a touch of delay.",
+    instrument: "guitar",
+    chain: [
+      { pedal: "overdrive", params: { drive: 12 } },
+      { pedal: "amp", params: { gain: 20 } },
+      { pedal: "cab:2x12-closed" },
+      { pedal: "delay", params: { mix: 18 } },
+    ],
+  };
+  mockUserRigs.push({
+    info: rigInfo(file, `${MOCK_RIGS_DIR}/friday-crunch.rig.json`, false),
+    file,
+  });
+}
+
+function mockRigFile(path: string): RigFile {
+  const rig = mockStockRigFiles.get(path) ?? mockUserRigs.find((r) => r.info.path === path)?.file;
+  if (!rig) throw new Error(`there is no rig at ${path}`);
+  return rig;
+}
+
+function mockUserRig(path: string) {
+  const i = mockUserRigs.findIndex((r) => r.info.path === path);
+  if (i < 0) throw new Error(`only your own rigs, in ${MOCK_RIGS_DIR}, can be changed`);
+  return i;
+}
+
+/** A rig's pedals as the stand-in's chain: values set by name, as the shell resolves them. */
+function mockRigChain(rig: RigFile): PedalInfo[] {
+  const chain: PedalInfo[] = [];
+  if (rig.inputGainDb) {
+    const gain = mockPedal(mockNextId++, "gain");
+    const first = gain.params[0];
+    if (first) first.value = rig.inputGainDb;
+    chain.push(gain);
+  }
+  for (const p of rig.chain) {
+    const pedal = mockPedal(mockNextId++, p.pedal);
+    const ids = MOCK_DEFS[p.pedal]?.params.map((d) => d.id) ?? [];
+    for (const [key, value] of Object.entries(p.params ?? {})) {
+      const k = key.toLowerCase();
+      let i = ids.findIndex((id) => id.toLowerCase() === k);
+      if (i < 0) i = pedal.params.findIndex((q) => q.name.toLowerCase() === k);
+      const param = pedal.params[i];
+      if (!param) continue;
+      param.value =
+        typeof value === "boolean"
+          ? Number(value)
+          : typeof value === "string"
+            ? Math.max(
+                0,
+                param.choices.findIndex((c) => c.toLowerCase() === value.toLowerCase()),
+              )
+            : value;
+    }
+    pedal.bypassed = p.bypassed ?? false;
+    chain.push(pedal);
+  }
+  return chain;
+}
+
+/** An id made from a rig's name, as the shell makes its file names. */
+function rigSlug(name: string): string {
+  const slug = pedalSlug(name);
+  return slug === "pedal" ? "rig" : slug;
+}
+
 /** A stock groove's pattern by its path, for the stand-in's import. */
 function mockGrooveFile(path: string) {
   const file = Object.entries(GROOVE_FILES).find(([f]) =>
@@ -1227,6 +1398,16 @@ const mock: EngineStatus = {
   irs: MOCK_IRS,
   audition: mockParams?.has("audition") ? { track: MOCK_DRUMS, pattern: 11, groove: null } : null,
   grooves: [],
+  rigs: [],
+  // `?rigaudition` hears the Metalcore rig on the guitar track, for screenshots.
+  rigAudition: mockParams?.has("rigaudition")
+    ? {
+        track: 1,
+        path: mockStockRigs.find((r) => r.name === "Metalcore")?.path ?? "",
+        hearingRig: mockParams.get("rigaudition") !== "b",
+        missing: [],
+      }
+    : null,
   // `?rowmute=snare` mutes a row of the drum track, for screenshots.
   drumRows: mockParams?.has("rowmute")
     ? { [MOCK_DRUMS]: { muted: [mockParams.get("rowmute") ?? "snare"], soloed: [] } }
@@ -1258,6 +1439,7 @@ const mock: EngineStatus = {
     pedalsDir: "/Users/you/Music/Cantina/Pedals",
     kitsDir: "/Users/you/Music/Cantina/Kits",
     patternsDir: "/Users/you/Music/Cantina/Patterns",
+    rigsDir: "/Users/you/Music/Cantina/Rigs",
     patterns: mockParams?.has("library")
       ? [
           {
@@ -1287,6 +1469,13 @@ const mock: EngineStatus = {
             name: "Shuffle.pattern.json",
             path: "/Users/you/Music/Cantina/Patterns/Shuffle.pattern.json",
             reason: 'the pattern row "kick" has 12 steps, the pattern 16',
+          },
+          {
+            kind: "rig",
+            name: "loud.rig.json",
+            path: "/Users/you/Music/Cantina/Rigs/loud.rig.json",
+            reason:
+              'chain 1 (amp): amp has no parameter "volume"; it has gain, bass, mid, treble, presence, level',
           },
         ]
       : [],
@@ -1336,6 +1525,13 @@ function mockStatus(): EngineStatus {
     audition: mock.audition ? { ...mock.audition } : null,
     practice: { ...mock.practice },
     grooves: mockGrooves,
+    rigs: [...mockStockRigs, ...mockUserRigs.map((r) => r.info)].map((r) => ({
+      ...r,
+      chain: [...r.chain],
+    })),
+    rigAudition: mock.rigAudition
+      ? { ...mock.rigAudition, missing: [...mock.rigAudition.missing] }
+      : null,
     drumRows: structuredClone(mock.drumRows),
     metronome: { ...mock.metronome, sounds: [...mock.metronome.sounds] },
     countIn: mock.countIn,
@@ -2211,6 +2407,133 @@ export async function grooveAudition(
 }
 
 /**
+ * Hears the rig at `path` on an audio track's live input in place of its
+ * chain, without changing the project; both null stops and puts the
+ * chain back. The swap fades the track out and in, so it never clicks.
+ */
+export async function rigAudition(
+  track: number | null,
+  path: string | null,
+): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("rig_audition", { track, path });
+  if (track === null || path === null) {
+    mock.rigAudition = null;
+    return mockStatus();
+  }
+  if (mockTrack(track).kit) throw new Error("a rig goes on an audio track");
+  mockRigFile(path);
+  mock.rigAudition = { track, path, hearingRig: true, missing: [] };
+  return mockStatus();
+}
+
+/** While auditioning, hears the rig (A) or the track's own chain (B). */
+export async function rigAb(hearRig: boolean): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("rig_ab", { hearRig });
+  if (!mock.rigAudition) throw new Error("no rig is being auditioned");
+  mock.rigAudition.hearingRig = hearRig;
+  return mockStatus();
+}
+
+/** Replaces an audio track's chain with a rig's, as one undoable edit. */
+export async function rigApply(track: number, path: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("rig_apply", { track, path });
+  const t = mockTrack(track);
+  if (t.kit) throw new Error("a rig goes on an audio track");
+  t.chain = mockRigChain(mockRigFile(path));
+  mock.rigAudition = null;
+  return mockEdit("apply rig");
+}
+
+/** Writes a track's chain to the Rigs library folder as a rig. */
+export async function rigSave(track: number, rig: RigDraft): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("rig_save", { track, rig });
+  const name = rig.name.trim();
+  if (!name) throw new Error("a rig needs a name");
+  const t = mockTrack(track);
+  if (t.chain.length === 0) throw new Error(`${t.name} has no pedals to save`);
+  const path = `${MOCK_RIGS_DIR}/${rigSlug(name)}.rig.json`;
+  const at = mockUserRigs.findIndex((r) => r.info.path === path);
+  if (at >= 0 && !rig.replace) throw new Error(`there is already a rig called ${name}`);
+  const file: RigFile = {
+    version: 1,
+    name,
+    genre: rig.genre.trim(),
+    description: rig.description.trim(),
+    instrument: rig.instrument,
+    chain: t.chain.map((p) => ({
+      pedal: p.spec,
+      params: Object.fromEntries(p.params.map((q) => [q.name.toLowerCase(), q.value])),
+      bypassed: p.bypassed,
+    })),
+  };
+  const entry = { info: rigInfo(file, path, false), file };
+  if (at >= 0) mockUserRigs[at] = entry;
+  else mockUserRigs.push(entry);
+  sortRigs(mockUserRigs, (r) => r.info);
+  mock.notice = `Saved the rig ${name}`;
+  mock.noticeSeq += 1;
+  return mockStatus();
+}
+
+/** Renames one of the user's rigs, and its file to match. */
+export async function rigRename(path: string, name: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("rig_rename", { path, name });
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("a rig needs a name");
+  const i = mockUserRig(path);
+  const to = `${MOCK_RIGS_DIR}/${rigSlug(trimmed)}.rig.json`;
+  if (to !== path && mockUserRigs.some((r) => r.info.path === to)) {
+    throw new Error(`there is already a rig file called ${rigSlug(trimmed)}.rig.json`);
+  }
+  const old = mockUserRigs[i];
+  if (!old) throw new Error(`there is no rig at ${path}`);
+  const file = { ...old.file, name: trimmed };
+  mockUserRigs[i] = { info: rigInfo(file, to, false), file };
+  sortRigs(mockUserRigs, (r) => r.info);
+  if (mock.rigAudition?.path === path) mock.rigAudition.path = to;
+  return mockStatus();
+}
+
+/** Deletes one of the user's rigs. */
+export async function rigDelete(path: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("rig_delete", { path });
+  mockUserRigs.splice(mockUserRig(path), 1);
+  return mockStatus();
+}
+
+/** Copies a rig file into the Rigs library folder after checking it. */
+export async function rigImport(path: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("rig_import", { path });
+  const stem = (path.split("/").pop() ?? "rig").replace(/\.rig\.json$/, "");
+  const name = stem.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const file: RigFile = {
+    version: 1,
+    name,
+    genre: "Rock",
+    description: "A rig someone shared.",
+    instrument: "guitar",
+    chain: [{ pedal: "overdrive" }, { pedal: "amp" }, { pedal: "cab:2x12-closed" }],
+  };
+  let n = 1;
+  let to = `${MOCK_RIGS_DIR}/${rigSlug(name)}.rig.json`;
+  while (mockUserRigs.some((r) => r.info.path === to)) {
+    n += 1;
+    to = `${MOCK_RIGS_DIR}/${rigSlug(`${name} ${n}`)}.rig.json`;
+  }
+  mockUserRigs.push({ info: rigInfo(file, to, false), file });
+  sortRigs(mockUserRigs, (r) => r.info);
+  mock.notice = `Added the rig ${to.split("/").pop()} to your rigs`;
+  mock.noticeSeq += 1;
+  return mockStatus();
+}
+
+/** Writes a copy of the rig at `path` to `to`, for sharing. */
+export async function rigExport(path: string, to: string): Promise<void> {
+  if (inTauri) return invoke("rig_export", { path, to });
+  mockRigFile(path);
+}
+
+/**
  * Sets how to practise: hear the tabs, mute the recordings under them, and
  * the speed from 50% to 100%. Not an edit.
  */
@@ -2953,6 +3276,22 @@ const PEDAL_FILTER = [{ name: "Pedal", extensions: ["json"] }];
 export async function chooseExportPath(name: string): Promise<string | null> {
   if (!inTauri) return `/Users/you/Desktop/${pedalSlug(name)}.pedal.json`;
   return saveDialog({ defaultPath: `${pedalSlug(name)}.pedal.json`, filters: PEDAL_FILTER });
+}
+
+const RIG_FILTER = [{ name: "Rig", extensions: ["json"] }];
+
+/** Asks where to write a rig file; null when the user cancels. */
+export async function chooseRigExportPath(name: string): Promise<string | null> {
+  const file = `${rigSlug(name)}.rig.json`;
+  if (!inTauri) return `/Users/you/Desktop/${file}`;
+  return saveDialog({ defaultPath: file, filters: RIG_FILTER });
+}
+
+/** Asks for a rig file to import; null when the user cancels. */
+export async function chooseRigImport(): Promise<string | null> {
+  if (!inTauri) return "/Users/you/Downloads/shared-tone.rig.json";
+  const chosen = await openDialog({ multiple: false, filters: RIG_FILTER });
+  return typeof chosen === "string" ? chosen : null;
 }
 
 /** Asks for pedal files to import; empty when the user cancels. */

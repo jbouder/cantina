@@ -1,11 +1,12 @@
-//! The library folders under `~/Music/Cantina`: `Pedals`, `Kits` and
-//! `Patterns`, the documented places for files written outside the app,
+//! The library folders under `~/Music/Cantina`: `Pedals`, `Kits`,
+//! `Patterns` and `Rigs`, the documented places for files written outside the app,
 //! by hand or by a coding agent.
 //!
 //! A watcher thread looks at the folders twice a second and, when what is
 //! in them changes, the engine scans them again and pushes a status, so a
 //! pedal written to `Pedals` shows up in the picker within a second, a kit
-//! in the kit list and a pattern in the pattern menu, without a restart.
+//! in the kit list, a pattern in the pattern menu and a rig in the rig
+//! picker, without a restart.
 //! A file that does not load is not dropped: it is listed as broken with
 //! the reason, the same message `cantina-cli check` gives, and cannot be
 //! picked.
@@ -32,6 +33,7 @@ pub enum Kind {
     Pedal,
     Kit,
     Pattern,
+    Rig,
 }
 
 /// A library file that does not load. Mirrors `BrokenFile` in the UI.
@@ -65,23 +67,28 @@ pub struct LibraryStatus {
     pub pedals_dir: String,
     pub kits_dir: String,
     pub patterns_dir: String,
+    pub rigs_dir: String,
     /// The patterns in `Patterns`, by name.
     pub patterns: Vec<LibraryPattern>,
-    /// Files in any of the three that do not load.
+    /// The rigs in `Rigs`; the status lists them with the stock ones.
+    #[serde(skip)]
+    pub rigs: Vec<crate::rigs::RigInfo>,
+    /// Files in any of the four that do not load.
     pub broken: Vec<BrokenFile>,
 }
 
-/// The three folders.
+/// The four folders.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Folders {
     pub pedals: PathBuf,
     pub kits: PathBuf,
     pub patterns: PathBuf,
+    pub rigs: PathBuf,
 }
 
 impl Folders {
-    pub fn all(&self) -> [&Path; 3] {
-        [&self.pedals, &self.kits, &self.patterns]
+    pub fn all(&self) -> [&Path; 4] {
+        [&self.pedals, &self.kits, &self.patterns, &self.rigs]
     }
 
     /// Reads the folders: the pattern files and every broken file.
@@ -90,12 +97,15 @@ impl Folders {
         broken_pedals(&self.pedals, &mut broken);
         broken_kits(&self.kits, &mut broken);
         let patterns = scan_patterns(&self.patterns, &mut broken);
+        let rigs = crate::rigs::scan_user(&self.rigs, &mut broken);
         broken.sort_by_key(|b| b.name.to_lowercase());
         LibraryStatus {
             pedals_dir: self.pedals.display().to_string(),
             kits_dir: self.kits.display().to_string(),
             patterns_dir: self.patterns.display().to_string(),
+            rigs_dir: self.rigs.display().to_string(),
             patterns,
+            rigs,
             broken,
         }
     }
@@ -341,6 +351,7 @@ mod tests {
             pedals: root.join("Pedals"),
             kits: root.join("Kits"),
             patterns: root.join("Patterns"),
+            rigs: root.join("Rigs"),
         };
         for d in f.all() {
             std::fs::create_dir_all(d).unwrap();

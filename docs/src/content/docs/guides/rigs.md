@@ -1,6 +1,6 @@
 ---
 title: "Rigs"
-description: "Rigs are ready-made chains for a style: the stock rigs for guitar and bass, what each is for, and how to write your own."
+description: "Rigs are ready-made chains for a style: pick one by genre, audition it on your live input against your own chain, apply it, save your own and share them; the stock rigs for guitar and bass."
 ---
 
 Most of the time you want "a metalcore tone" before you want to know what
@@ -9,6 +9,66 @@ settings for a style, with a name, a genre and a line on what it sounds
 like. Cantina ships a rig for each common style, for guitar and for bass,
 built from its own stock pedals and cabinets, so every one works on a
 fresh install.
+
+## Picking a rig
+
+Select an audio track, open its **Pedalboard** and press **Rigs** above
+the chain. The picker lists the rigs for an instrument, guitar or bass,
+with each one's genre, a line on what it sounds like and its chain.
+Narrow it with **Genre** or by typing in the search.
+
+![The rig picker on a guitar track's pedalboard: instrument, genre and search, Save chain as rig and Import, and the rigs with their descriptions and chains](../../../assets/guides/rigs.png)
+
+- **Audition** a rig to hear it on your live input in place of the
+  track's chain. Nothing in the project changes: the chain under the
+  picker is still yours. The rig being heard has a lit light.
+- **A** and **B** flip between the rig and your own chain while you play,
+  so you can compare them. The swap fades the track out and back in over
+  a few hundredths of a second, so it never clicks.
+- **Apply** replaces the track's chain with the rig's, as one edit:
+  **Undo** puts your chain back. Applying also ends the audition.
+- **Stop** ends the audition and puts your chain back.
+
+![Auditioning the Metalcore rig, with A and B to compare it with the track's own chain, Apply and Stop](../../../assets/guides/rigs-audition.png)
+
+Applied, a rig is ordinary pedals: turn knobs, add, remove and reorder
+them as with any chain. A rig that asks for some input gain starts with a
+**Gain** pedal set to it.
+
+From the keyboard the list is one tab stop: ↑ and ↓ move through it,
+Space auditions the rig under the cursor (again stops), Return applies
+it and Esc stops the audition. Double-clicking a rig applies it.
+
+If a rig names a plugin, a designed pedal or an impulse response that is
+not installed, the rest of it still plays: the picker and a notice say
+which pedals were left out and why.
+
+## Saving and sharing your rigs
+
+**Save chain as rig…** writes the track's chain, every knob as it is, to a
+rig of your own: give it a name and, if you like, a genre, the instrument
+and a line on what it sounds like. It appears in the picker straight away,
+marked *yours*. Saving under a name you already used replaces that rig.
+
+Your rigs are files, one `<name>.rig.json` each, in
+`~/Music/Cantina/Rigs`, a library folder Cantina watches like the others:
+
+- **Rename** and **Delete** a rig of yours from its row. The stock rigs
+  are read-only.
+- **Export** writes a copy of any rig to wherever you choose, to send to
+  someone.
+- **Import…** takes a rig file someone sent you, checks it and copies it
+  into your Rigs folder.
+- A rig file dropped into `~/Music/Cantina/Rigs` by hand or by a coding
+  agent shows up within a second, no restart. One that does not load is
+  listed under the rigs with the reason, the same one `cantina-cli check`
+  gives, until it is fixed.
+
+A plugin in a rig carries its whole saved state, so it comes back exactly
+as it was, on any Mac that has the plugin. A designed pedal is named by
+its id: the person you share with needs the pedal file too, so save it to
+your library and send both. Cantina reminds you when a rig uses a design
+only the project has.
 
 ## The stock rigs
 
