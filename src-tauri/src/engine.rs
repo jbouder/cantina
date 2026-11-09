@@ -56,7 +56,7 @@ use crate::frame::{Analysis as FrameAnalysis, Beat as FrameBeat, Frame};
 use crate::library;
 use crate::mixdown;
 use crate::pedals::{self, PedalEntry};
-use crate::project::Projects;
+use crate::project::{NewProject, Projects};
 use crate::settings::{AssistantSettings, AudioSettings, MetronomeSettings, Settings};
 use crate::tabs;
 
@@ -108,6 +108,9 @@ pub struct EngineStatus {
     pub metronome: MetronomeStatus,
     /// Record counts in four beats first. An app setting.
     pub count_in: bool,
+    /// Open the last project at launch rather than show the start
+    /// dialog. An app setting.
+    pub open_last_at_launch: bool,
     /// The assistant's connection, without its key. An app setting.
     pub assistant: crate::assistant::AssistantStatus,
     /// Hearing tabs, muting what was recorded under them, and the
@@ -463,6 +466,19 @@ impl PatternInfo {
             seed: q.seed,
         }
     }
+}
+
+/// A project in the start dialog's recent list. Mirrors `RecentProject`
+/// in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentProject {
+    pub name: String,
+    /// When its `project.json` was last written, in milliseconds since
+    /// the epoch.
+    pub saved: Option<u64>,
+    /// Moved or deleted since it was open.
+    pub missing: bool,
 }
 
 /// What a journal left behind. Mirrors `RecoveryInfo` in the UI.
@@ -2748,6 +2764,7 @@ impl Engine {
                     .collect(),
             },
             count_in: self.settings.count_in,
+            open_last_at_launch: self.settings.open_last_at_launch,
             assistant: crate::assistant::AssistantStatus::of(&self.settings.assistant),
             practice: self.practice,
             grooves: self.grooves.clone(),
@@ -3054,6 +3071,13 @@ impl Engine {
     /// Turns Record's count-in on or off. An app setting, not undoable.
     pub fn count_in_set(&mut self, on: bool) -> EngineStatus {
         self.settings.count_in = on;
+        self.persist();
+        self.publish()
+    }
+
+    /// Whether launch opens the last project rather than the start dialog.
+    pub fn open_last_at_launch_set(&mut self, on: bool) -> EngineStatus {
+        self.settings.open_last_at_launch = on;
         self.persist();
         self.publish()
     }
@@ -4633,6 +4657,43 @@ impl Engine {
             .create(name, self.settings.audio.sample_rate)?;
         self.switch_to(project, dir)?;
         Ok(self.publish())
+    }
+
+    /// Creates a project from the start dialog's options, saves it and
+    /// opens it. Its rate, tempo and tracks are in the file it starts
+    /// from, so it opens with nothing to undo. A drum track gets the
+    /// first kit installed.
+    pub fn project_new_with(&mut self, name: &str, options: &NewProject) -> Result<EngineStatus> {
+        if !self.recording.is_empty() {
+            bail!("stop recording before starting a new project");
+        }
+        let kit = self.kits.entries().first().map(|k| k.id.clone());
+        let (project, dir) = self.projects.create_with(
+            name,
+            self.settings.audio.sample_rate,
+            options,
+            kit.as_deref(),
+        )?;
+        self.switch_to(project, dir)?;
+        Ok(self.publish())
+    }
+
+    /// File ▸ Open Recent's projects for the start dialog, newest first,
+    /// each with when it was last saved. One moved or deleted since is
+    /// kept, marked missing, so the dialog can say so.
+    pub fn project_recent(&self) -> Vec<RecentProject> {
+        self.settings
+            .recent_projects
+            .iter()
+            .map(|name| {
+                let saved = self.projects.saved_at(name);
+                RecentProject {
+                    name: name.clone(),
+                    saved,
+                    missing: saved.is_none(),
+                }
+            })
+            .collect()
     }
 
     pub fn project_open(&mut self, name: &str) -> Result<EngineStatus> {

@@ -91,9 +91,26 @@ pub fn project_list(engine: State<'_, EngineState>) -> Result<Vec<String>, Strin
     engine.lock().project_list().map_err(fail)
 }
 
+/// A new project: the stock one, or one shaped by the start dialog's
+/// options.
 #[tauri::command]
-pub fn project_new(engine: State<'_, EngineState>, name: String) -> Result<EngineStatus, String> {
-    engine.lock().project_new(&name).map_err(fail)
+pub fn project_new(
+    engine: State<'_, EngineState>,
+    name: String,
+    options: Option<crate::project::NewProject>,
+) -> Result<EngineStatus, String> {
+    let mut engine = engine.lock();
+    match options {
+        Some(options) => engine.project_new_with(&name, &options),
+        None => engine.project_new(&name),
+    }
+    .map_err(fail)
+}
+
+/// The recent projects, for the start dialog.
+#[tauri::command]
+pub fn project_recent(engine: State<'_, EngineState>) -> Vec<crate::engine::RecentProject> {
+    engine.lock().project_recent()
 }
 
 #[tauri::command]
@@ -1159,6 +1176,11 @@ pub fn pattern_clip_paste(
 #[tauri::command]
 pub fn count_in_set(engine: State<'_, EngineState>, on: bool) -> EngineStatus {
     engine.lock().count_in_set(on)
+}
+
+#[tauri::command]
+pub fn open_last_at_launch_set(engine: State<'_, EngineState>, on: bool) -> EngineStatus {
+    engine.lock().open_last_at_launch_set(on)
 }
 
 #[tauri::command]

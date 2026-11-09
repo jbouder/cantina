@@ -74,6 +74,8 @@ export interface EngineStatus {
   metronome: MetronomeStatus;
   /** Record counts in four beats first. An app setting. */
   countIn: boolean;
+  /** Open the last project at launch rather than show the start dialog. An app setting. */
+  openLastAtLaunch: boolean;
   /** The assistant's connection, never its key. An app setting. */
   assistant: AssistantStatus;
   /** Hearing tabs and practice speed. Session state, not part of the project. */
@@ -567,6 +569,25 @@ export interface Strip {
 }
 
 export const UNITY: Strip = { gainDb: 0, pan: 0, mute: false, solo: false };
+
+/** A project in the start dialog's recent list. Mirrors `RecentProject` in src-tauri. */
+export interface RecentProject {
+  name: string;
+  /** When its project.json was last written, in milliseconds since the epoch. */
+  saved: number | null;
+  /** Moved or deleted since it was open. */
+  missing: boolean;
+}
+
+/** The tracks a new project starts with. Mirrors `Start` in src-tauri. */
+export type ProjectStart = "empty" | "guitar" | "guitarBass" | "guitarDrums";
+
+/** What the start dialog asks of a new project. Mirrors `NewProject` in src-tauri. */
+export interface NewProjectOptions {
+  sampleRate: number;
+  tempo: Tempo;
+  start: ProjectStart;
+}
 
 export interface RecoveryInfo {
   edits: number;
@@ -1630,6 +1651,7 @@ const mock: EngineStatus = {
     sounds: ["Standard", "Woodblock", "Cowbell", "Drum", "Hi-hat"],
   },
   countIn: !(mockParams?.has("nocountin") ?? false),
+  openLastAtLaunch: false,
   assistant: mockParams?.has("assistant")
     ? {
         enabled: true,
@@ -1745,6 +1767,7 @@ function mockStatus(): EngineStatus {
     jams: mockJams(),
     metronome: { ...mock.metronome, sounds: [...mock.metronome.sounds] },
     countIn: mock.countIn,
+    openLastAtLaunch: mock.openLastAtLaunch,
     assistant: { ...mock.assistant },
     sampleRate: mockSettings.sampleRate,
     bufferFrames: mockSettings.bufferFrames,
@@ -2029,40 +2052,92 @@ export async function projectList(): Promise<string[]> {
   return inTauri ? invoke<string[]>("project_list") : [...mockProjects];
 }
 
-export async function projectNew(name: string): Promise<EngineStatus> {
-  if (inTauri) return invoke<EngineStatus>("project_new", { name });
-  if (!name.trim()) throw new Error("a project needs a name");
+/**
+ * The recent projects, newest first, each with when it was last saved;
+ * one moved or deleted since is marked missing.
+ */
+export async function projectRecent(): Promise<RecentProject[]> {
+  if (inTauri) return invoke<RecentProject[]>("project_recent");
+  return mockRecent.map((r) => ({ ...r }));
+}
+
+const MOCK_NOW = Date.now();
+const MOCK_DAY = 24 * 60 * 60 * 1000;
+// `?start=none` has no recent projects, for the dialog's first launch.
+const mockRecent: RecentProject[] =
+  mockParams?.get("start") === "none"
+    ? []
+    : [
+        { name: "Untitled", saved: MOCK_NOW - 20 * 60 * 1000, missing: false },
+        { name: "Blues in A", saved: MOCK_NOW - MOCK_DAY - 3 * 60 * 60 * 1000, missing: false },
+        { name: "Old demo", saved: null, missing: true },
+        { name: "Riff ideas", saved: MOCK_NOW - 9 * MOCK_DAY, missing: false },
+      ];
+
+/**
+ * Creates a project and opens it: the stock one, or one shaped by the
+ * start dialog's options (its rate, tempo and tracks), all in one step
+ * with nothing to undo.
+ */
+export async function projectNew(name: string, options?: NewProjectOptions): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("project_new", { name, options: options ?? null });
+  name = name.trim();
+  if (!name) throw new Error("a project needs a name");
   if (mockProjects.includes(name)) throw new Error(`there is already a project called ${name}`);
+  const start = options?.start ?? "guitar";
+  const kit = mockKits[0]?.id;
+  if (start === "guitarDrums" && !kit) throw new Error("no drum kits are installed");
+  const audio = (id: number, track: string, chain: PedalInfo[]): TrackStatus => ({
+    id,
+    name: track,
+    armed: false,
+    recording: false,
+    kit: null,
+    chain,
+    clips: [],
+    patternClips: [],
+    strip: { ...UNITY },
+    latencyFrames: 0,
+    pads: {},
+  });
+  const guitar = () =>
+    audio(1, options ? "Guitar" : "Track 1", [mockPedal(2, "gain"), mockPedal(3, "overdrive")]);
+  const tracks: TrackStatus[] =
+    start === "empty"
+      ? []
+      : start === "guitarBass"
+        ? [guitar(), audio(4, "Bass", [])]
+        : start === "guitarDrums" && kit
+          ? [guitar(), { ...audio(4, "Drums", []), kit: mockKitStatus(kit) }]
+          : [guitar()];
   mockProjects.push(name);
+  mockRecent.unshift({ name, saved: Date.now(), missing: false });
+  if (options) mockSettings.sampleRate = options.sampleRate;
   mock.project = {
     ...mock.project,
     name,
     dir: `/Users/you/Music/Cantina/${name}.cantina`,
     dirty: false,
-    tracks: [
-      {
-        id: 1,
-        name: "Track 1",
-        armed: false,
-        recording: false,
-        kit: null,
-        chain: [mockPedal(2, "gain"), mockPedal(3, "overdrive")],
-        clips: [],
-        patternClips: [],
-        strip: { ...UNITY },
-        latencyFrames: 0,
-        pads: {},
-      },
-    ],
+    undoLabel: null,
+    redoLabel: null,
+    sampleRate: options?.sampleRate ?? mock.project.sampleRate,
+    tempo: options ? { ...options.tempo } : mock.project.tempo,
+    tracks,
     patterns: [],
     master: { ...UNITY },
     loop: null,
   };
+  mockUndo.length = 0;
+  mockRedo.length = 0;
+  mockLast = structuredClone(mock.project);
   return mockStatus();
 }
 
 export async function projectOpen(name: string): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("project_open", { name });
+  const recent = mockRecent.findIndex((r) => r.name === name);
+  if (mockRecent[recent]?.missing) throw new Error(`${name} has been moved or deleted`);
+  if (recent >= 0) mockRecent.unshift(...mockRecent.splice(recent, 1));
   mock.project = {
     ...mock.project,
     name,
@@ -2812,6 +2887,13 @@ export async function chainBypass(track: number, on: boolean): Promise<EngineSta
 export async function countInSet(on: boolean): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("count_in_set", { on });
   mock.countIn = on;
+  return mockStatus();
+}
+
+/** Whether launch opens the last project rather than the start dialog. */
+export async function openLastAtLaunchSet(on: boolean): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("open_last_at_launch_set", { on });
+  mock.openLastAtLaunch = on;
   return mockStatus();
 }
 

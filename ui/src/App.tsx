@@ -20,6 +20,7 @@ import { Recovery } from "./components/Recovery";
 import { Settings } from "./components/Settings";
 import { Shortcuts } from "./components/Shortcuts";
 import { StageView } from "./components/StageView";
+import { StartDialog } from "./components/StartDialog";
 import { Timeline, type TimelineEdit, type TimelineEditState } from "./components/Timeline";
 import { Transport } from "./components/Transport";
 import { UpdateBanner } from "./components/UpdateBanner";
@@ -204,6 +205,16 @@ export function App() {
       (e) => setError(String(e)),
     );
   }, []);
+  // The start dialog: at launch unless Settings says to open the last
+  // project, once any crash recovery is settled. In a browser `?start`
+  // shows it (`?start=none` with no recent projects).
+  const [startOpen, setStartOpen] = useState<boolean | null>(() =>
+    params ? params.has("start") : null,
+  );
+  const closeStart = useCallback(() => setStartOpen(false), []);
+  useEffect(() => {
+    if (startOpen === null && status) setStartOpen(!status.openLastAtLaunch);
+  }, [startOpen, status]);
   const closeProjects = useCallback(() => {
     setProjectsOpen(false);
     setProjectsIntent({});
@@ -455,6 +466,7 @@ export function App() {
     newProject: {
       enabled: idle,
       run: () => {
+        setStartOpen(false);
         setProjectsIntent({ startNew: true });
         setProjectsOpen(true);
       },
@@ -462,6 +474,7 @@ export function App() {
     openProject: {
       enabled: idle,
       run: () => {
+        setStartOpen(false);
         setProjectsIntent({});
         setProjectsOpen(true);
       },
@@ -666,7 +679,11 @@ export function App() {
     jam: {
       enabled: has && !frame.recording,
       checked: jamming,
-      run: () => (jamming ? leaveJam() : openJam()),
+      run: () => {
+        setStartOpen(false);
+        if (jamming) leaveJam();
+        else openJam();
+      },
     },
     // The selected track's first designed pedal, or a new design on it.
     designer: {
@@ -735,6 +752,7 @@ export function App() {
     // which asks before dropping unsaved edits.
     const stopRecent = onOpenRecent((name) => {
       const s = keys.current;
+      setStartOpen(false);
       if (!s || s.project.name === name) return;
       if (s.project.dirty) {
         setProjectsIntent({ opening: name });
@@ -998,6 +1016,24 @@ export function App() {
           onStatus={setStatus}
           startNew={projectsIntent.startNew ?? false}
           opening={projectsIntent.opening ?? null}
+        />
+      ) : null}
+      {startOpen && status && !status.project.recovery && !jamming && !projectsOpen ? (
+        <StartDialog
+          current={status.project.name}
+          sampleRate={status.sampleRate}
+          hasKits={status.kits.length > 0}
+          onStatus={setStatus}
+          onClose={closeStart}
+          onBrowse={() => {
+            setStartOpen(false);
+            setProjectsIntent({});
+            setProjectsOpen(true);
+          }}
+          onJam={() => {
+            setStartOpen(false);
+            openJam();
+          }}
         />
       ) : null}
       {shortcutsOpen ? <Shortcuts onClose={closeShortcuts} /> : null}
