@@ -185,6 +185,8 @@ pub struct Settings {
     pub jam: Option<cantina_project::Jam>,
     /// Minutes of a jam's input kept for Keep that.
     pub capture_minutes: f32,
+    /// Skip the start dialog and open the last project at launch.
+    pub open_last_at_launch: bool,
 }
 
 impl Default for Settings {
@@ -201,6 +203,7 @@ impl Default for Settings {
             instrument: InstrumentProfile::default(),
             jam: None,
             capture_minutes: DEFAULT_CAPTURE_MINUTES,
+            open_last_at_launch: false,
         }
     }
 }
@@ -269,6 +272,10 @@ mod tests {
         assert_eq!(loaded.audio.sample_rate, 96_000.0);
         assert_eq!(loaded.audio.buffer_frames, 128);
         assert_eq!(loaded.metronome, MetronomeSettings::default());
+        assert!(
+            !loaded.open_last_at_launch,
+            "the start dialog shows by default"
+        );
         fs::write(&path, r#"{"metronome":{"on":true,"sound":"Cowbell"}}"#).unwrap();
         let loaded = Settings::load(&path).unwrap();
         assert!(loaded.metronome.on);

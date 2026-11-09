@@ -20,14 +20,14 @@ add their own items when they arrive.
 | --- | --- | --- |
 | About Cantina | | The version, the license and the credits for the drum samples and impulse responses. |
 | Check for Updates… | | Opens Settings and asks for a newer release. If there is one, a banner offers to install it. |
-| Settings… | ⌘, | Audio device, buffer size, the latency warning, skins, motion and updates. |
+| Settings… | ⌘, | Audio device, buffer size, the latency warning, skins, motion, what launch opens, and updates. |
 | Hide, Hide Others, Show All, Quit | ⌘H, ⌥⌘H, ⌘Q | As in every Mac app. |
 
 ## File
 
 | Item | Shortcut | What it does |
 | --- | --- | --- |
-| New Project… | ⌘N | Opens **Projects** with the name of a new project ready to type. |
+| New Project… | ⌘N | Opens **Projects** with the name of a new project ready to type. The start dialog at launch also makes new projects, with a rate, tempo, meter and tracks. |
 | Open… | ⌘O | Opens **Projects** to pick another project. |
 | Open Recent | | The last ten projects you had open, newest first. **Clear Menu** empties it. With unsaved edits, Cantina asks before dropping them. |
 | Close Window | ⌘W | Closes the window. |
@@ -42,6 +42,11 @@ add their own items when they arrive.
 | Bounce Track in Place | | [Bounces](/guides/mixdown/#bounce-a-track-in-place) the selected track, as **Bounce** in its editor does. |
 | Show Project in Finder | | Opens a Finder window with the project's folder selected. |
 | Show Library in Finder | | Opens `~/Music/Cantina`, which holds your projects and the Pedals, Patterns, Kits and IRs folders. |
+
+At launch Cantina shows the [start dialog](/guides/getting-started/#open-cantina)
+rather than a project; **New Project…** and **Open…** work as above
+whether it is up or not. To open the last project at launch instead, turn
+on **Open the last project at launch** in **Settings → Launch**.
 
 ## Edit
 

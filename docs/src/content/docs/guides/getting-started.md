@@ -50,6 +50,31 @@ open target/release/bundle/macos/Cantina.app
 The first build compiles the whole Rust workspace and takes a few minutes.
 Drag `Cantina.app` into Applications to keep it.
 
+## Open Cantina
+
+Cantina opens with the start dialog, three ways in:
+
+- **Open a recent project**: the projects you had open lately, newest
+  first, each with when it was last saved. Return opens the one with
+  focus. A project moved or deleted since stays in the list and says
+  so. **Open…** lists every project in `~/Music/Cantina`.
+- **New project**: a name, the sample rate, the tempo, the time
+  signature, and what to start with: one guitar track, guitar and bass,
+  guitar and a drum track with a kit, or nothing. The project is made as
+  you asked in one step, with nothing to undo.
+- **Jam session**: straight into [jam mode](/guides/jam/), drums and a
+  backing to play over with nothing to set up.
+
+Escape (or the close key) takes the most recent project, or the new
+`Untitled` project Cantina makes the first time. If the last session
+quit without saving, Cantina offers to recover those edits first, and
+the dialog follows.
+
+![The start dialog: recent projects, a new project's options and the jam session](../../../assets/guides/start.png)
+
+To skip the dialog and reopen the last project each time, turn on
+**Open the last project at launch** in **Settings → Launch**.
+
 ## Pick your interface
 
 Open **Settings** with the gear at the top right. Under **Audio**, choose
@@ -85,13 +110,13 @@ change the interface's gain knob or pick up another instrument.
 ## The rest of Settings
 
 The rest of Settings holds the **Skin**, **Motion** (Reduce flashing),
-the optional **Assistant**, off until you connect a model (see
+**Launch** (the start dialog, or the last project), the optional **Assistant**, off until you connect a model (see
 [The assistant](/guides/assistant/)), and **Updates**.
 
 ## Arm a track and play
 
-A new project, `Untitled`, opens with a **Guitar** track whose chain is a
-gain into an overdrive. Click the round light beside the track's name to
+A new project with one guitar track (`Untitled`, the first time) opens
+with a track whose chain is a gain into an overdrive. Click the round light beside the track's name to
 arm it; it turns red. An armed track plays your input through its pedals,
 so strum: the **IN** meter moves, and you hear the overdrive.
 

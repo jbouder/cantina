@@ -5,6 +5,7 @@ import {
   type EngineStatus,
   latencyWarningSet,
   ms,
+  openLastAtLaunchSet,
   routeLabel,
   type UpdateInfo,
   updateCheck,
@@ -117,7 +118,8 @@ function Updates({
 
 /**
  * The settings sheet: the engine, audio devices, the latency warning, the
- * skin picker, Reduce flashing, the assistant and updates.
+ * skin picker, Reduce flashing, what launch opens, the assistant and
+ * updates.
  */
 export function Settings({
   checkForUpdates,
@@ -216,6 +218,23 @@ export function Settings({
             variant={reduceFlashing ? "transport" : "panel"}
           >
             Reduce flashing
+          </Button>
+        </div>
+      </section>
+      <section aria-labelledby="launch-label" className="grid gap-2">
+        <h3 id="launch-label" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+          Launch
+          <small className="block font-normal text-ink-dim text-xs normal-case tracking-normal">
+            Off, Cantina opens with the start dialog: a new project, a recent one, or a jam.
+          </small>
+        </h3>
+        <div className="flex">
+          <Button
+            aria-pressed={status.openLastAtLaunch}
+            onClick={() => openLastAtLaunchSet(!status.openLastAtLaunch).then(onStatusChange)}
+            variant={status.openLastAtLaunch ? "transport" : "panel"}
+          >
+            Open the last project at launch
           </Button>
         </div>
       </section>
