@@ -1,13 +1,23 @@
 ---
 title: "Drums"
-description: "Add a drum track, pick a kit, program a pattern in the step grid and arrange it on the timeline."
+description: "Add a drum track, pick a kit, start from a stock groove or program your own, give it feel and fills, play the pads live, mix the kit and arrange it on the timeline."
 ---
 
-A drum track plays **patterns**, step grids you program, through a **kit** of
-drum sounds. You place a pattern on the timeline as a clip, and it follows
-the tempo.
+A drum track plays **patterns**, step grids, through a **kit** of drum
+sounds. You place a pattern on the timeline as a clip, and it follows the
+tempo.
 
-![A drum track's Beats tab: the kit, the pattern, the step size, length and swing, and the grid](../../../assets/guides/drums.png)
+The quick way to a beat:
+
+1. **Add drums** and pick a **kit** to suit the song.
+2. Open **Grooves**, find one by genre, **Loop** it to hear it at your
+   tempo, and drag it onto the timeline.
+3. Make it yours in the grid: paint hits, give it **feel** so it does not
+   sound programmed, or **play** it in on the pads.
+4. Give the clip a **fill** every few bars, and balance the kit in the
+   **mixer**.
+
+![A drum track's Beats tab: the kit, the pattern, the step size, length and swing, humanize, and the grid](../../../assets/guides/drums.png)
 
 ## Add a drum track
 
@@ -150,7 +160,121 @@ Above the grid:
   The size in bars and beats is shown beside it.
 - **Swing** delays every second step, up to a triplet feel at 100%.
 
-### Pattern files
+### Feel
+
+Grid-perfect drums sound programmed. Under the pattern controls:
+
+- **Humanize**, **Timing** and **Velocity** move every hit a little off
+  the grid (up to about a sixty-fourth note) and a little softer or
+  harder (up to 30%). Each pass of the pattern is slightly different, and
+  the same every time it plays, so a song sounds the same on every play
+  and every export. **New take** rolls it again.
+- For the row the focus is on, **Own swing** gives it a swing of its own,
+  hats swung with a straight kick for instance, and **Own humanize** its
+  own amounts.
+
+On a step (or a selection), from the keyboard:
+
+- **C** steps its **chance** through 100, 75, 50 and 25%: on each pass
+  the hit plays or not, the same way every time. The cell shows the
+  chance and is dimmer.
+- **R** steps a **ratchet** through 1 to 4 hits in the step, for rolls and
+  hat stutters; the cell shows ×2 to ×4.
+- **F** turns a **flam** on or off: a soft grace note just before the
+  hit; the cell shows f.
+
+Every change is one step of **Undo**, and travels with the step when you
+copy, shift or duplicate it.
+
+![Humanize set, a flam, a ratchet and two chances on the grid](../../../assets/guides/feel.png)
+
+## Play and record the pads
+
+**Pads**, beside **Mixer**, shows the kit as pads to play: click one
+(higher on the pad is harder), or with a pad focused use the keys under
+them, **A S D F G H J K L ;** for the first ten pads in the kit's order
+and **Z X C V B N** for the next six; ⇧ plays an accent. A hit goes
+straight to the drum track's sampler and sounds at once, through the
+track's pedals, whether the song is playing or not.
+
+- **Record** loops the pattern shown from the top and starts playing.
+  Play along: each hit lands on the nearest step, and when the pattern
+  comes round, what you played that pass is added to it as one step of
+  **Undo**, keeping the louder hit where one was already there. Keep
+  playing to add more on the next pass; press **Record** again, or Esc,
+  to stop.
+- **Step** writes a hit at a cursor, then moves the cursor on a step,
+  for programming a beat one hit at a time without a tempo; ← and →
+  move the cursor. Each hit is one step of **Undo**.
+
+![The pads, recording into the pattern](../../../assets/guides/pads.png)
+
+## Fills
+
+A loop that never changes sounds like a loop. Any pattern clip can play a
+**fill**, another pattern, on some of its bars. In the **Clips** tab, each
+pattern clip has:
+
+- **Fill**: the pattern to play on fill bars, or **No fill**.
+- **Every 2, 4, 8 or 16 bars**: the last bar of each group is a fill
+  (counted from the clip's start), or **Not repeating**.
+- **At end**: the clip's last bar is a fill, leading into whatever comes
+  next, such as the chorus.
+- **Generate**: writes a new fill from the clip's own pattern, on this
+  track's kit, and picks it, playing every four bars and at the end (or
+  as the clip already had it). The groove plays for the first beat or
+  two of the bar, then breaks into a snare roll, a run down the toms,
+  snare and toms in turns, or kick-and-snare accents. Press it again for
+  another. The fill is an ordinary pattern, called "<pattern> fill",
+  that you can open in **Beats** and edit.
+
+A fill bar plays the first bar of the fill pattern, and the clip's own
+pattern carries on afterwards where it would have been. Stock grooves come
+with a fill for each genre, which you can add and choose here too. Every
+change is one step of **Undo**.
+
+![A pattern clip playing its fill every four bars and at its end](../../../assets/guides/fills.png)
+
+## The pad mixer
+
+**Mixer**, beside **Grooves**, opens the pad mixer: for each pad of the
+kit, without editing the kit,
+
+- **M** mutes the pad.
+- **Level** from −60 to +12 dB.
+- **Pan**, added to where the kit puts it.
+- **Tune** up or down a fifth and more, ±12 semitones, for a deeper kick
+  or a higher snare.
+- **Decay**: how much of each hit rings, down to 5%; a shorter decay
+  tightens a boomy kick or a washy cymbal.
+
+The settings are saved with the drum track. Level and mute change
+smoothly, even while a hit rings; pan, tune and decay take effect from
+the next hit. Double-click a fader to put it back to the kit's own, and
+every change is one step of **Undo**.
+
+![The pad mixer: the kick tuned down with a shorter decay, the snare a little left, the open hat muted](../../../assets/guides/pad-mixer.png)
+
+## Arrange
+
+**Place at playhead** puts the pattern on the track at the playhead. You can
+also drag the button onto a drum track's lane and drop it where the pattern
+should start. The pattern's name follows the pointer while you drag; Esc, or
+letting go anywhere off the timeline, places nothing.
+
+A pattern clip moves, trims, splits and deletes like an audio clip (see
+[Recording and editing](/guides/recording/#edit-clips)). Drag its right edge
+to repeat the pattern for more bars. Clips stay on their bars when you
+change the tempo, and editing a pattern changes every clip of it.
+
+A pattern that is on the timeline cannot be removed until its clips are
+deleted.
+
+The stock kits' samples are public domain (CC0), recorded by their authors
+on Freesound and gathered by the Sonic Pi project. `kits/CREDITS.md` in the
+repository lists every file's source.
+
+## Pattern files
 
 A pattern can also live outside a project as `<name>.pattern.json`: the
 same object the project holds, without its id. The
@@ -172,6 +296,31 @@ same object the project holds, without its id. The
 
 Each row has exactly `length` velocities from 0 (no hit) to 1, and names a
 pad by the id kits use.
+
+The [feel](#feel) is in the file too, all optional:
+
+```json
+{
+  "name": "Shuffle",
+  "stepsPerBeat": 4,
+  "length": 16,
+  "swing": 0,
+  "humanize": { "timing": 0.3, "velocity": 0.4 },
+  "seed": 7,
+  "rows": [
+    { "pad": "hh-closed", "swing": 0.6, "steps": [0.8,0,0.5,0, 0.8,0,0.5,0, 0.8,0,0.5,0, 0.8,0,0.5,0],
+      "marks": [{ "step": 6, "chance": 0.5 }, { "step": 14, "ratchet": 2 }] },
+    { "pad": "snare", "steps": [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+      "marks": [{ "step": 4, "flam": true }] }
+  ]
+}
+```
+
+- **`humanize`** (`timing` and `velocity`, 0 to 1) and **`seed`** belong
+  to the pattern; a row can have its own `humanize` and `swing`.
+- **`marks`**, in step order, are the steps that play by `chance` (0 to
+  1), `ratchet` (1 to 4 hits) or with a `flam`. A step without a mark
+  plays once, every time.
 
 A stock groove's file also has a `groove` object saying what it is for.
 Cantina reads it to sort the groove into the menu and leaves it behind
@@ -203,101 +352,6 @@ when the groove is added to a project:
   does not have are kept, so the pattern still plays them on another kit,
   and a notice names them.
 
-## Play and record the pads
-
-**Pads**, beside **Mixer**, shows the kit as pads to play: click one
-(higher on the pad is harder), or with a pad focused use the keys under
-them, **A S D F G H J K L ;** for the first ten pads in the kit's order
-and **Z X C V B N** for the next six; ⇧ plays an accent. A hit goes
-straight to the drum track's sampler and sounds at once, through the
-track's pedals, whether the song is playing or not.
-
-- **Record** loops the pattern shown from the top and starts playing.
-  Play along: each hit lands on the nearest step, and when the pattern
-  comes round, what you played that pass is added to it as one step of
-  **Undo**, keeping the louder hit where one was already there. Keep
-  playing to add more on the next pass; press **Record** again, or Esc,
-  to stop.
-- **Step** writes a hit at a cursor, then moves the cursor on a step,
-  for programming a beat one hit at a time without a tempo; ← and →
-  move the cursor. Each hit is one step of **Undo**.
-
-![The pads, recording into the pattern](../../../assets/guides/pads.png)
-
-## The pad mixer
-
-**Mixer**, beside **Grooves**, opens the pad mixer: for each pad of the
-kit, without editing the kit,
-
-- **M** mutes the pad.
-- **Level** from −60 to +12 dB.
-- **Pan**, added to where the kit puts it.
-- **Tune** up or down a fifth and more, ±12 semitones, for a deeper kick
-  or a higher snare.
-- **Decay**: how much of each hit rings, down to 5%; a shorter decay
-  tightens a boomy kick or a washy cymbal.
-
-The settings are saved with the drum track. Level and mute change
-smoothly, even while a hit rings; pan, tune and decay take effect from
-the next hit. Double-click a fader to put it back to the kit's own, and
-every change is one step of **Undo**.
-
-![The pad mixer: the kick tuned down with a shorter decay, the snare a little left, the open hat muted](../../../assets/guides/pad-mixer.png)
-
-## Feel
-
-Grid-perfect drums sound programmed. Under the pattern controls:
-
-- **Humanize**, **Timing** and **Velocity** move every hit a little off
-  the grid (up to about a sixty-fourth note) and a little softer or
-  harder (up to 30%). Each pass of the pattern is slightly different, and
-  the same every time it plays, so a song sounds the same on every play
-  and every export. **New take** rolls it again.
-- For the row the focus is on, **Own swing** gives it a swing of its own,
-  hats swung with a straight kick for instance, and **Own humanize** its
-  own amounts.
-
-On a step (or a selection), from the keyboard:
-
-- **C** steps its **chance** through 100, 75, 50 and 25%: on each pass
-  the hit plays or not, the same way every time. The cell shows the
-  chance and is dimmer.
-- **R** steps a **ratchet** through 1 to 4 hits in the step, for rolls and
-  hat stutters; the cell shows ×2 to ×4.
-- **F** turns a **flam** on or off: a soft grace note just before the
-  hit; the cell shows f.
-
-Every change is one step of **Undo**, and travels with the step when you
-copy, shift or duplicate it.
-
-![Humanize set, a flam, a ratchet and two chances on the grid](../../../assets/guides/feel.png)
-
-## Fills
-
-A loop that never changes sounds like a loop. Any pattern clip can play a
-**fill**, another pattern, on some of its bars. In the **Clips** tab, each
-pattern clip has:
-
-- **Fill**: the pattern to play on fill bars, or **No fill**.
-- **Every 2, 4, 8 or 16 bars**: the last bar of each group is a fill
-  (counted from the clip's start), or **Not repeating**.
-- **At end**: the clip's last bar is a fill, leading into whatever comes
-  next, such as the chorus.
-- **Generate**: writes a new fill from the clip's own pattern, on this
-  track's kit, and picks it, playing every four bars and at the end (or
-  as the clip already had it). The groove plays for the first beat or
-  two of the bar, then breaks into a snare roll, a run down the toms,
-  snare and toms in turns, or kick-and-snare accents. Press it again for
-  another. The fill is an ordinary pattern, called "<pattern> fill",
-  that you can open in **Beats** and edit.
-
-A fill bar plays the first bar of the fill pattern, and the clip's own
-pattern carries on afterwards where it would have been. Stock grooves come
-with a fill for each genre, which you can add and choose here too. Every
-change is one step of **Undo**.
-
-![A pattern clip playing its fill every four bars and at its end](../../../assets/guides/fills.png)
-
 ## Library folders
 
 Cantina watches three folders for files written outside the app, by hand
@@ -323,22 +377,3 @@ A coding agent can write patterns and kits for you; see
 **Loop** plays the pattern on its own, from the start of the timeline, while
 the transport plays, and lights the column it is on. Edit as it plays; you
 hear each change on the next pass.
-
-## Arrange
-
-**Place at playhead** puts the pattern on the track at the playhead. You can
-also drag the button onto a drum track's lane and drop it where the pattern
-should start. The pattern's name follows the pointer while you drag; Esc, or
-letting go anywhere off the timeline, places nothing.
-
-A pattern clip moves, trims, splits and deletes like an audio clip (see
-[Recording and editing](/guides/recording/#edit-clips)). Drag its right edge
-to repeat the pattern for more bars. Clips stay on their bars when you
-change the tempo, and editing a pattern changes every clip of it.
-
-A pattern that is on the timeline cannot be removed until its clips are
-deleted.
-
-The stock kits' samples are public domain (CC0), recorded by their authors
-on Freesound and gathered by the Sonic Pi project. `kits/CREDITS.md` in the
-repository lists every file's source.

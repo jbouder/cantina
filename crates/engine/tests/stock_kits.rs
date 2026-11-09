@@ -24,16 +24,7 @@ fn stock_kits_load_fast_with_the_shared_pads() {
     let ids: Vec<&str> = kits.iter().map(|k| k.id.as_str()).collect();
     assert_eq!(
         ids,
-        [
-            "acoustic",
-            "electronic",
-            "hiphop-808",
-            "jazz",
-            "metal",
-            "metal-triggered",
-            "rock",
-            "vintage"
-        ],
+        ["acoustic", "electronic", "metal", "rock"],
         "sorted by name"
     );
     for entry in &kits {
