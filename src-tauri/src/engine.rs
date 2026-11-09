@@ -227,13 +227,35 @@ pub struct IrInfo {
     pub name: String,
 }
 
-/// A pattern looping on a drum track. Mirrors `AuditionStatus` in the UI.
-#[derive(Debug, Clone, Copy, Serialize)]
+/// What is looping on a drum track: a project pattern, or a stock groove
+/// by its file. Mirrors `AuditionStatus` in the UI.
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuditionStatus {
     pub track: u64,
-    pub pattern: u64,
+    /// The project pattern looping, if it is one.
+    pub pattern: Option<u64>,
+    /// The stock groove's file looping, if it is one.
+    pub groove: Option<String>,
 }
+
+/// What loops on a drum track while it is auditioned: a project pattern
+/// from the start, for editing it by ear, or a stock groove from the bar
+/// it was chosen on, for choosing one. Session state, never saved.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Audition {
+    /// A pattern of the project, looping from tick 0.
+    Pattern(PatternId),
+    /// A stock groove read from its file, looping from tick `from`.
+    Groove {
+        path: String,
+        pattern: Arc<Pattern>,
+        from: u64,
+    },
+}
+
+/// The drum track auditioning, and what.
+pub(crate) type Auditioning = Option<(TrackId, Audition)>;
 
 /// Where the time goes. Mirrors `LatencyStatus` in the UI.
 #[derive(Debug, Clone, Serialize)]
@@ -1006,7 +1028,7 @@ struct SyncContext<'a> {
     kits: &'a mut Kits,
     irs: &'a mut Irs,
     designs: &'a Designs,
-    audition: Option<(TrackId, PatternId)>,
+    audition: &'a Auditioning,
     audio_dir: &'a Path,
     states: &'a PluginStates,
     practice: Practice,
@@ -1262,7 +1284,7 @@ impl Live {
                 }
                 Source::Drums { sequencer, kit, .. } => {
                     let loaded = kits.get(kit);
-                    let score = score_for(track, project, &loaded, audition);
+                    let score = score_for(track, project, &loaded, audition.as_ref());
                     if sequencer.score() != &score && !sequencer.set_score(score) {
                         problems.push(format!(
                             "{}: the audio thread is not taking patterns",
@@ -1368,7 +1390,7 @@ impl Live {
         &mut self,
         project: &Project,
         kits: &mut Kits,
-        audition: Option<(TrackId, PatternId)>,
+        audition: &Auditioning,
     ) -> Result<()> {
         for live in &mut self.tracks {
             let Source::Drums { sequencer, kit, .. } = &mut live.source else {
@@ -1378,7 +1400,7 @@ impl Live {
                 continue;
             };
             let loaded = kits.get(kit);
-            let score = score_for(track, project, &loaded, audition);
+            let score = score_for(track, project, &loaded, audition.as_ref());
             if sequencer.score() != &score && !sequencer.set_score(score) {
                 bail!("{}: the audio thread is not taking patterns", track.name);
             }
@@ -1526,14 +1548,20 @@ pub(crate) fn score_for(
     track: &Track,
     project: &Project,
     kit: &LoadedKit,
-    audition: Option<(TrackId, PatternId)>,
+    audition: Option<&(TrackId, Audition)>,
 ) -> Score {
-    if let Some((t, id)) = audition {
-        if t == track.id {
-            return project
-                .pattern(id)
-                .map(|p| vec![Placement::forever(pattern_data(p, kit))])
-                .unwrap_or_default();
+    if let Some((t, what)) = audition {
+        if *t == track.id {
+            return match what {
+                Audition::Pattern(id) => project
+                    .pattern(*id)
+                    .map(|p| vec![Placement::forever(pattern_data(p, kit))])
+                    .unwrap_or_default(),
+                Audition::Groove { pattern, from, .. } => vec![Placement {
+                    start: *from,
+                    ..Placement::forever(pattern_data(pattern, kit))
+                }],
+            };
         }
     }
     // One PatternData per pattern, shared by every clip of it. A clip
@@ -1892,7 +1920,7 @@ pub struct Engine {
     library_status: library::LibraryStatus,
     /// The pattern looping on a drum track for editing. Session state,
     /// not part of the project.
-    audition: Option<(TrackId, PatternId)>,
+    audition: Auditioning,
     /// The track the stage analyses, or none for the master. Session
     /// state, kept across rebuilds of the stream.
     analysis_source: Option<TrackId>,
@@ -2296,9 +2324,16 @@ impl Engine {
                     name: e.name.clone(),
                 })
                 .collect(),
-            audition: self.audition.map(|(track, pattern)| AuditionStatus {
+            audition: self.audition.as_ref().map(|(track, what)| AuditionStatus {
                 track: track.0,
-                pattern: pattern.0,
+                pattern: match what {
+                    Audition::Pattern(id) => Some(id.0),
+                    Audition::Groove { .. } => None,
+                },
+                groove: match what {
+                    Audition::Groove { path, .. } => Some(path.clone()),
+                    Audition::Pattern(_) => None,
+                },
             }),
             analysis_source: self
                 .analysis_source
@@ -3024,7 +3059,7 @@ impl Engine {
                 kits: &mut self.kits,
                 irs: &mut self.irs,
                 designs: &self.designs,
-                audition: self.audition,
+                audition: &self.audition,
                 audio_dir: &audio_dir,
                 states: &self.plugin_states,
                 practice: self.practice,
@@ -3040,14 +3075,17 @@ impl Engine {
         let Some(live) = &mut self.live else {
             return Ok(());
         };
-        live.refresh_scores(&self.project, &mut self.kits, self.audition)
+        live.refresh_scores(&self.project, &mut self.kits, &self.audition)
     }
 
     /// Drops an audition whose track or pattern is gone.
     fn check_audition(&mut self) {
-        if let Some((track, pattern)) = self.audition {
-            let valid = self.project.track(track).is_some_and(|t| t.is_drums())
-                && self.project.pattern(pattern).is_some();
+        if let Some((track, what)) = &self.audition {
+            let valid = self.project.track(*track).is_some_and(|t| t.is_drums())
+                && match what {
+                    Audition::Pattern(id) => self.project.pattern(*id).is_some(),
+                    Audition::Groove { .. } => true,
+                };
             if !valid {
                 self.audition = None;
             }
@@ -3319,11 +3357,72 @@ impl Engine {
                 self.project
                     .pattern(PatternId(p))
                     .with_context(|| format!("no pattern {p}"))?;
-                Some((TrackId(t), PatternId(p)))
+                Some((TrackId(t), Audition::Pattern(PatternId(p))))
             }
             _ => None,
         };
         self.refresh_scores()?;
+        Ok(self.publish())
+    }
+
+    /// Loops a stock groove (or any pattern file) on `track` to hear it
+    /// before adding it, at the project's tempo through the track's kit;
+    /// `None` stops. While playing it starts on the next bar line, and
+    /// from a stop it starts at once, where the playhead is. Not an edit.
+    pub fn groove_audition(
+        &mut self,
+        track: Option<u64>,
+        path: Option<String>,
+    ) -> Result<EngineStatus> {
+        let (Some(t), Some(path)) = (track, path) else {
+            if matches!(self.audition, Some((_, Audition::Groove { .. }))) {
+                self.audition = None;
+                self.refresh_scores()?;
+            }
+            return Ok(self.publish());
+        };
+        let track = self
+            .project
+            .track(TrackId(t))
+            .with_context(|| format!("no track {t}"))?;
+        if !track.is_drums() {
+            bail!("{} is not a drum track", track.name);
+        }
+        let text = std::fs::read_to_string(&path).with_context(|| format!("reading {path}"))?;
+        let (pattern, _) =
+            cantina_project::groove_from_json(&text).map_err(|e| anyhow!("{path}: {e}"))?;
+        let tempo = tempo_map(&self.project.tempo);
+        let (playing, position, rate) = match &mut self.live {
+            Some(live) => (
+                live.transport().is_playing(),
+                live.transport().position(),
+                live.stream.info().sample_rate,
+            ),
+            None => (false, 0, self.project.sample_rate),
+        };
+        let tick = tempo.samples_to_ticks(position, rate);
+        let signature = &self.project.tempo;
+        let bar = u64::from(cantina_project::PPQ) * 4 / u64::from(signature.denominator.max(1))
+            * u64::from(signature.numerator.max(1));
+        let from = if playing {
+            ((tick / bar as f64).floor() as u64 + 1) * bar
+        } else {
+            tick.round() as u64
+        };
+        self.audition = Some((
+            TrackId(t),
+            Audition::Groove {
+                path,
+                pattern: Arc::new(pattern),
+                from,
+            },
+        ));
+        self.refresh_scores()?;
+        if !playing {
+            if let Some(live) = &mut self.live {
+                live.transport().play();
+            }
+        }
         Ok(self.publish())
     }
 
@@ -5450,6 +5549,37 @@ fn spawn_meter_pump(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_auditioned_groove_loops_from_its_bar_on_its_track_alone() {
+        let (_, kit) =
+            kit::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../kits/rock")).unwrap();
+        let mut project = Project::new("P", 48_000.0);
+        project
+            .tracks
+            .push(Track::drums(TrackId(1), "Drums", "rock"));
+        project
+            .tracks
+            .push(Track::drums(TrackId(2), "More", "rock"));
+        let mut groove = Pattern::new(PatternId(0), "Rock verse");
+        groove.rows.push(cantina_project::PatternRow {
+            pad: "kick".into(),
+            steps: [vec![1.0], vec![0.0; 15]].concat(),
+        });
+        let audition: Auditioning = Some((
+            TrackId(1),
+            Audition::Groove {
+                path: "rock/Rock verse.pattern.json".into(),
+                pattern: Arc::new(groove),
+                from: 7680,
+            },
+        ));
+        let on = score_for(&project.tracks[0], &project, &kit, audition.as_ref());
+        assert_eq!(on.len(), 1);
+        assert_eq!(on[0].start, 7680, "from the bar it was chosen on");
+        assert_eq!(on[0].length, u64::MAX, "looping until stopped");
+        assert!(score_for(&project.tracks[1], &project, &kit, audition.as_ref()).is_empty());
+    }
 
     #[test]
     fn open_recent_puts_the_latest_first_without_repeats() {

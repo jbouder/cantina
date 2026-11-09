@@ -42,7 +42,8 @@ as a [kit recipe](/reference/kit-format/#kit-recipes) and let
 
 Cantina comes with 87 grooves in 17 genres, so a drum track can play
 something good straight away. They are in the **Pattern** menu, under
-**Add a groove**, one group per genre, with the tempos each suits. Choosing
+**Add a groove**, one group per genre, with the tempos each suits, and in the groove
+browser below. Choosing
 one copies it into the project as a pattern of its own, which you can then
 edit like any other; the groove that ships with the app never changes.
 
@@ -65,6 +66,27 @@ edit like any other; the groove that ships with the app never changes.
 | Reggae | intro, verse, chorus, fill, ending | 66–90 | shuffle (one drop) | 4/4 |
 | Rock | intro, verse, chorus, fill, ending | 95–140 | straight | 4/4 |
 | Thrash | intro, verse, chorus, fill, ending | 170–240 | double time | 4/4 |
+
+### Browse and hear grooves
+
+**Grooves**, beside **Import…**, opens the groove browser under the
+pattern controls.
+
+![The groove browser: search, genre, section and time signature filters, and the list](../../../assets/guides/grooves.png)
+
+- **Find one**: type in the search box (it matches the name, genre,
+  section, feel and time signature), or narrow the list by **Genre**,
+  **Section** and **Time**.
+- **Hear it**: **Loop** plays the groove on this track's kit at the
+  project's tempo, round and round, without adding it. While the song is
+  playing it starts on the next bar line; from a stop it starts at once,
+  from the playhead. **Loop** again, or **Stop**, ends it.
+- **Add it**: **Add** (or a double-click) copies the groove into the
+  project and shows it in the grid. **Drag a groove onto the timeline**
+  to add it and place it on that drum track where you drop it.
+- **From the keyboard**: the list is one stop; ↑ and ↓ move through it,
+  Page Up and Page Down move faster, Space loops the groove, Return adds
+  it and Esc stops the loop.
 
 A **fill** is one bar that leads into the next section; place it on the
 last bar before the change. An **ending** is the last hit, left to ring.

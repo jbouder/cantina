@@ -49,6 +49,7 @@ import {
 import { dropPatternAt, setPatternDrag, usePatternDrag } from "../lib/pattern-drag";
 import { DRAG_THRESHOLD } from "../lib/reorder";
 import { Button } from "./Button";
+import { GrooveBrowser } from "./GrooveBrowser";
 import { Led } from "./Led";
 import { Select } from "./Select";
 
@@ -117,6 +118,10 @@ export function DrumGrid({
   );
   const auditioning = audition?.track === track.id ? audition.pattern : null;
   const [chosen, setChosen] = useState<number | null>(auditioning);
+  // `?grooves` opens the groove browser, for screenshots.
+  const [browsing, setBrowsing] = useState(() =>
+    new URLSearchParams(window.location.search).has("grooves"),
+  );
   const pattern =
     patterns.find((p) => p.id === chosen) ??
     patterns.find((p) => p.id === auditioning) ??
@@ -438,6 +443,15 @@ export function DrumGrid({
         >
           Import…
         </Button>
+        <Button
+          aria-pressed={browsing}
+          aria-expanded={browsing}
+          variant={browsing ? "transport" : "panel"}
+          onClick={() => setBrowsing(!browsing)}
+          title="Browse the stock grooves: filter, hear and add them"
+        >
+          Grooves
+        </Button>
         {pattern ? (
           <>
             <Button onClick={exportPattern} title="Write this pattern to a .pattern.json file">
@@ -524,6 +538,16 @@ export function DrumGrid({
           </>
         ) : null}
       </div>
+      {browsing ? (
+        <GrooveBrowser
+          track={track.id}
+          grooves={grooves}
+          audition={audition}
+          onStatus={onStatus}
+          onError={onError}
+          onAdded={setChosen}
+        />
+      ) : null}
       {pattern ? (
         <div className="flex flex-wrap items-end gap-3">
           <Select

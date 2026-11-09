@@ -193,7 +193,10 @@ export interface IrInfo {
 /** A pattern looping on a drum track. Mirrors `AuditionStatus` in src-tauri. */
 export interface AuditionStatus {
   track: number;
-  pattern: number;
+  /** The project pattern looping, if it is one. */
+  pattern: number | null;
+  /** The stock groove's file looping, if it is one. */
+  groove: string | null;
 }
 
 /** A drum track's kit with the pads the grid shows rows for. Mirrors `KitStatus` in src-tauri. */
@@ -1152,9 +1155,9 @@ const mock: EngineStatus = {
   },
   kits: mockKits,
   irs: MOCK_IRS,
-  audition: mockParams?.has("audition") ? { track: MOCK_DRUMS, pattern: 11 } : null,
-  // `?practice` turns the voice on at 75%, for screenshots.
+  audition: mockParams?.has("audition") ? { track: MOCK_DRUMS, pattern: 11, groove: null } : null,
   grooves: [],
+  // `?practice` turns the voice on at 75%, for screenshots.
   practice: mockParams?.has("practice")
     ? { voice: true, muteRecordings: true, speed: 0.75 }
     : { voice: false, muteRecordings: false, speed: 1 },
@@ -2007,7 +2010,27 @@ export async function patternAudition(
   pattern: number | null,
 ): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("pattern_audition", { track, pattern });
-  mock.audition = track !== null && pattern !== null ? { track, pattern } : null;
+  mock.audition = track !== null && pattern !== null ? { track, pattern, groove: null } : null;
+  return mockStatus();
+}
+
+/**
+ * Loops a stock groove's file on a drum track to hear it before adding it,
+ * at the project's tempo on the track's kit: from the next bar while
+ * playing, at once (and playing) from a stop. Both null stops.
+ */
+export async function grooveAudition(
+  track: number | null,
+  path: string | null,
+): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("groove_audition", { track, path });
+  if (track === null || path === null) {
+    if (mock.audition?.groove) mock.audition = null;
+    return mockStatus();
+  }
+  if (!mockGrooveFile(path)) throw new Error(`no groove ${path}`);
+  mock.audition = { track, pattern: null, groove: path };
+  mockTransport.playing = true;
   return mockStatus();
 }
 

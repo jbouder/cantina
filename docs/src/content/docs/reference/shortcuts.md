@@ -87,6 +87,19 @@ With a step focused.
 | ⇧↑ ⇧↓ | Makes the hit 10% harder or softer |
 | Home, End | Jumps to the ends of the row |
 
+## Groove browser
+
+With the groove list focused.
+
+| Keys | Does |
+| --- | --- |
+| ↑ ↓ | Moves through the grooves |
+| Page Up, Page Down | Moves eight at a time |
+| Home, End | Jumps to the first or last groove |
+| Space | Loops the groove on the track's kit, or stops it |
+| Return | Adds the groove to the project |
+| Esc | Stops the loop |
+
 ## Tab editor
 
 With the tab focused and Edit on.

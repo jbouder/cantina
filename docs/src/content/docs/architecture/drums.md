@@ -182,3 +182,11 @@ them.
 - **Loop** (auditioning) on a track replaces that track's clips in the
   score while it is on, so the pattern is heard alone from the start of
   the timeline; turn it off to hear the arrangement.
+- A groove from the browser is auditioned the same way, but from its
+  file: `groove_audition` reads it with `groove_from_json`, keeps the
+  pattern beside the track id (`Audition::Groove`, session state, never
+  in the project), and places it from the next bar line while playing,
+  or from the playhead (starting the transport) when stopped. Adding it
+  is the ordinary `pattern_import`; dragging it onto the timeline adds
+  it, then drops the new pattern through the same pointer-event drag the
+  grid's place key uses (`pattern-drag.ts`).

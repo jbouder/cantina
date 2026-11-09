@@ -106,6 +106,9 @@ const DEFAULT_SPLIT = 352;
 const MIN_PANE = 160;
 
 function loadSplit(): number {
+  // `?split=200` sets the arrangement's height, for screenshots.
+  const asked = Number(params?.get("split"));
+  if (Number.isFinite(asked) && asked >= MIN_PANE) return asked;
   try {
     const saved = Number(window.sessionStorage.getItem(SPLIT_KEY));
     if (Number.isFinite(saved) && saved >= MIN_PANE) return saved;

@@ -55,6 +55,13 @@ export function setPatternDropTarget(
   };
 }
 
+/** True when a point is over the place patterns land. */
+export function overPatternDropTarget(x: number, y: number): boolean {
+  if (!target) return false;
+  const hit = document.elementFromPoint(x, y);
+  return hit !== null && target.el.contains(hit);
+}
+
 /**
  * Drops a pattern at a point. True when the point is over the target,
  * which then places it; false when it lands anywhere else.
