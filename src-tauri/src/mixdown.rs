@@ -157,7 +157,7 @@ pub fn build(project: &Project, scope: Scope, parts: Parts<'_>) -> Result<Render
             Some(kit) => {
                 let loaded = make_kit(kit);
                 let (sequencer, mut handle) = Sequencer::new(Arc::clone(&loaded));
-                if !handle.set_score(score_for(track, project, &loaded, None)) {
+                if !handle.set_score(score_for(track, project, &loaded, None, None)) {
                     bail!("{}: the sequencer would not take its patterns", track.name);
                 }
                 handles.push(Box::new(handle));

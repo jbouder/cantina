@@ -79,6 +79,14 @@ export interface EngineStatus {
   practice: Practice;
   /** The stock grooves that ship with the app, read-only, by genre then section. */
   grooves: StockGroove[];
+  /** Rows muted or soloed on drum tracks, by track id. Session state, never saved. */
+  drumRows: Record<number, DrumRows>;
+}
+
+/** A drum track's rows muted or soloed for listening while editing. Mirrors `RowMix` in src-tauri. */
+export interface DrumRows {
+  muted: string[];
+  soloed: string[];
 }
 
 /** The part of a song a groove is for. */
@@ -1157,6 +1165,10 @@ const mock: EngineStatus = {
   irs: MOCK_IRS,
   audition: mockParams?.has("audition") ? { track: MOCK_DRUMS, pattern: 11, groove: null } : null,
   grooves: [],
+  // `?rowmute=snare` mutes a row of the drum track, for screenshots.
+  drumRows: mockParams?.has("rowmute")
+    ? { [MOCK_DRUMS]: { muted: [mockParams.get("rowmute") ?? "snare"], soloed: [] } }
+    : {},
   // `?practice` turns the voice on at 75%, for screenshots.
   practice: mockParams?.has("practice")
     ? { voice: true, muteRecordings: true, speed: 0.75 }
@@ -1261,6 +1273,7 @@ function mockStatus(): EngineStatus {
     audition: mock.audition ? { ...mock.audition } : null,
     practice: { ...mock.practice },
     grooves: mockGrooves,
+    drumRows: structuredClone(mock.drumRows),
     metronome: { ...mock.metronome, sounds: [...mock.metronome.sounds] },
     countIn: mock.countIn,
     assistant: { ...mock.assistant },
@@ -2011,6 +2024,27 @@ export async function patternAudition(
 ): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("pattern_audition", { track, pattern });
   mock.audition = track !== null && pattern !== null ? { track, pattern, groove: null } : null;
+  return mockStatus();
+}
+
+/** Replaces a pattern whole, as one undoable edit: what every grid gesture sends. */
+export async function patternReplace(pattern: PatternInfo): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pattern_replace", { pattern });
+  const index = mock.project.patterns.findIndex((p) => p.id === pattern.id);
+  if (index < 0) throw new Error(`no pattern ${pattern.id}`);
+  if (pattern.length < 1 || pattern.length > 128) throw new Error("a pattern has 1 to 128 steps");
+  for (const r of pattern.rows) {
+    if (r.steps.length !== pattern.length) throw new Error(`row ${r.pad} has the wrong length`);
+  }
+  mock.project.patterns[index] = structuredClone(pattern);
+  return mockEdit("edit pattern");
+}
+
+/** Mutes and solos rows of a drum track's patterns, for listening while editing. Not an edit. */
+export async function drumRowsSet(track: number, rows: DrumRows): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("drum_rows_set", { track, rows });
+  if (rows.muted.length === 0 && rows.soloed.length === 0) delete mock.drumRows[track];
+  else mock.drumRows[track] = structuredClone(rows);
   return mockStatus();
 }
 

@@ -110,6 +110,8 @@ pub struct EngineStatus {
     /// The stock grooves that ship with the app, read-only; adding one
     /// imports a copy into the project.
     pub grooves: Vec<library::StockGroove>,
+    /// Rows muted or soloed on drum tracks, by track id. Session state.
+    pub drum_rows: HashMap<u64, RowMix>,
 }
 
 /// Practice with a tab: hear it played, mute the recording it came from
@@ -256,6 +258,29 @@ pub(crate) enum Audition {
 
 /// The drum track auditioning, and what.
 pub(crate) type Auditioning = Option<(TrackId, Audition)>;
+
+/// Rows of a drum track's patterns muted or soloed for listening while
+/// editing. Session state: never saved, and a mixdown plays every row.
+/// Mirrors `DrumRows` in the UI.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RowMix {
+    /// Pads not heard.
+    pub muted: Vec<String>,
+    /// With any, only these pads are heard.
+    pub soloed: Vec<String>,
+}
+
+impl RowMix {
+    /// Whether a pad's row is heard.
+    fn plays(&self, pad: &str) -> bool {
+        !self.muted.iter().any(|p| p == pad)
+            && (self.soloed.is_empty() || self.soloed.iter().any(|p| p == pad))
+    }
+}
+
+/// Muted and soloed rows by drum track.
+pub(crate) type RowMixes = HashMap<TrackId, RowMix>;
 
 /// Where the time goes. Mirrors `LatencyStatus` in the UI.
 #[derive(Debug, Clone, Serialize)]
@@ -1029,6 +1054,7 @@ struct SyncContext<'a> {
     irs: &'a mut Irs,
     designs: &'a Designs,
     audition: &'a Auditioning,
+    rows: &'a RowMixes,
     audio_dir: &'a Path,
     states: &'a PluginStates,
     practice: Practice,
@@ -1156,6 +1182,7 @@ impl Live {
             irs,
             designs,
             audition,
+            rows,
             audio_dir,
             states,
             practice,
@@ -1284,7 +1311,13 @@ impl Live {
                 }
                 Source::Drums { sequencer, kit, .. } => {
                     let loaded = kits.get(kit);
-                    let score = score_for(track, project, &loaded, audition.as_ref());
+                    let score = score_for(
+                        track,
+                        project,
+                        &loaded,
+                        audition.as_ref(),
+                        rows.get(&track.id),
+                    );
                     if sequencer.score() != &score && !sequencer.set_score(score) {
                         problems.push(format!(
                             "{}: the audio thread is not taking patterns",
@@ -1391,6 +1424,7 @@ impl Live {
         project: &Project,
         kits: &mut Kits,
         audition: &Auditioning,
+        rows: &RowMixes,
     ) -> Result<()> {
         for live in &mut self.tracks {
             let Source::Drums { sequencer, kit, .. } = &mut live.source else {
@@ -1400,7 +1434,13 @@ impl Live {
                 continue;
             };
             let loaded = kits.get(kit);
-            let score = score_for(track, project, &loaded, audition.as_ref());
+            let score = score_for(
+                track,
+                project,
+                &loaded,
+                audition.as_ref(),
+                rows.get(&track.id),
+            );
             if sequencer.score() != &score && !sequencer.set_score(score) {
                 bail!("{}: the audio thread is not taking patterns", track.name);
             }
@@ -1549,17 +1589,18 @@ pub(crate) fn score_for(
     project: &Project,
     kit: &LoadedKit,
     audition: Option<&(TrackId, Audition)>,
+    mix: Option<&RowMix>,
 ) -> Score {
     if let Some((t, what)) = audition {
         if *t == track.id {
             return match what {
                 Audition::Pattern(id) => project
                     .pattern(*id)
-                    .map(|p| vec![Placement::forever(pattern_data(p, kit))])
+                    .map(|p| vec![Placement::forever(pattern_data(p, kit, mix))])
                     .unwrap_or_default(),
                 Audition::Groove { pattern, from, .. } => vec![Placement {
                     start: *from,
-                    ..Placement::forever(pattern_data(pattern, kit))
+                    ..Placement::forever(pattern_data(pattern, kit, mix))
                 }],
             };
         }
@@ -1574,7 +1615,7 @@ pub(crate) fn score_for(
         };
         let pattern = data
             .entry(clip.pattern)
-            .or_insert_with(|| pattern_data(pattern, kit))
+            .or_insert_with(|| pattern_data(pattern, kit, mix))
             .clone();
         score.push(Placement {
             pattern,
@@ -1588,7 +1629,9 @@ pub(crate) fn score_for(
 
 /// A pattern with its pads resolved against a kit. Rows for pads the
 /// kit does not have are left out.
-fn pattern_data(pattern: &Pattern, kit: &LoadedKit) -> Arc<PatternData> {
+/// A pattern with its pads resolved against a kit, leaving out the rows
+/// `mix` silences.
+fn pattern_data(pattern: &Pattern, kit: &LoadedKit, mix: Option<&RowMix>) -> Arc<PatternData> {
     Arc::new(PatternData {
         steps_per_beat: pattern.steps_per_beat as u32,
         length: pattern.length as u32,
@@ -1596,6 +1639,7 @@ fn pattern_data(pattern: &Pattern, kit: &LoadedKit) -> Arc<PatternData> {
         rows: pattern
             .rows
             .iter()
+            .filter(|row| mix.is_none_or(|m| m.plays(&row.pad)))
             .filter_map(|row| kit.pad_index(&row.pad).map(|i| (i, row.steps.clone())))
             .collect(),
     })
@@ -1929,6 +1973,8 @@ pub struct Engine {
     practice: Practice,
     /// The stock grooves, found once at launch.
     grooves: Vec<library::StockGroove>,
+    /// Rows muted or soloed on drum tracks, for listening while editing.
+    drum_rows: RowMixes,
     recording: Vec<Recording>,
     last_error: Option<String>,
     notice: Option<String>,
@@ -2209,6 +2255,7 @@ impl Engine {
             analysis_source: None,
             practice: Practice::default(),
             grooves,
+            drum_rows: RowMixes::new(),
             recording: Vec::new(),
             last_error,
             notice: None,
@@ -2351,6 +2398,12 @@ impl Engine {
             assistant: crate::assistant::AssistantStatus::of(&self.settings.assistant),
             practice: self.practice,
             grooves: self.grooves.clone(),
+            drum_rows: self
+                .drum_rows
+                .iter()
+                .filter(|(_, m)| !m.muted.is_empty() || !m.soloed.is_empty())
+                .map(|(t, m)| (t.0, m.clone()))
+                .collect(),
         }
     }
 
@@ -3060,6 +3113,7 @@ impl Engine {
                 irs: &mut self.irs,
                 designs: &self.designs,
                 audition: &self.audition,
+                rows: &self.drum_rows,
                 audio_dir: &audio_dir,
                 states: &self.plugin_states,
                 practice: self.practice,
@@ -3075,7 +3129,12 @@ impl Engine {
         let Some(live) = &mut self.live else {
             return Ok(());
         };
-        live.refresh_scores(&self.project, &mut self.kits, &self.audition)
+        live.refresh_scores(
+            &self.project,
+            &mut self.kits,
+            &self.audition,
+            &self.drum_rows,
+        )
     }
 
     /// Drops an audition whose track or pattern is gone.
@@ -3423,6 +3482,33 @@ impl Engine {
                 live.transport().play();
             }
         }
+        Ok(self.publish())
+    }
+
+    /// Replaces a pattern whole, as one undoable edit: what every gesture
+    /// of the grid (painting, pasting, shifting, doubling) sends.
+    pub fn pattern_replace(&mut self, pattern: Pattern) -> Result<EngineStatus> {
+        self.apply(Command::ReplacePattern { pattern })
+    }
+
+    /// Mutes and solos rows of a drum track's patterns, for listening
+    /// while editing. Not an edit: nothing is recorded, saved or
+    /// exported differently.
+    pub fn drum_rows_set(&mut self, track: u64, rows: RowMix) -> Result<EngineStatus> {
+        let id = TrackId(track);
+        let t = self
+            .project
+            .track(id)
+            .with_context(|| format!("no track {track}"))?;
+        if !t.is_drums() {
+            bail!("{} is not a drum track", t.name);
+        }
+        if rows.muted.is_empty() && rows.soloed.is_empty() {
+            self.drum_rows.remove(&id);
+        } else {
+            self.drum_rows.insert(id, rows);
+        }
+        self.refresh_scores()?;
         Ok(self.publish())
     }
 
@@ -5574,11 +5660,54 @@ mod tests {
                 from: 7680,
             },
         ));
-        let on = score_for(&project.tracks[0], &project, &kit, audition.as_ref());
+        let on = score_for(&project.tracks[0], &project, &kit, audition.as_ref(), None);
         assert_eq!(on.len(), 1);
         assert_eq!(on[0].start, 7680, "from the bar it was chosen on");
         assert_eq!(on[0].length, u64::MAX, "looping until stopped");
-        assert!(score_for(&project.tracks[1], &project, &kit, audition.as_ref()).is_empty());
+        assert!(score_for(&project.tracks[1], &project, &kit, audition.as_ref(), None).is_empty());
+    }
+
+    #[test]
+    fn muted_and_soloed_rows_are_left_out_of_the_score() {
+        let (_, kit) =
+            kit::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../kits/rock")).unwrap();
+        let mut project = Project::new("P", 48_000.0);
+        project
+            .tracks
+            .push(Track::drums(TrackId(1), "Drums", "rock"));
+        let mut beat = Pattern::new(PatternId(5), "Beat");
+        for pad in ["kick", "snare", "hh-closed"] {
+            beat.rows.push(cantina_project::PatternRow {
+                pad: pad.into(),
+                steps: [vec![1.0], vec![0.0; 15]].concat(),
+            });
+        }
+        project.patterns.push(beat);
+        let audition: Auditioning = Some((TrackId(1), Audition::Pattern(PatternId(5))));
+        let rows = |mix: &RowMix| {
+            score_for(
+                &project.tracks[0],
+                &project,
+                &kit,
+                audition.as_ref(),
+                Some(mix),
+            )[0]
+            .pattern
+            .rows
+            .len()
+        };
+        assert_eq!(rows(&RowMix::default()), 3);
+        let muted = RowMix {
+            muted: vec!["snare".into()],
+            soloed: vec![],
+        };
+        assert_eq!(rows(&muted), 2);
+        let soloed = RowMix {
+            muted: vec![],
+            soloed: vec!["kick".into()],
+        };
+        assert_eq!(rows(&soloed), 1);
+        assert!(!soloed.plays("snare") && soloed.plays("kick"));
     }
 
     #[test]

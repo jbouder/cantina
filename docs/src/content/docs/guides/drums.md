@@ -106,9 +106,36 @@ makes one; **Rename** and **Remove** do what they say.
 
 - **Click** a cell to add a hit at full strength, or to remove one.
 - **Drag up or down** on a cell to set how hard it hits. The fill shows it.
+- **Drag across** cells to paint hits along the way, or, starting on a
+  hit, to erase them. A stroke can cross rows.
 - From the keyboard, the arrow keys move around the grid, Space or Enter
   toggles a cell, Shift with ↑ or ↓ changes the strength by 10%, and Home
   and End jump to the ends of a row.
+
+### Edit faster
+
+- **Select** with ⇧-click or ⇧-drag, or from the keyboard with ⇧← and ⇧→
+  (and ⌥⇧↑, ⌥⇧↓ for more rows). Esc clears the selection.
+- **Copy, cut and paste** with ⌘C, ⌘X and ⌘V: paste puts the copied
+  cells with their corner at the focused cell. With nothing selected, they
+  act on the focused cell.
+- **Duplicate** with D: the selection is copied to just after itself,
+  growing the pattern if it must. With nothing selected, D doubles the
+  pattern.
+- **Shift** with [ and ]: moves the selection (or the focused row) a step
+  left or right, wrapping round, so a hit pushed off one end comes back
+  at the other.
+- **Clear** with ⌫ (the selection or the focused cell), ⌥⌫ for the whole
+  row, or the row's **×**.
+- **Double and halve**: **×2** beside **Length** plays the pattern twice
+  in a row, twice as long; **½** (or H) keeps the first half.
+- **Mute and solo rows** with the row's **M** and **S**, or M and S on
+  the keyboard, to hear a part on its own while you edit. They are for
+  listening only: the pattern, the project and an export are unchanged.
+
+Every gesture is one step of **Undo**.
+
+![Two rows selected across a beat, and the open hat muted](../../../assets/guides/drums-edit.png)
 
 Above the grid:
 
