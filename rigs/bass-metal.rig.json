@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "name": "Bass Metal",
+  "genre": "Metal",
+  "description": "A tight gate, a hard distortion and a clanky top end that locks with the kick.",
+  "instrument": "bass",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "gate",
+      "params": {
+        "threshold": -55,
+        "release": 40
+      }
+    },
+    {
+      "pedal": "compressor",
+      "params": {
+        "threshold": -20,
+        "ratio": 4,
+        "attack": 5,
+        "release": 100,
+        "makeup": 2
+      }
+    },
+    {
+      "pedal": "distortion",
+      "params": {
+        "drive": 14,
+        "tone": 3000,
+        "level": -20
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 6,
+        "bass": 4,
+        "mid": -3,
+        "treble": 4,
+        "presence": 3,
+        "level": -13.7
+      }
+    },
+    {
+      "pedal": "cab:4x10-bass"
+    }
+  ]
+}

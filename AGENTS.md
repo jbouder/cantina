@@ -33,8 +33,9 @@ decisions and the milestones; the architecture lives on the docs site, in
   (`command.rs`), history and the journal (undo, redo and crash recovery
   are one mechanism), the versioned file format with migrations
   (`file.rs`), pattern files.
-- `crates/cli` — `cantina-cli`: `check`, `render`, `kinds`, `schema`,
-  `synth-kit`. The binary is `cantina-cli` because the app's is `cantina`.
+- `crates/cli` — `cantina-cli`: `check`, `render` (pedals, rigs,
+  patterns), `kinds`, `schema`, `synth-kit`; `rig.rs` builds a rig's chain
+  for the CLI and the app. The binary is `cantina-cli` because the app's is `cantina`.
 - `crates/clap-fixture` — a tiny CLAP plugin the hosting tests load.
 - `src-tauri/` — the shell. `engine.rs` owns the engine and the open
   project and applies every edit through `Engine::apply`; `commands.rs` is
@@ -48,12 +49,13 @@ decisions and the milestones; the architecture lives on the docs site, in
 - `packages/scenes` — `@cantina/scenes`, the visualizer scenes, shared
   with music-visualizer. `packages/skins` — `@cantina/skins`, the six
   skins' shared palette.
-- `pedals/`, `kits/`, `irs/`, `recipes/` — stock pedals (JSON), drum kits,
-  cabinet impulse responses, kit recipes. `takes/` holds the
+- `pedals/`, `kits/`, `irs/`, `recipes/`, `rigs/` — stock pedals (JSON),
+  drum kits, cabinet impulse responses, kit recipes, rigs (chains of stock
+  pedals for a style, `*.rig.json`). `takes/` holds the
   hand-written ground truth for the transcription reference takes. Third-party audio is credited in
   each folder's `CREDITS.md`.
-- `schemas/` — JSON Schemas for pedals, kits, kit recipes, patterns and
-  projects, generated from the Rust types. Do not hand-edit.
+- `schemas/` — JSON Schemas for pedals, kits, kit recipes, patterns, tabs,
+  rigs and projects, generated from the Rust types. Do not hand-edit.
 - `.claude/skills/cantina-author/` — the skill for writing Cantina files.
   `references/formats.md` and `references/node-catalog.md` are generated
   by `scripts/skill-references.mjs`; do not hand-edit them.
@@ -147,6 +149,7 @@ Regenerating what is generated:
 
 ```sh
 UPDATE_GOLDEN=1 cargo test -p cantina-dsp --test golden   # a stock pedal's sound changed on purpose
+UPDATE_GOLDEN=1 cargo test -p cantina-cli rigs             # a stock rig's level changed on purpose
 UPDATE_SCHEMAS=1 cargo test -p cantina-project schemas    # a file format changed
 node scripts/skill-references.mjs                         # after the schemas or the node catalog
 UPDATE_SHORTCUTS=1 npx vitest run shortcuts               # after a shortcut or menu item changed

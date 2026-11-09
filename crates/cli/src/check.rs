@@ -25,6 +25,10 @@ pub struct CheckOptions {
     pub kit: Option<PathBuf>,
     /// More folders of kits, searched first, for a project's drum tracks.
     pub kit_roots: Vec<PathBuf>,
+    /// More folders of impulse responses, searched first, for a rig's cabinets.
+    pub ir_roots: Vec<PathBuf>,
+    /// More folders of designed pedals, searched first, for a rig's `pedal:<id>`s.
+    pub pedal_roots: Vec<PathBuf>,
 }
 
 /// What a passing check found.
@@ -110,6 +114,7 @@ pub fn check(path: &Path, options: &CheckOptions) -> Result<Report, Failure> {
         Format::Pattern => check_pattern(&text, options.kit.as_deref(), &mut warnings),
         Format::Tab => check_tab(&text, &mut warnings),
         Format::Project => check_project(&text, &file, options, &mut warnings),
+        Format::Rig => check_rig(&text, options, &mut warnings),
     }
     .map_err(fail)?;
     Ok(Report {
@@ -178,6 +183,39 @@ fn check_pedal(text: &str) -> Result<String, Vec<String>> {
 
 fn lines(e: &cantina_dsp::PedalError) -> Vec<String> {
     e.problems().iter().map(|p| p.to_string()).collect()
+}
+
+fn check_rig(
+    text: &str,
+    options: &CheckOptions,
+    warnings: &mut Vec<String>,
+) -> Result<String, Vec<String>> {
+    let rig = cantina_project::rig_from_json(text).map_err(|e| e.problems())?;
+    let roots = crate::rig::RigRoots::with_defaults(&options.ir_roots, &options.pedal_roots);
+    let mut built = crate::rig::build(&rig, &roots, 2)?;
+    warnings.append(&mut built.missing);
+    let mut latency = 0;
+    for p in built.pedals.iter_mut() {
+        p.processor.prepare(48_000.0, 64);
+        if !rig.chain[p.index].bypassed {
+            latency += p.processor.latency();
+        }
+    }
+    Ok(format!(
+        "rig {:?} ({}{}): {} pedals, {} samples latency",
+        rig.name,
+        match rig.instrument {
+            cantina_project::Instrument::Guitar => "guitar",
+            cantina_project::Instrument::Bass => "bass",
+        },
+        if rig.genre.is_empty() {
+            String::new()
+        } else {
+            format!(", {}", rig.genre)
+        },
+        rig.chain.len(),
+        latency
+    ))
 }
 
 fn check_kit(dir: &Path) -> Result<String, Vec<String>> {
@@ -498,6 +536,10 @@ mod tests {
             let r = check(&path, &o).unwrap();
             assert_eq!(r.format, Format::KitRecipe);
         }
+        let r = check(&root().join("rigs/bass-metal.rig.json"), &o).unwrap();
+        assert_eq!(r.format, Format::Rig);
+        assert!(r.summary.contains("\"Bass Metal\" (bass, Metal): 5 pedals"), "{}", r.summary);
+        assert!(r.warnings.is_empty(), "{:?}", r.warnings);
         let r = check(
             &root().join("crates/project/tests/fixtures/v5.json"),
             &CheckOptions {

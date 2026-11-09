@@ -9,6 +9,7 @@
 # offset over 0.001 or silence (render exits 1 on silence or NaN).
 # Patterns: check against the stock rock kit and render at 140 bpm.
 # Kit recipes: check, synthesise and check the kit that comes out.
+# Rigs: check, then render over their instrument's DI, judged as pedals are.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -27,9 +28,13 @@ fail() {
 while IFS= read -r file; do
   rel="${file#"$root"/}"
   case "$file" in
-    *.pedal.json)
+    *.pedal.json | *.rig.json)
       "$cli" check "$file" >/dev/null || { fail "$rel" "check"; continue; }
-      if ! out="$("$cli" render pedal "$file" --di --json -o "$work/out.wav")"; then
+      case "$file" in
+        *.rig.json) what=(render rig "$file") ;;
+        *) what=(render pedal "$file" --di) ;;
+      esac
+      if ! out="$("$cli" "${what[@]}" --json -o "$work/out.wav")"; then
         fail "$rel" "render: silent or not numbers"
         continue
       fi

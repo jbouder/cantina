@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "name": "Funk Clean",
+  "genre": "Funk",
+  "description": "Squashed and sparkly: a fast compressor into a clean amp, mids scooped for scratches.",
+  "instrument": "guitar",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "compressor",
+      "params": {
+        "threshold": -30,
+        "ratio": 6,
+        "attack": 3,
+        "release": 80,
+        "makeup": 8
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 2,
+        "bass": 0,
+        "mid": -3,
+        "treble": 4,
+        "presence": 3,
+        "level": -1.8
+      }
+    },
+    {
+      "pedal": "cab:1x12-open-back"
+    },
+    {
+      "pedal": "reverb",
+      "params": {
+        "size": 30,
+        "decay": 0.8,
+        "mix": 10
+      }
+    }
+  ]
+}

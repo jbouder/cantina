@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "name": "Hard Rock",
+  "genre": "Rock",
+  "description": "An overdrive pushing a crunchy amp: big chords and singing leads.",
+  "instrument": "guitar",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "overdrive",
+      "params": {
+        "drive": 14,
+        "tone": 3200,
+        "level": -4
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 22,
+        "bass": 2,
+        "mid": 3,
+        "treble": 1,
+        "presence": 2,
+        "level": -21.5
+      }
+    },
+    {
+      "pedal": "cab:4x12-modern"
+    },
+    {
+      "pedal": "reverb",
+      "params": {
+        "size": 40,
+        "decay": 1.4,
+        "mix": 12
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "name": "Jazz Clean",
+  "genre": "Jazz",
+  "description": "Warm and round: a clean amp with the treble rolled off and a soft room.",
+  "instrument": "guitar",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "compressor",
+      "params": {
+        "threshold": -26,
+        "ratio": 2,
+        "attack": 30,
+        "release": 200,
+        "makeup": 2
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 0,
+        "bass": 3,
+        "mid": 1,
+        "treble": -5,
+        "presence": -4,
+        "level": 5.6
+      }
+    },
+    {
+      "pedal": "cab:1x12-open-back"
+    },
+    {
+      "pedal": "reverb",
+      "params": {
+        "size": 45,
+        "decay": 1.6,
+        "damping": 70,
+        "mix": 18
+      }
+    }
+  ]
+}

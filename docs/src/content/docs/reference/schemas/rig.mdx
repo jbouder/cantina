@@ -1,0 +1,18 @@
+---
+title: "Rig schema"
+description: "Every field of a .rig.json rig, generated from rig.schema.json."
+---
+
+import Schema from '../../../../components/Schema.astro';
+
+A chain of pedals with their settings as a file of its own,
+`<id>.rig.json`. See the [rig format](/reference/rig-format/) for how
+pedals and their parameters are named, and the [rigs guide](/guides/rigs/)
+for using them.
+
+This page is generated from the schema when the site is built. The schema
+cannot say which parameters a pedal has; [`cantina-cli
+check`](/reference/cli/#check) builds each pedal and checks every name and
+value against it.
+
+<Schema name="rig" />

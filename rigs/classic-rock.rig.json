@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "name": "Classic Rock",
+  "genre": "Rock",
+  "description": "An amp on the edge of breakup, mids up, through a closed two-twelve in a warm room.",
+  "instrument": "guitar",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 18,
+        "bass": 1,
+        "mid": 4,
+        "treble": 2,
+        "presence": 1,
+        "level": -16.6
+      }
+    },
+    {
+      "pedal": "cab:2x12-closed"
+    },
+    {
+      "pedal": "reverb",
+      "params": {
+        "size": 50,
+        "decay": 1.8,
+        "mix": 18
+      }
+    }
+  ]
+}

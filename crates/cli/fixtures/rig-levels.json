@@ -1,0 +1,97 @@
+{
+  "alternative": {
+    "latency": 44,
+    "peakDb": -8.8,
+    "rmsDb": -19.0
+  },
+  "ambient": {
+    "latency": 22,
+    "peakDb": -5.5,
+    "rmsDb": -19.1
+  },
+  "bass-clean": {
+    "latency": 22,
+    "peakDb": -6.7,
+    "rmsDb": -19.1
+  },
+  "bass-funk": {
+    "latency": 22,
+    "peakDb": -8.4,
+    "rmsDb": -19.0
+  },
+  "bass-metal": {
+    "latency": 44,
+    "peakDb": -9.7,
+    "rmsDb": -18.9
+  },
+  "bass-rock": {
+    "latency": 22,
+    "peakDb": -9.1,
+    "rmsDb": -19.0
+  },
+  "blues": {
+    "latency": 44,
+    "peakDb": -6.3,
+    "rmsDb": -18.9
+  },
+  "classic-rock": {
+    "latency": 22,
+    "peakDb": -5.9,
+    "rmsDb": -19.0
+  },
+  "country": {
+    "latency": 22,
+    "peakDb": -1.5,
+    "rmsDb": -20.1
+  },
+  "djent": {
+    "latency": 44,
+    "peakDb": -8.4,
+    "rmsDb": -19.0
+  },
+  "funk-clean": {
+    "latency": 22,
+    "peakDb": -1.5,
+    "rmsDb": -24.0
+  },
+  "grunge": {
+    "latency": 44,
+    "peakDb": -6.4,
+    "rmsDb": -19.0
+  },
+  "hard-rock": {
+    "latency": 44,
+    "peakDb": -8.2,
+    "rmsDb": -19.1
+  },
+  "heavy-metal": {
+    "latency": 44,
+    "peakDb": -7.9,
+    "rmsDb": -18.9
+  },
+  "jazz-clean": {
+    "latency": 22,
+    "peakDb": -1.9,
+    "rmsDb": -18.9
+  },
+  "metalcore": {
+    "latency": 44,
+    "peakDb": -7.1,
+    "rmsDb": -19.0
+  },
+  "punk": {
+    "latency": 44,
+    "peakDb": -9.8,
+    "rmsDb": -18.8
+  },
+  "shoegaze": {
+    "latency": 44,
+    "peakDb": -6.4,
+    "rmsDb": -19.0
+  },
+  "thrash": {
+    "latency": 44,
+    "peakDb": -6.8,
+    "rmsDb": -19.0
+  }
+}

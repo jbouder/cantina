@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "name": "Bass Rock",
+  "genre": "Rock",
+  "description": "Growl with the mids pushed so the bass cuts through loud guitars.",
+  "instrument": "bass",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "compressor",
+      "params": {
+        "threshold": -22,
+        "ratio": 4,
+        "attack": 10,
+        "release": 120,
+        "makeup": 3
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 14,
+        "bass": 2,
+        "mid": 4,
+        "treble": 1,
+        "level": -21.8
+      }
+    },
+    {
+      "pedal": "cab:4x10-bass"
+    }
+  ]
+}

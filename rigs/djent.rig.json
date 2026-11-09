@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "name": "Djent",
+  "genre": "Metal",
+  "description": "Percussive extended-range gain: low end cut before the amp, mids forward and a sharp gate.",
+  "instrument": "guitar",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "gate",
+      "params": {
+        "threshold": -52,
+        "attack": 0.2,
+        "hold": 15,
+        "release": 25
+      }
+    },
+    {
+      "pedal": "overdrive",
+      "params": {
+        "drive": 2,
+        "tone": 5500,
+        "level": 0,
+        "curve": "Hard"
+      }
+    },
+    {
+      "pedal": "eq",
+      "params": {
+        "type1": "Low cut",
+        "freq1": 90,
+        "q1": 0.7,
+        "gain1": 0
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 38,
+        "bass": -1,
+        "mid": 3,
+        "treble": 2,
+        "presence": 6,
+        "level": -23.3
+      }
+    },
+    {
+      "pedal": "cab:4x12-modern"
+    },
+    {
+      "pedal": "reverb",
+      "params": {
+        "size": 25,
+        "decay": 0.6,
+        "mix": 6
+      }
+    }
+  ]
+}

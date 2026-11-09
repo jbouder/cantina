@@ -1,0 +1,126 @@
+{
+  "$defs": {
+    "Instrument": {
+      "description": "What the tab is for. It sets how many strings it may have.",
+      "oneOf": [
+        {
+          "const": "guitar",
+          "description": "A guitar: 6, 7 or 8 strings.",
+          "type": "string"
+        },
+        {
+          "const": "bass",
+          "description": "A bass: 4, 5 or 6 strings.",
+          "type": "string"
+        }
+      ]
+    },
+    "ParamValue": {
+      "anyOf": [
+        {
+          "description": "The value itself, in the parameter's unit.",
+          "format": "float",
+          "type": "number"
+        },
+        {
+          "description": "A switch: on or off.",
+          "type": "boolean"
+        },
+        {
+          "description": "One of a choice's options, by name.",
+          "type": "string"
+        }
+      ],
+      "description": "A parameter's value: a number, a choice's option by name, or a switch."
+    },
+    "RigPedal": {
+      "description": "One pedal in a rig.",
+      "properties": {
+        "bypassed": {
+          "description": "Bypassed, the signal goes round the pedal; it keeps its settings.",
+          "type": "boolean"
+        },
+        "params": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ParamValue"
+          },
+          "description": "Parameter values by the pedal format's id or the pedal's label, case aside. One left out starts at its default.",
+          "type": "object"
+        },
+        "pedal": {
+          "description": "What it is: a stock name (`overdrive`), `cab:<impulse id>`, `pedal:<designed pedal id>`, `au:…` or `clap:…`.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "state": {
+          "description": "A plugin's saved state, base64, applied before `params`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "pedal"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://cantina-docs.vibeproject.workers.dev/schemas/rig.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A chain of pedals with their settings: a name, a genre, a line on what it sounds like, the instrument it suits, the input gain it expects and the pedals in order. Pedals are named as a project names them (a stock name, `cab:<impulse>`, `pedal:<id>`, `au:…`, `clap:…`) and their parameters by id or label.",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "chain": {
+      "description": "The pedals, first to last.",
+      "items": {
+        "$ref": "#/$defs/RigPedal"
+      },
+      "type": "array"
+    },
+    "description": {
+      "default": "",
+      "description": "One line on what it sounds like.",
+      "type": "string"
+    },
+    "genre": {
+      "default": "",
+      "description": "The style it is for, as the picker groups rigs: `Metal`, `Rock`, `Blues`…",
+      "type": "string"
+    },
+    "inputGainDb": {
+      "default": 0.0,
+      "description": "Gain in decibels before the first pedal, −24 to 24: how hot the rig wants its input. The instrument profile trims it further in the app.",
+      "format": "float",
+      "maximum": 24.0,
+      "minimum": -24.0,
+      "type": "number"
+    },
+    "instrument": {
+      "$ref": "#/$defs/Instrument",
+      "description": "What it is for: a guitar or a bass."
+    },
+    "name": {
+      "description": "Shown in the rig picker.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "version": {
+      "description": "The format version, 1.",
+      "format": "uint32",
+      "maximum": 1,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version",
+    "name",
+    "instrument",
+    "chain"
+  ],
+  "title": "Cantina rig",
+  "type": "object"
+}

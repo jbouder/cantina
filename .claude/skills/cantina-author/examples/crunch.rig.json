@@ -1,0 +1,15 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/rig.schema.json",
+  "version": 1,
+  "name": "Crunch",
+  "genre": "Rock",
+  "description": "A light overdrive into a mid-gain amp: crunchy chords that clean up when you pick softly.",
+  "instrument": "guitar",
+  "inputGainDb": 0,
+  "chain": [
+    { "pedal": "overdrive", "params": { "drive": 8, "tone": 2800, "level": -2, "curve": "Soft" } },
+    { "pedal": "amp", "params": { "gain": 16, "bass": 1, "mid": 3, "treble": 1, "level": -18.5 } },
+    { "pedal": "cab:2x12-closed" },
+    { "pedal": "reverb", "params": { "size": 40, "decay": 1.2, "mix": 14 } }
+  ]
+}

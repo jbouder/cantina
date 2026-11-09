@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "name": "Thrash",
+  "genre": "Metal",
+  "description": "Fast and dry: deep scooped mids, a tight gate and nothing hanging off the end.",
+  "instrument": "guitar",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "gate",
+      "params": {
+        "threshold": -55,
+        "attack": 0.3,
+        "hold": 10,
+        "release": 30
+      }
+    },
+    {
+      "pedal": "overdrive",
+      "params": {
+        "drive": 6,
+        "tone": 4000,
+        "level": 0
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 36,
+        "bass": 4,
+        "mid": -8,
+        "treble": 4,
+        "presence": 3,
+        "level": -21.1
+      }
+    },
+    {
+      "pedal": "cab:4x12-modern"
+    }
+  ]
+}

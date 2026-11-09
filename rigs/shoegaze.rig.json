@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "name": "Shoegaze",
+  "genre": "Alternative",
+  "description": "A wall of fuzz washed in chorus, long delays and an enormous reverb.",
+  "instrument": "guitar",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "fuzz",
+      "params": {
+        "drive": 28,
+        "tone": 2000,
+        "level": -12,
+        "curve": "Germanium"
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 8,
+        "bass": 2,
+        "treble": -2,
+        "level": -10.0
+      }
+    },
+    {
+      "pedal": "cab:2x12-closed"
+    },
+    {
+      "pedal": "chorus",
+      "params": {
+        "rate": 0.4,
+        "depth": 70,
+        "mix": 45
+      }
+    },
+    {
+      "pedal": "delay",
+      "params": {
+        "time": 450,
+        "feedback": 50,
+        "tone": 2500,
+        "mix": 35,
+        "mode": "Ping-pong"
+      }
+    },
+    {
+      "pedal": "reverb",
+      "params": {
+        "size": 95,
+        "decay": 9,
+        "damping": 60,
+        "mix": 55
+      }
+    }
+  ]
+}

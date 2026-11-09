@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "name": "Grunge",
+  "genre": "Alternative",
+  "description": "A dark, wooly fuzz into a dirty amp: loud quiet loud.",
+  "instrument": "guitar",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "fuzz",
+      "params": {
+        "drive": 32,
+        "tone": 2200,
+        "level": -10
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 14,
+        "bass": 3,
+        "mid": -2,
+        "treble": -1,
+        "level": -19.1
+      }
+    },
+    {
+      "pedal": "cab:4x12-modern"
+    },
+    {
+      "pedal": "reverb",
+      "params": {
+        "size": 35,
+        "decay": 1.0,
+        "mix": 10
+      }
+    }
+  ]
+}

@@ -263,6 +263,33 @@ Tempo and time signature. One of each for the whole timeline for now; the engine
 | `denominator` |  | integer (≥ 1, ≤ 255) | The note value of a beat: 4 for quarter notes. Default `4`. |
 | `numerator` |  | integer (≥ 1, ≤ 255) | Beats in a bar. Default `4`. |
 
+## Cantina rig (`rig`)
+
+A chain of pedals with their settings: a name, a genre, a line on what it sounds like, the instrument it suits, the input gain it expects and the pedals in order. Pedals are named as a project names them (a stock name, `cab:<impulse>`, `pedal:<id>`, `au:…`, `clap:…`) and their parameters by id or label.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `chain` | yes | array of `RigPedal` | The pedals, first to last. |
+| `description` |  | string | One line on what it sounds like. Default `""`. |
+| `genre` |  | string | The style it is for, as the picker groups rigs: `Metal`, `Rock`, `Blues`… Default `""`. |
+| `inputGainDb` |  | number (≥ -24, ≤ 24) | Gain in decibels before the first pedal, −24 to 24: how hot the rig wants its input. The instrument profile trims it further in the app. Default `0`. |
+| `instrument` | yes | `Instrument` | What it is for: a guitar or a bass. |
+| `name` | yes | string (not empty) | Shown in the rig picker. |
+| `version` | yes | integer (≥ 1, ≤ 1) | The format version, 1. |
+
+Where it goes: `*.rig.json`, checked and rendered by `cantina-cli`. Schema: `https://cantina-docs.vibeproject.workers.dev/schemas/rig.schema.json`.
+
+### `RigPedal`
+
+One pedal in a rig.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `bypassed` |  | boolean | Bypassed, the signal goes round the pedal; it keeps its settings. |
+| `params` |  | object | Parameter values by the pedal format's id or the pedal's label, case aside. One left out starts at its default. |
+| `pedal` | yes | string (not empty) | What it is: a stock name (`overdrive`), `cab:<impulse id>`, `pedal:<designed pedal id>`, `au:…` or `clap:…`. |
+| `state` |  | string | A plugin's saved state, base64, applied before `params`. |
+
 ## Cantina project (`project`)
 
 A whole project. Saved as `project.json` inside a `Name.cantina/` directory next to `audio/`, `plugins/` and `pedals/`.
