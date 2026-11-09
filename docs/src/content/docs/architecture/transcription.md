@@ -18,8 +18,8 @@ Spotify's note transcription model, on the device. It runs in process
 with [tract](https://github.com/sonos/tract), a pure Rust inference
 library, off the audio thread.
 
-- **The model** is 228 KB of ONNX, Apache-2.0 licensed, and will ship
-  inside the app. It takes raw mono audio at 22 050 Hz in windows of
+- **The model** is 228 KB of ONNX, Apache-2.0 licensed, compiled into
+  the app from `crates/engine/models/` (credited in its `CREDITS.md`). It takes raw mono audio at 22 050 Hz in windows of
   43 844 samples (1.99 s) and computes its own constant-Q transform
   inside the graph. For each frame of 11.6 ms it outputs three maps: note
   activity and onset likelihood over 88 piano keys, and a pitch contour
@@ -33,7 +33,10 @@ library, off the audio thread.
 - **Cantina's own cleanup** follows the model, because each error
   pattern below has a cause a tab can correct:
   1. Basic Pitch's note creation (thresholding onsets and frames into
-     notes), ported from Python to Rust.
+     notes), ported from Python to Rust in `cantina_engine::transcribe`.
+     On all six reference takes it gives the same notes as Basic Pitch's
+     own Python, note for note, with identical onsets
+     (`scripts/transcribe-spike/parity.py`).
   2. A range limit from the tuning: no note below the lowest open string
      or above the highest fret. Notes below the range move up an octave,
      and a note moved onto one already sounding is dropped.
@@ -49,10 +52,51 @@ library, off the audio thread.
   that chooses strings and frets (see [fitting](#fitting-notes-to-the-fretboard)
   below).
 
-Transcription will never touch the source audio file. It will read the
-clip through the same streaming reader playback uses, resample to
-22 050 Hz and run window by window, so it can report progress and stop
-between windows.
+Transcription never touches the source audio file or the audio thread.
+`EngineState::clip_transcribe` runs on a blocking worker: it reads only
+the frames the clip plays through the streaming WAV reader, mixes to mono,
+resamples to 22 050 Hz and runs the model window by window, reporting
+progress on the `render-progress` event and stopping between windows
+when asked. A stopped transcription changes nothing. A finished one is one
+`SetClipTab` command, so it is undone like any edit.
+
+## From notes to a tab
+
+`src-tauri/src/tabs.rs` turns what the model heard into the clip's tab:
+
+1. **Where tick 0 is.** The tab is anchored to the clip's file at the
+   bar line at or before the clip's start, so its bars are the
+   project's. If that bar line is before the file begins, the beat line
+   is used, and failing that the clip's first frame.
+2. **Keep what was heard.** Every note goes into the tab's `heard` list,
+   in seconds from tick 0.
+3. **Clean, quantise, fit.** The heard notes are cleaned for the tuning,
+   snapped to the chosen grid (eighths, sixteenths or their triplets) at
+   the project's tempo, given strings and frets, and given the
+   techniques the timing shows. Where two notes on one string overlap
+   after snapping, the first ends where the second starts.
+
+Re-quantising runs step 3 again on the same `heard` notes, so changing
+the grid is instant and never transcribes twice.
+
+On the reference takes, through the whole pipeline at sixteenths (an
+ignored test, `cargo test --release -p cantina reference_takes --
+--ignored --nocapture`), F1 on pitch and onset within 50 ms:
+
+| Take | Heard | Cleaned | Tab |
+| --- | ---: | ---: | ---: |
+| `bass-line` | 0.68 | 0.84 | 0.84 |
+| `bends` | 0.74 | 0.77 | 0.77 |
+| `open-chords` | 0.78 | 0.78 | 0.73 |
+| `palm-muted` | 0.58 | 0.65 | 0.65 |
+| `power-chords` | 0.51 | 0.60 | 0.60 |
+| `single-notes` | 0.82 | 0.88 | 0.88 |
+| mean | 0.68 | 0.75 | 0.75 |
+
+Cleaning is worth seven points. Quantising costs nothing except on
+strummed chords, where the later strings of a strum snap onto the beat
+more than 50 ms before they sound. That is the tab a player wants, but it
+counts as a miss here.
 
 ## Fitting notes to the fretboard
 

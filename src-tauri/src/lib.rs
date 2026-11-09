@@ -17,6 +17,7 @@ mod mixdown;
 mod pedals;
 mod project;
 mod settings;
+mod tabs;
 
 use engine::EngineState;
 use tauri::{Manager, RunEvent};
@@ -139,6 +140,8 @@ pub fn run() {
             commands::mixdown_export,
             commands::track_bounce,
             commands::render_cancel,
+            commands::clip_transcribe,
+            commands::clip_tab_requantise,
             commands::menu_state,
             commands::project_rename,
             commands::project_duplicate,

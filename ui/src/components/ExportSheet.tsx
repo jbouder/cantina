@@ -5,6 +5,7 @@ import {
   type ExportResult,
   mixdownExport,
   onRenderProgress,
+  type RenderProgress,
   renderCancel,
 } from "../lib/engine";
 import { Button } from "./Button";
@@ -21,7 +22,7 @@ type Props = {
 };
 
 /** Fraction done, 0 to 1, of the render this sheet started, or null when none runs. */
-export function useRenderProgress(what: "export" | "bounce"): number | null {
+export function useRenderProgress(what: RenderProgress["what"]): number | null {
   const [fraction, setFraction] = useState<number | null>(null);
   useEffect(() => onRenderProgress((p) => p.what === what && setFraction(p.fraction)), [what]);
   return fraction;

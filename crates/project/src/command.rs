@@ -15,6 +15,7 @@ use crate::model::{
     Clip, ClipId, LoopRegion, Pattern, PatternClip, PatternClipId, PatternId, PatternRow, Pedal,
     PedalId, Project, Strip, Tempo, Track, TrackId, MAX_PATTERN_STEPS,
 };
+use crate::tab::Tab;
 
 /// Why a command was refused. The project is unchanged when one of these
 /// comes back.
@@ -132,6 +133,13 @@ pub enum Command {
         at: u64,
         /// Id of the right-hand part.
         new_id: ClipId,
+    },
+    /// Gives a clip a tab, replaces its tab, or with `None` removes it.
+    SetClipTab {
+        /// The clip.
+        id: ClipId,
+        /// The tab, checked before it is set.
+        tab: Option<Box<Tab>>,
     },
     /// Adds a pedal to a track's chain at `index` (clamped to the end).
     InsertPedal {
@@ -361,6 +369,8 @@ impl Command {
             Command::ArmTrack { armed: false, .. } => "disarm track".into(),
             Command::InsertClip { clip, .. } => format!("add clip {}", clip.name),
             Command::RemoveClip { .. } => "delete clip".into(),
+            Command::SetClipTab { tab: Some(_), .. } => "set tab".into(),
+            Command::SetClipTab { tab: None, .. } => "remove tab".into(),
             Command::MoveClip { .. } => "move clip".into(),
             Command::TrimClip { .. } => "trim clip".into(),
             Command::SplitClip { .. } => "split clip".into(),
@@ -473,6 +483,18 @@ impl Command {
                 t.clips.push(clip.clone());
                 t.clips.sort_by_key(|c| (c.start, c.id));
                 Ok(Command::RemoveClip { id: clip.id })
+            }
+            Command::SetClipTab { id, tab } => {
+                if let Some(tab) = tab {
+                    tab.validate().map_err(CommandError::Invalid)?;
+                }
+                let (track, index) = clip_index(project, *id)?;
+                let clip = &mut project.tracks[track].clips[index];
+                let was = std::mem::replace(&mut clip.tab, tab.as_deref().cloned());
+                Ok(Command::SetClipTab {
+                    id: *id,
+                    tab: was.map(Box::new),
+                })
             }
             Command::RemoveClip { id } => {
                 let (track, index) = clip_index(project, *id)?;
@@ -1127,6 +1149,39 @@ mod tests {
         p.tracks.push(t);
         p.tracks.push(Track::new(TrackId(4), "Bass"));
         p
+    }
+
+    #[test]
+    fn a_clip_gets_a_tab_and_undo_takes_it_away() {
+        let p = project();
+        let tab = crate::Tab::new("Riff", crate::Instrument::Guitar, 6).unwrap();
+        let set = Command::SetClipTab {
+            id: ClipId(3),
+            tab: Some(Box::new(tab.clone())),
+        };
+        assert_eq!(set.label(), "set tab");
+        let with = round_trip(&p, set);
+        assert_eq!(with.clip(ClipId(3)).unwrap().1.tab, Some(tab.clone()));
+        let removed = round_trip(
+            &with,
+            Command::SetClipTab {
+                id: ClipId(3),
+                tab: None,
+            },
+        );
+        assert!(removed.clip(ClipId(3)).unwrap().1.tab.is_none());
+        // A bad tab is refused and nothing changes.
+        let mut bad = tab;
+        bad.tuning.truncate(3);
+        let mut q = p.clone();
+        let err = Command::SetClipTab {
+            id: ClipId(3),
+            tab: Some(Box::new(bad)),
+        }
+        .apply(&mut q)
+        .unwrap_err();
+        assert!(err.to_string().contains("3 strings"), "{err}");
+        assert_eq!(q, p);
     }
 
     #[test]

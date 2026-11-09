@@ -710,7 +710,36 @@ pub async fn track_bounce(app: tauri::AppHandle, id: u64) -> Result<EngineStatus
     .map_err(|e| e.to_string())?
 }
 
-/// Stops the running export or bounce.
+/// Transcribes a clip into a tab, off the IPC thread, as one undoable
+/// edit. Progress arrives on the `render-progress` event as
+/// `transcribe`; `render_cancel` stops it and leaves nothing behind.
+#[tauri::command]
+pub async fn clip_transcribe(
+    app: tauri::AppHandle,
+    id: u64,
+    settings: crate::tabs::TabSettings,
+) -> Result<EngineStatus, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri::Manager;
+        app.state::<EngineState>()
+            .clip_transcribe(id, settings)
+            .map_err(fail)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Re-quantises a transcribed tab to another grid from what it heard.
+#[tauri::command]
+pub fn clip_tab_requantise(
+    state: tauri::State<'_, EngineState>,
+    id: u64,
+    grid: crate::tabs::Grid,
+) -> Result<EngineStatus, String> {
+    state.clip_tab_requantise(id, grid).map_err(fail)
+}
+
+/// Stops the running export, bounce or transcription.
 #[tauri::command]
 pub fn render_cancel() {
     crate::engine::cancel_render();

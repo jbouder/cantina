@@ -9,6 +9,56 @@ This guide grows with the tab features; for how transcription works and
 how accurate it is, see the [transcription](/architecture/transcription/)
 architecture page.
 
+## Transcribe a clip
+
+1. Open the track's **Clips** tab and press **Tab** beside the clip.
+2. Choose the instrument (guitar or bass), the number of strings, the
+   tuning and the capo.
+3. Choose the grid to quantise to: sixteenths, eighths, or their
+   triplets. Notes snap to it at the project's tempo.
+4. Press **Transcribe**. A bar shows progress; **Stop** cancels and
+   leaves everything as it was.
+
+Transcription runs on your Mac; the recording is never sent anywhere,
+and the audio file is never changed. A three-minute take takes a few
+seconds. The clip's line in the list then says **tab**. Adding the tab is
+one edit, so ⌘Z takes it away again.
+
+The tab sits on the clip. Move, trim or split the clip and the tab stays
+on the notes it describes; both halves of a split keep it.
+
+![Transcribing a clip: instrument, tuning, capo and grid](../../../assets/guides/transcribe.png)
+
+### Quantising again
+
+If the notes landed on the wrong grid, triplets where you played
+sixteenths say, press **Tab** again, choose another grid and press
+**Re-quantise**. Cantina keeps what it heard, so this is instant and
+does not listen to the recording again. **Transcribe again** starts over,
+with a new tuning for instance.
+
+### What transcription gets wrong
+
+Transcription hears pitches, not hands, and it is not perfect. On test
+recordings it finds about three notes in four. Expect to fix:
+
+- **Extra notes in distorted chords.** Distortion adds tones that are
+  not played, often an octave below the root. Cantina moves notes that
+  are too low for the instrument back up, which fixes most of these.
+- **Harmonics heard as notes.** A single low note can come with a quiet
+  octave or twelfth. Cantina drops these over single notes but keeps the
+  octave in a chord, so a played double stop of root and octave can lose
+  its top note.
+- **Bends heard as two notes.** Most become one bent note; a fast bend
+  may not.
+- **Note ends.** Where a note stops is much less reliable than where it
+  starts. Quantising tidies most of this.
+- **Strums.** The strings of a strum are snapped together onto the beat.
+- **Fast legato, fret noise and heavy gain on single notes** are harder
+  than anything Cantina was tested on.
+
+Slides, vibrato and harmonics are not detected; mark them yourself.
+
 ## How frets are chosen
 
 The same note can be played in several places. An E above middle C is

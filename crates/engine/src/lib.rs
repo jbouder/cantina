@@ -28,6 +28,7 @@ pub mod sequencer;
 pub mod stream;
 pub mod strip;
 pub mod tempo;
+pub mod transcribe;
 pub mod transport;
 pub mod wav;
 
