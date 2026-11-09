@@ -857,6 +857,7 @@ export function App() {
               status={status}
               frame={frame}
               onPlay={() => bound.current.play.run()}
+              onPerform={perform}
               onLeave={leaveJam}
               onStatus={setStatus}
               onError={setError}
@@ -963,6 +964,8 @@ export function App() {
         <Performance
           status={status}
           initialBoard={params?.has("board") ?? false}
+          frame={frame}
+          onPlay={() => bound.current.play.run()}
           onExit={() => setPerforming(false)}
           onStatus={setStatus}
           onError={setError}

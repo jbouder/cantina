@@ -5,7 +5,7 @@ description: "Visualizer scenes that move with what you play, performance mode w
 
 The stage draws a visualizer scene from what you play: its spectrum,
 waveform, level and beat. While the transport rolls, the beat comes from
-the project's tempo, so scenes pulse in time.
+the project's tempo, or the jam's while jamming, so scenes pulse in time.
 
 ![Performance mode: a scene full screen, with the chains along the bottom](../../../assets/guides/perform.png)
 
@@ -40,6 +40,20 @@ Below are the live chain's pedals as stomps: the LED is lit while the
 pedal is on, and pressing it bypasses the pedal, which keeps its
 settings. Bypass is saved with the project and is
 undoable like any edit; a bypassed pedal adds no latency.
+
+## Jamming on stage
+
+Performance mode from the [Jam view](/guides/jam/) (its **Stage** button,
+or **P**) is the stage with the jam's controls over it instead of the
+pedalboard: play and stop, the section, bar and tempo, what is coming,
+the six sections, and the tempo's −, + and **Tap**. The jam's keys work
+as they do in the Jam view: **1–6** sections, **↑ ↓** tempo, **T** tap,
+**Return** Keep that, **Space** play; **← →** still change scene, **B**
+hides the controls and **Esc** goes back to the Jam view.
+
+The scenes pulse on the jam's beat. A new tempo lands on a bar line, and
+the beat the scenes follow changes on that same line, so they stay in
+time through the change.
 
 ## A second display
 

@@ -3466,6 +3466,16 @@ function mockJamSwitch(jam: NonNullable<typeof mockJam>, at: number, section: Gr
   if (section === "ending") jam.end = at + length;
 }
 
+/** The stand-in jam's beat, through its tempo changes, as the pump works it out. */
+function mockJamBeat(jam: NonNullable<typeof mockJam>, seconds: number) {
+  const tick = mockJamTick(jam.tempos, seconds);
+  const beats = tick / JAM_PPQ;
+  const whole = Math.floor(beats);
+  const perBar = jam.setup.timeSignature.numerator;
+  const bpm = [...jam.tempos].reverse().find((t) => t.tick <= tick)?.bpm ?? jam.setup.tempo;
+  return { bpm, phase: beats - whole, bar: Math.floor(whole / perBar), beat: whole % perBar };
+}
+
 function mockJamNextBar(jam: NonNullable<typeof mockJam>): number {
   const bar = mockJamBarTicks(jam.setup);
   return Math.ceil(mockJamTick(jam.tempos, mockTransport.position + 0.03) / bar) * bar;
@@ -4249,7 +4259,11 @@ function openMeterChannel() {
       ),
     );
     const { bpm, numerator } = mock.project.tempo;
-    const beat = mockTransport.playing ? mockBeat(mockTransport.position, bpm, numerator) : null;
+    const beat = !mockTransport.playing
+      ? null
+      : mockJam
+        ? mockJamBeat(mockJam, mockTransport.position)
+        : mockBeat(mockTransport.position, bpm, numerator);
     const analysis = mockAnalysis(t, beat, mock.running ? 1 : 0);
     // No shell to acknowledge, and headless captures never reach an
     // animation frame, so the stand-in publishes directly.

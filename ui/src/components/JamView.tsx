@@ -37,6 +37,8 @@ type Props = {
   frame: MeterFrame;
   /** Space, the play key, starts and stops the jam from the app's bindings. */
   onPlay: () => void;
+  /** Plays the jam on stage: performance mode with the jam's controls. */
+  onPerform: () => void;
   onLeave: () => void;
   onStatus: (s: EngineStatus) => void;
   onError: (message: string) => void;
@@ -54,7 +56,7 @@ const PROJECT = "\u0000project";
  * Keys: Space plays and stops, 1 to 6 pick a section, ↑ and ↓ nudge the
  * tempo (⇧ by 5), T taps it.
  */
-export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: Props) {
+export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, onError }: Props) {
   const ids = useId();
   const jam = status.jam;
   const report = (action: Promise<EngineStatus>) =>
@@ -155,6 +157,9 @@ export function JamView({ status, frame, onPlay, onLeave, onStatus, onError }: P
           <span className="flex gap-1">
             <Button onClick={() => setSaving(true)} title="Save this jam to your Jams">
               Save…
+            </Button>
+            <Button onClick={onPerform} title="Jam on stage, full screen (P)">
+              Stage
             </Button>
             <Button onClick={onLeave} title="Back to the project">
               Leave

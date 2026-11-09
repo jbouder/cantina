@@ -1,6 +1,6 @@
 ---
 title: "Jam"
-description: "Jam mode is a practice room: stock jams and your own saved ones, drums from a stock groove or your own patterns, a backing (a chord progression played by a built-in guitar or bass, an audio file or a project's track), your rig on the input, on an endless loop you steer while you play: sections at the next bar, tempo nudges, tap tempo and a count-in; and Keep that, for the riff you were not recording."
+description: "Jam mode is a practice room, on stage too: stock jams and your own saved ones, drums from a stock groove or your own patterns, a backing (a chord progression played by a built-in guitar or bass, an audio file or a project's track), your rig on the input, on an endless loop you steer while you play: sections at the next bar, tempo nudges, tap tempo and a count-in; and Keep that, for the riff you were not recording."
 ---
 
 Practising should not mean setting up a project, tracks and clips. Jam
@@ -229,6 +229,16 @@ files in `~/Music/Cantina/Jams/Takes`: `Jam-1.wav`, the dry take, and
 
 Keeping writes on the recorder's own thread while the jam plays on; the
 jam never stops for it.
+
+## Jam on stage
+
+**Stage**, at the top of the Jam view, or **P**, plays the jam in
+[performance mode](/guides/stage/#jamming-on-stage): a scene full screen,
+pulsing on the jam's beat, with the jam's controls over it. Change
+section and tempo there as you would in the view; the scenes stay on the
+beat through a tempo change. **Esc** comes back to the Jam view.
+
+![Jamming on stage in the Neon skin: the warp tunnel scene with play, the chorus at bar 24, the tempo and the six sections over it](../../../assets/guides/jam-stage.png)
 
 Keyboard shortcuts work anywhere in the view outside a text field or a
 menu; they are listed in [keyboard shortcuts](/reference/shortcuts/).
