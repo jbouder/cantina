@@ -100,5 +100,5 @@ Installed: `cantina-cli <command>` (`cargo install --path crates/cli`).
 | [half-time.pattern.json](examples/half-time.pattern.json) | A two-bar half-time beat: snare on 3, accents, ghost notes, open hat, light swing |
 
 [fixtures/](fixtures/) holds one-line prompts and what was written for
-them; every example and fixture is checked and rendered in CI by
-`scripts/skill-fixtures.sh`.
+them; `scripts/skill-fixtures.sh` checks and renders every example and
+fixture, run by hand when a format or `cantina-cli` changes.
