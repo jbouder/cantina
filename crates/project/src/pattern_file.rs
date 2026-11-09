@@ -17,17 +17,137 @@
 //!
 //! `pattern.schema.json` describes it. A `"$schema"` field is ignored, and
 //! so is an `"id"`, so a pattern copied out of a project file reads too.
+//!
+//! A stock groove also carries a [`Groove`] in its file: its genre, the
+//! section of a song it is for, its time signature, the tempos it suits
+//! and its feel. That is for finding the groove; a project keeps the
+//! pattern alone once the groove is added to it.
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::model::{Pattern, PatternId};
+use crate::model::{Pattern, PatternId, PPQ};
+
+/// The part of a song a groove is for.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Section {
+    /// Before the song gets going.
+    Intro,
+    /// The main groove.
+    Verse,
+    /// Bigger: the crash or ride opens up.
+    Chorus,
+    /// Somewhere else for a while.
+    Bridge,
+    /// A bar that leads into the next section.
+    Fill,
+    /// The last hit.
+    Ending,
+}
+
+/// How a groove's beat feels.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Feel {
+    /// Even subdivisions.
+    Straight,
+    /// Long-short eighths: blues, swing rock.
+    Shuffle,
+    /// Swung, lighter than a shuffle: jazz.
+    Swing,
+    /// The backbeat on 3 rather than 2 and 4: twice as heavy.
+    HalfTime,
+    /// The snare on every upbeat: twice as urgent.
+    DoubleTime,
+}
+
+/// A time signature, as a groove states it.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Meter {
+    /// Beats in a bar.
+    pub numerator: u8,
+    /// The note value of a beat: 4 for quarter notes, 8 for eighths.
+    pub denominator: u8,
+}
+
+/// The tempos a groove suits, in beats per minute.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct TempoRange {
+    /// Slowest.
+    pub min: f64,
+    /// Fastest.
+    pub max: f64,
+}
+
+/// What a stock groove says about itself.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Groove {
+    /// The genre it belongs to, as the browser groups it: `Rock`,
+    /// `Heavy metal`, `Blues shuffle`…
+    pub genre: String,
+    /// The part of a song it is for.
+    pub section: Section,
+    /// Its time signature; the pattern is a whole number of bars of it.
+    pub time_signature: Meter,
+    /// The tempos it suits.
+    pub tempo: TempoRange,
+    /// How it feels.
+    pub feel: Feel,
+}
+
+impl Groove {
+    /// Checks the groove against itself and its pattern: a genre, a time
+    /// signature that exists, a sensible tempo range, and a pattern that
+    /// is whole bars long.
+    pub fn validate(&self, pattern: &Pattern) -> Result<(), String> {
+        if self.genre.trim().is_empty() {
+            return Err("the groove has no genre".into());
+        }
+        let Meter {
+            numerator,
+            denominator,
+        } = self.time_signature;
+        if !(1..=16).contains(&numerator) || !matches!(denominator, 2 | 4 | 8 | 16) {
+            return Err(format!(
+                "the groove's time signature {numerator}/{denominator} is not one Cantina plays"
+            ));
+        }
+        let TempoRange { min, max } = self.tempo;
+        if !(min.is_finite() && max.is_finite() && 20.0 <= min && min <= max && max <= 400.0) {
+            return Err(format!(
+                "the groove's tempo range {min} to {max} bpm is not 20 to 400 with the slower first"
+            ));
+        }
+        let bar = u64::from(PPQ) * 4 / u64::from(denominator) * u64::from(numerator);
+        if pattern.ticks() % bar != 0 {
+            return Err(format!(
+                "the pattern is not a whole number of {numerator}/{denominator} bars"
+            ));
+        }
+        Ok(())
+    }
+}
 
 /// The suffix of a pattern file.
 pub const PATTERN_SUFFIX: &str = ".pattern.json";
 
 /// Reads and validates a pattern file. The pattern comes back with id 0,
-/// for the project to replace with a fresh one.
+/// for the project to replace with a fresh one; a groove's metadata is
+/// checked and left behind.
 pub fn pattern_from_json(text: &str) -> Result<Pattern, String> {
+    groove_from_json(text).map(|(pattern, _)| pattern)
+}
+
+/// Reads and validates a pattern file and the [`Groove`] it carries, if
+/// it is a groove.
+pub fn groove_from_json(text: &str) -> Result<(Pattern, Option<Groove>), String> {
     let mut value: Value =
         serde_json::from_str(text).map_err(|e| format!("not valid JSON: {e}"))?;
     let Some(object) = value.as_object_mut() else {
@@ -35,10 +155,20 @@ pub fn pattern_from_json(text: &str) -> Result<Pattern, String> {
     };
     object.remove("$schema");
     object.insert("id".into(), Value::from(0));
+    let groove = match object.remove("groove") {
+        Some(g) => Some(
+            serde_json::from_value::<Groove>(g)
+                .map_err(|e| format!("the groove does not match the pattern format: {e}"))?,
+        ),
+        None => None,
+    };
     let pattern: Pattern = serde_json::from_value(value)
         .map_err(|e| format!("does not match the pattern format: {e}"))?;
     pattern.validate()?;
-    Ok(pattern)
+    if let Some(groove) = &groove {
+        groove.validate(&pattern)?;
+    }
+    Ok((pattern, groove))
 }
 
 /// A pattern as a file: pretty JSON without its id.
@@ -136,6 +266,39 @@ mod tests {
         assert!(pattern_from_json(r#"{"name":"B"}"#)
             .unwrap_err()
             .contains("missing field"));
+    }
+
+    #[test]
+    fn a_groove_carries_its_metadata_and_the_project_keeps_the_pattern() {
+        let text = r#"{"name":"Rock verse","stepsPerBeat":4,"length":16,"swing":0,
+            "rows":[{"pad":"kick","steps":[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]}],
+            "groove":{"genre":"Rock","section":"verse","timeSignature":{"numerator":4,"denominator":4},
+              "tempo":{"min":90,"max":140},"feel":"straight"}}"#;
+        let (pattern, groove) = groove_from_json(text).unwrap();
+        let groove = groove.unwrap();
+        assert_eq!(
+            (groove.genre.as_str(), groove.section, groove.feel),
+            ("Rock", Section::Verse, Feel::Straight)
+        );
+        assert_eq!(pattern.name, "Rock verse");
+        assert_eq!(pattern_from_json(text).unwrap(), pattern);
+        assert!(!pattern_to_json(&pattern).contains("groove"));
+        // A plain pattern has none.
+        assert!(groove_from_json(&pattern_to_json(&beat()))
+            .unwrap()
+            .1
+            .is_none());
+        // Bad metadata is refused with the reason.
+        let bars = text.replace(r#""numerator":4"#, r#""numerator":3"#);
+        assert!(groove_from_json(&bars)
+            .unwrap_err()
+            .contains("whole number of 3/4 bars"));
+        let slow = text.replace(r#""min":90"#, r#""min":190"#);
+        assert!(groove_from_json(&slow)
+            .unwrap_err()
+            .contains("slower first"));
+        let genre = text.replace(r#""genre":"Rock""#, r#""genre":" ""#);
+        assert!(groove_from_json(&genre).unwrap_err().contains("no genre"));
     }
 
     #[test]

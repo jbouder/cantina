@@ -1,0 +1,80 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/pattern.schema.json",
+  "name": "Jazz intro",
+  "stepsPerBeat": 3,
+  "length": 24,
+  "swing": 0.0,
+  "groove": {
+    "genre": "Jazz",
+    "section": "intro",
+    "timeSignature": {
+      "numerator": 4,
+      "denominator": 4
+    },
+    "tempo": {
+      "min": 110,
+      "max": 220
+    },
+    "feel": "swing"
+  },
+  "rows": [
+    {
+      "pad": "ride",
+      "steps": [
+        0.8,
+        0.0,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.8,
+        0.0,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.8,
+        0.0,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.8,
+        0.0,
+        0.0,
+        0.8,
+        0.0,
+        0.8
+      ]
+    },
+    {
+      "pad": "hh-closed",
+      "steps": [
+        0.0,
+        0.0,
+        0.0,
+        0.55,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.55,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.55,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.55,
+        0.0,
+        0.0
+      ]
+    }
+  ]
+}

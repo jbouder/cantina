@@ -31,7 +31,8 @@
     "resources": {
       "../kits/": "kits/",
       "../irs/": "irs/",
-      "../pedals/": "pedals/"
+      "../pedals/": "pedals/",
+      "../patterns/": "patterns/"
     },
     "icon": [
       "icons/32x32.png",

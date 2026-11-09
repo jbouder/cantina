@@ -38,6 +38,45 @@ as a [kit recipe](/reference/kit-format/#kit-recipes) and let
 `cantina-cli synth-kit` make the samples. The
 [kit format](/reference/kit-format/) describes every field.
 
+## Stock grooves
+
+Cantina comes with 87 grooves in 17 genres, so a drum track can play
+something good straight away. They are in the **Pattern** menu, under
+**Add a groove**, one group per genre, with the tempos each suits. Choosing
+one copies it into the project as a pattern of its own, which you can then
+edit like any other; the groove that ships with the app never changes.
+
+| Genre | Sections | Tempo (bpm) | Feel | Time |
+| --- | --- | --- | --- | --- |
+| Alternative | intro, verse, chorus, fill, ending | 90–130 | straight | 4/4 |
+| Blast beats | intro, verse, chorus, fill, ending | 180–260 | double time | 4/4 |
+| Blues shuffle | intro, verse, chorus, fill, ending | 75–130 | shuffle | 4/4 |
+| Djent | intro, verse, chorus, fill, ending | 100–140 | half time | 4/4 |
+| Funk | intro, verse, chorus, fill, ending | 88–116 | straight | 4/4 |
+| Grunge | intro, verse, chorus, fill, ending | 80–120 | straight | 4/4 |
+| Half-time | intro, verse, chorus, fill, ending | 70–100 | half time | 4/4 |
+| Hard rock | intro, verse, chorus, fill, ending | 110–150 | straight | 4/4 |
+| Heavy metal | intro, verse, chorus, fill, ending | 130–180 | straight | 4/4 |
+| Hip-hop | intro, verse, chorus, fill, ending | 80–98 | swing | 4/4 |
+| Jazz | intro, verse, chorus, fill, ending, and a waltz (bridge) | 100–220 | swing | 4/4, 3/4 |
+| Metalcore | intro, verse, chorus, bridge (breakdown), fill, ending | 120–170 | straight, half time | 4/4 |
+| Pop | intro, verse, chorus, fill, ending | 95–125 | straight | 4/4 |
+| Punk | intro, verse, chorus, fill, ending | 160–210 | double time | 4/4 |
+| Reggae | intro, verse, chorus, fill, ending | 66–90 | shuffle (one drop) | 4/4 |
+| Rock | intro, verse, chorus, fill, ending | 95–140 | straight | 4/4 |
+| Thrash | intro, verse, chorus, fill, ending | 170–240 | double time | 4/4 |
+
+A **fill** is one bar that leads into the next section; place it on the
+last bar before the change. An **ending** is the last hit, left to ring.
+Every groove uses the pad names all the kits share (`kick`, `snare`,
+`hh-closed`, `hh-open`, the toms, `crash`, `ride` and `china`); on a kit
+without one of them, that row is silent.
+
+A new drum track starts with its fader at **−12 dB**. The stock kits'
+samples are full-scale, so a kick and a snare together at full strength
+are twice as loud as either; the headroom keeps even the densest groove
+clear of clipping. Turn the fader up if a quieter pattern needs it.
+
 ## Program a pattern
 
 A pattern belongs to the project, so any drum track can use it. **New**
@@ -79,6 +118,29 @@ same object the project holds, without its id. The
 
 Each row has exactly `length` velocities from 0 (no hit) to 1, and names a
 pad by the id kits use.
+
+A stock groove's file also has a `groove` object saying what it is for.
+Cantina reads it to sort the groove into the menu and leaves it behind
+when the groove is added to a project:
+
+```json
+"groove": {
+  "genre": "Rock",
+  "section": "verse",
+  "timeSignature": { "numerator": 4, "denominator": 4 },
+  "tempo": { "min": 95, "max": 140 },
+  "feel": "straight"
+}
+```
+
+- **`section`** is `intro`, `verse`, `chorus`, `bridge`, `fill` or
+  `ending`.
+- **`timeSignature`** is the groove's meter; the pattern must be a whole
+  number of its bars.
+- **`tempo`** is the range of tempos it suits, from 20 to 400 bpm, the
+  slower first.
+- **`feel`** is `straight`, `shuffle`, `swing`, `half-time` or
+  `double-time`.
 
 - **Export…** writes the pattern shown to a `.pattern.json` file.
 - **Import…** adds pattern files to the project, as does dropping one on

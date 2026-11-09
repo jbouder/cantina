@@ -1,0 +1,109 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/pattern.schema.json",
+  "name": "Blues shuffle verse",
+  "stepsPerBeat": 3,
+  "length": 24,
+  "swing": 0.0,
+  "groove": {
+    "genre": "Blues shuffle",
+    "section": "verse",
+    "timeSignature": {
+      "numerator": 4,
+      "denominator": 4
+    },
+    "tempo": {
+      "min": 75,
+      "max": 130
+    },
+    "feel": "shuffle"
+  },
+  "rows": [
+    {
+      "pad": "hh-closed",
+      "steps": [
+        0.8,
+        0.0,
+        0.8,
+        0.8,
+        0.0,
+        0.8,
+        0.8,
+        0.0,
+        0.8,
+        0.8,
+        0.0,
+        0.8,
+        0.8,
+        0.0,
+        0.8,
+        0.8,
+        0.0,
+        0.8,
+        0.8,
+        0.0,
+        0.8,
+        0.8,
+        0.0,
+        0.8
+      ]
+    },
+    {
+      "pad": "kick",
+      "steps": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "pad": "snare",
+      "steps": [
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  ]
+}

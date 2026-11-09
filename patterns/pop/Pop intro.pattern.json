@@ -1,0 +1,96 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/pattern.schema.json",
+  "name": "Pop intro",
+  "stepsPerBeat": 4,
+  "length": 32,
+  "swing": 0.0,
+  "groove": {
+    "genre": "Pop",
+    "section": "intro",
+    "timeSignature": {
+      "numerator": 4,
+      "denominator": 4
+    },
+    "tempo": {
+      "min": 95,
+      "max": 125
+    },
+    "feel": "straight"
+  },
+  "rows": [
+    {
+      "pad": "hh-closed",
+      "steps": [
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0
+      ]
+    },
+    {
+      "pad": "kick",
+      "steps": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ]
+}

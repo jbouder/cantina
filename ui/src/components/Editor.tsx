@@ -11,6 +11,7 @@ import {
   type PedalKindInfo,
   type Practice,
   patternClipRemove,
+  type StockGroove,
   type Tempo,
   type TrackStatus,
   trackBounce,
@@ -45,6 +46,8 @@ type Props = {
   audition: AuditionStatus | null;
   /** Hearing tabs and practice speed, for the Tab tab. */
   practice: Practice;
+  /** The stock grooves, for the Beats tab. */
+  grooves: StockGroove[];
   tempo: Tempo;
   position: number;
   playing: boolean;
@@ -82,6 +85,7 @@ export function Editor({
   library,
   audition,
   practice,
+  grooves,
   tempo,
   position,
   playing,
@@ -291,6 +295,7 @@ export function Editor({
             patterns={patterns}
             kits={kits}
             library={library}
+            grooves={grooves}
             audition={audition}
             tempo={tempo}
             position={position}

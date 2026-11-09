@@ -41,6 +41,7 @@ import {
   patternSetStep,
   patternSetSwing,
   RESOLUTIONS,
+  type StockGroove,
   type Tempo,
   type TrackStatus,
   trackSetKit,
@@ -51,6 +52,13 @@ import { Button } from "./Button";
 import { Led } from "./Led";
 import { Select } from "./Select";
 
+/** Grooves in genre order, as the shell sorts them, grouped by genre. */
+function groupByGenre(grooves: StockGroove[]): [string, StockGroove[]][] {
+  const groups = new Map<string, StockGroove[]>();
+  for (const g of grooves) groups.set(g.genre, [...(groups.get(g.genre) ?? []), g]);
+  return [...groups];
+}
+
 type Props = {
   /** A drum track: `track.kit` is set. */
   track: TrackStatus;
@@ -58,6 +66,8 @@ type Props = {
   kits: KitInfo[];
   /** The library folders: pattern files to import, and files that will not load. */
   library: LibraryStatus;
+  /** The stock grooves, offered in the pattern menu by genre. */
+  grooves: StockGroove[];
   audition: AuditionStatus | null;
   tempo: Tempo;
   /** Playhead, in seconds. */
@@ -92,6 +102,7 @@ export function DrumGrid({
   patterns,
   kits,
   library,
+  grooves,
   audition,
   tempo,
   position,
@@ -369,7 +380,10 @@ export function DrumGrid({
             else setChosen(Number(value));
           }}
           disabled={
-            patterns.length === 0 && library.patterns.length === 0 && brokenPatterns.length === 0
+            patterns.length === 0 &&
+            library.patterns.length === 0 &&
+            grooves.length === 0 &&
+            brokenPatterns.length === 0
           }
         >
           {patterns.length === 0 ? <option value="">No pattern</option> : null}
@@ -387,6 +401,15 @@ export function DrumGrid({
               ))}
             </optgroup>
           ) : null}
+          {groupByGenre(grooves).map(([genre, list]) => (
+            <optgroup key={genre} label={`Add a groove: ${genre}`}>
+              {list.map((g) => (
+                <option key={g.path} value={`file:${g.path}`}>
+                  {g.name} ({g.tempo.min}–{g.tempo.max} bpm)
+                </option>
+              ))}
+            </optgroup>
+          ))}
           {brokenPatterns.length > 0 ? (
             <optgroup label="Will not load">
               {brokenPatterns.map((b) => (

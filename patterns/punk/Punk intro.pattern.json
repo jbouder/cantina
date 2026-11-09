@@ -1,0 +1,85 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/pattern.schema.json",
+  "name": "Punk intro",
+  "stepsPerBeat": 2,
+  "length": 16,
+  "swing": 0.0,
+  "groove": {
+    "genre": "Punk",
+    "section": "intro",
+    "timeSignature": {
+      "numerator": 4,
+      "denominator": 4
+    },
+    "tempo": {
+      "min": 160,
+      "max": 210
+    },
+    "feel": "double-time"
+  },
+  "rows": [
+    {
+      "pad": "hh-closed",
+      "steps": [
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0
+      ]
+    },
+    {
+      "pad": "kick",
+      "steps": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "pad": "snare",
+      "steps": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    }
+  ]
+}

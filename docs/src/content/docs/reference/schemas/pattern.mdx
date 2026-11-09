@@ -7,6 +7,13 @@ import Schema from '../../../../components/Schema.astro';
 
 A drum pattern as a file of its own, `<name>.pattern.json`: the pattern a project holds, without its id. See [pattern files](/guides/drums/#pattern-files).
 
+A stock groove's file also carries a `groove` object: its genre, the
+section of a song it is for, its time signature, the tempos it suits and
+its feel. Cantina uses it to file the groove under **Add a groove**; a
+project keeps the pattern without it. The 87 stock grooves are in
+`patterns/` in the repository, one folder per genre, and
+[stock grooves](/guides/drums/#stock-grooves) lists them.
+
 This page is generated from the schema when the site is built, so it lists
 exactly what Cantina accepts. Check a file against it, and the rules beyond
 it, with [`cantina-cli check`](/reference/cli/#check).

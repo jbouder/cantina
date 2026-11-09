@@ -1,0 +1,73 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/pattern.schema.json",
+  "name": "Blues shuffle ending",
+  "stepsPerBeat": 3,
+  "length": 12,
+  "swing": 0.0,
+  "groove": {
+    "genre": "Blues shuffle",
+    "section": "ending",
+    "timeSignature": {
+      "numerator": 4,
+      "denominator": 4
+    },
+    "tempo": {
+      "min": 75,
+      "max": 130
+    },
+    "feel": "shuffle"
+  },
+  "rows": [
+    {
+      "pad": "crash",
+      "steps": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "pad": "kick",
+      "steps": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "pad": "snare",
+      "steps": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ]
+}

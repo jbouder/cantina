@@ -25,10 +25,12 @@ pub use history::{History, UNDO_LIMIT};
 pub use journal::{replay, Entry as JournalEntry, Journal, Read as JournalRead, JOURNAL_FILE};
 pub use model::{
     Clip, ClipId, Id, LoopRegion, Pattern, PatternClip, PatternClipId, PatternId, PatternRow,
-    Pedal, PedalId, Project, Strip, Tempo, Track, TrackId, FORMAT_VERSION, MAX_PATTERN_STEPS, PPQ,
+    Pedal, PedalId, Project, Strip, Tempo, Track, TrackId, DRUM_GAIN_DB, FORMAT_VERSION,
+    MAX_PATTERN_STEPS, PPQ,
 };
 pub use pattern_file::{
-    imported, pattern_file_name, pattern_from_json, pattern_to_json, PATTERN_SUFFIX,
+    groove_from_json, imported, pattern_file_name, pattern_from_json, pattern_to_json, Feel,
+    Groove, Meter, Section, TempoRange, PATTERN_SUFFIX,
 };
 pub use tab::{
     tab_from_json, tab_to_json, Bend, HeardNote, Instrument, Tab, TabNote, MAX_BEND, MAX_FRET,

@@ -1,0 +1,106 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/pattern.schema.json",
+  "name": "Metalcore fill",
+  "stepsPerBeat": 4,
+  "length": 16,
+  "swing": 0.0,
+  "groove": {
+    "genre": "Metalcore",
+    "section": "fill",
+    "timeSignature": {
+      "numerator": 4,
+      "denominator": 4
+    },
+    "tempo": {
+      "min": 120,
+      "max": 170
+    },
+    "feel": "straight"
+  },
+  "rows": [
+    {
+      "pad": "kick",
+      "steps": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "pad": "snare",
+      "steps": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.0
+      ]
+    },
+    {
+      "pad": "tom-hi",
+      "steps": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "pad": "tom-lo",
+      "steps": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ]
+    }
+  ]
+}
