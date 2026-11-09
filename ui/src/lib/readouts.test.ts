@@ -28,6 +28,7 @@ function track(chain: PedalInfo[]): TrackStatus {
     patternClips: [],
     strip: { gainDb: 0, pan: 0, mute: false, solo: false },
     latencyFrames: 0,
+    pads: {},
   };
 }
 

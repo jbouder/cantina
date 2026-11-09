@@ -13,7 +13,7 @@ use crate::tab::Tab;
 
 /// The format version this crate writes. The loader upgrades older files;
 /// see `file.rs` for the migrations.
-pub const FORMAT_VERSION: u32 = 9;
+pub const FORMAT_VERSION: u32 = 10;
 
 /// Ticks per quarter note in pattern and pattern clip positions. The
 /// same as the engine's tempo map, so a tick here is a tick there.
@@ -620,6 +620,68 @@ pub struct Track {
     /// The track's mixer strip.
     #[serde(default)]
     pub strip: Strip,
+    /// A drum track's pad mixer, by pad id; a pad not here is as the kit
+    /// has it.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub pads: std::collections::BTreeMap<String, PadMix>,
+}
+
+/// One pad's place in a drum track's mix.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PadMix {
+    /// Level in dB, −60 to 12.
+    #[serde(default)]
+    pub level_db: f32,
+    /// −1 left to 1 right, added to the kit's pan.
+    #[serde(default)]
+    pub pan: f32,
+    /// Semitones, −12 to 12.
+    #[serde(default)]
+    pub tune: f32,
+    /// How much of each hit rings, 0.05 to 1: 1 is all of it.
+    #[serde(default = "full_decay")]
+    pub decay: f32,
+    /// Silences the pad.
+    #[serde(default)]
+    pub mute: bool,
+}
+
+fn full_decay() -> f32 {
+    1.0
+}
+
+impl Default for PadMix {
+    fn default() -> Self {
+        Self {
+            level_db: 0.0,
+            pan: 0.0,
+            tune: 0.0,
+            decay: 1.0,
+            mute: false,
+        }
+    }
+}
+
+impl PadMix {
+    /// Checks every field is in its range.
+    pub fn validate(&self, pad: &str) -> Result<(), String> {
+        let ranges = [
+            ("level", self.level_db, -60.0, 12.0),
+            ("pan", self.pan, -1.0, 1.0),
+            ("tune", self.tune, -12.0, 12.0),
+            ("decay", self.decay, 0.05, 1.0),
+        ];
+        for (name, v, lo, hi) in ranges {
+            if !v.is_finite() || !(lo..=hi).contains(&v) {
+                return Err(format!(
+                    "pad {pad:?} has a {name} of {v}, outside {lo} to {hi}"
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 impl Track {
@@ -634,6 +696,7 @@ impl Track {
             clips: Vec::new(),
             pattern_clips: Vec::new(),
             strip: Strip::default(),
+            pads: std::collections::BTreeMap::new(),
         }
     }
 
@@ -868,6 +931,15 @@ impl Project {
                     "track {} has a kit id that is not a plain name",
                     track.id
                 ));
+            }
+            for (pad, mix) in &track.pads {
+                if !track.is_drums() {
+                    return Err(format!(
+                        "track {} is an audio track but has a pad mixer",
+                        track.id
+                    ));
+                }
+                mix.validate(pad)?;
             }
             for clip in &track.pattern_clips {
                 if clip.length == 0 {

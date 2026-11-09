@@ -273,6 +273,9 @@ fn migrate(from: u32, mut value: Value) -> Value {
         // row `swing`, `humanize` and `marks`; a version 8 file has none,
         // so every hit plays on the grid, as written, every time.
         8 => value,
+        // 9 -> 10: the pad mixer. A drum track may carry `pads`; a
+        // version 9 file has none, so every pad plays as its kit has it.
+        9 => value,
         _ => value,
     }
 }
@@ -623,6 +626,41 @@ mod tests {
             let err = bad.validate().unwrap_err();
             assert!(err.contains(says), "{err}");
         }
+    }
+
+    #[test]
+    fn a_version_10_file_has_a_pad_mixer_and_a_version_9_file_does_not() {
+        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+        let v10 = load_str(
+            &fs::read_to_string(fixtures.join("v10.json")).unwrap(),
+            Path::new("v10/project.json"),
+        )
+        .unwrap();
+        let drums = v10.tracks.iter().find(|t| t.is_drums()).unwrap();
+        let snare = drums.pads["snare"];
+        assert_eq!(
+            (snare.level_db, snare.pan, snare.tune, snare.decay),
+            (-4.5, -0.2, 1.0, 0.6)
+        );
+        assert!(!snare.mute);
+        let hat = drums.pads["hh-open"];
+        assert!(hat.mute);
+        assert_eq!(hat.decay, 1.0, "a field left out is the kit's");
+        let text = serde_json::to_string(&v10).unwrap();
+        assert_eq!(load_str(&text, Path::new("v10/project.json")).unwrap(), v10);
+
+        let v9 = load_str(
+            &fs::read_to_string(fixtures.join("v9.json")).unwrap(),
+            Path::new("v9/project.json"),
+        )
+        .unwrap();
+        assert!(v9.tracks.iter().all(|t| t.pads.is_empty()));
+        let json = serde_json::to_value(&v9).unwrap();
+        assert!(json["tracks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|t| t.get("pads").is_none()));
     }
 
     #[test]

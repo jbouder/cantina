@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::model::{
-    Clip, ClipId, Fill, LoopRegion, Pattern, PatternClip, PatternClipId, PatternId, PatternRow,
-    Pedal, PedalId, Project, Strip, Tempo, Track, TrackId, MAX_PATTERN_STEPS,
+    Clip, ClipId, Fill, LoopRegion, PadMix, Pattern, PatternClip, PatternClipId, PatternId,
+    PatternRow, Pedal, PedalId, Project, Strip, Tempo, Track, TrackId, MAX_PATTERN_STEPS,
 };
 use crate::tab::{Tab, TabNote};
 
@@ -347,6 +347,16 @@ pub enum Command {
         /// Ticks it plays.
         length: u64,
     },
+    /// Sets a pad's mix on a drum track, or with `None` puts it back to
+    /// how the kit has it.
+    SetPadMix {
+        /// The drum track.
+        track: TrackId,
+        /// The pad's id.
+        pad: String,
+        /// Its level, pan, tune, decay and mute.
+        mix: Option<PadMix>,
+    },
     /// Sets or, with `None`, removes a pattern clip's fill.
     SetPatternClipFill {
         /// The clip.
@@ -439,6 +449,7 @@ impl Command {
             Command::TrimPatternClip { .. } => "trim pattern clip".into(),
             Command::SplitPatternClip { .. } => "split pattern clip".into(),
             Command::SetPatternClipFill { fill: Some(_), .. } => "set fill".into(),
+            Command::SetPadMix { .. } => "change pad mix".into(),
             Command::SetPatternClipFill { fill: None, .. } => "remove fill".into(),
             Command::BounceTrack { track } => format!("bounce {}", track.name),
             Command::Batch { commands } => commands
@@ -1003,6 +1014,27 @@ impl Command {
                     id: *id,
                     track: from_id,
                     start: was,
+                })
+            }
+            Command::SetPadMix { track, pad, mix } => {
+                if let Some(m) = mix {
+                    m.validate(pad).map_err(CommandError::Invalid)?;
+                }
+                let t = track_mut(project, *track)?;
+                if !t.is_drums() {
+                    return Err(CommandError::Invalid(format!(
+                        "{} is not a drum track",
+                        t.name
+                    )));
+                }
+                let was = match mix {
+                    Some(m) if *m != PadMix::default() => t.pads.insert(pad.clone(), *m),
+                    _ => t.pads.remove(pad),
+                };
+                Ok(Command::SetPadMix {
+                    track: *track,
+                    pad: pad.clone(),
+                    mix: was,
                 })
             }
             Command::SetPatternClipFill { id, fill } => {
@@ -2146,6 +2178,55 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![4]
         );
+    }
+
+    #[test]
+    fn a_pads_mix_is_set_and_undone_and_the_default_is_no_entry() {
+        let mut p = project();
+        p.tracks.push(Track::drums(TrackId(7), "Drums", "acoustic"));
+        let mix = PadMix {
+            level_db: -6.0,
+            mute: true,
+            ..PadMix::default()
+        };
+        let set = Command::SetPadMix {
+            track: TrackId(7),
+            pad: "snare".into(),
+            mix: Some(mix),
+        };
+        assert_eq!(set.label(), "change pad mix");
+        let mixed = round_trip(&p, set);
+        assert_eq!(mixed.tracks[2].pads["snare"], mix);
+        // Back to the kit's: no entry is kept.
+        let back = round_trip(
+            &mixed,
+            Command::SetPadMix {
+                track: TrackId(7),
+                pad: "snare".into(),
+                mix: Some(PadMix::default()),
+            },
+        );
+        assert!(back.tracks[2].pads.is_empty());
+        // Out of range, or on an audio track: refused, nothing changes.
+        for bad in [
+            Command::SetPadMix {
+                track: TrackId(7),
+                pad: "snare".into(),
+                mix: Some(PadMix {
+                    tune: 30.0,
+                    ..PadMix::default()
+                }),
+            },
+            Command::SetPadMix {
+                track: TrackId(1),
+                pad: "snare".into(),
+                mix: Some(mix),
+            },
+        ] {
+            let mut q = p.clone();
+            assert!(bad.apply(&mut q).is_err());
+            assert_eq!(q, p);
+        }
     }
 
     #[test]

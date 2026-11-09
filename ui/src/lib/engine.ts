@@ -401,6 +401,8 @@ export interface TrackStatus {
   strip: Strip;
   /** Frames the chain delays the signal by. */
   latencyFrames: number;
+  /** A drum track's pad mixer, by pad id; a pad not here is as the kit has it. */
+  pads: Record<string, PadMix>;
 }
 
 /** A clip. Positions are in samples at the project's rate. */
@@ -498,6 +500,22 @@ export interface PatternClipInfo {
   /** Bars where another pattern plays: a fill. Absent for none. */
   fill?: PatternFill;
 }
+
+/** One pad's place in a drum track's mix. Mirrors `PadMix` in cantina-project. */
+export interface PadMix {
+  /** −60 to 12 dB. */
+  levelDb: number;
+  /** −1 to 1, added to the kit's. */
+  pan: number;
+  /** −12 to 12 semitones. */
+  tune: number;
+  /** How much of each hit rings, 0.05 to 1. */
+  decay: number;
+  mute: boolean;
+}
+
+/** A pad as the kit has it. */
+export const PAD_MIX_DEFAULT: PadMix = { levelDb: 0, pan: 0, tune: 0, decay: 1, mute: false };
 
 /** When a pattern clip plays a fill. Mirrors `Fill` in cantina-project. */
 export interface PatternFill {
@@ -1143,6 +1161,7 @@ const mock: EngineStatus = {
         patternClips: [],
         strip: { gainDb: -3, pan: -0.25, mute: false, solo: mockParams?.has("solo") ?? false },
         latencyFrames: mockParams?.has("latency") ? MOCK_LATENCY : 0,
+        pads: {},
       },
       {
         id: 6,
@@ -1155,6 +1174,7 @@ const mock: EngineStatus = {
         patternClips: [],
         strip: { gainDb: 0, pan: 0.1, mute: mockParams?.has("mute") ?? false, solo: false },
         latencyFrames: 0,
+        pads: {},
       },
       ...(mockParams?.has("drums")
         ? [
@@ -1177,6 +1197,7 @@ const mock: EngineStatus = {
                 : [],
               strip: { gainDb: -2, pan: 0, mute: false, solo: false },
               latencyFrames: 0,
+              pads: {},
             },
           ]
         : []),
@@ -1303,6 +1324,7 @@ function mockStatus(): EngineStatus {
         clips: t.clips.map((c) => ({ ...c })),
         patternClips: t.patternClips.map((c) => ({ ...c })),
         strip: { ...t.strip },
+        pads: structuredClone(t.pads),
       })),
       loop: mock.project.loop ? { ...mock.project.loop } : null,
       patterns: mock.project.patterns.map((p) => ({
@@ -1623,6 +1645,7 @@ export async function projectNew(name: string): Promise<EngineStatus> {
         patternClips: [],
         strip: { ...UNITY },
         latencyFrames: 0,
+        pads: {},
       },
     ],
     patterns: [],
@@ -1791,6 +1814,7 @@ export async function trackAdd(name?: string): Promise<EngineStatus> {
     patternClips: [],
     strip: { ...UNITY },
     latencyFrames: 0,
+    pads: {},
   });
   return mockEdit();
 }
@@ -1812,6 +1836,7 @@ export async function trackAddDrums(kit?: string): Promise<EngineStatus> {
     // A drum track starts 12 dB down for headroom, as the shell's does.
     strip: { ...UNITY, gainDb: -12 },
     latencyFrames: 0,
+    pads: {},
   });
   return mockEdit("add track");
 }
@@ -1976,6 +2001,21 @@ export async function patternClipAdd(
   });
   sortPatternClips(t);
   return mockEdit("place pattern");
+}
+
+/** Sets a pad's mix on a drum track; null (or the kit's own) puts it back. One undoable edit. */
+export async function padMixSet(
+  track: number,
+  pad: string,
+  mix: PadMix | null,
+): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("pad_mix_set", { track, pad, mix });
+  const t = mockTrack(track);
+  if (!t.kit) throw new Error(`${t.name} is not a drum track`);
+  const same = !mix || JSON.stringify(mix) === JSON.stringify(PAD_MIX_DEFAULT);
+  if (same) delete t.pads[pad];
+  else t.pads[pad] = { ...mix };
+  return mockEdit("change pad mix");
 }
 
 /** Sets, or with null removes, a pattern clip's fill. One undoable edit. */
@@ -3115,6 +3155,17 @@ function openMeterChannel() {
   let t = 0;
   let sequence = 0;
   if (mockParams?.has("position")) mockTransport.position = Number(mockParams.get("position"));
+  // `?padmixer` sets a few pads of the drum track, for screenshots.
+  if (mockParams?.has("padmixer")) {
+    const drums = mock.project.tracks.find((t) => t.kit);
+    if (drums) {
+      drums.pads = {
+        kick: { levelDb: 2, pan: 0, tune: -2, decay: 0.7, mute: false },
+        snare: { levelDb: -3.5, pan: -0.15, tune: 1, decay: 1, mute: false },
+        "hh-open": { levelDb: 0, pan: 0, tune: 0, decay: 1, mute: true },
+      };
+    }
+  }
   // `?feel` humanizes the first pattern and marks a few steps, for screenshots.
   if (mockParams?.has("feel")) {
     const [p] = mock.project.patterns;

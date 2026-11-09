@@ -571,6 +571,17 @@ pub fn drum_rows_set(
     engine.lock().drum_rows_set(track, rows).map_err(fail)
 }
 
+/// Sets a pad's mix on a drum track; `null` puts it back to the kit's.
+#[tauri::command]
+pub fn pad_mix_set(
+    engine: State<'_, EngineState>,
+    track: u64,
+    pad: String,
+    mix: Option<cantina_project::PadMix>,
+) -> Result<EngineStatus, String> {
+    engine.lock().pad_mix_set(track, pad, mix).map_err(fail)
+}
+
 /// Sets, or with `null` removes, a pattern clip's fill.
 #[tauri::command]
 pub fn pattern_clip_set_fill(

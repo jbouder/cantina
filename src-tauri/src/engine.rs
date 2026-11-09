@@ -413,6 +413,8 @@ pub struct TrackStatus {
     pub strip: StripModel,
     /// Frames the chain delays the signal by.
     pub latency_frames: usize,
+    /// A drum track's pad mixer, by pad id; pads not here are as the kit has them.
+    pub pads: std::collections::BTreeMap<String, cantina_project::PadMix>,
 }
 
 /// A drum track's kit, with the pads the grid shows rows for. Mirrors
@@ -724,6 +726,7 @@ impl EngineState {
             chain: Vec::new(),
             clips: vec![clip],
             pattern_clips: Vec::new(),
+            pads: Default::default(),
             ..before
         };
         engine.apply(Command::BounceTrack { track })
@@ -1373,6 +1376,7 @@ impl Live {
             ordered.push(live);
         }
         self.tracks = ordered;
+        self.apply_pad_mixes(project, kits);
         self.apply_strips(project);
         self.apply_compensation();
         self.wire()?;
@@ -1539,6 +1543,43 @@ impl Live {
             self.apply_compensation();
         }
         changed
+    }
+
+    /// Sends every drum track's sampler its pad mixer: each pad's level,
+    /// pan, tune, decay and mute, by the kit's pad order. The sampler
+    /// smooths the level and the mute; pan, tune and decay apply to the
+    /// next hits.
+    fn apply_pad_mixes(&mut self, project: &Project, kits: &mut Kits) {
+        for live in &self.tracks {
+            let Source::Drums {
+                sequencer_node,
+                kit,
+                ..
+            } = &live.source
+            else {
+                continue;
+            };
+            let Some(track) = project.track(live.id) else {
+                continue;
+            };
+            let loaded = kits.get(kit);
+            for (i, pad) in loaded.pads().iter().enumerate() {
+                let mix = track.pads.get(&pad.id).copied().unwrap_or_default();
+                for (which, value) in [
+                    (cantina_dsp::PAD_LEVEL, mix.level_db),
+                    (cantina_dsp::PAD_PAN, mix.pan),
+                    (cantina_dsp::PAD_TUNE, mix.tune),
+                    (cantina_dsp::PAD_DECAY, mix.decay),
+                    (cantina_dsp::PAD_MUTE, f32::from(u8::from(mix.mute))),
+                ] {
+                    self.controller.set_param(
+                        *sequencer_node,
+                        cantina_dsp::pad_param(i, which),
+                        value,
+                    );
+                }
+            }
+        }
     }
 
     /// Sends every strip its gain, pan and effective mute. A solo
@@ -2949,6 +2990,7 @@ impl Engine {
                     pattern_clips: t.pattern_clips.iter().map(PatternClipInfo::of).collect(),
                     strip: t.strip.clone(),
                     latency_frames: t.chain.iter().map(|p| self.pedal_latency(p.id)).sum(),
+                    pads: t.pads.clone(),
                 })
                 .collect(),
             patterns: p.patterns.iter().map(PatternInfo::of).collect(),
@@ -3161,6 +3203,10 @@ impl Engine {
                 live.apply_strips(&self.project);
                 Ok(())
             }
+            Command::SetPadMix { .. } => {
+                live.apply_pad_mixes(&self.project, &mut self.kits);
+                Ok(())
+            }
             Command::InsertPattern { .. }
             | Command::RemovePattern { .. }
             | Command::RenamePattern { .. }
@@ -3363,6 +3409,21 @@ impl Engine {
         self.apply(Command::InsertPattern {
             index: usize::MAX,
             pattern: Pattern::new(id, name),
+        })
+    }
+
+    /// Sets a pad's mix on a drum track, or with `None` puts it back to
+    /// how the kit has it. One undoable edit.
+    pub fn pad_mix_set(
+        &mut self,
+        track: u64,
+        pad: String,
+        mix: Option<cantina_project::PadMix>,
+    ) -> Result<EngineStatus> {
+        self.apply(Command::SetPadMix {
+            track: TrackId(track),
+            pad,
+            mix,
         })
     }
 
@@ -5425,6 +5486,7 @@ fn is_light(command: &Command) -> bool {
     matches!(
         command,
         Command::SetParam { .. }
+            | Command::SetPadMix { .. }
             | Command::SetClipTab { .. }
             | Command::EditTabNotes { .. }
             | Command::ArmTrack { .. }
