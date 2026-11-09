@@ -1,5 +1,25 @@
 {
   "$defs": {
+    "Bend": {
+      "description": "A bend: the string pushed up by `semitones` after the note starts.",
+      "properties": {
+        "release": {
+          "description": "Let back down to the fretted pitch before the note ends.",
+          "type": "boolean"
+        },
+        "semitones": {
+          "description": "How far up, in semitones: 1 is a half step, 2 a whole step.",
+          "exclusiveMinimum": 0,
+          "format": "float",
+          "maximum": 4.0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "semitones"
+      ],
+      "type": "object"
+    },
     "Clip": {
       "description": "A region of a file in `audio/` placed on the timeline. The file is never modified; trimming a clip changes `offset` and `length`.",
       "properties": {
@@ -32,6 +52,17 @@
           "format": "uint64",
           "minimum": 0,
           "type": "integer"
+        },
+        "tab": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Tab"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The tab of what the clip plays, anchored to its file so it stays on the notes when the clip moves or is trimmed."
         }
       },
       "required": [
@@ -49,6 +80,66 @@
       "format": "uint64",
       "minimum": 0,
       "type": "integer"
+    },
+    "HeardNote": {
+      "description": "A note as transcription heard it: a pitch and a time in seconds, not yet on a beat or a string.",
+      "properties": {
+        "bend": {
+          "description": "The furthest the pitch moved from `pitch` while it sounded, in semitones: a bend when positive. 0 when it held still.",
+          "format": "float",
+          "maximum": 4.0,
+          "minimum": -4.0,
+          "type": "number"
+        },
+        "length": {
+          "description": "Seconds long.",
+          "exclusiveMinimum": 0,
+          "format": "double",
+          "type": "number"
+        },
+        "onset": {
+          "description": "Seconds after the tab's tick 0 that it starts.",
+          "format": "double",
+          "minimum": 0,
+          "type": "number"
+        },
+        "pitch": {
+          "description": "The MIDI note it started on.",
+          "format": "uint8",
+          "maximum": 127,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "velocity": {
+          "description": "How loud it was, 0 to 1.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "pitch",
+        "onset",
+        "length",
+        "velocity"
+      ],
+      "type": "object"
+    },
+    "Instrument": {
+      "description": "What the tab is for. It sets how many strings it may have.",
+      "oneOf": [
+        {
+          "const": "guitar",
+          "description": "A guitar: 6, 7 or 8 strings.",
+          "type": "string"
+        },
+        {
+          "const": "bass",
+          "description": "A bass: 4, 5 or 6 strings.",
+          "type": "string"
+        }
+      ]
     },
     "LoopRegion": {
       "description": "A region of the timeline, in samples, that playback can loop over.",
@@ -278,6 +369,166 @@
       },
       "type": "object"
     },
+    "Tab": {
+      "description": "A tab: the tuning, the capo, the tempo it was written against and the notes.",
+      "properties": {
+        "capo": {
+          "description": "The fret the capo is at; 0 for none.",
+          "format": "uint8",
+          "maximum": 36,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "heard": {
+          "description": "For a transcribed tab, the notes as transcription heard them, before they were quantised to the grid and fitted to strings, so either can be redone without transcribing again. Empty for a tab written by hand.",
+          "items": {
+            "$ref": "#/$defs/HeardNote"
+          },
+          "type": "array"
+        },
+        "instrument": {
+          "$ref": "#/$defs/Instrument",
+          "description": "Guitar or bass, which sets how many strings it may have."
+        },
+        "name": {
+          "default": "",
+          "description": "Shown above the tab and in exports.",
+          "type": "string"
+        },
+        "notes": {
+          "default": [],
+          "description": "The notes, in any order.",
+          "items": {
+            "$ref": "#/$defs/TabNote"
+          },
+          "type": "array"
+        },
+        "origin": {
+          "description": "On a clip, the frame of the clip's audio file where tick 0 falls. Not part of a tab file.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tempo": {
+          "$ref": "#/$defs/Tempo",
+          "default": {
+            "bpm": 120.0,
+            "denominator": 4,
+            "numerator": 4
+          },
+          "description": "The tempo and time signature the ticks were written against."
+        },
+        "tuning": {
+          "description": "The open strings from the lowest to the highest, as MIDI notes (40 is the low E of a guitar). Its length is the string count.",
+          "items": {
+            "format": "uint8",
+            "maximum": 127,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 8,
+          "minItems": 4,
+          "type": "array"
+        }
+      },
+      "required": [
+        "instrument",
+        "tuning"
+      ],
+      "type": "object"
+    },
+    "TabNote": {
+      "description": "One note: where it is played, when, and how.",
+      "properties": {
+        "bend": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bend"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A bend up, and whether it comes back down."
+        },
+        "dead": {
+          "description": "A dead note: the string muted by the fretting hand, a click with no pitch. Written as an x.",
+          "type": "boolean"
+        },
+        "fret": {
+          "description": "The fret, counted from the capo; 0 is the open string.",
+          "format": "uint8",
+          "maximum": 36,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hammerOn": {
+          "description": "Sounded by hammering onto the fret from the note before.",
+          "type": "boolean"
+        },
+        "harmonic": {
+          "description": "A natural harmonic, touched over the fret rather than pressed.",
+          "type": "boolean"
+        },
+        "length": {
+          "description": "Ticks long.",
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "letRing": {
+          "description": "Left ringing past its length, into the notes after it.",
+          "type": "boolean"
+        },
+        "palmMute": {
+          "description": "Damped with the picking hand at the bridge.",
+          "type": "boolean"
+        },
+        "pullOff": {
+          "description": "Sounded by pulling off to this fret from the note before.",
+          "type": "boolean"
+        },
+        "slide": {
+          "description": "Slides into the next note on the same string.",
+          "type": "boolean"
+        },
+        "start": {
+          "description": "Ticks from the start of the tab, 960 per quarter note.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "string": {
+          "description": "The string, 1 for the highest-pitched.",
+          "format": "uint8",
+          "maximum": 8,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "tap": {
+          "description": "Tapped with the picking hand.",
+          "type": "boolean"
+        },
+        "velocity": {
+          "description": "How hard it was played, 0 to 1.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "vibrato": {
+          "description": "Vibrato with the fretting hand.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "string",
+        "fret",
+        "start",
+        "length"
+      ],
+      "type": "object"
+    },
     "Tempo": {
       "description": "Tempo and time signature. One of each for the whole timeline for now; the engine's tempo map can hold changes, and when the UI can edit them this grows into a list.",
       "properties": {
@@ -449,7 +700,7 @@
       "type": "array"
     },
     "version": {
-      "const": 6,
+      "const": 7,
       "description": "The format version, `FORMAT_VERSION` when written; older files are upgraded on load.",
       "format": "uint32",
       "minimum": 0,

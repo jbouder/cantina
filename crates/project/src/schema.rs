@@ -1,4 +1,4 @@
-//! The JSON schemas for the project and standalone pattern formats,
+//! The JSON schemas for the project, standalone pattern and tab formats,
 //! derived from the model types so they cannot drift from the code. Doc
 //! comments on the types become `description`s; the limits that live in
 //! [`Project::validate`](crate::Project::validate) (step counts, swing,
@@ -11,12 +11,13 @@
 //! UPDATE_SCHEMAS=1 cargo test -p cantina-project schemas
 //! ```
 //!
-//! regenerates them all (pedal, kit, kit recipe, pattern and project), and
+//! regenerates them all (pedal, kit, kit recipe, pattern, tab and project), and
 //! the same test fails when any is stale.
 
 use serde_json::{json, Value};
 
 use crate::model::{Pattern, Project, FORMAT_VERSION, MAX_PATTERN_STEPS};
+use crate::tab::{Tab, MAX_BEND, MAX_FRET};
 
 /// Where the docs site serves the schemas; each schema's `$id` is here.
 pub const SITE: &str = "https://cantina-docs.vibeproject.workers.dev/schemas";
@@ -38,9 +39,9 @@ pub fn project() -> Value {
     limit_row(defs);
     defs["Strip"]["properties"]["pan"]["minimum"] = json!(-1);
     defs["Strip"]["properties"]["pan"]["maximum"] = json!(1);
-    defs["Tempo"]["properties"]["bpm"]["exclusiveMinimum"] = json!(0);
-    defs["Tempo"]["properties"]["numerator"]["minimum"] = json!(1);
-    defs["Tempo"]["properties"]["denominator"]["minimum"] = json!(1);
+    limit_tempo(defs);
+    limit_tab(&mut defs["Tab"]);
+    limit_tab_defs(defs);
     for (def, field) in [("Clip", "length"), ("PatternClip", "length")] {
         defs[def]["properties"][field]["minimum"] = json!(1);
     }
@@ -71,6 +72,69 @@ pub fn pattern() -> Value {
     limit_row(&mut s["$defs"]);
     tidy(&mut s);
     s
+}
+
+/// The schema for a standalone `<name>.tab.json`: the tab a clip holds,
+/// without its `origin`, which only means something on a clip.
+pub fn tab() -> Value {
+    let mut s = schemars::schema_for!(Tab).to_value();
+    s["$id"] = json!(format!("{SITE}/tab.schema.json"));
+    s["title"] = json!("Cantina tab");
+    s["description"] = json!(
+        "A guitar or bass part as strings and frets: the tuning, the capo, the tempo the \
+         notes were written against, and the notes with their techniques. Strings count \
+         from 1, the highest-pitched; frets count from the capo; times are ticks, 960 per \
+         quarter note, from the start of the tab."
+    );
+    let props = s["properties"].as_object_mut().unwrap();
+    props.remove("origin");
+    props.insert("$schema".into(), json!({ "type": "string" }));
+    limit_tab(&mut s);
+    limit_tempo(&mut s["$defs"]);
+    limit_tab_defs(&mut s["$defs"]);
+    tidy(&mut s);
+    s
+}
+
+/// A usable tempo and time signature.
+fn limit_tempo(defs: &mut Value) {
+    let t = &mut defs["Tempo"]["properties"];
+    t["bpm"]["exclusiveMinimum"] = json!(0);
+    t["numerator"]["minimum"] = json!(1);
+    t["denominator"]["minimum"] = json!(1);
+}
+
+/// The limits `Tab::validate` can state per field, on a tab's schema.
+/// The string count per instrument, and each note's string against it,
+/// are left to `cantina-cli check`.
+fn limit_tab(t: &mut Value) {
+    let props = &mut t["properties"];
+    props["tuning"]["minItems"] = json!(4);
+    props["tuning"]["maxItems"] = json!(8);
+    props["tuning"]["items"]["maximum"] = json!(127);
+    props["capo"]["maximum"] = json!(MAX_FRET);
+}
+
+/// A note's string, fret, length and velocity, and a bend's size.
+fn limit_tab_defs(defs: &mut Value) {
+    let note = &mut defs["TabNote"]["properties"];
+    note["string"]["minimum"] = json!(1);
+    note["string"]["maximum"] = json!(8);
+    note["fret"]["maximum"] = json!(MAX_FRET);
+    note["length"]["minimum"] = json!(1);
+    note["velocity"]["minimum"] = json!(0);
+    note["velocity"]["maximum"] = json!(1);
+    let bend = &mut defs["Bend"]["properties"];
+    bend["semitones"]["exclusiveMinimum"] = json!(0);
+    bend["semitones"]["maximum"] = json!(MAX_BEND);
+    let heard = &mut defs["HeardNote"]["properties"];
+    heard["pitch"]["maximum"] = json!(127);
+    heard["onset"]["minimum"] = json!(0);
+    heard["length"]["exclusiveMinimum"] = json!(0);
+    heard["velocity"]["minimum"] = json!(0);
+    heard["velocity"]["maximum"] = json!(1);
+    heard["bend"]["minimum"] = json!(-MAX_BEND);
+    heard["bend"]["maximum"] = json!(MAX_BEND);
 }
 
 /// The limits `Pattern::validate` enforces, on a pattern's schema.
@@ -120,12 +184,13 @@ mod tests {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
     }
 
-    fn all() -> [(&'static str, Value); 5] {
+    fn all() -> [(&'static str, Value); 6] {
         [
             ("pedal", cantina_dsp::schema::pedal()),
             ("kit", cantina_dsp::schema::kit()),
             ("kit-recipe", cantina_dsp::schema::kit_recipe()),
             ("pattern", pattern()),
+            ("tab", tab()),
             ("project", project()),
         ]
     }
@@ -180,7 +245,7 @@ mod tests {
 
     #[test]
     fn schemas_every_stock_file_validates() {
-        let [pedal, kit, recipe, pattern_s, project_s] = all().map(|(_, s)| validator(&s));
+        let [pedal, kit, recipe, pattern_s, tab_s, project_s] = all().map(|(_, s)| validator(&s));
         let pedals = files(&root().join("pedals"), ".pedal.json");
         assert!(!pedals.is_empty(), "no stock pedals found");
         pedals.iter().for_each(|p| assert_valid(&pedal, p));
@@ -190,14 +255,26 @@ mod tests {
         let recipes = files(&root().join("recipes"), ".recipe.json");
         assert!(!recipes.is_empty(), "no stock kit recipes found");
         recipes.iter().for_each(|r| assert_valid(&recipe, r));
-        let v6 = root().join("crates/project/tests/fixtures/v6.json");
-        assert_valid(&project_s, &v6);
+        let v7 = root().join("crates/project/tests/fixtures/v7.json");
+        assert_valid(&project_s, &v7);
         // Each pattern in a project, without its id, is a pattern file.
-        let project: Value = serde_json::from_str(&std::fs::read_to_string(v6).unwrap()).unwrap();
+        let project: Value = serde_json::from_str(&std::fs::read_to_string(v7).unwrap()).unwrap();
         for mut p in project["patterns"].as_array().unwrap().clone() {
             p.as_object_mut().unwrap().remove("id");
             assert!(pattern_s.is_valid(&p), "{p}");
         }
+        // Each tab on a clip, without its origin, is a tab file.
+        let mut tabs = 0;
+        for track in project["tracks"].as_array().unwrap() {
+            for clip in track["clips"].as_array().unwrap() {
+                if let Some(mut t) = clip.get("tab").cloned() {
+                    t.as_object_mut().unwrap().remove("origin");
+                    assert!(tab_s.is_valid(&t), "{t}");
+                    tabs += 1;
+                }
+            }
+        }
+        assert!(tabs > 0, "the fixture has no tab");
     }
 
     #[test]
@@ -224,10 +301,35 @@ mod tests {
     }
 
     #[test]
+    fn schemas_catch_what_tab_validate_catches() {
+        let v = validator(&tab());
+        let good = json!({ "instrument": "guitar", "tuning": [40, 45, 50, 55, 59, 64],
+            "notes": [{ "string": 1, "fret": 3, "start": 0, "length": 960,
+                "bend": { "semitones": 1 } }] });
+        assert!(v.is_valid(&good));
+        crate::tab_from_json(&good.to_string()).unwrap();
+        for (pointer, bad) in [
+            ("/instrument", json!("banjo")),
+            ("/tuning", json!([40, 45, 50])),
+            ("/tuning/0", json!(128)),
+            ("/notes/0/string", json!(0)),
+            ("/notes/0/fret", json!(MAX_FRET + 1)),
+            ("/notes/0/length", json!(0)),
+            ("/notes/0/bend/semitones", json!(0)),
+            ("/notes/0/bend/semitones", json!(MAX_BEND + 1.0)),
+        ] {
+            let mut t = good.clone();
+            *t.pointer_mut(pointer).unwrap() = bad;
+            assert!(!v.is_valid(&t), "{pointer} accepted {t}");
+            assert!(crate::tab_from_json(&t.to_string()).is_err(), "{pointer}");
+        }
+    }
+
+    #[test]
     fn schemas_files_that_name_their_schema_still_load() {
-        let text = std::fs::read_to_string(root().join("crates/project/tests/fixtures/v6.json"))
+        let text = std::fs::read_to_string(root().join("crates/project/tests/fixtures/v7.json"))
             .unwrap()
             .replacen('{', r#"{ "$schema": "x","#, 1);
-        crate::load_str(&text, Path::new("v6.json")).unwrap();
+        crate::load_str(&text, Path::new("v7.json")).unwrap();
     }
 }

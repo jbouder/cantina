@@ -128,6 +128,7 @@ function formats() {
     ["kit", "`kit.json` in a folder of `~/Music/Cantina/Kits/`"],
     ["kit-recipe", "`*.recipe.json`, turned into a kit by `cantina-cli synth-kit`"],
     ["pattern", "`*.pattern.json` in `~/Music/Cantina/Patterns/`"],
+    ["tab", "`*.tab.json`; inside a project, as a clip's `tab`"],
     ["project", "`project.json` in a `Name.cantina/` folder"],
   ];
   const lines = [

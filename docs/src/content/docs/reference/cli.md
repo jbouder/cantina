@@ -1,6 +1,6 @@
 ---
 title: "Command line"
-description: "cantina-cli checks, renders and lists everything Cantina reads, without the app: pedals, kits, kit recipes, patterns and projects."
+description: "cantina-cli checks, renders and lists everything Cantina reads, without the app: pedals, kits, kit recipes, patterns, tabs and projects."
 ---
 
 `cantina-cli` proves a file works without a window, a microphone or anyone
@@ -32,10 +32,10 @@ cantina-cli check <file or folder> [--as <format>] [--kit <dir>] [--kits <dir>].
 ```
 
 Validates a pedal (`*.pedal.json`), a kit (a folder with `kit.json`), a kit
-recipe (`*.recipe.json`), a pattern (`*.pattern.json`) or a project (a
-folder with `project.json`). The format comes from the name, then a
-`$schema` field, then the keys; `--as pedal|kit|kit-recipe|pattern|project`
-overrides it.
+recipe (`*.recipe.json`), a pattern (`*.pattern.json`), a tab
+(`*.tab.json`) or a project (a folder with `project.json`). The format
+comes from the name, then a `$schema` field, then the keys;
+`--as pedal|kit|kit-recipe|pattern|tab|project` overrides it.
 
 First the file is checked against its [schema](/schemas/pedal.schema.json),
 with each problem at its JSON pointer and, inside a pedal, the node's id
@@ -54,14 +54,19 @@ Then the rules beyond the schema, the ones the app enforces:
 - **Kit**: every sample is there and reads as WAV.
 - **Pattern**: every row has the pattern's length of velocities. With
   `--kit`, every row names a pad that kit has.
+- **Tab**: the instrument has that many strings (guitar 6 to 8, bass 4
+  to 6), every note is on a string the tuning has, and bends are more
+  than 0 and at most 4 semitones. The summary names the tuning, the capo
+  and how many bars the notes cover.
 - **Project**: every pedal in a chain is a stock pedal, a plugin, or a
   designed pedal whose `pedals/<id>.pedal.json` is in the project and
   compiles; each drum track's kit is found (in `--kits`, then
   `~/Music/Cantina/Kits`) and has every pad its patterns use. An older
-  project is upgraded in memory as Cantina does on open.
+  project is upgraded in memory as Cantina does on open. Each clip's tab
+  is checked as a tab file is.
 
 Warnings (a pattern with no hits, a chain with fewer values than its pedal
-has parameters) are printed but do not fail. `--json` prints
+has parameters, two notes sounding at once on one string of a tab) are printed but do not fail. `--json` prints
 `{"valid", "format", "summary", "warnings"}` or `{"valid": false,
 "problems"}` on stdout.
 
@@ -122,7 +127,7 @@ the result. The same recipe always writes the same bytes.
 
 ```sh
 cantina-cli kinds [--json]
-cantina-cli schema <pedal|kit|kit-recipe|pattern|project>
+cantina-cli schema <pedal|kit|kit-recipe|pattern|tab|project>
 ```
 
 `kinds` prints the pedal node catalog: every kind, its fields with ranges,

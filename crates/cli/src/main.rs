@@ -21,7 +21,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Validate a pedal, kit, kit recipe, pattern or project against its
+    /// Validate a pedal, kit, kit recipe, pattern, tab or project against its
     /// schema and the rules the app enforces beyond it.
     Check {
         /// A file, or a kit or project folder.

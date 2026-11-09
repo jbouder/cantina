@@ -9,9 +9,11 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::tab::Tab;
+
 /// The format version this crate writes. The loader upgrades older files;
 /// see `file.rs` for the migrations.
-pub const FORMAT_VERSION: u32 = 6;
+pub const FORMAT_VERSION: u32 = 7;
 
 /// Ticks per quarter note in pattern and pattern clip positions. The
 /// same as the engine's tempo map, so a tick here is a tick there.
@@ -330,12 +332,33 @@ pub struct Clip {
     pub offset: u64,
     /// Frames to play.
     pub length: u64,
+    /// The tab of what the clip plays, anchored to its file so it
+    /// stays on the notes when the clip moves or is trimmed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tab: Option<Tab>,
 }
 
 impl Clip {
     /// Timeline sample just after the clip.
     pub fn end(&self) -> u64 {
         self.start + self.length
+    }
+
+    /// The timeline sample where tick `ticks` of the clip's tab falls,
+    /// at `sample_rate`: the clip's file starts `offset` frames before
+    /// `start`, and the tab's tick 0 is `origin` frames into the file.
+    /// Negative when a trim has moved the clip past it. `None` without a
+    /// tab.
+    pub fn tab_sample(&self, ticks: u64, sample_rate: f64) -> Option<i64> {
+        let tab = self.tab.as_ref()?;
+        let frame = tab.file_frame(ticks, sample_rate) as i64;
+        Some(self.start as i64 - self.offset as i64 + frame)
+    }
+
+    /// Whether the clip plays frame `frame` of its file, so a tab note
+    /// there is heard rather than trimmed away.
+    pub fn plays_frame(&self, frame: u64) -> bool {
+        (self.offset..self.offset + self.length).contains(&frame)
     }
 
     /// A copy under a new id, starting at timeline sample `start`. Both
@@ -634,6 +657,10 @@ impl Project {
                         clip.id, clip.file
                     ));
                 }
+                if let Some(tab) = &clip.tab {
+                    tab.validate()
+                        .map_err(|e| format!("clip {} ({}): {e}", clip.id, clip.name))?;
+                }
             }
             for pedal in &track.chain {
                 if pedal.values.iter().any(|v| !v.is_finite()) {
@@ -698,6 +725,7 @@ mod tests {
             start: 0,
             offset: 0,
             length: 480,
+            tab: None,
         });
         p.tracks.push(t);
         p

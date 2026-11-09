@@ -422,6 +422,7 @@ mod tests {
             start: 4_800,
             offset: 0,
             length: (SR * 0.6) as u64,
+            tab: None,
         });
         guitar.chain.push(Pedal {
             id: PedalId(3),
@@ -654,6 +655,7 @@ mod tests {
                 start: range.start,
                 offset: 0,
                 length: audio[0].len() as u64,
+                tab: None,
             };
             Command::BounceTrack {
                 track: Track {

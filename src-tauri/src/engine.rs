@@ -553,6 +553,7 @@ impl EngineState {
             start: range.start,
             offset: 0,
             length,
+            tab: None,
         };
         let track = Track {
             kit: None,
@@ -3373,6 +3374,7 @@ impl Engine {
                 start: at,
                 offset: 0,
                 length,
+                tab: None,
             };
             at += length;
             status = Some(self.apply(Command::InsertClip { track, clip })?);
@@ -3696,6 +3698,7 @@ impl Engine {
             start,
             offset,
             length,
+            tab: None,
         };
         self.apply(Command::InsertClip {
             track: TrackId(track),
@@ -3881,6 +3884,7 @@ impl Engine {
                             start,
                             offset,
                             length,
+                            tab: None,
                         },
                     });
                 }

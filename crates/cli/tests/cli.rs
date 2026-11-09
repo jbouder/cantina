@@ -190,7 +190,7 @@ fn kinds_and_schema_print_json() {
     let kinds = run(&["kinds", "--json"]);
     let v: serde_json::Value = serde_json::from_slice(&kinds.stdout).unwrap();
     assert!(v.as_array().unwrap().iter().any(|k| k["kind"] == "lfo"));
-    for format in ["pedal", "kit", "kit-recipe", "pattern", "project"] {
+    for format in ["pedal", "kit", "kit-recipe", "pattern", "tab", "project"] {
         let o = run(&["schema", format]);
         let v: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap();
         let on_disk: serde_json::Value = serde_json::from_str(

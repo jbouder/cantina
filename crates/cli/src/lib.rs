@@ -1,7 +1,7 @@
 //! `cantina-cli`: everything Cantina reads, checked, rendered and listed
 //! without the app, a window, a microphone or a person listening.
 //!
-//! - [`check()`] validates a pedal, kit, kit recipe, pattern or project
+//! - [`check()`] validates a pedal, kit, kit recipe, pattern, tab or project
 //!   against its JSON Schema and then against the rules the app enforces
 //!   beyond it, with messages that name the node, pad or row.
 //! - [`render`](mod@render) runs a pedal over a guitar DI, a tone or a WAV through the
@@ -44,17 +44,20 @@ pub enum Format {
     KitRecipe,
     /// A drum pattern, `<name>.pattern.json`.
     Pattern,
+    /// A guitar or bass tab, `<name>.tab.json`.
+    Tab,
     /// A project folder with its `project.json`.
     Project,
 }
 
 impl Format {
     /// Every format.
-    pub const ALL: [Format; 5] = [
+    pub const ALL: [Format; 6] = [
         Format::Pedal,
         Format::Kit,
         Format::KitRecipe,
         Format::Pattern,
+        Format::Tab,
         Format::Project,
     ];
 
@@ -65,6 +68,7 @@ impl Format {
             Format::Kit => "kit",
             Format::KitRecipe => "kit-recipe",
             Format::Pattern => "pattern",
+            Format::Tab => "tab",
             Format::Project => "project",
         }
     }
@@ -76,6 +80,7 @@ impl Format {
             Format::Kit => cantina_dsp::schema::kit(),
             Format::KitRecipe => cantina_dsp::schema::kit_recipe(),
             Format::Pattern => cantina_project::schema::pattern(),
+            Format::Tab => cantina_project::schema::tab(),
             Format::Project => cantina_project::schema::project(),
         }
     }
@@ -105,6 +110,7 @@ impl Format {
         let by_name = [
             (".pedal.json", Format::Pedal),
             (".pattern.json", Format::Pattern),
+            (".tab.json", Format::Tab),
             (".recipe.json", Format::KitRecipe),
             ("kit.json", Format::Kit),
             ("project.json", Format::Project),
@@ -120,8 +126,8 @@ impl Format {
             .map(|f| (f, path.to_path_buf()))
             .ok_or_else(|| {
                 format!(
-                    "cannot tell what {} is; name it *.pedal.json, *.pattern.json, *.recipe.json, \
-                     kit.json or project.json, or pass --as",
+                    "cannot tell what {} is; name it *.pedal.json, *.pattern.json, *.tab.json, \
+                     *.recipe.json, kit.json or project.json, or pass --as",
                     path.display()
                 )
             })
@@ -149,6 +155,8 @@ impl Format {
             Some(Format::Kit)
         } else if has("stepsPerBeat") {
             Some(Format::Pattern)
+        } else if has("tuning") {
+            Some(Format::Tab)
         } else if has("sampleRate") || has("tracks") {
             Some(Format::Project)
         } else {
@@ -256,6 +264,10 @@ mod tests {
         assert_eq!(
             Format::sniff(&json!({"stepsPerBeat": 4})),
             Some(Format::Pattern)
+        );
+        assert_eq!(
+            Format::sniff(&json!({"tuning": [40], "notes": []})),
+            Some(Format::Tab)
         );
         assert_eq!(
             Format::sniff(&json!({"sampleRate": 48000})),

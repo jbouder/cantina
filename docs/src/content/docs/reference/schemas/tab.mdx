@@ -1,0 +1,61 @@
+---
+title: "Tab schema"
+description: "Every field of a .tab.json guitar or bass tab, generated from tab.schema.json, with how strings, frets, ticks and techniques are counted."
+---
+
+import Schema from '../../../../components/Schema.astro';
+
+A guitar or bass part as strings and frets, as a file of its own:
+`<name>.tab.json`. Inside a project the same object sits on the clip it
+describes, as the clip's `tab`, with one more field, `origin`: the frame
+of the clip's audio file where the tab's tick 0 falls. Because the tab is
+anchored to the audio rather than the timeline, it stays on its notes when
+the clip is moved, trimmed or split. See the [project
+model](/architecture/project/).
+
+How the numbers are counted:
+
+- **Strings** count from 1, the highest-pitched string, as tab is read.
+  A six-string guitar's low E is string 6.
+- **`tuning`** lists the open strings from the lowest to the highest, as
+  players name a tuning, as MIDI notes: standard guitar is
+  `[40, 45, 50, 55, 59, 64]` (E2 A2 D3 G3 B3 E4) and drop D is
+  `[38, 45, 50, 55, 59, 64]`. Its length is the string count: 6, 7 or 8
+  for a guitar, 4, 5 or 6 for a bass.
+- **Frets** count from the capo. Fret 0 with `"capo": 2` sounds two
+  semitones above the open string.
+- **`start`** and **`length`** are ticks, 960 per quarter note, from the
+  start of the tab, at the tab's own `tempo`.
+- **Techniques** are fields on a note, left out when off: `bend` (with
+  `semitones` and `release`), `slide` (into the next note on the string),
+  `hammerOn`, `pullOff`, `palmMute`, `letRing`, `vibrato`, `harmonic`
+  (natural, over the fret), `dead` (a muted click, written x) and `tap`.
+- **`heard`**, on a transcribed tab, keeps the notes as transcription
+  heard them: a MIDI `pitch`, `onset` and `length` in seconds from tick
+  0, `velocity`, and the largest `bend` the pitch showed. The notes are
+  quantised and fitted from these, so a different grid or fret region
+  can be applied without transcribing again. A tab written by hand has
+  none.
+
+```json
+{
+  "name": "Riff",
+  "instrument": "guitar",
+  "tuning": [38, 45, 50, 55, 59, 64],
+  "tempo": { "bpm": 110, "numerator": 4, "denominator": 4 },
+  "notes": [
+    { "string": 6, "fret": 0, "start": 0, "length": 480, "palmMute": true },
+    { "string": 5, "fret": 2, "start": 480, "length": 240, "hammerOn": true },
+    { "string": 3, "fret": 7, "start": 960, "length": 1920,
+      "bend": { "semitones": 2, "release": true }, "vibrato": true }
+  ]
+}
+```
+
+This page is generated from the schema when the site is built, so it lists
+exactly what Cantina accepts. The schema cannot say that a string count
+must suit the instrument, or that a note's string must be one the tuning
+has; [`cantina-cli check`](/reference/cli/#check) checks those too, and
+warns when two notes sound at once on one string.
+
+<Schema name="tab" />

@@ -11,7 +11,7 @@
 use std::path::{Path, PathBuf};
 
 use cantina_dsp::{compile, stock, KitRecipe, PedalDef, Processor};
-use cantina_project::{pattern_from_json, Project};
+use cantina_project::{pattern_from_json, tab_from_json, Project, Tab};
 use serde_json::Value;
 
 use crate::Format;
@@ -108,6 +108,7 @@ pub fn check(path: &Path, options: &CheckOptions) -> Result<Report, Failure> {
         Format::Kit => check_kit(file.parent().unwrap_or(Path::new("."))),
         Format::KitRecipe => check_recipe(&text),
         Format::Pattern => check_pattern(&text, options.kit.as_deref(), &mut warnings),
+        Format::Tab => check_tab(&text, &mut warnings),
         Format::Project => check_project(&text, &file, options, &mut warnings),
     }
     .map_err(fail)?;
@@ -251,6 +252,59 @@ fn check_pattern(
     ))
 }
 
+fn check_tab(text: &str, warnings: &mut Vec<String>) -> Result<String, Vec<String>> {
+    let tab = tab_from_json(text).map_err(|e| vec![e])?;
+    tab_warnings(&tab, "", warnings);
+    let tuning: Vec<String> = tab.tuning.iter().map(|&n| note_name(n)).collect();
+    let bars = tab.end().div_ceil(tab.bar_ticks());
+    Ok(format!(
+        "tab {:?}: {}, {} strings ({}){}, {} notes over {bars} {} at {} bpm",
+        tab.name,
+        match tab.instrument {
+            cantina_project::Instrument::Guitar => "guitar",
+            cantina_project::Instrument::Bass => "bass",
+        },
+        tab.strings(),
+        tuning.join(" "),
+        if tab.capo > 0 {
+            format!(", capo {}", tab.capo)
+        } else {
+            String::new()
+        },
+        tab.notes.len(),
+        if bars == 1 { "bar" } else { "bars" },
+        tab.tempo.bpm
+    ))
+}
+
+/// What is allowed in a tab but almost always a mistake. `at` names
+/// where the tab is, for a tab inside a project.
+fn tab_warnings(tab: &Tab, at: &str, warnings: &mut Vec<String>) {
+    if tab.notes.is_empty() {
+        warnings.push(format!("{at}the tab has no notes"));
+    }
+    for (a, b) in tab.overlaps() {
+        let (a, b) = (&tab.notes[a], &tab.notes[b]);
+        warnings.push(format!(
+            "{at}string {} has a note at tick {} while the one at tick {} still sounds; \
+             a string plays one note at a time",
+            b.string, b.start, a.start
+        ));
+    }
+}
+
+/// A MIDI note as a name: 40 is E2.
+fn note_name(midi: u8) -> String {
+    const NAMES: [&str; 12] = [
+        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+    ];
+    format!(
+        "{}{}",
+        NAMES[usize::from(midi % 12)],
+        i32::from(midi / 12) - 1
+    )
+}
+
 fn check_project(
     text: &str,
     file: &Path,
@@ -287,15 +341,28 @@ fn check_project(
         if let Some(kit_id) = &track.kit {
             check_drum_track(&project, track, kit_id, options, &mut problems, warnings);
         }
+        for clip in &track.clips {
+            if let Some(tab) = &clip.tab {
+                let at = format!("track {:?} clip {:?}: ", track.name, clip.name);
+                tab_warnings(tab, &at, warnings);
+            }
+        }
     }
     if !problems.is_empty() {
         return Err(problems);
     }
+    let tabs = project
+        .tracks
+        .iter()
+        .flat_map(|t| &t.clips)
+        .filter(|c| c.tab.is_some())
+        .count();
     Ok(format!(
-        "project {:?}: {} tracks, {} patterns, {} bpm",
+        "project {:?}: {} tracks, {} patterns, {tabs} {}, {} bpm",
         project.name,
         project.tracks.len(),
         project.patterns.len(),
+        if tabs == 1 { "tab" } else { "tabs" },
         project.tempo.bpm
     ))
 }
@@ -432,6 +499,68 @@ mod tests {
         )
         .unwrap();
         assert!(old.warnings[0].contains("upgrades"), "{:?}", old.warnings);
+    }
+
+    #[test]
+    fn tabs_check_and_say_what_they_hold() {
+        let dir = tempfile::tempdir().unwrap();
+        let o = CheckOptions::default();
+        let good = r#"{
+            "name": "Riff",
+            "instrument": "guitar",
+            "tuning": [38, 45, 50, 55, 59, 64],
+            "capo": 2,
+            "notes": [
+                { "string": 6, "fret": 0, "start": 0, "length": 960, "palmMute": true },
+                { "string": 3, "fret": 7, "start": 960, "length": 3840,
+                  "bend": { "semitones": 2, "release": true } }
+            ]
+        }"#;
+        let r = check(&write(dir.path(), "riff.tab.json", good), &o).unwrap();
+        assert_eq!(r.format, Format::Tab);
+        assert_eq!(
+            r.summary,
+            "tab \"Riff\": guitar, 6 strings (D2 A2 D3 G3 B3 E4), capo 2, 2 notes over 2 bars at 120 bpm"
+        );
+        assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+
+        // A seven-string bass is caught by the rules beyond the schema.
+        let bass = r#"{ "instrument": "bass", "tuning": [23, 28, 33, 38, 43, 48, 53],
+            "notes": [] }"#;
+        let p = problems(&write(dir.path(), "bass.tab.json", bass), &o);
+        assert!(p[0].contains("a bass has 4 to 6"), "{p:?}");
+        // A string past the tuning.
+        let high = good.replace(r#""string": 6"#, r#""string": 7"#);
+        let p = problems(&write(dir.path(), "high.tab.json", &high), &o);
+        assert!(p[0].contains("strings run from 1 to 6"), "{p:?}");
+        // Overlapping notes on a string are a warning, not a failure.
+        let overlap = good
+            .replace(r#""start": 960"#, r#""start": 480"#)
+            .replace(r#""string": 3"#, r#""string": 6"#);
+        let r = check(&write(dir.path(), "overlap.tab.json", &overlap), &o).unwrap();
+        assert!(
+            r.warnings[0].contains("string 6 has a note at tick 480"),
+            "{:?}",
+            r.warnings
+        );
+    }
+
+    #[test]
+    fn a_project_with_a_tab_checks() {
+        let r = check(
+            &root().join("crates/project/tests/fixtures/v7.json"),
+            &CheckOptions {
+                format: Some(Format::Project),
+                ..CheckOptions::default()
+            },
+        )
+        .unwrap();
+        assert!(r.summary.contains("1 tab"), "{}", r.summary);
+        assert!(
+            !r.warnings.iter().any(|w| w.contains("clip")),
+            "{:?}",
+            r.warnings
+        );
     }
 
     #[test]
