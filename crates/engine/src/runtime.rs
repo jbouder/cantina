@@ -204,6 +204,8 @@ impl Runtime {
                 frames: segment.frames,
                 playing: segment.playing,
                 position: segment.position,
+                span: segment.span,
+                rate: segment.rate,
                 loop_range: self.transport.loop_range(),
                 count_in: segment.count_in,
                 tempo: self.transport.tempo_map(),

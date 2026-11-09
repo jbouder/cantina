@@ -276,6 +276,8 @@ pub fn render_pattern(
         let ctx = BlockContext {
             sample_rate: RATE,
             frames: end - start,
+            span: (end - start) as u64,
+            rate: 1.0,
             playing: true,
             position: start as u64,
             loop_range: None,

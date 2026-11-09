@@ -26,7 +26,7 @@ use cantina_dsp::{Buffer, LoadedKit, ParamId, ParamInfo, Processor, Sampler};
 use rtrb::{Consumer, Producer, RingBuffer};
 
 use crate::graph::{BlockContext, Node};
-use crate::tempo::{TempoMap, PPQ};
+use crate::tempo::PPQ;
 
 /// A pattern as the sequencer plays it: a grid of velocities, with pads
 /// already resolved to the kit's pad indices.
@@ -171,9 +171,11 @@ impl Sequencer {
         }
     }
 
-    /// Queues every hit whose sample lies in `position..position + frames`.
-    fn queue_hits(&mut self, tempo: &TempoMap, position: u64, frames: usize, sample_rate: f64) {
-        let end = position + frames as u64;
+    /// Queues every hit whose timeline sample lies in the block's span,
+    /// on the frame it sounds at.
+    fn queue_hits(&mut self, ctx: &BlockContext) {
+        let (tempo, position, sample_rate) = (ctx.tempo, ctx.position, ctx.sample_rate);
+        let end = position + ctx.span;
         let t0 = tempo.samples_to_ticks(position, sample_rate);
         let t1 = tempo.samples_to_ticks(end, sample_rate);
         for placement in self.score.iter() {
@@ -203,7 +205,7 @@ impl Sequencer {
                     let tick = base as f64 + pattern.shift(in_pattern);
                     let sample = tempo.ticks_to_samples(tick, sample_rate);
                     if sample >= position && sample < end {
-                        let frame = (sample - position) as usize;
+                        let frame = ctx.frame_of(sample);
                         for (pad, steps) in &pattern.rows {
                             let velocity = steps.get(in_pattern as usize).copied().unwrap_or(0.0);
                             if velocity > 0.0 {
@@ -250,7 +252,7 @@ impl Node for Sequencer {
     fn process(&mut self, ctx: &BlockContext, buffer: &mut Buffer) {
         self.swap_in_latest();
         if ctx.playing && buffer.frames() > 0 {
-            self.queue_hits(ctx.tempo, ctx.position, buffer.frames(), ctx.sample_rate);
+            self.queue_hits(ctx);
         }
         self.sampler.process(buffer);
     }
@@ -297,7 +299,7 @@ mod tests {
     use crate::graph::{Endpoint, GraphConfig};
     use crate::runtime::{Controller, Runtime};
     use crate::stream::BlockProcessor;
-    use crate::tempo::TimeSignature;
+    use crate::tempo::{TempoMap, TimeSignature};
     use crate::transport::LoopRange;
     use cantina_dsp::{Kit, Sample};
 

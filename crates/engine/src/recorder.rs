@@ -259,7 +259,8 @@ impl Node for Recorder {
         let Some(armed) = self.armed else {
             return;
         };
-        if !ctx.playing {
+        // Takes are recorded at full speed only.
+        if !ctx.playing || !ctx.at_full_speed() {
             return;
         }
         let end = ctx.position + buffer.frames() as u64;

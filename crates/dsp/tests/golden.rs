@@ -18,7 +18,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use cantina_dsp::{stock, Processor, Renderer, STOCK_NAMES};
+use cantina_dsp::pluck::Instrument;
+use cantina_dsp::{stock, Buffer, Pluck, PluckNote, Processor, Renderer, STOCK_NAMES};
 use hound::{SampleFormat, WavReader, WavSpec, WavWriter};
 
 const SAMPLE_RATE: f64 = 48_000.0;
@@ -315,9 +316,15 @@ fn stock_processors_match_their_golden_files() {
             }
         }
     }
+    for (name, output) in tab_voice_phrases() {
+        if let Some(failure) = check(&name, &output, &mut summary) {
+            failures.push(failure);
+        }
+    }
     if updating() {
         let mut text = String::from(
-            "Golden renders: 48 kHz, 64-frame blocks, 12 000 frames per fixture.\n\
+            "Golden renders: 48 kHz, 64-frame blocks, 12 000 frames per fixture;\n\
+             the tab voice's phrases (pluck-*) are 24 000 frames.\n\
              Regenerate with UPDATE_GOLDEN=1 cargo test -p cantina-dsp --test golden\n\n",
         );
         for line in summary {
@@ -391,4 +398,78 @@ fn renders_a_minute_well_under_a_second() {
         took.as_secs_f64() < 2.0,
         "a minute took {took:?}; the renderer should be far faster than real time"
     );
+}
+
+/// The tab voice (`cantina_dsp::pluck`) over short phrases that use every
+/// technique, so its sound is pinned like a stock pedal's.
+fn tab_voice_phrases() -> Vec<(String, Vec<f32>)> {
+    const PHRASE: usize = 24_000;
+    let note = |string: u8, pitch: f32, at: usize, length: u32| {
+        (PluckNote::new(string, pitch, 0.8, length), at)
+    };
+    let with = |(mut n, at): (PluckNote, usize), f: &dyn Fn(&mut PluckNote)| {
+        f(&mut n);
+        (n, at)
+    };
+    // An open E major strummed down, 6 ms a string.
+    let chord: Vec<(PluckNote, usize)> = [40.0, 47.0, 52.0, 56.0, 59.0, 64.0]
+        .iter()
+        .enumerate()
+        .map(|(i, &pitch)| note(6 - i as u8, pitch, i * 288, 24_000))
+        .collect();
+    let bend = vec![with(note(2, 64.0, 0, 20_000), &|n| {
+        n.bend = 2.0;
+        n.release = true;
+    })];
+    let vibrato = vec![with(note(1, 69.0, 0, 24_000), &|n| n.vibrato = true)];
+    let techniques = vec![
+        with(note(6, 40.0, 0, 2_400), &|n| n.palm_mute = true),
+        with(note(6, 40.0, 3_000, 2_400), &|n| n.palm_mute = true),
+        with(note(5, 45.0, 6_000, 1_200), &|n| n.dead = true),
+        note(3, 57.0, 9_000, 3_000),
+        with(note(3, 59.0, 12_000, 3_000), &|n| n.velocity = 0.5),
+        with(note(1, 76.0, 15_000, 9_000), &|n| n.harmonic = true),
+    ];
+    let bass = vec![
+        note(4, 28.0, 0, 6_000),
+        note(4, 28.0, 6_000, 6_000),
+        note(3, 35.0, 12_000, 6_000),
+        with(note(3, 33.0, 18_000, 6_000), &|n| n.palm_mute = true),
+    ];
+    let render = |instrument: Instrument, notes: &[(PluckNote, usize)]| {
+        let mut pluck = Pluck::new(instrument);
+        pluck.prepare(SAMPLE_RATE, BLOCK);
+        let mut out = vec![0.0f32; PHRASE];
+        for start in (0..PHRASE).step_by(BLOCK) {
+            let n = BLOCK.min(PHRASE - start);
+            for (note, at) in notes {
+                if (start..start + n).contains(at) {
+                    assert!(pluck.play(*note, at - start));
+                }
+            }
+            let mut chunk = [&mut out[start..start + n]];
+            pluck.process(&mut Buffer::new(&mut chunk));
+        }
+        assert!(out.iter().all(|s| s.is_finite() && s.abs() <= 1.0));
+        out
+    };
+    vec![
+        (
+            "pluck-guitar_chord".into(),
+            render(Instrument::Guitar, &chord),
+        ),
+        (
+            "pluck-guitar_bend".into(),
+            render(Instrument::Guitar, &bend),
+        ),
+        (
+            "pluck-guitar_vibrato".into(),
+            render(Instrument::Guitar, &vibrato),
+        ),
+        (
+            "pluck-guitar_techniques".into(),
+            render(Instrument::Guitar, &techniques),
+        ),
+        ("pluck-bass_line".into(), render(Instrument::Bass, &bass)),
+    ]
 }

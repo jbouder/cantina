@@ -363,7 +363,7 @@ impl Node for Click {
         let frames = buffer.frames();
         let mut beats = (ctx.playing && self.on).then(|| {
             ctx.tempo
-                .beats(ctx.position, ctx.position + frames as u64, ctx.sample_rate)
+                .beats(ctx.position, ctx.position + ctx.span, ctx.sample_rate)
         });
         let mut next = beats.as_mut().and_then(|b| b.next());
         let (downbeat, beat) = &RECIPES[self.sound.min(RECIPES.len() - 1)];
@@ -373,7 +373,7 @@ impl Node for Click {
                 self.voice.trigger(recipe, self.sample_rate);
             }
             if let Some(b) = next {
-                if b.sample - ctx.position == frame as u64 {
+                if ctx.frame_of(b.sample) == frame {
                     let recipe = if b.is_downbeat { downbeat } else { beat };
                     self.voice.trigger(recipe, self.sample_rate);
                     next = beats.as_mut().and_then(|b| b.next());
@@ -408,6 +408,8 @@ mod tests {
         let ctx = BlockContext {
             sample_rate: SR,
             frames,
+            span: frames as u64,
+            rate: 1.0,
             playing,
             position: start,
             loop_range: None,
@@ -493,6 +495,8 @@ mod tests {
             let ctx = BlockContext {
                 sample_rate: SR,
                 frames,
+                span: frames as u64,
+                rate: 1.0,
                 playing: false,
                 position: 1000,
                 loop_range: None,
@@ -535,6 +539,8 @@ mod tests {
         let ctx = BlockContext {
             sample_rate: SR,
             frames: 64,
+            span: 64,
+            rate: 1.0,
             playing: true,
             position: 0,
             loop_range: None,

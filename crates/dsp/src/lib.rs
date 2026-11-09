@@ -39,6 +39,7 @@ pub mod lfo;
 pub mod oversample;
 pub mod pedal;
 pub mod pitch;
+pub mod pluck;
 mod processor;
 mod readout;
 pub mod recipe;
@@ -66,6 +67,7 @@ pub use kit::{Kit, KitError, LoadedKit, Sample, KIT_VERSION};
 pub use lfo::{Lfo, Shape};
 pub use oversample::Oversampler;
 pub use pedal::{compile, PedalDef, PedalError, PedalProcessor, Problem, PEDAL_VERSION};
+pub use pluck::{Pluck, PluckNote};
 pub use processor::{
     Buffer, Chain, Handle, ParamId, ParamInfo, Processor, StateError, Transport, Unit, MAX_CHANNELS,
 };

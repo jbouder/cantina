@@ -14,6 +14,7 @@ sidebar:
 - **Stock pedals**: `Gain`, `NoiseGate`, `Compressor`, `Tuner`, the drives, `Echo`, `Reverb`, `Cabinet` and more. What each does is on the [stock pedals](/architecture/pedals/) page.
 - **User pedals**: the `pedal` module reads a [pedal file](/reference/pedal-format/), checks it and names the node behind every problem, and compiles it into a `PedalProcessor` that allocates nothing while it runs. `pedal::kinds()` lists every node kind and field, which is what the designer's menus and the format reference come from.
 - **Drums**: the `kit` module is the drum kit format, and `Sampler` plays a loaded kit with velocity layers and choke groups. The sequencer that decides when to hit a pad is in the engine, next to the tempo map.
+- **The tab voice**: `Pluck` is a Karplus-Strong plucked string for playing tabs back, as a guitar or a bass. Each string is a delay line one period long, filled with a burst of noise shaped by velocity and combed at the pick position, then fed back through a two-point low-pass, so highs die first; the loss per pass gives the note's ring time, longer on low strings. Bends and vibrato move the fractional read position, so they glide without clicks. Palm mutes and dead notes ring for a fraction of a second, harmonics start from a rounder burst at the pitch they sound. Each string has a pair of voices, so a new note on a string fades the old one out over a few milliseconds. The engine's `TabVoice` decides when to pluck.
 - **Rendering**: `Renderer` runs a processor over whole signals in blocks, as a stream would, for tests and offline work.
 - **Fretboard**: the `fretboard` module cleans a transcription for a tuning and chooses a string and fret for every note, as a hand would; see [fitting](/architecture/transcription/#fitting-notes-to-the-fretboard). Pure functions, no audio.
 - **Resampling**: `resample` converts a whole signal between rates with a Kaiser-windowed sinc, for mixdowns at a rate other than the project's.
@@ -36,5 +37,7 @@ The crate also stays free of platform code, so it would compile to WebAssembly i
 ```sh
 UPDATE_GOLDEN=1 cargo test -p cantina-dsp --test golden
 ```
+
+The tab voice is pinned the same way: `pluck-*.wav` are renders of short phrases (a strummed chord, a bend and release, vibrato, palm mutes, a dead note, a hammer and a harmonic, a bass line), 24 000 frames each, in the same summary.
 
 A change that is not meant to alter the sound must leave them as they are.

@@ -157,6 +157,8 @@ mod tests {
         let ctx = BlockContext {
             sample_rate: SR,
             frames: BLOCK,
+            span: BLOCK as u64,
+            rate: 1.0,
             playing: true,
             position: 0,
             loop_range: None,
@@ -215,6 +217,8 @@ mod tests {
             let ctx = BlockContext {
                 sample_rate: SR,
                 frames: buffer.frames(),
+                span: buffer.frames() as u64,
+                rate: 1.0,
                 playing: true,
                 position: 0,
                 loop_range: None,
