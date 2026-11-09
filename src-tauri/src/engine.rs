@@ -63,7 +63,7 @@ use crate::tabs;
 #[path = "engine_jam.rs"]
 mod jam_engine;
 use jam_engine::JamSession;
-pub use jam_engine::{JamStatus, JamTrackInfo};
+pub use jam_engine::{JamStatus, JamTrackInfo, KeepInto};
 
 /// Event name for status pushes to the UI.
 pub const STATUS_EVENT: &str = "engine://status";
@@ -1210,6 +1210,19 @@ struct PumpAnalysis {
     output_latency: u64,
 }
 
+/// The last minutes of a jam's input, dry and through the rig, kept in
+/// rings the audio thread only writes. See [`cantina_engine::capture`].
+struct LiveCapture {
+    /// The track whose input and chain are captured.
+    track: TrackId,
+    dry_node: NodeId,
+    wet_node: NodeId,
+    dry: Arc<cantina_engine::CaptureRing>,
+    wet: Arc<cantina_engine::CaptureRing>,
+    /// How long they hold.
+    minutes: f32,
+}
+
 /// What is running while the stream is open.
 struct Live {
     stream: Stream,
@@ -1239,6 +1252,8 @@ struct Live {
     output: DeviceId,
     input_name: String,
     output_name: String,
+    /// The capture rings on a jam's input, while a jam is open.
+    capture: Option<LiveCapture>,
     /// Dropping it removes the hardware listeners and ends their thread.
     _watcher: Watcher,
     pump_stop: Arc<AtomicBool>,
@@ -1714,6 +1729,42 @@ impl Live {
             .set_param(self.master, MUTE, if m.mute { 1.0 } else { 0.0 });
     }
 
+    /// Captures `track`'s input and chain for the last `minutes`, or with
+    /// none stops. The rings are allocated here, whole, before their nodes
+    /// reach the audio thread; another length makes new ones.
+    fn set_capture(&mut self, wanted: Option<(TrackId, f32)>) -> Result<()> {
+        let same = match (&self.capture, wanted) {
+            (Some(c), Some((track, minutes))) => c.track == track && c.minutes == minutes,
+            (None, None) => true,
+            _ => false,
+        };
+        if same {
+            return Ok(());
+        }
+        if let Some(old) = self.capture.take() {
+            let graph = self.controller.graph_mut();
+            graph.remove(old.dry_node)?;
+            graph.remove(old.wet_node)?;
+        }
+        if let Some((track, minutes)) = wanted {
+            let frames = (f64::from(minutes) * 60.0 * self.stream.info().sample_rate) as usize;
+            let dry = Arc::new(cantina_engine::CaptureRing::new(1, frames));
+            let wet = Arc::new(cantina_engine::CaptureRing::new(CHANNELS, frames));
+            let graph = self.controller.graph_mut();
+            let dry_node = graph.add(Box::new(cantina_engine::Capture::new(Arc::clone(&dry))));
+            let wet_node = graph.add(Box::new(cantina_engine::Capture::new(Arc::clone(&wet))));
+            self.capture = Some(LiveCapture {
+                track,
+                dry_node,
+                wet_node,
+                dry,
+                wet,
+                minutes,
+            });
+        }
+        Ok(())
+    }
+
     /// Connects everything for the current tracks and commits:
     ///
     /// ```text
@@ -1741,6 +1792,9 @@ impl Live {
                     graph.connect(Endpoint::Input, *mute)?;
                     graph.connect(*mute, track.bus)?;
                     graph.connect(*mute, *recorder_node)?;
+                    if let Some(c) = self.capture.as_ref().filter(|c| c.track == track.id) {
+                        graph.connect(*mute, c.dry_node)?;
+                    }
                     graph.connect(*player_node, track.delay)?;
                     // The tab voice plays like the recording, through the
                     // track's pedals.
@@ -1757,6 +1811,9 @@ impl Live {
                 previous = pedal.node;
             }
             graph.connect(previous, track.strip)?;
+            if let Some(c) = self.capture.as_ref().filter(|c| c.track == track.id) {
+                graph.connect(previous, c.wet_node)?;
+            }
             graph.connect(track.strip, track.meter)?;
             graph.connect(track.strip, self.master)?;
         }
@@ -3428,6 +3485,11 @@ impl Engine {
                 live.set_tempo_map(map);
             }
         }
+        let capture = self
+            .jam
+            .is_some()
+            .then_some((crate::jam::INPUT_TRACK, self.settings.capture_minutes));
+        live.set_capture(capture)?;
         let audio_dir = cantina_project::audio_dir(&self.project_dir);
         let mut removed = Vec::new();
         let result = live.sync(
@@ -6026,6 +6088,7 @@ impl Engine {
             output,
             input_name: device::name(input)?,
             output_name: device::name(output)?,
+            capture: None,
             _watcher: watcher,
             pump_stop,
         };

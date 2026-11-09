@@ -31,6 +31,46 @@ pub(super) struct JamSession {
     /// Where the project's playhead was, put back on close.
     project_position: u64,
     backing: JamBacking,
+    /// What Keep that wrote last, until it goes into a project.
+    kept: Option<KeptTake>,
+}
+
+/// A take Keep that wrote, and what the jam was doing under it.
+struct KeptTake {
+    /// The dry input and the signal through the rig, in `Jams/Takes`.
+    dry: PathBuf,
+    wet: PathBuf,
+    frames: u64,
+    sample_rate: f64,
+    /// The jam's timeline sample of its first frame, when the jam rolled
+    /// under it.
+    start: Option<i64>,
+    map: TempoMap,
+    segments: Vec<(u64, u64, Section)>,
+    patterns: BTreeMap<Section, Pattern>,
+    setup: Jam,
+    chain: Vec<Pedal>,
+}
+
+/// Where Keep that's take goes. Mirrors `KeepInto` in the UI.
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(tag = "into", rename_all = "camelCase")]
+pub enum KeepInto {
+    /// The open project.
+    Open,
+    /// A new project of this name, which is opened.
+    New { name: String },
+    /// Nowhere: it stays in `Jams/Takes`.
+    Takes,
+}
+
+/// The last take kept, as the UI shows it. Mirrors `JamKept` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeptStatus {
+    pub seconds: f64,
+    pub dry: String,
+    pub processed: String,
 }
 
 /// What the backing plays, built from the setup's.
@@ -162,6 +202,10 @@ pub struct JamStatus {
     pub tempo_locked: bool,
     /// The stock chord progressions, by genre.
     pub presets: Vec<PresetInfo>,
+    /// Minutes of the input the jam keeps for Keep that.
+    pub capture_minutes: f32,
+    /// The last take kept, waiting to go into a project.
+    pub kept: Option<KeptStatus>,
 }
 
 /// A project's audio track a jam can play. Mirrors `JamTrack` in the UI.
@@ -183,6 +227,9 @@ pub struct PresetInfo {
     pub name: &'static str,
     pub chords: &'static str,
 }
+
+/// How long Keep that waits for the writer thread.
+const KEEP_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Ids set aside for each rig's pedals.
 const RIG_IDS: u64 = 256;
@@ -554,6 +601,7 @@ impl Engine {
             setup.tempo = (bpm.clamp(JAM_TEMPO.0, JAM_TEMPO.1) * 10.0).round() / 10.0;
         }
         let mut session = JamSession {
+            kept: None,
             first_pedal,
             backing,
             schedule: Schedule::new(bar, Section::Verse, setup.tempo, |_| bar, Section::Verse),
@@ -714,6 +762,12 @@ impl Engine {
             missing: jam.missing.clone(),
             backing_missing: jam.backing.missing.clone(),
             tempo_locked: jam.backing.bpm().is_some(),
+            capture_minutes: self.settings.capture_minutes,
+            kept: jam.kept.as_ref().map(|k| KeptStatus {
+                seconds: k.frames as f64 / k.sample_rate,
+                dry: k.dry.display().to_string(),
+                processed: k.wet.display().to_string(),
+            }),
             presets: cantina_project::PRESETS
                 .iter()
                 .map(|p| PresetInfo {
@@ -812,6 +866,8 @@ impl Engine {
             }
         };
         let rig_changed = session.setup.rig != old.setup.rig;
+        let mut old = old;
+        session.kept = old.kept.take();
         let backing_changed = source_of(&session.setup.backing) != source_of(&old.setup.backing);
         // Audio sits on the timeline from the jam's first sample at its own
         // tempo: a jam rolling at another cannot take it, or leave it, in
@@ -866,6 +922,286 @@ impl Engine {
                     / source.sample_rate,
             })
             .collect())
+    }
+
+    /// Sets how many minutes of input the jam keeps: 1, 2, 5 or 10. New
+    /// rings start empty.
+    pub fn jam_capture_set(&mut self, minutes: f32) -> Result<EngineStatus> {
+        if !crate::settings::CAPTURE_MINUTES.contains(&minutes) {
+            bail!("the capture keeps 1, 2, 5 or 10 minutes, not {minutes}");
+        }
+        self.settings.capture_minutes = minutes;
+        self.persist();
+        self.sync()?;
+        Ok(self.publish())
+    }
+
+    /// Keep that: writes the last minutes of the input, dry and through
+    /// the rig, to `Jams/Takes`, on the input's recorder's writer thread,
+    /// and holds on to what the jam was doing under them for
+    /// [`Engine::jam_keep_place`].
+    pub fn jam_keep(&mut self) -> Result<EngineStatus> {
+        let Some(jam) = &self.jam else {
+            bail!("open a jam first");
+        };
+        let live = self.live.as_mut().context("start the engine first")?;
+        let capture = live
+            .capture
+            .as_ref()
+            .context("nothing has been captured yet")?;
+        let sample_rate = live.stream.info().sample_rate;
+        let (dry, wet) = (Arc::clone(&capture.dry), Arc::clone(&capture.wet));
+        let to = dry.written().min(wet.written());
+        // Once the rings have come round, a second's room from the frames
+        // being overwritten.
+        let held = dry.oldest().max(wet.oldest());
+        let from = if held == 0 {
+            0
+        } else {
+            (held + sample_rate as u64).min(to)
+        };
+        if to.saturating_sub(from) < (sample_rate / 2.0) as u64 {
+            bail!("there is less than half a second to keep yet");
+        }
+        let start = dry
+            .anchor()
+            .map(|a| a.position as i64 + from as i64 - a.frame as i64);
+        let dir = self.projects.root().join("Jams").join("Takes");
+        std::fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
+        let (file, _) = take_name(&dir, "Jam");
+        let dry_path = dir.join(&file);
+        let wet_path = dir.join(file.replace(".wav", " processed.wav"));
+        let (done, result) = mpsc::channel();
+        let job = cantina_engine::KeepJob {
+            rings: vec![(dry, dry_path.clone()), (wet, wet_path.clone())],
+            from,
+            to,
+            sample_rate,
+            done,
+        };
+        let Source::Audio { recorder, .. } = &live.track(INPUT_TRACK)?.source else {
+            bail!("the jam's input has no recorder");
+        };
+        recorder.keep(job)?;
+        let kept = result
+            .recv_timeout(KEEP_TIMEOUT)
+            .map_err(|_| anyhow!("writing the take took too long"))?
+            .map_err(|e| anyhow!("{e}"))?;
+        let segments = jam.schedule.segments();
+        let take = KeptTake {
+            dry: dry_path,
+            wet: wet_path,
+            frames: kept.frames,
+            sample_rate,
+            start,
+            map: jam.schedule.tempo_map(jam.setup.time_signature),
+            segments,
+            patterns: jam.patterns.clone(),
+            setup: jam.setup.clone(),
+            chain: jam.chain.clone(),
+        };
+        if let Some(jam) = &mut self.jam {
+            jam.kept = Some(take);
+        }
+        Ok(self.publish())
+    }
+
+    /// Puts the take Keep that wrote into the open project, or a new one,
+    /// as one undoable edit: an audio track with the jam's rig and the dry
+    /// take, a muted one with the take through the rig, and a drum track
+    /// with the sections that played under it, all on the project's bars.
+    /// An empty project takes the jam's tempo; one with music in it keeps
+    /// its own and the take goes after its last bar.
+    pub fn jam_keep_place(&mut self, into: KeepInto) -> Result<EngineStatus> {
+        let take = self
+            .jam
+            .as_mut()
+            .and_then(|j| j.kept.take())
+            .context("keep a take first")?;
+        let name = match into {
+            KeepInto::Takes => return Ok(self.publish()),
+            KeepInto::Open => None,
+            KeepInto::New { name } => Some(name),
+        };
+        if let Some(name) = name {
+            if let Err(e) = self.project_new(&name) {
+                if let Some(jam) = &mut self.jam {
+                    jam.kept = Some(take);
+                }
+                return Err(e);
+            }
+        }
+        let audio_dir = cantina_project::audio_dir(&self.project_dir);
+        cantina_project::create_layout(&self.project_dir)?;
+        let rate = self.project.sample_rate;
+        let mut files = Vec::new();
+        for (path, stem) in [(&take.dry, "Jam take"), (&take.wet, "Jam take processed")] {
+            let (file, _) = take_name(&audio_dir, stem);
+            if take.sample_rate == rate {
+                std::fs::copy(path, audio_dir.join(&file))
+                    .with_context(|| format!("copying {}", path.display()))?;
+            } else {
+                let (_, channels) = wav::read_all(path)?;
+                wav::write(
+                    &audio_dir.join(&file),
+                    rate,
+                    &fit_audio(channels, take.sample_rate, rate),
+                )?;
+            }
+            files.push(file);
+        }
+        let frames = (take.frames as f64 * rate / take.sample_rate).round() as u64;
+        let project = &self.project;
+        let empty = project
+            .tracks
+            .iter()
+            .all(|t| t.clips.is_empty() && t.pattern_clips.is_empty());
+        let meter = take.setup.time_signature;
+        let tempo = if empty {
+            let end = take
+                .start
+                .map_or(0, |s| (s + take.frames as i64).max(0) as u64);
+            Tempo {
+                bpm: take
+                    .map
+                    .tempo_at(take.map.samples_to_ticks(end, take.sample_rate) as u64),
+                numerator: meter.numerator,
+                denominator: meter.denominator,
+            }
+        } else {
+            project.tempo.clone()
+        };
+        let bar = u64::from(cantina_project::PPQ) * 4 / u64::from(tempo.denominator.max(1))
+            * u64::from(tempo.numerator.max(1));
+        let at = if empty {
+            0
+        } else {
+            let per_tick = rate * 60.0 / (tempo.bpm * f64::from(cantina_project::PPQ));
+            let end = project
+                .tracks
+                .iter()
+                .flat_map(|t| {
+                    t.clips
+                        .iter()
+                        .map(|c| (c.end() as f64 / per_tick) as u64)
+                        .chain(t.pattern_clips.iter().map(|c| c.end()))
+                })
+                .max()
+                .unwrap_or(0);
+            end.div_ceil(bar) * bar
+        };
+        let jam_bar = take.setup.bar_ticks();
+        let placed = crate::jam::place_take(
+            take.start,
+            take.frames,
+            &take.map,
+            take.sample_rate,
+            &take.segments,
+            |s| take.patterns.get(&s).map_or(jam_bar, |p| p.ticks()),
+            jam_bar,
+            at,
+            tempo.bpm,
+        );
+        let scale = |f: u64| (f as f64 * rate / take.sample_rate).round() as u64;
+        let mut next = self.project.fresh_id();
+        let mut id = || {
+            next += 1;
+            next - 1
+        };
+        let mut commands = Vec::new();
+        if empty && tempo != self.project.tempo {
+            commands.push(Command::SetTempo {
+                tempo: tempo.clone(),
+            });
+        }
+        // The patterns the drums play, renamed on a clash.
+        let mut taken: Vec<String> = self
+            .project
+            .patterns
+            .iter()
+            .map(|p| p.name.clone())
+            .collect();
+        let mut pattern_ids: BTreeMap<Section, PatternId> = BTreeMap::new();
+        for (section, ..) in &placed.drums {
+            if pattern_ids.contains_key(section) {
+                continue;
+            }
+            let Some(p) = take.patterns.get(section) else {
+                continue;
+            };
+            let names: Vec<&str> = taken.iter().map(String::as_str).collect();
+            let pattern = cantina_project::imported(p.clone(), PatternId(id()), &names);
+            taken.push(pattern.name.clone());
+            pattern_ids.insert(*section, pattern.id);
+            commands.push(Command::InsertPattern {
+                index: usize::MAX,
+                pattern,
+            });
+        }
+        let index = self.project.tracks.len();
+        let clip = |id: u64, name: &str, file: String| Clip {
+            id: ClipId(id),
+            name: name.into(),
+            file,
+            start: scale(placed.start),
+            offset: scale(placed.offset),
+            length: frames.saturating_sub(scale(placed.offset)),
+            tab: None,
+        };
+        let take_id = TrackId(id());
+        let mut dry = Track::new(take_id, "Jam take");
+        dry.chain = take
+            .chain
+            .iter()
+            .map(|p| Pedal {
+                id: PedalId(id()),
+                ..p.clone()
+            })
+            .collect();
+        for (new, old) in dry.chain.iter().zip(&take.chain) {
+            if let Some(state) = self.plugin_states.get(&old.id).cloned() {
+                self.plugin_states.insert(new.id, state);
+            }
+        }
+        dry.clips.push(clip(id(), "Jam take", files[0].clone()));
+        let mut wet = Track::new(TrackId(id()), "Jam take, processed");
+        wet.strip.mute = true;
+        wet.clips
+            .push(clip(id(), "Jam take, processed", files[1].clone()));
+        let mut tracks = vec![dry, wet];
+        if !pattern_ids.is_empty() {
+            let mut drums = Track::drums(TrackId(id()), "Jam drums", take.setup.drums.kit.clone());
+            drums.strip.gain_db += take.setup.drums.level_db;
+            for (section, start, offset, length) in &placed.drums {
+                if let Some(pattern) = pattern_ids.get(section) {
+                    drums.pattern_clips.push(cantina_project::PatternClip {
+                        id: cantina_project::PatternClipId(id()),
+                        pattern: *pattern,
+                        start: *start,
+                        offset: *offset,
+                        length: *length,
+                        fill: None,
+                    });
+                }
+            }
+            tracks.push(drums);
+        }
+        for (i, track) in tracks.into_iter().enumerate() {
+            commands.push(Command::InsertTrack {
+                index: index + i,
+                track,
+            });
+        }
+        let seconds = take.frames as f64 / take.sample_rate;
+        self.apply(Command::Batch { commands })?;
+        self.notice = Some(format!(
+            "Kept {}:{:04.1} of jamming in {}",
+            (seconds / 60.0) as u64,
+            seconds % 60.0,
+            self.project.name
+        ));
+        self.notice_seq = self.notice_seq.wrapping_add(1);
+        Ok(self.publish())
     }
 
     fn jam_remember(&mut self) {

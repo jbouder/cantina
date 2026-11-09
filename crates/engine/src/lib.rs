@@ -9,6 +9,7 @@
 //! macOS only, by design. See `PLAN.md` for why.
 
 pub mod analysis;
+pub mod capture;
 pub mod click;
 pub mod delay;
 pub mod device;
@@ -34,6 +35,7 @@ pub mod transport;
 pub mod wav;
 
 pub use analysis::{beat_at, Analyzer, BeatPosition};
+pub use capture::{Anchor, Capture, CaptureRing, KeepJob, Kept};
 pub use click::{Click, SOUNDS as CLICK_SOUNDS};
 pub use delay::{plan, Delay};
 pub use device::{DeviceEvent, DeviceId, DeviceInfo, Watcher};

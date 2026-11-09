@@ -156,6 +156,11 @@ impl InstrumentProfile {
     }
 }
 
+/// How long a jam's capture holds unless asked otherwise.
+pub const DEFAULT_CAPTURE_MINUTES: f32 = 5.0;
+/// The lengths the capture may be set to, in minutes.
+pub const CAPTURE_MINUTES: [f32; 4] = [1.0, 2.0, 5.0, 10.0];
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
@@ -178,6 +183,8 @@ pub struct Settings {
     pub instrument: InstrumentProfile,
     /// The last jam, opened again next time.
     pub jam: Option<cantina_project::Jam>,
+    /// Minutes of a jam's input kept for Keep that.
+    pub capture_minutes: f32,
 }
 
 impl Default for Settings {
@@ -193,6 +200,7 @@ impl Default for Settings {
             assistant: AssistantSettings::default(),
             instrument: InstrumentProfile::default(),
             jam: None,
+            capture_minutes: DEFAULT_CAPTURE_MINUTES,
         }
     }
 }

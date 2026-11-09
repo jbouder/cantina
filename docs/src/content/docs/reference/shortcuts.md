@@ -124,6 +124,7 @@ In the Jam view, outside a text field or menu.
 | 1–6 | Plays the intro, verse, chorus, bridge, fill or ending from the next bar |
 | ↑ ↓ | Nudges the tempo a beat per minute from the next bar; ⇧ by five |
 | T | Taps the tempo: two taps or more set it |
+| Return | Keep that: keeps the last minutes of your playing as a take |
 
 ## Groove browser
 

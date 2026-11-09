@@ -21,6 +21,7 @@ Read these before your first pull request. A change that breaks them may sound f
 - **Parameters are smoothed on the audio thread.** Every continuous parameter goes through a `Smoother`, so a step change never clicks.
 - **Data comes out through atomics and rings.** Meters, scope samples, readouts and counters are written by the audio thread into atomics or a ring, and read by the UI thread whenever it likes.
 - **Disk work has its own threads.** Playback reads ahead and recording writes behind on streaming threads, with rings between them and the callback.
+- **The capture ring is allocated before play and only written.** A jam keeps the last minutes of its input, dry and through the rig, in a `CaptureRing`: every sample of those minutes allocated when the jam opens (or its length changes), off the audio thread, before the `Capture` nodes that fill it reach a graph. The audio thread does one relaxed atomic store per sample and counts the frames it wrote; it never waits. Keep that hands a `KeepJob` to the input's recorder's writer thread, which copies the span out to WAV files while the ring goes on filling, and checks as it goes that the ring has not come round over what it copied, leaving a block's room for the frames the audio thread is writing before it counts them. Where the transport started rolling is kept beside the samples under a seqlock, so the take can be put back on the bars it was played on.
 
 ## Habits that make it easy
 
