@@ -1,0 +1,21 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/kit-recipe.schema.json",
+  "version": 1,
+  "name": "Hip-hop 808",
+  "seed": 808,
+  "pads": [
+    {"id": "kick", "name": "808 kick", "voice": "kick", "pitch": 46, "decay": 1.1, "tone": 0.2, "noise": 0.0, "layers": 2, "gainDb": -1},
+    {"id": "snare", "name": "Snare", "voice": "snare", "pitch": 230, "decay": 0.22, "tone": 0.7, "noise": 0.7, "layers": 2, "pan": -0.05},
+    {"id": "clap", "name": "Clap", "voice": "clap", "pitch": 1100, "decay": 0.28, "tone": 0.5, "layers": 2, "gainDb": -2},
+    {"id": "hh-closed", "name": "Closed hat", "voice": "hat", "pitch": 460, "decay": 0.035, "tone": 0.9, "gainDb": -7, "pan": 0.25, "choke": "hat"},
+    {"id": "hh-pedal", "name": "Pedal hat", "voice": "hat", "pitch": 460, "decay": 0.05, "tone": 0.8, "layers": 1, "gainDb": -9, "pan": 0.25, "choke": "hat"},
+    {"id": "hh-open", "name": "Open hat", "voice": "hat", "pitch": 460, "decay": 0.35, "tone": 0.85, "gainDb": -8, "pan": 0.25, "choke": "hat"},
+    {"id": "tom-hi", "name": "High tom", "voice": "tom", "pitch": 180, "decay": 0.5, "tone": 0.2, "noise": 0.0, "pan": -0.25},
+    {"id": "tom-mid", "name": "Mid tom", "voice": "tom", "pitch": 130, "decay": 0.6, "tone": 0.2, "noise": 0.0, "pan": 0.05},
+    {"id": "tom-lo", "name": "Low tom", "voice": "tom", "pitch": 90, "decay": 0.8, "tone": 0.2, "noise": 0.0, "pan": 0.3},
+    {"id": "crash", "name": "Crash", "voice": "hat", "pitch": 380, "decay": 1.4, "tone": 0.7, "noise": 0.7, "gainDb": -8, "pan": -0.4},
+    {"id": "ride", "name": "Ride", "voice": "hat", "pitch": 700, "decay": 1.2, "tone": 0.5, "noise": 0.2, "gainDb": -9, "pan": 0.45},
+    {"id": "china", "name": "China", "voice": "hat", "pitch": 560, "decay": 1.0, "tone": 0.9, "noise": 0.5, "layers": 1, "gainDb": -10, "pan": 0.55},
+    {"id": "cowbell", "name": "Cowbell", "voice": "cowbell", "pitch": 560, "decay": 0.3, "tone": 0.6, "layers": 1, "gainDb": -6}
+  ]
+}

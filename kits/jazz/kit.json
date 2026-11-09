@@ -1,0 +1,281 @@
+{
+  "version": 1,
+  "name": "Jazz (brushes)",
+  "pads": [
+    {
+      "id": "kick",
+      "name": "Kick",
+      "gainDb": -2.0,
+      "pan": 0.0,
+      "layers": [
+        {
+          "file": "kick-1.wav",
+          "velocity": [
+            0.0,
+            0.33333334
+          ],
+          "gainDb": 0.0
+        },
+        {
+          "file": "kick-2.wav",
+          "velocity": [
+            0.33333334,
+            0.6666667
+          ],
+          "gainDb": 0.0
+        },
+        {
+          "file": "kick-3.wav",
+          "velocity": [
+            0.6666667,
+            1.0
+          ],
+          "gainDb": 0.0
+        }
+      ]
+    },
+    {
+      "id": "snare",
+      "name": "Snare (brush)",
+      "gainDb": -3.0,
+      "pan": -0.1,
+      "layers": [
+        {
+          "file": "snare-1.wav",
+          "velocity": [
+            0.0,
+            0.33333334
+          ],
+          "gainDb": 0.0
+        },
+        {
+          "file": "snare-2.wav",
+          "velocity": [
+            0.33333334,
+            0.6666667
+          ],
+          "gainDb": 0.0
+        },
+        {
+          "file": "snare-3.wav",
+          "velocity": [
+            0.6666667,
+            1.0
+          ],
+          "gainDb": 0.0
+        }
+      ]
+    },
+    {
+      "id": "hh-closed",
+      "name": "Closed hat",
+      "gainDb": -8.0,
+      "pan": 0.3,
+      "choke": "hat",
+      "layers": [
+        {
+          "file": "hh-closed-1.wav",
+          "velocity": [
+            0.0,
+            0.5
+          ],
+          "gainDb": 0.0
+        },
+        {
+          "file": "hh-closed-2.wav",
+          "velocity": [
+            0.5,
+            1.0
+          ],
+          "gainDb": 0.0
+        }
+      ]
+    },
+    {
+      "id": "hh-pedal",
+      "name": "Pedal hat",
+      "gainDb": -10.0,
+      "pan": 0.3,
+      "choke": "hat",
+      "layers": [
+        {
+          "file": "hh-pedal.wav",
+          "velocity": [
+            0.0,
+            1.0
+          ],
+          "gainDb": 0.0
+        }
+      ]
+    },
+    {
+      "id": "hh-open",
+      "name": "Open hat",
+      "gainDb": -9.0,
+      "pan": 0.3,
+      "choke": "hat",
+      "layers": [
+        {
+          "file": "hh-open-1.wav",
+          "velocity": [
+            0.0,
+            0.5
+          ],
+          "gainDb": 0.0
+        },
+        {
+          "file": "hh-open-2.wav",
+          "velocity": [
+            0.5,
+            1.0
+          ],
+          "gainDb": 0.0
+        }
+      ]
+    },
+    {
+      "id": "tom-hi",
+      "name": "High tom",
+      "gainDb": 0.0,
+      "pan": -0.25,
+      "layers": [
+        {
+          "file": "tom-hi-1.wav",
+          "velocity": [
+            0.0,
+            0.5
+          ],
+          "gainDb": 0.0
+        },
+        {
+          "file": "tom-hi-2.wav",
+          "velocity": [
+            0.5,
+            1.0
+          ],
+          "gainDb": 0.0
+        }
+      ]
+    },
+    {
+      "id": "tom-mid",
+      "name": "Mid tom",
+      "gainDb": 0.0,
+      "pan": 0.05,
+      "layers": [
+        {
+          "file": "tom-mid-1.wav",
+          "velocity": [
+            0.0,
+            0.5
+          ],
+          "gainDb": 0.0
+        },
+        {
+          "file": "tom-mid-2.wav",
+          "velocity": [
+            0.5,
+            1.0
+          ],
+          "gainDb": 0.0
+        }
+      ]
+    },
+    {
+      "id": "tom-lo",
+      "name": "Floor tom",
+      "gainDb": 0.0,
+      "pan": 0.35,
+      "layers": [
+        {
+          "file": "tom-lo-1.wav",
+          "velocity": [
+            0.0,
+            0.5
+          ],
+          "gainDb": 0.0
+        },
+        {
+          "file": "tom-lo-2.wav",
+          "velocity": [
+            0.5,
+            1.0
+          ],
+          "gainDb": 0.0
+        }
+      ]
+    },
+    {
+      "id": "crash",
+      "name": "Crash",
+      "gainDb": -8.0,
+      "pan": -0.45,
+      "layers": [
+        {
+          "file": "crash-1.wav",
+          "velocity": [
+            0.0,
+            0.5
+          ],
+          "gainDb": 0.0
+        },
+        {
+          "file": "crash-2.wav",
+          "velocity": [
+            0.5,
+            1.0
+          ],
+          "gainDb": 0.0
+        }
+      ]
+    },
+    {
+      "id": "ride",
+      "name": "Ride",
+      "gainDb": -6.0,
+      "pan": 0.45,
+      "layers": [
+        {
+          "file": "ride-1.wav",
+          "velocity": [
+            0.0,
+            0.33333334
+          ],
+          "gainDb": 0.0
+        },
+        {
+          "file": "ride-2.wav",
+          "velocity": [
+            0.33333334,
+            0.6666667
+          ],
+          "gainDb": 0.0
+        },
+        {
+          "file": "ride-3.wav",
+          "velocity": [
+            0.6666667,
+            1.0
+          ],
+          "gainDb": 0.0
+        }
+      ]
+    },
+    {
+      "id": "china",
+      "name": "Swish",
+      "gainDb": -9.0,
+      "pan": 0.55,
+      "layers": [
+        {
+          "file": "china.wav",
+          "velocity": [
+            0.0,
+            1.0
+          ],
+          "gainDb": 0.0
+        }
+      ]
+    }
+  ]
+}
