@@ -56,7 +56,9 @@ as a [kit recipe](/reference/kit-format/#kit-recipes) and let
 ## Stock grooves
 
 Cantina comes with 87 grooves in 17 genres, so a drum track can play
-something good straight away. They are in the **Pattern** menu, under
+something good straight away. To play along with a genre's grooves without
+setting up a track, open a [jam](/guides/jam/): its sections are the
+genre's intro, verse, chorus, fill and ending. They are in the **Pattern** menu, under
 **Add a groove**, one group per genre, with the tempos each suits, and in the groove
 browser below. Choosing
 one copies it into the project as a pattern of its own, which you can then

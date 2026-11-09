@@ -135,4 +135,6 @@ WAV files; [Menus](/guides/menus/) lists every item.
   the timeline.
 - [Drums](/guides/drums/): add a drum track and program a beat.
 - [Designing pedals](/guides/designer/): build your own pedal from parts.
+- [Jam](/guides/jam/): drums and a backing to play along with, without a
+  project; keep the riff you just played.
 - [The stage](/guides/stage/): visualizer scenes and performance mode.
