@@ -147,6 +147,15 @@ transport is, and the engine's tests check hits land once each across
 odd block sizes, through a transport loop, and at the right samples
 after a tempo change mid-timeline.
 
+Pads played live (`SequencerHandle::hit`, the shell's `pad_hit`) take a
+shorter way: a lock-free ring of pad and velocity that `process` empties
+at the start of each block, triggering each at frame 0, whether or not
+the transport rolls. That is one block plus the output's latency from a
+key to the speakers. Recording is the UI's (`ui/src/lib/liveRecord.ts`):
+it quantizes each hit's moment to the nearest step of the auditioned
+pattern, gathers a pass, and overdubs it as one `ReplacePattern` when the
+pass ends.
+
 Scores reach the audio thread the way graph schedules do: pushed over a
 lock-free queue, swapped in at a block boundary, with the old one
 retired back to the UI thread to be dropped. A pattern edit sends every

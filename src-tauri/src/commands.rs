@@ -571,6 +571,17 @@ pub fn drum_rows_set(
     engine.lock().drum_rows_set(track, rows).map_err(fail)
 }
 
+/// Plays a pad of a drum track now. Not an edit.
+#[tauri::command]
+pub fn pad_hit(
+    engine: State<'_, EngineState>,
+    track: u64,
+    pad: String,
+    velocity: f32,
+) -> Result<(), String> {
+    engine.lock().pad_hit(track, &pad, velocity).map_err(fail)
+}
+
 /// Sets a pad's mix on a drum track; `null` puts it back to the kit's.
 #[tauri::command]
 pub fn pad_mix_set(

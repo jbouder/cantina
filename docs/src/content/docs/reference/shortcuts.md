@@ -101,6 +101,18 @@ With a step focused.
 | R | Steps the ratchet: 1 to 4 hits in the step |
 | F | Turns a flam on or off |
 
+## Live pads
+
+With a pad focused, in the Pads panel of the Beats tab.
+
+| Keys | Does |
+| --- | --- |
+| A S D F G H J K L ; | Play the kit's first ten pads, in order |
+| Z X C V B N | Play the next six |
+| ⇧ with a pad key | Plays it as an accent, at full strength |
+| ← → | In step entry, move the cursor a step |
+| Esc | Stops recording or step entry |
+
 ## Groove browser
 
 With the groove list focused.

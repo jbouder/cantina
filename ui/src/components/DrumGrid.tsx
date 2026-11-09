@@ -72,6 +72,7 @@ import { DRAG_THRESHOLD } from "../lib/reorder";
 import { Button } from "./Button";
 import { GrooveBrowser } from "./GrooveBrowser";
 import { Led } from "./Led";
+import { LivePads } from "./LivePads";
 import { PadMixer } from "./PadMixer";
 import { PatternFeel } from "./PatternFeel";
 import { Select } from "./Select";
@@ -176,6 +177,10 @@ export function DrumGrid({
   );
   const auditioning = audition?.track === track.id ? audition.pattern : null;
   const [chosen, setChosen] = useState<number | null>(auditioning);
+  // `?pads` opens the live pads, for screenshots.
+  const [playingPads, setPlayingPads] = useState(() =>
+    new URLSearchParams(window.location.search).has("pads"),
+  );
   // `?padmixer` opens the pad mixer, for screenshots.
   const [mixing, setMixing] = useState(() =>
     new URLSearchParams(window.location.search).has("padmixer"),
@@ -719,6 +724,15 @@ export function DrumGrid({
         >
           Mixer
         </Button>
+        <Button
+          aria-pressed={playingPads}
+          aria-expanded={playingPads}
+          variant={playingPads ? "transport" : "panel"}
+          onClick={() => setPlayingPads(!playingPads)}
+          title="Play the kit from pads or the keyboard, and record into the pattern"
+        >
+          Pads
+        </Button>
         {pattern ? (
           <>
             <Button onClick={exportPattern} title="Write this pattern to a .pattern.json file">
@@ -806,6 +820,18 @@ export function DrumGrid({
         ) : null}
       </div>
       {mixing ? <PadMixer track={track} run={run} /> : null}
+      {playingPads && pattern ? (
+        <LivePads
+          track={track}
+          pattern={pattern}
+          auditioning={auditioning}
+          tempo={tempo}
+          position={position}
+          playing={playing}
+          run={run}
+          onError={onError}
+        />
+      ) : null}
       {browsing ? (
         <GrooveBrowser
           track={track.id}

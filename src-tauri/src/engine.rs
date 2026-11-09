@@ -1545,6 +1545,22 @@ impl Live {
         changed
     }
 
+    /// Plays a pad of a drum track now, through its sampler: it sounds at
+    /// the start of the next audio block. False when the track, its kit
+    /// or the pad is not there, or the queue is full.
+    fn pad_hit(&mut self, track: TrackId, pad: &str, velocity: f32, kits: &mut Kits) -> bool {
+        let Some(live) = self.tracks.iter_mut().find(|t| t.id == track) else {
+            return false;
+        };
+        let Source::Drums { sequencer, kit, .. } = &mut live.source else {
+            return false;
+        };
+        let Some(index) = kits.get(kit).pad_index(pad) else {
+            return false;
+        };
+        sequencer.hit(index, velocity)
+    }
+
     /// Sends every drum track's sampler its pad mixer: each pad's level,
     /// pan, tune, decay and mute, by the kit's pad order. The sampler
     /// smooths the level and the mute; pan, tune and decay apply to the
@@ -3410,6 +3426,18 @@ impl Engine {
             index: usize::MAX,
             pattern: Pattern::new(id, name),
         })
+    }
+
+    /// Plays a pad of a drum track now, for playing the kit live. Not an
+    /// edit: recording what is played is the UI's, one pattern edit a pass.
+    pub fn pad_hit(&mut self, track: u64, pad: &str, velocity: f32) -> Result<()> {
+        let Some(live) = &mut self.live else {
+            bail!("start the engine to play the pads");
+        };
+        if !live.pad_hit(TrackId(track), pad, velocity, &mut self.kits) {
+            bail!("pad {pad:?} is not on that track's kit");
+        }
+        Ok(())
     }
 
     /// Sets a pad's mix on a drum track, or with `None` puts it back to
