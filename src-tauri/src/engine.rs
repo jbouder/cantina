@@ -97,7 +97,8 @@ pub struct EngineStatus {
     /// The track the stage's analysis listens to, or none for the master.
     pub analysis_source: Option<u64>,
     /// The library folders: where they are, the pattern files in
-    /// `Patterns`, and every file in them that does not load.
+    /// `Patterns`, the user's rigs in `Rigs`, and every file in them that
+    /// does not load.
     pub library: library::LibraryStatus,
     pub metronome: MetronomeStatus,
     /// Record counts in four beats first. An app setting.
@@ -110,9 +111,65 @@ pub struct EngineStatus {
     /// The stock grooves that ship with the app, read-only; adding one
     /// imports a copy into the project.
     pub grooves: Vec<library::StockGroove>,
+    /// Every rig the picker offers: the stock ones, then the user's.
+    pub rigs: Vec<crate::rigs::RigInfo>,
+    /// The rig being heard on a track in place of its chain, if one is.
+    /// Session state, not part of the project.
+    pub rig_audition: Option<RigAuditionStatus>,
     /// Rows muted or soloed on drum tracks, by track id. Session state.
     pub drum_rows: HashMap<u64, RowMix>,
 }
+
+/// A rig heard on a track's live input in place of its chain. Mirrors
+/// `RigAudition` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RigAuditionStatus {
+    pub track: u64,
+    /// The rig's file.
+    pub path: String,
+    /// Hearing the rig (A) rather than the track's own chain (B).
+    pub hearing_rig: bool,
+    /// The rig's pedals that are not installed and are left out.
+    pub missing: Vec<String>,
+}
+
+/// What a saved rig says about itself. Mirrors `RigDraft` in the UI.
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RigDraft {
+    pub name: String,
+    #[serde(default)]
+    pub genre: String,
+    #[serde(default)]
+    pub description: String,
+    /// `guitar` or `bass`.
+    pub instrument: cantina_project::Instrument,
+    /// Overwrite a rig of the same name.
+    #[serde(default)]
+    pub replace: bool,
+}
+
+/// A rig being auditioned: its pedals, built as a chain's with ids no
+/// project pedal has.
+struct RigAudition {
+    track: TrackId,
+    path: String,
+    chain: Vec<Pedal>,
+    hearing_rig: bool,
+    missing: Vec<String>,
+}
+
+/// The first id an auditioned rig's pedals take: far above any a project
+/// gives out, so they never meet a project pedal's.
+const AUDITION_IDS: u64 = 1 << 62;
+
+/// How long a track's strip takes to fade out before its chain is
+/// swapped, and how long to leave for the swap to reach the audio
+/// thread before it fades back in: five of the strip's 4 ms time
+/// constants, and a block at the largest buffer with room to spare.
+const SWAP_FADE: Duration = Duration::from_millis(25);
+const SWAP_SETTLE: Duration = Duration::from_millis(30);
 
 /// Practice with a tab: hear it played, mute the recording it came from
 /// and slow everything that can follow down. Mirrors `Practice` in the UI.
@@ -2157,6 +2214,10 @@ pub struct Engine {
     practice: Practice,
     /// The stock grooves, found once at launch.
     grooves: Vec<library::StockGroove>,
+    /// The stock rigs, found once at launch.
+    stock_rigs: Vec<crate::rigs::RigInfo>,
+    /// A rig heard on a track in place of its chain.
+    rig_audition: Option<RigAudition>,
     /// Rows muted or soloed on drum tracks, for listening while editing.
     drum_rows: RowMixes,
     recording: Vec<Recording>,
@@ -2405,6 +2466,7 @@ impl Engine {
             pedals: projects.pedals_dir(),
             kits: projects.kits_dir(),
             patterns: projects.patterns_dir(),
+            rigs: projects.rigs_dir(),
         };
         // The folders are where files written outside the app go, so they
         // exist from the first launch.
@@ -2413,6 +2475,7 @@ impl Engine {
         }
         let library_status = folders.scan();
         let grooves = library::scan_grooves(&groove_roots(&app));
+        let stock_rigs = crate::rigs::scan_stock(&rig_roots(&app));
         let mut engine = Self {
             app,
             live: None,
@@ -2439,6 +2502,8 @@ impl Engine {
             analysis_source: None,
             practice: Practice::default(),
             grooves,
+            stock_rigs,
+            rig_audition: None,
             drum_rows: RowMixes::new(),
             recording: Vec::new(),
             last_error,
@@ -2582,6 +2647,18 @@ impl Engine {
             assistant: crate::assistant::AssistantStatus::of(&self.settings.assistant),
             practice: self.practice,
             grooves: self.grooves.clone(),
+            rigs: self
+                .stock_rigs
+                .iter()
+                .chain(&self.library_status.rigs)
+                .cloned()
+                .collect(),
+            rig_audition: self.rig_audition.as_ref().map(|a| RigAuditionStatus {
+                track: a.track.0,
+                path: a.path.clone(),
+                hearing_rig: a.hearing_rig,
+                missing: a.missing.clone(),
+            }),
             drum_rows: self
                 .drum_rows
                 .iter()
@@ -3254,9 +3331,11 @@ impl Engine {
         }
     }
 
-    /// Rebuilds the graph's structure from the project.
+    /// Rebuilds the graph's structure from the project, with an
+    /// auditioned rig's pedals in place of its track's chain.
     fn sync(&mut self) -> Result<()> {
         self.check_audition();
+        let heard = self.heard_project();
         let Some(live) = &mut self.live else {
             return Ok(());
         };
@@ -3276,7 +3355,7 @@ impl Engine {
         let mut removed = Vec::new();
         let result = live.sync(
             SyncContext {
-                project: &self.project,
+                project: heard.as_ref().unwrap_or(&self.project),
                 catalog: &mut self.catalog,
                 kits: &mut self.kits,
                 irs: &mut self.irs,
@@ -3318,6 +3397,363 @@ impl Engine {
                 self.audition = None;
             }
         }
+        if let Some(a) = &self.rig_audition {
+            if self.project.track(a.track).is_none_or(|t| t.is_drums()) {
+                self.rig_audition = None;
+                self.plugin_states.retain(|id, _| id.0 < AUDITION_IDS);
+            }
+        }
+    }
+
+    // ----- rigs -----
+
+    /// The project as it is heard: with an auditioned rig's pedals in
+    /// place of its track's chain, while the rig is the one heard.
+    fn heard_project(&self) -> Option<Project> {
+        let a = self.rig_audition.as_ref().filter(|a| a.hearing_rig)?;
+        let mut project = self.project.clone();
+        project.track_mut(a.track)?.chain = a.chain.clone();
+        Some(project)
+    }
+
+    /// Runs `f`, which changes what a track's chain is, with the track's
+    /// strip faded out around it, so the swap never clicks: the old
+    /// chain's sound, tails and all, fades to silence, the new graph goes
+    /// in at a block boundary, and the strip fades back to where the
+    /// project has it.
+    fn with_track_faded<T>(
+        &mut self,
+        track: TrackId,
+        f: impl FnOnce(&mut Self) -> Result<T>,
+    ) -> Result<T> {
+        let faded = self.live.as_mut().is_some_and(|live| {
+            live.tracks
+                .iter()
+                .find(|t| t.id == track)
+                .map(|t| t.strip)
+                .is_some_and(|strip| live.controller.set_param(strip, MUTE, 1.0))
+        });
+        if faded {
+            std::thread::sleep(SWAP_FADE);
+        }
+        let result = f(self);
+        if let Some(live) = &mut self.live {
+            if faded {
+                std::thread::sleep(SWAP_SETTLE);
+            }
+            live.apply_strips(&self.project);
+        }
+        result
+    }
+
+    /// The audio track `track`, refusing a drum track.
+    fn rig_track(&self, track: TrackId) -> Result<&Track> {
+        let t = self
+            .project
+            .track(track)
+            .with_context(|| format!("no track {track}"))?;
+        if t.is_drums() {
+            bail!("{} is a drum track; a rig goes on an audio track", t.name);
+        }
+        Ok(t)
+    }
+
+    /// The pedal format's definition of a spec, for its parameters' ids.
+    fn definition_of(&self, spec: &str) -> Option<PedalDef> {
+        if let Some(id) = spec.strip_prefix("pedal:") {
+            return self.designs.get(id).cloned();
+        }
+        cantina_dsp::stock_definition(spec).cloned()
+    }
+
+    /// A rig's pedals as a chain's, ids from `first`: an input gain pedal
+    /// first when the rig asks for one, the values its parameter names
+    /// resolve to, the plugins' states to restore, and a line for each
+    /// pedal left out because it is not installed. A name or value that
+    /// is wrong fails the whole rig.
+    #[allow(clippy::type_complexity)]
+    fn rig_chain(
+        &mut self,
+        rig: &cantina_project::Rig,
+        first: u64,
+    ) -> Result<(Vec<Pedal>, Vec<(PedalId, String, Vec<u8>)>, Vec<String>)> {
+        let mut pedals = Vec::new();
+        let mut states = Vec::new();
+        let mut missing = Vec::new();
+        let mut problems = Vec::new();
+        let mut next = first;
+        if rig.input_gain_db != 0.0 {
+            pedals.push(Pedal {
+                id: PedalId(next),
+                spec: "gain".into(),
+                values: vec![rig.input_gain_db],
+                bypassed: false,
+            });
+            next += 1;
+        }
+        for (i, rp) in rig.chain.iter().enumerate() {
+            let at = format!("pedal {} ({})", i + 1, rp.pedal);
+            let spec = rp.pedal.as_str();
+            let absent = if let Some(id) = spec.strip_prefix("cab:") {
+                self.irs
+                    .entry(id)
+                    .is_none()
+                    .then(|| format!("the impulse response {id:?} is not installed"))
+            } else if let Some(id) = spec.strip_prefix("pedal:") {
+                (!self.designs.contains_key(id) && self.library.entry(id).is_none())
+                    .then(|| format!("the designed pedal {id:?} is not in your library"))
+            } else {
+                None
+            };
+            if let Some(why) = absent {
+                missing.push(format!("{at}: {why}"));
+                continue;
+            }
+            let id = PedalId(next);
+            let base = match self.new_pedal(id, spec, None) {
+                Ok(p) => p,
+                Err(e) if rp.is_plugin() => {
+                    missing.push(format!("{at}: the plugin is not installed ({e:#})"));
+                    continue;
+                }
+                Err(e) => {
+                    problems.push(format!("{at}: {e:#}"));
+                    continue;
+                }
+            };
+            let params = self
+                .catalog
+                .get(&base.spec, &mut self.irs, &self.designs)?
+                .params
+                .clone();
+            let mut slots = cantina_cli::rig::slots_for(&params, self.definition_of(spec).as_ref());
+            let state = rp.state_bytes();
+            if let Some(state) = &state {
+                // The state sets the plugin's parameters; `params` only
+                // change the ones they name.
+                let mut p = build_processor(&mut self.irs, &self.designs, spec, CHANNELS)?;
+                if let Err(e) = p.set_state(state) {
+                    missing.push(format!("{at}: the plugin refused its saved state ({e})"));
+                    continue;
+                }
+                for (i, slot) in slots.iter_mut().enumerate() {
+                    slot.default = p.param(i);
+                }
+                states.push((id, base.spec.clone(), state.clone()));
+            }
+            match cantina_project::resolve_values(rp, &slots) {
+                Ok(values) => pedals.push(Pedal {
+                    id,
+                    spec: base.spec,
+                    values,
+                    bypassed: rp.bypassed,
+                }),
+                Err(p) => problems.extend(p.into_iter().map(|p| format!("{at}: {p}"))),
+            }
+            next += 1;
+        }
+        if !problems.is_empty() {
+            bail!("{}: {}", rig.name, problems.join("; "));
+        }
+        Ok((pedals, states, missing))
+    }
+
+    /// Hears the rig at `path` on an audio track's live input in place
+    /// of its chain, without changing the project; both `None` stops and
+    /// puts the chain back. Starting another rig, or the same one on
+    /// another track, replaces the audition.
+    pub fn rig_audition(
+        &mut self,
+        track: Option<u64>,
+        path: Option<String>,
+    ) -> Result<EngineStatus> {
+        let (Some(t), Some(path)) = (track, path) else {
+            if let Some(a) = self.rig_audition.take() {
+                self.plugin_states.retain(|id, _| id.0 < AUDITION_IDS);
+                self.with_track_faded(a.track, |e| e.sync())?;
+            }
+            return Ok(self.publish());
+        };
+        let track = TrackId(t);
+        self.rig_track(track)?;
+        let rig = crate::rigs::read(Path::new(&path))?;
+        let (chain, states, missing) = self.rig_chain(&rig, AUDITION_IDS)?;
+        if let Some(old) = self.rig_audition.take() {
+            self.plugin_states.retain(|id, _| id.0 < AUDITION_IDS);
+            if old.track != track {
+                self.with_track_faded(old.track, |e| e.sync())?;
+            }
+        }
+        // The chain's plugins come back as they were when B is heard.
+        self.capture_plugin_states();
+        for (id, spec, state) in states {
+            self.plugin_states.insert(id, (spec, state));
+        }
+        self.rig_audition = Some(RigAudition {
+            track,
+            path,
+            chain,
+            hearing_rig: true,
+            missing,
+        });
+        self.with_track_faded(track, |e| e.sync())?;
+        Ok(self.publish())
+    }
+
+    /// While auditioning, hears the rig (`true`, A) or the track's own
+    /// chain (B), swapping between them without a click.
+    pub fn rig_ab(&mut self, hear_rig: bool) -> Result<EngineStatus> {
+        let a = self
+            .rig_audition
+            .as_mut()
+            .context("no rig is being auditioned")?;
+        if a.hearing_rig != hear_rig {
+            a.hearing_rig = hear_rig;
+            let track = a.track;
+            self.capture_plugin_states();
+            self.with_track_faded(track, |e| e.sync())?;
+        }
+        Ok(self.publish())
+    }
+
+    /// Replaces an audio track's chain with the rig at `path`, as one
+    /// undoable edit, and ends any audition. Pedals that are not
+    /// installed are left out and named in a notice.
+    pub fn rig_apply(&mut self, track: u64, path: &str) -> Result<EngineStatus> {
+        let track = TrackId(track);
+        let existing: Vec<PedalId> = self.rig_track(track)?.chain.iter().map(|p| p.id).collect();
+        let rig = crate::rigs::read(Path::new(path))?;
+        let (pedals, states, missing) = self.rig_chain(&rig, self.project.fresh_id())?;
+        let mut commands: Vec<Command> = existing
+            .into_iter()
+            .map(|id| Command::RemovePedal { id })
+            .collect();
+        commands.extend(pedals.into_iter().map(|pedal| Command::InsertPedal {
+            track,
+            index: usize::MAX,
+            pedal,
+        }));
+        self.rig_audition = None;
+        self.plugin_states.retain(|id, _| id.0 < AUDITION_IDS);
+        for (id, spec, state) in states {
+            self.plugin_states.insert(id, (spec, state));
+        }
+        self.with_track_faded(track, |e| e.apply_quietly(Command::Batch { commands }))?;
+        if !missing.is_empty() {
+            self.notice = Some(format!(
+                "{} is missing pedals: {}",
+                rig.name,
+                missing.join("; ")
+            ));
+        }
+        Ok(self.publish())
+    }
+
+    /// Writes an audio track's chain to the Rigs library folder as a rig
+    /// called `draft.name`: every parameter by name and, for a plugin,
+    /// its state. Refuses to overwrite a rig of that name unless asked.
+    pub fn rig_save(&mut self, track: u64, draft: RigDraft) -> Result<EngineStatus> {
+        let name = draft.name.trim().to_string();
+        if name.is_empty() {
+            bail!("a rig needs a name");
+        }
+        let t = self.rig_track(TrackId(track))?.clone();
+        if t.chain.is_empty() {
+            bail!("{} has no pedals to save", t.name);
+        }
+        self.capture_plugin_states();
+        let mut chain = Vec::new();
+        let mut local = Vec::new();
+        for p in &t.chain {
+            let params = self
+                .catalog
+                .get(&p.spec, &mut self.irs, &self.designs)?
+                .params
+                .clone();
+            let slots = cantina_cli::rig::slots_for(&params, self.definition_of(&p.spec).as_ref());
+            let plugin = p.spec.starts_with("au:") || p.spec.starts_with("clap:");
+            let state = plugin
+                .then(|| self.plugin_states.get(&p.id))
+                .flatten()
+                .filter(|(spec, _)| *spec == p.spec)
+                .map(|(_, s)| s.clone());
+            chain.push(cantina_project::RigPedal::from_values(
+                &p.spec,
+                &p.values,
+                &slots,
+                state.as_deref(),
+                p.bypassed,
+            ));
+            if let Some(id) = p.spec.strip_prefix("pedal:") {
+                if self.library.entry(id).is_none() {
+                    local.push(id.to_string());
+                }
+            }
+        }
+        let rig = cantina_project::Rig {
+            version: cantina_project::RIG_VERSION,
+            name: name.clone(),
+            genre: draft.genre.trim().to_string(),
+            description: draft.description.trim().to_string(),
+            instrument: draft.instrument,
+            input_gain_db: 0.0,
+            chain,
+        };
+        rig.validate().map_err(|e| anyhow!("{e}"))?;
+        let path = crate::rigs::path_for(&self.folders.rigs, &name);
+        if path.exists() && !draft.replace {
+            bail!("there is already a rig called {name}");
+        }
+        crate::rigs::write(&path, &rig)?;
+        self.library_status = self.folders.scan();
+        self.notice = Some(if local.is_empty() {
+            format!("Saved the rig {name}")
+        } else {
+            format!(
+                "Saved the rig {name}. It uses {}, which only this project has: save {} to your \
+                 library so the rig loads elsewhere",
+                local.join(", "),
+                if local.len() == 1 { "it" } else { "them" }
+            )
+        });
+        Ok(self.publish())
+    }
+
+    /// Renames one of the user's rigs, and its file to match.
+    pub fn rig_rename(&mut self, path: &str, name: &str) -> Result<EngineStatus> {
+        let to = crate::rigs::rename(&self.folders.rigs, path, name)?;
+        if let Some(a) = &mut self.rig_audition {
+            if a.path == path {
+                a.path = to.display().to_string();
+            }
+        }
+        self.library_status = self.folders.scan();
+        Ok(self.publish())
+    }
+
+    /// Deletes one of the user's rigs.
+    pub fn rig_delete(&mut self, path: &str) -> Result<EngineStatus> {
+        crate::rigs::delete(&self.folders.rigs, path)?;
+        self.library_status = self.folders.scan();
+        Ok(self.publish())
+    }
+
+    /// Copies a rig file into the Rigs library folder after checking it,
+    /// numbered when its name is taken.
+    pub fn rig_import(&mut self, path: &str) -> Result<EngineStatus> {
+        let to = crate::rigs::import(&self.folders.rigs, Path::new(path))?;
+        self.library_status = self.folders.scan();
+        self.notice = Some(format!(
+            "Added the rig {} to your rigs",
+            to.file_name().unwrap_or_default().to_string_lossy()
+        ));
+        Ok(self.publish())
+    }
+
+    /// Writes a copy of the rig at `path` to `to`, for sharing.
+    pub fn rig_export(&self, path: &str, to: &str) -> Result<()> {
+        let rig = crate::rigs::read(Path::new(path))?;
+        crate::rigs::write(Path::new(to), &rig)
     }
 
     // ----- drums -----
@@ -5566,6 +6002,26 @@ fn kit_roots(app: &AppHandle, projects: &Projects) -> Vec<PathBuf> {
 /// Where the stock grooves live: `patterns/` in the app's resources, or
 /// the repository's `patterns/` in a development build, and anything
 /// `CANTINA_GROOVES` names, which wins.
+/// Where the stock rigs are: anything `CANTINA_RIGS` names, the bundle's
+/// `rigs/`, and in a debug build the repository's.
+fn rig_roots(app: &AppHandle) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Some(extra) = std::env::var_os("CANTINA_RIGS") {
+        roots.extend(std::env::split_paths(&extra));
+    }
+    if let Ok(resources) = app.path().resource_dir() {
+        roots.push(resources.join("rigs"));
+    }
+    if cfg!(debug_assertions) {
+        roots.push(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("rigs"),
+        );
+    }
+    roots
+}
+
 fn groove_roots(app: &AppHandle) -> Vec<PathBuf> {
     let mut roots = Vec::new();
     if let Some(extra) = std::env::var_os("CANTINA_GROOVES") {

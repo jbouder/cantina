@@ -857,6 +857,9 @@ export function App() {
                   audition={status.audition}
                   practice={status.practice}
                   grooves={status.grooves}
+                  rigs={status.rigs}
+                  rigAudition={status.rigAudition}
+                  rigsOpen={params?.has("rigs") ?? false}
                   drumRows={status.drumRows}
                   tempo={status.project.tempo}
                   position={frame.position}

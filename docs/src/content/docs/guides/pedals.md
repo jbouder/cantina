@@ -9,6 +9,11 @@ the timeline.
 
 ## The chain
 
+For a whole chain at once, pick a [rig](/guides/rigs/): **Rigs** above the
+pedalboard lists ready-made chains by genre, auditions one on your live
+input against your own chain, and applies it in one undoable step. **Save
+chain as rig…** there keeps a chain you built for other projects.
+
 - **Add** a pedal with the dashed **Add a pedal** slot at the end. Type in
   the picker to filter it.
 - **Reorder** by dragging a pedal by its header, the row with its name,

@@ -552,6 +552,71 @@ pub fn groove_audition(
     engine.lock().groove_audition(track, path).map_err(fail)
 }
 
+/// Hears a rig on an audio track's live input in place of its chain,
+/// without changing the project; both `null` stops.
+#[tauri::command]
+pub fn rig_audition(
+    engine: State<'_, EngineState>,
+    track: Option<u64>,
+    path: Option<String>,
+) -> Result<EngineStatus, String> {
+    engine.lock().rig_audition(track, path).map_err(fail)
+}
+
+/// While auditioning: hear the rig (`true`) or the track's own chain.
+#[tauri::command]
+pub fn rig_ab(engine: State<'_, EngineState>, hear_rig: bool) -> Result<EngineStatus, String> {
+    engine.lock().rig_ab(hear_rig).map_err(fail)
+}
+
+/// Replaces a track's chain with a rig's, as one undoable edit.
+#[tauri::command]
+pub fn rig_apply(
+    engine: State<'_, EngineState>,
+    track: u64,
+    path: String,
+) -> Result<EngineStatus, String> {
+    engine.lock().rig_apply(track, &path).map_err(fail)
+}
+
+/// Writes a track's chain to the Rigs library folder as a rig.
+#[tauri::command]
+pub fn rig_save(
+    engine: State<'_, EngineState>,
+    track: u64,
+    rig: crate::engine::RigDraft,
+) -> Result<EngineStatus, String> {
+    engine.lock().rig_save(track, rig).map_err(fail)
+}
+
+/// Renames one of the user's rigs.
+#[tauri::command]
+pub fn rig_rename(
+    engine: State<'_, EngineState>,
+    path: String,
+    name: String,
+) -> Result<EngineStatus, String> {
+    engine.lock().rig_rename(&path, &name).map_err(fail)
+}
+
+/// Deletes one of the user's rigs.
+#[tauri::command]
+pub fn rig_delete(engine: State<'_, EngineState>, path: String) -> Result<EngineStatus, String> {
+    engine.lock().rig_delete(&path).map_err(fail)
+}
+
+/// Copies a rig file into the Rigs library folder after checking it.
+#[tauri::command]
+pub fn rig_import(engine: State<'_, EngineState>, path: String) -> Result<EngineStatus, String> {
+    engine.lock().rig_import(&path).map_err(fail)
+}
+
+/// Writes a copy of a rig file to `to`, for sharing.
+#[tauri::command]
+pub fn rig_export(engine: State<'_, EngineState>, path: String, to: String) -> Result<(), String> {
+    engine.lock().rig_export(&path, &to).map_err(fail)
+}
+
 /// Replaces a pattern whole, as one undoable edit.
 #[tauri::command]
 pub fn pattern_replace(

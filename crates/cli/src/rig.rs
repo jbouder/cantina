@@ -14,8 +14,8 @@
 use std::path::{Path, PathBuf};
 
 use cantina_dsp::{
-    compile, db_to_linear, stock, stock_definition, Buffer, Cabinet, PedalDef, Processor,
-    Transport, Unit, MAX_CHANNELS,
+    compile, db_to_linear, stock, stock_definition, Buffer, Cabinet, ParamInfo, PedalDef,
+    Processor, Transport, Unit, MAX_CHANNELS,
 };
 use cantina_project::{resolve_values, ParamSlot, Rig, RigPedal};
 
@@ -71,8 +71,12 @@ pub struct BuiltRig {
 /// The parameters a processor has, as rig names resolve against: the
 /// pedal format's ids from `def` when it is defined in it.
 pub fn slots(processor: &dyn Processor, def: Option<&PedalDef>) -> Vec<ParamSlot> {
-    processor
-        .params()
+    slots_for(processor.params(), def)
+}
+
+/// [`slots`] from a parameter list.
+pub fn slots_for(params: &[ParamInfo], def: Option<&PedalDef>) -> Vec<ParamSlot> {
+    params
         .iter()
         .enumerate()
         .map(|(i, p)| ParamSlot {

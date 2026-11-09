@@ -63,6 +63,11 @@ impl Projects {
         self.root.join("Patterns")
     }
 
+    /// Where the user's rigs go: `Rigs` next to the projects.
+    pub fn rigs_dir(&self) -> PathBuf {
+        self.root.join("Rigs")
+    }
+
     pub fn list(&self) -> Result<Vec<String>> {
         cantina_project::list(&self.root)
             .with_context(|| format!("listing projects in {}", self.root.display()))

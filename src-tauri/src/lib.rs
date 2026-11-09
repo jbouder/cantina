@@ -16,6 +16,7 @@ mod menu;
 mod mixdown;
 mod pedals;
 mod project;
+mod rigs;
 mod settings;
 mod tabs;
 
@@ -118,6 +119,14 @@ pub fn run() {
             commands::pattern_set_swing,
             commands::pattern_audition,
             commands::groove_audition,
+            commands::rig_audition,
+            commands::rig_ab,
+            commands::rig_apply,
+            commands::rig_save,
+            commands::rig_rename,
+            commands::rig_delete,
+            commands::rig_import,
+            commands::rig_export,
             commands::pattern_replace,
             commands::drum_rows_set,
             commands::pattern_clip_set_fill,
