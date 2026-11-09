@@ -8,9 +8,11 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# Two jobs in parallel: the UI checks and scene harness need no Rust, and
+# the Rust job needs only the built UI, which the shell embeds.
 jobs:
-  check:
-    name: UI and Rust
+  ui:
+    name: UI
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +29,21 @@ jobs:
       - run: node scripts/skill-references.mjs --check
       # Draws every visualizer scene in headless Chrome from recorded frames.
       - run: npm run test:scenes
+
+  rust:
+    name: Rust
+    runs-on: macos-latest
+    env:
+      # Line tables are enough for a backtrace, and much less to compile
+      # and link than full debug info.
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       # The shell embeds ui/dist at compile time, so the UI builds first.
       - run: npm run build
       - uses: dtolnay/rust-toolchain@stable
