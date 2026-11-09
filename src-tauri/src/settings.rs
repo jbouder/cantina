@@ -176,6 +176,8 @@ pub struct Settings {
     pub assistant: AssistantSettings,
     /// What the player plays through; rigs trim their input from it.
     pub instrument: InstrumentProfile,
+    /// The last jam, opened again next time.
+    pub jam: Option<cantina_project::Jam>,
 }
 
 impl Default for Settings {
@@ -190,6 +192,7 @@ impl Default for Settings {
             count_in: true,
             assistant: AssistantSettings::default(),
             instrument: InstrumentProfile::default(),
+            jam: None,
         }
     }
 }

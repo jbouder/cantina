@@ -683,6 +683,53 @@ mod tests {
         assert_eq!(hits(&out), vec![(96_000, 0.5), (96_000 + 24_000, 1.0)]);
     }
 
+    /// Jam mode changes section and tempo at the next bar by sending a
+    /// score and a tempo map that differ only from that bar on, ahead of
+    /// it. Whenever they land before the bar, the render is the one that
+    /// knew about the change from the start: to the sample.
+    #[test]
+    fn a_change_sent_ahead_of_its_bar_lands_on_it_exactly() {
+        let bar = 4 * PPQ as u64;
+        let kicks = Arc::new(PatternData::plain(4, 16, 0.0, vec![(0, vec![1.0; 16])]));
+        let then = |at: u64| {
+            let mut map = TempoMap::new(120.0, TimeSignature::COMMON);
+            map.set_tempo(at, 150.0);
+            let score = vec![
+                Placement {
+                    length: at,
+                    ..Placement::forever(rock(0.0))
+                },
+                Placement {
+                    start: at,
+                    ..Placement::forever(kicks.clone())
+                },
+            ];
+            (map, score)
+        };
+        let frames = 5 * 96_000;
+        // Known from the start.
+        let (mut runtime, mut controller, mut handle) = runtime_with_sequencer();
+        let (map, score) = then(2 * bar);
+        controller.transport_mut().set_tempo_map(map);
+        handle.set_score(score);
+        controller.transport_mut().play();
+        let want = render(&mut runtime, frames);
+        // Sent mid-bar 2, a bar and a half before the change.
+        let (mut runtime, mut controller, mut handle) = runtime_with_sequencer();
+        handle.set_score(vec![Placement::forever(rock(0.0))]);
+        controller.transport_mut().play();
+        let mut got = render(&mut runtime, 96_000 / 2 + 7);
+        let (map, score) = then(2 * bar);
+        controller.transport_mut().set_tempo_map(map);
+        handle.set_score(score);
+        got.extend(render(&mut runtime, frames - got.len()));
+        assert_eq!(hits(&got), hits(&want));
+        // The first hit of the new section is on bar 3's first frame.
+        let at = 2 * 96_000;
+        assert!(hits(&got).iter().any(|(i, _)| *i == at));
+        assert_eq!(hits(&got).iter().filter(|(i, _)| *i < at).count(), 8);
+    }
+
     #[test]
     fn follows_the_tempo_map_and_a_change_in_it() {
         let (mut runtime, mut controller, mut handle) = runtime_with_sequencer();

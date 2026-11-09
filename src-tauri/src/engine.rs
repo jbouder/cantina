@@ -60,6 +60,11 @@ use crate::project::Projects;
 use crate::settings::{AssistantSettings, AudioSettings, MetronomeSettings, Settings};
 use crate::tabs;
 
+#[path = "engine_jam.rs"]
+mod jam_engine;
+use jam_engine::JamSession;
+pub use jam_engine::JamStatus;
+
 /// Event name for status pushes to the UI.
 pub const STATUS_EVENT: &str = "engine://status";
 
@@ -121,6 +126,9 @@ pub struct EngineStatus {
     pub instrument_profile: InstrumentProfileStatus,
     /// Rows muted or soloed on drum tracks, by track id. Session state.
     pub drum_rows: HashMap<u64, RowMix>,
+    /// The jam, while jam mode is open. Session state, not part of the
+    /// project.
+    pub jam: Option<JamStatus>,
 }
 
 /// A rig heard on a track's live input in place of its chain. Mirrors
@@ -1176,6 +1184,8 @@ struct SyncContext<'a> {
     audio_dir: &'a Path,
     states: &'a PluginStates,
     practice: Practice,
+    /// Drum scores that stand in for a track's pattern clips: a jam's.
+    scores: &'a HashMap<TrackId, Score>,
 }
 
 /// The meters the pump reads, in frame order: input, master, then one
@@ -1304,6 +1314,7 @@ impl Live {
             audio_dir,
             states,
             practice,
+            scores,
         } = cx;
         let sample_rate = self.stream.info().sample_rate;
         let mut problems = Vec::new();
@@ -1428,14 +1439,16 @@ impl Live {
                     }
                 }
                 Source::Drums { sequencer, kit, .. } => {
-                    let loaded = kits.get(kit);
-                    let score = score_for(
-                        track,
-                        project,
-                        &loaded,
-                        audition.as_ref(),
-                        rows.get(&track.id),
-                    );
+                    let score = match scores.get(&track.id) {
+                        Some(score) => score.clone(),
+                        None => score_for(
+                            track,
+                            project,
+                            &kits.get(kit),
+                            audition.as_ref(),
+                            rows.get(&track.id),
+                        ),
+                    };
                     if sequencer.score() != &score && !sequencer.set_score(score) {
                         problems.push(format!(
                             "{}: the audio thread is not taking patterns",
@@ -1552,11 +1565,10 @@ impl Live {
             let Some(track) = project.track(live.id) else {
                 continue;
             };
-            let loaded = kits.get(kit);
             let score = score_for(
                 track,
                 project,
-                &loaded,
+                &kits.get(kit),
                 audition.as_ref(),
                 rows.get(&track.id),
             );
@@ -2234,6 +2246,8 @@ pub struct Engine {
     rig_audition: Option<RigAudition>,
     /// Rows muted or soloed on drum tracks, for listening while editing.
     drum_rows: RowMixes,
+    /// The jam heard in place of the project while jam mode is open.
+    jam: Option<JamSession>,
     recording: Vec<Recording>,
     last_error: Option<String>,
     notice: Option<String>,
@@ -2519,6 +2533,7 @@ impl Engine {
             stock_rigs,
             rig_audition: None,
             drum_rows: RowMixes::new(),
+            jam: None,
             recording: Vec::new(),
             last_error,
             notice: None,
@@ -2683,6 +2698,7 @@ impl Engine {
                 .filter(|(_, m)| !m.muted.is_empty() || !m.soloed.is_empty())
                 .map(|(t, m)| (t.0, m.clone()))
                 .collect(),
+            jam: self.jam_status(),
         }
     }
 
@@ -3298,6 +3314,10 @@ impl Engine {
     /// Parameter and arm changes go over the queue; everything else
     /// resyncs the structure.
     fn react(&mut self, command: &Command) -> Result<()> {
+        // A jam is heard in place of the project; edits wait for it to close.
+        if self.jam.is_some() {
+            return Ok(());
+        }
         let Some(live) = &mut self.live else {
             return Ok(());
         };
@@ -3374,20 +3394,27 @@ impl Engine {
     fn sync(&mut self) -> Result<()> {
         self.check_audition();
         let heard = self.heard_project();
+        let scores = self.jam_scores();
+        let jam_map = self.jam_tempo_map();
         let Some(live) = &mut self.live else {
             return Ok(());
         };
-        // The loop, when it is on, wraps the transport.
+        // The loop, when it is on, wraps the transport; a jam never loops.
         let looping = self
             .project
             .loop_region
-            .filter(|r| r.on)
+            .filter(|r| r.on && jam_map.is_none())
             .map(|r| LoopRange {
                 start: r.start,
                 end: r.end,
             });
         if live.transport().loop_range() != looping {
             live.transport().set_loop(looping);
+        }
+        if let Some(map) = jam_map {
+            if live.transport().tempo_map() != &map {
+                live.set_tempo_map(map);
+            }
         }
         let audio_dir = cantina_project::audio_dir(&self.project_dir);
         let mut removed = Vec::new();
@@ -3403,6 +3430,7 @@ impl Engine {
                 audio_dir: &audio_dir,
                 states: &self.plugin_states,
                 practice: self.practice,
+                scores: &scores,
             },
             &mut removed,
         );
@@ -3412,6 +3440,9 @@ impl Engine {
 
     /// Sends every drum track its score after a pattern edit.
     fn refresh_scores(&mut self) -> Result<()> {
+        if self.jam.is_some() {
+            return Ok(());
+        }
         let Some(live) = &mut self.live else {
             return Ok(());
         };
@@ -3448,6 +3479,9 @@ impl Engine {
     /// The project as it is heard: with an auditioned rig's pedals in
     /// place of its track's chain, while the rig is the one heard.
     fn heard_project(&self) -> Option<Project> {
+        if self.jam.is_some() {
+            return self.jam_project();
+        }
         let a = self.rig_audition.as_ref().filter(|a| a.hearing_rig)?;
         let mut project = self.project.clone();
         project.track_mut(a.track)?.chain = a.chain.clone();
@@ -3475,11 +3509,12 @@ impl Engine {
             std::thread::sleep(SWAP_FADE);
         }
         let result = f(self);
+        let heard = self.heard_project();
         if let Some(live) = &mut self.live {
             if faded {
                 std::thread::sleep(SWAP_SETTLE);
             }
-            live.apply_strips(&self.project);
+            live.apply_strips(heard.as_ref().unwrap_or(&self.project));
         }
         result
     }
@@ -5074,6 +5109,9 @@ impl Engine {
             .filter(|t| t.armed && !t.is_drums())
             .map(|t| (t.id, t.name.clone()))
             .collect();
+        if self.jam.is_some() {
+            bail!("leave the jam before recording");
+        }
         if armed.is_empty() {
             bail!("arm a track before recording");
         }

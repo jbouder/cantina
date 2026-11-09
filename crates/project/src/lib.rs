@@ -9,6 +9,7 @@ mod command;
 mod file;
 mod fill;
 mod history;
+mod jam;
 mod journal;
 mod model;
 mod pattern_file;
@@ -25,6 +26,7 @@ pub use file::{
 };
 pub use fill::generate_fill;
 pub use history::{History, UNDO_LIMIT};
+pub use jam::{pitch_class, section_name, Jam, JamDrums, Key, Mode, JAM_TEMPO, JAM_VERSION};
 pub use journal::{replay, Entry as JournalEntry, Journal, Read as JournalRead, JOURNAL_FILE};
 pub use model::{
     Clip, ClipId, Fill, Humanize, Id, LoopRegion, PadMix, Pattern, PatternClip, PatternClipId,

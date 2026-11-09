@@ -569,6 +569,56 @@ pub fn rig_ab(engine: State<'_, EngineState>, hear_rig: bool) -> Result<EngineSt
     engine.lock().rig_ab(hear_rig).map_err(fail)
 }
 
+// ----- jams -----
+
+/// Opens jam mode: the last jam is heard in place of the project.
+#[tauri::command]
+pub fn jam_open(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().jam_open().map_err(fail)
+}
+
+/// Leaves jam mode: the project is heard again.
+#[tauri::command]
+pub fn jam_close(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().jam_close().map_err(fail)
+}
+
+/// Changes the jam's groove, kit, tempo, key or rig.
+#[tauri::command]
+pub fn jam_set(
+    engine: State<'_, EngineState>,
+    setup: cantina_project::Jam,
+) -> Result<EngineStatus, String> {
+    engine.lock().jam_set(setup).map_err(fail)
+}
+
+/// Plays the jam from the top.
+#[tauri::command]
+pub fn jam_play(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().jam_play().map_err(fail)
+}
+
+/// Stops the jam.
+#[tauri::command]
+pub fn jam_stop(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().jam_stop().map_err(fail)
+}
+
+/// Plays a section from the next bar.
+#[tauri::command]
+pub fn jam_section(
+    engine: State<'_, EngineState>,
+    section: cantina_project::Section,
+) -> Result<EngineStatus, String> {
+    engine.lock().jam_section(section).map_err(fail)
+}
+
+/// Sets the jam's tempo from the next bar.
+#[tauri::command]
+pub fn jam_tempo(engine: State<'_, EngineState>, bpm: f64) -> Result<EngineStatus, String> {
+    engine.lock().jam_tempo(bpm).map_err(fail)
+}
+
 /// Replaces a track's chain with a rig's, as one undoable edit.
 #[tauri::command]
 pub fn rig_apply(
