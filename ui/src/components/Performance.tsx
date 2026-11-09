@@ -1,7 +1,13 @@
 import { getScene } from "@cantina/scenes";
 import type { Window as ShellWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef, useState } from "react";
-import { chainSelect, type EngineStatus, inTauri, pedalSetBypass } from "../lib/engine";
+import {
+  chainSelect,
+  type EngineStatus,
+  inTauri,
+  type MeterFrame,
+  pedalSetBypass,
+} from "../lib/engine";
 import {
   closeStageWindow,
   LISTED_SCENES,
@@ -11,6 +17,7 @@ import {
   useScene,
 } from "../lib/stage";
 import { Button } from "./Button";
+import { JamStageBar } from "./JamStageBar";
 import { Led } from "./Led";
 import { SceneCanvas } from "./SceneCanvas";
 
@@ -18,6 +25,10 @@ type Props = {
   status: EngineStatus;
   /** Opens with the pedalboard showing, from `?board` in a browser. */
   initialBoard?: boolean;
+  /** For a jam on stage: where the transport is, for the jam's bar. */
+  frame?: MeterFrame;
+  /** For a jam on stage: plays or stops the jam. */
+  onPlay?: () => void;
   onExit: () => void;
   onStatus: (s: EngineStatus) => void;
   onError: (message: string) => void;
@@ -36,9 +47,19 @@ const STOMPS = 9;
  * switch chains, 1 to 9 stomp the live chain's pedals, D sends the stage
  * to the other display, Escape leaves.
  */
-export function Performance({ status, initialBoard = false, onExit, onStatus, onError }: Props) {
+export function Performance({
+  status,
+  initialBoard = false,
+  frame,
+  onPlay,
+  onExit,
+  onStatus,
+  onError,
+}: Props) {
   const scene = useScene();
-  const [board, setBoard] = useState(initialBoard);
+  // A jam on stage shows its controls from the start.
+  const jamming = status.jam !== null;
+  const [board, setBoard] = useState(initialBoard || jamming);
   const [problem, setProblem] = useState<string | null>(null);
   const [external, setExternal] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
@@ -90,8 +111,8 @@ export function Performance({ status, initialBoard = false, onExit, onStatus, on
   }, []);
 
   // The latest state for the key handler, which is installed once.
-  const keys = useRef({ chains, live, onExit, report, toggleExternal, flash });
-  keys.current = { chains, live, onExit, report, toggleExternal, flash };
+  const keys = useRef({ chains, live, onExit, report, toggleExternal, flash, jamming });
+  keys.current = { chains, live, onExit, report, toggleExternal, flash, jamming };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -105,6 +126,9 @@ export function Performance({ status, initialBoard = false, onExit, onStatus, on
         setBoard((b) => !b);
       } else if (e.key === "d" || e.key === "D") {
         k.toggleExternal();
+      } else if (k.jamming) {
+        // The Jam view underneath takes sections, tempo and Keep that.
+        return;
       } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
         if (k.chains.length === 0) return;
         const at = k.live ? k.chains.indexOf(k.live) : -1;
@@ -166,7 +190,7 @@ export function Performance({ status, initialBoard = false, onExit, onStatus, on
         </div>
         <div className="pointer-events-auto flex gap-1 rounded-control bg-scrim p-1">
           <Button aria-pressed={board} onClick={() => setBoard((b) => !b)}>
-            Pedalboard
+            {jamming ? "Jam" : "Pedalboard"}
           </Button>
           {inTauri ? (
             <Button aria-pressed={external} onClick={toggleExternal}>
@@ -186,7 +210,16 @@ export function Performance({ status, initialBoard = false, onExit, onStatus, on
         </div>
       ) : null}
 
-      {board ? (
+      {board && status.jam && frame && onPlay ? (
+        <JamStageBar
+          jam={status.jam}
+          frame={frame}
+          sampleRate={status.sampleRate}
+          onPlay={onPlay}
+          onStatus={onStatus}
+          onError={onError}
+        />
+      ) : board ? (
         <section
           aria-label="Pedalboard"
           className="surface-panel absolute inset-x-4 bottom-4 grid gap-3 p-3 opacity-90"

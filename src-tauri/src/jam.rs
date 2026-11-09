@@ -888,4 +888,48 @@ mod tests {
         );
         assert_eq!((p.start, p.drums.len()), (2 * 96_000, 0));
     }
+
+    /// The stage takes its beat from the tempo map the jam hands the
+    /// transport. A tempo change goes in ahead of its bar and changes
+    /// nothing before it, so the beat the scenes pulse on keeps time
+    /// through the change: on every beat, to the sample, at each tempo.
+    #[test]
+    fn the_stage_beat_stays_locked_across_a_tempo_change() {
+        use cantina_engine::beat_at;
+        let mut s = Schedule::new(BAR, Section::Verse, 120.0, one_bar, Section::Verse);
+        let before = s.tempo_map(common());
+        s.set_tempo(bars(2), 150.0);
+        let map = s.tempo_map(common());
+        // Until the change the beat is the one the old map gave.
+        for sample in (0..192_000).step_by(997) {
+            assert_eq!(beat_at(&map, sample, SR), beat_at(&before, sample, SR));
+        }
+        // Each beat starts where the beat count moves on: 24 000 samples
+        // apart at 120, 19 200 at 150, and the change on bar 3's first.
+        let mut starts = Vec::new();
+        let mut last = beat_at(&map, 0, SR);
+        for sample in 1..400_000u64 {
+            let b = beat_at(&map, sample, SR);
+            if (b.bar, b.beat) != (last.bar, last.beat) {
+                starts.push(sample);
+                assert!(
+                    b.phase < 0.001,
+                    "beat {}.{} starts at phase {}",
+                    b.bar,
+                    b.beat,
+                    b.phase
+                );
+            }
+            last = b;
+        }
+        let gaps: Vec<u64> = starts.windows(2).map(|w| w[1] - w[0]).collect();
+        assert_eq!(starts[7], 192_000, "bar 3 starts after two bars at 120");
+        assert!(gaps[..7].iter().all(|g| *g == 24_000), "{gaps:?}");
+        // Floating point rounds a beat start to one sample either way.
+        assert!(
+            gaps[7..].iter().all(|g| g.abs_diff(19_200) <= 1),
+            "{gaps:?}"
+        );
+        assert_eq!(beat_at(&map, 192_000, SR).bpm, 150.0);
+    }
 }

@@ -125,6 +125,7 @@ In the Jam view, outside a text field or menu.
 | ↑ ↓ | Nudges the tempo a beat per minute from the next bar; ⇧ by five |
 | T | Taps the tempo: two taps or more set it |
 | Return | Keep that: keeps the last minutes of your playing as a take |
+| P | Plays the jam on stage: the scene full screen with the jam's controls over it |
 
 ## Groove browser
 
