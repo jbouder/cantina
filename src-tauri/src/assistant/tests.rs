@@ -36,7 +36,7 @@ fn a_gate_before_the_drive_is_read_built_and_reported() {
         say("Drive added at the front of Guitar, at 12 dB."),
     ]);
     let thread = thread("put a drive first on my guitar");
-    converse_with(&model, &mut HostTools(host.clone()), &thread, true);
+    converse_with(&model, &mut HostTools::new(host.clone()), &thread, true);
 
     let host = host.lock().unwrap();
     assert_eq!(host.project.tracks[0].chain[0].spec, "overdrive");
@@ -69,7 +69,7 @@ fn a_refused_call_is_fixed_by_the_model_on_the_next_step() {
         say("Tempo is 72."),
     ]);
     let thread = thread("slow it down to 72");
-    converse_with(&model, &mut HostTools(host.clone()), &thread, true);
+    converse_with(&model, &mut HostTools::new(host.clone()), &thread, true);
     assert_eq!(host.lock().unwrap().project.tempo.bpm, 72.0);
     let seen = model.seen.lock().unwrap();
     assert!(seen[1].last().unwrap()["content"]
@@ -87,10 +87,145 @@ fn removing_a_track_waits_for_the_player() {
             say("ok"),
         ]);
         let thread = thread("remove the drums");
-        converse_with(&model, &mut HostTools(host.clone()), &thread, yes);
+        converse_with(&model, &mut HostTools::new(host.clone()), &thread, yes);
         assert_eq!(
             host.lock().unwrap().project.tracks.len(),
             if yes { 1 } else { 2 }
         );
     }
+}
+
+fn with_library(tag: &str) -> Arc<Mutex<FakeHost>> {
+    let mut host = FakeHost::new();
+    host.library = Some(super::author::testing::TempLibrary::new(tag));
+    Arc::new(Mutex::new(host))
+}
+
+#[test]
+fn a_pedal_that_fails_is_fixed_saved_and_added_to_the_track() {
+    use super::author::testing::example;
+    let host = with_library("e2e-pedal");
+    let good = example("warm-drive.pedal.json");
+    let mut broken = good.clone();
+    broken["nodes"][1]["kind"] = json!("flux-capacitor");
+    let model = Scripted::new(vec![
+        call(
+            "1",
+            "write_pedal",
+            json!({"id": "warm-drive", "definition": broken, "add_to_track": "Guitar"}),
+        ),
+        call(
+            "2",
+            "write_pedal",
+            json!({"id": "warm-drive", "definition": good, "add_to_track": "Guitar"}),
+        ),
+        say("Saved Warm Drive and put it on Guitar."),
+    ]);
+    let thread = thread("make me a warm drive");
+    converse_with(&model, &mut HostTools::new(host.clone()), &thread, true);
+
+    let host = host.lock().unwrap();
+    let folders = host.library.as_ref().unwrap().folders.clone();
+    assert!(folders.pedals.join("warm-drive.pedal.json").exists());
+    assert_eq!(host.rescans, 1, "rescanned once, after the save");
+    // The failed attempt went back to the model with the checker's words.
+    let seen = model.seen.lock().unwrap();
+    let failure = seen[1].last().unwrap()["content"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert!(failure.contains("not saved"), "{failure}");
+    let items = thread.lock().unwrap().items.clone();
+    assert!(matches!(&items[1], Item::Call { ok: false, .. }));
+    assert!(
+        matches!(&items[2], Item::Call { ok: true, summary, undo: Some(_), .. } if summary.starts_with("Wrote the pedal") && summary.ends_with("and added it to Guitar")),
+        "{:?}",
+        items[2]
+    );
+    // The system prompt carries the skill's references.
+    assert!(
+        seen[0][0]["content"]
+            .as_str()
+            .unwrap()
+            .contains("node-catalog")
+            || seen[0][0]["content"].as_str().unwrap().contains("biquad")
+    );
+}
+
+#[test]
+fn authoring_gets_a_bounded_number_of_tries_per_message() {
+    let host = with_library("e2e-tries");
+    let model = Scripted::new(
+        (0..5)
+            .map(|i| {
+                call(
+                    &i.to_string(),
+                    "write_pedal",
+                    json!({"id": "nope", "definition": {"name": "x"}}),
+                )
+            })
+            .chain([say("I could not make it work.")])
+            .collect(),
+    );
+    let thread = thread("make a pedal");
+    converse_with(&model, &mut HostTools::new(host.clone()), &thread, true);
+    let items = thread.lock().unwrap().items.clone();
+    let stopped = items
+        .iter()
+        .filter(|i| matches!(i, Item::Call { summary, .. } if summary.starts_with("Stopped after")))
+        .count();
+    assert_eq!(
+        stopped, 2,
+        "attempts four and five are refused without checking"
+    );
+    let folders = host
+        .lock()
+        .unwrap()
+        .library
+        .as_ref()
+        .unwrap()
+        .folders
+        .clone();
+    assert!(std::fs::read_dir(folders.pedals).unwrap().next().is_none());
+}
+
+#[test]
+fn a_kit_is_built_with_a_track_and_a_pattern_written_for_it() {
+    use super::author::testing::example;
+    let host = with_library("e2e-kit");
+    let model = Scripted::new(vec![
+        call(
+            "1",
+            "write_kit_recipe",
+            json!({"id": "boom-bap", "recipe": example("boom-bap.recipe.json"), "add_drum_track": true}),
+        ),
+        call(
+            "2",
+            "write_pattern",
+            json!({"name": "Half time", "definition": example("half-time.pattern.json"), "add_to_track": "Drums 2"}),
+        ),
+        say("Done."),
+    ]);
+    let thread = thread("a boom bap kit and a half-time beat");
+    converse_with(&model, &mut HostTools::new(host.clone()), &thread, true);
+    let host = host.lock().unwrap();
+    let items = thread.lock().unwrap().items.clone();
+    assert!(
+        matches!(&items[1], Item::Call { ok: true, .. }),
+        "{:?}",
+        items[1]
+    );
+    assert!(
+        matches!(&items[2], Item::Call { ok: true, .. }),
+        "{:?}",
+        items[2]
+    );
+    assert_eq!(
+        host.project.tracks.last().unwrap().kit.as_deref(),
+        Some("boom-bap")
+    );
+    assert_eq!(host.project.patterns.len(), 1);
+    let folders = host.library.as_ref().unwrap().folders.clone();
+    assert!(folders.kits.join("boom-bap/kit.json").exists());
+    assert!(folders.patterns.join("Half time.pattern.json").exists());
 }

@@ -10,6 +10,7 @@
 //!
 //! See `docs/src/content/docs/architecture/assistant.md`.
 
+pub mod author;
 pub mod chat;
 pub mod keychain;
 pub mod provider;
@@ -89,8 +90,23 @@ impl Lock for tauri::AppHandle {
 }
 
 /// The tools of [`tools::TOOLS`] on a host, locked for each call only,
-/// so the engine is free while the model writes.
-pub struct HostTools<L: Lock>(pub L);
+/// so the engine is free while the model writes. One is made for each
+/// message, so the authoring retries are counted per message.
+pub struct HostTools<L: Lock> {
+    lock: L,
+    /// Authoring calls that failed during this message.
+    failed_writes: u32,
+}
+
+impl<L: Lock> HostTools<L> {
+    /// The tools on `lock`, for one message.
+    pub fn new(lock: L) -> Self {
+        Self {
+            lock,
+            failed_writes: 0,
+        }
+    }
+}
 
 impl<L: Lock> chat::Toolbox for HostTools<L> {
     fn specs(&self) -> Vec<serde_json::Value> {
@@ -98,16 +114,31 @@ impl<L: Lock> chat::Toolbox for HostTools<L> {
     }
 
     fn confirm(&self, name: &str, arguments: &serde_json::Value) -> Option<String> {
-        self.0.with(|host| tools::confirm(host, name, arguments))
+        self.lock.with(|host| tools::confirm(host, name, arguments))
     }
 
     fn run(&mut self, name: &str, arguments: &serde_json::Value) -> chat::Outcome {
-        self.0.with(|host| tools::run(host, name, arguments))
+        let writes = name.starts_with("write_");
+        if writes && self.failed_writes >= author::MAX_TRIES {
+            return chat::Outcome::error(
+                format!("Stopped after {} tries", author::MAX_TRIES),
+                format!(
+                    "{} attempts to write a file failed in this message. Do not try again; tell \
+                     the player what kept failing, and ask how they would like to go on.",
+                    author::MAX_TRIES
+                ),
+            );
+        }
+        let outcome = self.lock.with(|host| tools::run(host, name, arguments));
+        if writes && !outcome.ok {
+            self.failed_writes += 1;
+        }
+        outcome
     }
 
     fn system(&self) -> String {
-        let brief = self.0.with(|host| tools::brief(host.project()));
-        format!("{}\n\n{brief}", system_prompt())
+        let brief = self.lock.with(|host| tools::brief(host.project()));
+        format!("{}\n\n{brief}\n\n{}", system_prompt(), author::reference())
     }
 }
 

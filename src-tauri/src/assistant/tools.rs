@@ -12,6 +12,7 @@
 //! it is undoable, journalled and reconciled into the live graph, the
 //! same as an edit from the UI; one tool call is one undo step.
 
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -22,7 +23,9 @@ use cantina_project::{
 };
 use serde_json::{json, Value};
 
+use super::author::{self, Kind};
 use super::chat::Outcome;
+use crate::library::Folders;
 
 /// What the tools work on: the open project and what the engine knows
 /// about pedals, kits and devices. `Engine` is the real one.
@@ -59,6 +62,16 @@ pub trait Host {
     /// The engine as the model should see it: whether audio runs, the
     /// devices, the sample rate and buffer, latency, meters, plugins.
     fn engine_report(&self) -> Value;
+    /// The library folders the app watches.
+    fn library(&self) -> Folders;
+    /// An installed kit's folder.
+    fn kit_dir(&self, kit: &str) -> Option<PathBuf>;
+    /// Scans the library folders again, so a file just saved is offered
+    /// at once.
+    fn rescan_library(&mut self);
+    /// Adds a pattern file to the project, as Import Pattern does;
+    /// returns its id.
+    fn import_pattern(&mut self, path: &Path, track: Option<TrackId>) -> Result<PatternId>;
 }
 
 /// What a tool did: one line for the card, what goes back to the model,
@@ -87,6 +100,10 @@ impl Done {
     }
 }
 
+/// A tool's question for the player, given the host and the arguments;
+/// `None` when this call needs none.
+pub type Ask = fn(&dyn Host, &Value) -> Option<String>;
+
 /// One tool.
 pub struct Tool {
     pub name: &'static str,
@@ -94,8 +111,9 @@ pub struct Tool {
     pub description: &'static str,
     /// Its arguments' JSON Schema.
     pub schema: fn() -> Value,
-    /// For a tool that destroys something: the question to ask first.
-    pub ask: Option<fn(&dyn Host, &Value) -> String>,
+    /// For a tool that may destroy something: the question to ask first,
+    /// when this call would.
+    pub ask: Option<Ask>,
     pub run: fn(&mut dyn Host, &Value) -> Result<Done>,
 }
 
@@ -286,9 +304,11 @@ pub static TOOLS: &[Tool] = &[
         name: "remove_track",
         description: "Removes a track with its clips and pedals. The player is asked first.",
         schema: || object(json!({ "track": track_arg() }), &[]),
-        ask: Some(|host, args| match track_ref(host.project(), &args["track"]) {
-            Ok(id) => format!("Remove the track {}, with its clips and pedals?", track_name(host.project(), id)),
-            Err(_) => "Remove a track?".into(),
+        ask: Some(|host, args| {
+            Some(match track_ref(host.project(), &args["track"]) {
+                Ok(id) => format!("Remove the track {}, with its clips and pedals?", track_name(host.project(), id)),
+                Err(_) => "Remove a track?".into(),
+            })
         }),
         run: |host, args| {
             let id = track_ref(host.project(), &args["track"])?;
@@ -572,9 +592,11 @@ pub static TOOLS: &[Tool] = &[
         name: "delete_pattern",
         description: "Deletes a drum pattern and every placement of it on the timeline. The player is asked first.",
         schema: || object(json!({ "pattern": { "type": "integer" } }), &[]),
-        ask: Some(|host, args| match pattern_ref(host.project(), &args["pattern"]) {
-            Ok(p) => format!("Delete the pattern {}, and everywhere it is placed?", p.name),
-            Err(_) => "Delete a pattern?".into(),
+        ask: Some(|host, args| {
+            Some(match pattern_ref(host.project(), &args["pattern"]) {
+                Ok(p) => format!("Delete the pattern {}, and everywhere it is placed?", p.name),
+                Err(_) => "Delete a pattern?".into(),
+            })
         }),
         run: |host, args| {
             let pattern = pattern_ref(host.project(), &args["pattern"])?;
@@ -632,10 +654,12 @@ pub static TOOLS: &[Tool] = &[
         name: "delete_clip",
         description: "Deletes a recorded clip or a placed pattern from the timeline, by its id from get_project. The audio file is kept. The player is asked first.",
         schema: || object(json!({ "clip": { "type": "integer" } }), &[]),
-        ask: Some(|host, args| match clip_ref(host.project(), &args["clip"]) {
-            Ok(ClipRef::Audio(c, t)) => format!("Delete the clip {} from {t}?", c.name),
-            Ok(ClipRef::Pattern(_, t)) => format!("Delete the placed pattern from {t}?"),
-            Err(_) => "Delete a clip?".into(),
+        ask: Some(|host, args| {
+            Some(match clip_ref(host.project(), &args["clip"]) {
+                Ok(ClipRef::Audio(c, t)) => format!("Delete the clip {} from {t}?", c.name),
+                Ok(ClipRef::Pattern(_, t)) => format!("Delete the placed pattern from {t}?"),
+                Err(_) => "Delete a clip?".into(),
+            })
         }),
         run: |host, args| {
             match clip_ref(host.project(), &args["clip"])? {
@@ -694,6 +718,57 @@ pub static TOOLS: &[Tool] = &[
             ))
         },
     },
+    Tool {
+        name: "write_pedal",
+        description: "Writes a new pedal in the pedal format, checks it and renders it over a guitar DI as cantina-cli does, and saves it to the player's library (~/Music/Cantina/Pedals/<id>.pedal.json), where it appears in the pedal picker under Your pedals. If it fails, nothing is saved and you get the problems to fix. Optionally adds it to a track.",
+        schema: || {
+            object(
+                json!({
+                    "id": { "type": "string", "description": "The file's id: lower case letters, digits and dashes, such as \"warm-drive\"." },
+                    "definition": { "type": "object", "description": "The pedal, in the pedal format." },
+                    "replace": { "type": "boolean", "description": "Overwrite a library pedal with this id. The player is asked first." },
+                    "add_to_track": { "type": ["integer", "string"], "description": "A track to add it to once saved." },
+                }),
+                &["replace", "add_to_track"],
+            )
+        },
+        ask: Some(|host, args| replace_question(host, Kind::Pedal, args)),
+        run: |host, args| write_file(host, Kind::Pedal, args),
+    },
+    Tool {
+        name: "write_pattern",
+        description: "Writes a drum pattern in the pattern format, checks it (against a kit's pads when one is given or the track has one), plays it through that kit to make sure it sounds, and saves it to ~/Music/Cantina/Patterns/<name>.pattern.json, where it is offered under Import from the library. Optionally adds it to the project for a drum track; then place it with place_pattern.",
+        schema: || {
+            object(
+                json!({
+                    "name": { "type": "string", "minLength": 1, "description": "The file's name, such as \"Blues shuffle\"." },
+                    "definition": { "type": "object", "description": "The pattern, in the pattern format." },
+                    "kit": { "type": "string", "description": "A kit id from list_kits to check the pads against and play it on." },
+                    "replace": { "type": "boolean", "description": "Overwrite a library pattern with this name. The player is asked first." },
+                    "add_to_track": { "type": ["integer", "string"], "description": "A drum track whose project gets the pattern, checked against its kit." },
+                }),
+                &["kit", "replace", "add_to_track"],
+            )
+        },
+        ask: Some(|host, args| replace_question(host, Kind::Pattern, args)),
+        run: |host, args| write_file(host, Kind::Pattern, args),
+    },
+    Tool {
+        name: "write_kit_recipe",
+        description: "Writes a drum kit recipe in the kit-recipe format, checks it, synthesises the kit from it as cantina-cli synth-kit does, and installs it in ~/Music/Cantina/Kits/<id>, where drum tracks can pick it. If it fails, nothing is installed. Optionally adds a drum track that uses it.",
+        schema: || {
+            object(
+                json!({
+                    "id": { "type": "string", "description": "The kit's folder: lower case letters, digits and dashes." },
+                    "recipe": { "type": "object", "description": "The recipe, in the kit-recipe format." },
+                    "add_drum_track": { "type": "boolean" },
+                }),
+                &["add_drum_track"],
+            )
+        },
+        ask: None,
+        run: |host, args| write_file(host, Kind::KitRecipe, args),
+    },
 ];
 
 /// The model's tool definitions, from the table.
@@ -730,7 +805,7 @@ fn validators() -> &'static Vec<(&'static str, jsonschema::Validator)> {
 
 /// The question to ask before running a destructive tool.
 pub fn confirm(host: &dyn Host, name: &str, args: &Value) -> Option<String> {
-    find(name)?.ask.map(|ask| ask(host, args))
+    find(name)?.ask.and_then(|ask| ask(host, args))
 }
 
 /// Runs a tool: checks its arguments, runs it, and turns what came of
@@ -783,6 +858,124 @@ pub fn run(host: &mut dyn Host, name: &str, args: &Value) -> Outcome {
 /// A tool's name as words: `add_pedal` → "add pedal".
 fn human(name: &str) -> String {
     name.replace('_', " ")
+}
+
+/// The question before an authoring tool overwrites a library file:
+/// only when asked to replace one that is there.
+fn replace_question(host: &dyn Host, kind: Kind, args: &Value) -> Option<String> {
+    let stem = args[if kind == Kind::Pattern { "name" } else { "id" }]
+        .as_str()?
+        .trim();
+    let exists = author::destination(kind, stem, &host.library()).exists();
+    (args["replace"].as_bool() == Some(true) && exists).then(|| {
+        format!(
+            "Replace your {} {stem:?} in the library with the new one?",
+            if kind == Kind::Pattern {
+                "pattern"
+            } else {
+                "pedal"
+            }
+        )
+    })
+}
+
+/// Writes, checks and saves a pedal, pattern or kit, then loads it if
+/// asked to.
+fn write_file(host: &mut dyn Host, kind: Kind, args: &Value) -> Result<Done> {
+    let (stem, content) = match kind {
+        Kind::Pattern => (
+            args["name"].as_str().unwrap_or_default().trim(),
+            &args["definition"],
+        ),
+        Kind::Pedal => (
+            args["id"].as_str().unwrap_or_default().trim(),
+            &args["definition"],
+        ),
+        Kind::KitRecipe => (
+            args["id"].as_str().unwrap_or_default().trim(),
+            &args["recipe"],
+        ),
+    };
+    let stem = stem.to_string();
+    let track = match &args["add_to_track"] {
+        Value::Null => None,
+        v => Some(track_ref(host.project(), v)?),
+    };
+    let kit = match (kind, args["kit"].as_str(), track) {
+        (Kind::Pattern, Some(kit), _) => Some(kit.to_string()),
+        (Kind::Pattern, None, Some(t)) => {
+            let kit = host.project().track(t).and_then(|t| t.kit.clone());
+            if kit.is_none() {
+                bail!("{} is not a drum track", track_name(host.project(), t));
+            }
+            kit
+        }
+        _ => None,
+    };
+    let kit_dir = match &kit {
+        Some(k) => Some(
+            host.kit_dir(k)
+                .with_context(|| format!("no kit {k:?} is installed; call list_kits"))?,
+        ),
+        None => None,
+    };
+    let replace = args["replace"].as_bool() == Some(true);
+    let written = author::write(
+        kind,
+        &stem,
+        content,
+        &host.library(),
+        kit_dir.as_deref(),
+        replace,
+    )
+    .map_err(|problems| anyhow!("not saved, because:\n- {}", problems.join("\n- ")))?;
+    host.rescan_library();
+    let mut result = written.result();
+    let level = written
+        .stats
+        .as_ref()
+        .map(|s| format!(", peak {:.1} dBFS", s.peak_db))
+        .unwrap_or_default();
+    let mut summary = match kind {
+        Kind::Pedal => format!("Wrote the pedal {}{level}", written.name),
+        Kind::Pattern => format!("Wrote the pattern {}", written.name),
+        Kind::KitRecipe => format!("Built the kit {}", written.name),
+    };
+    let mut edited = false;
+    match kind {
+        Kind::Pedal => {
+            if let Some(track) = track {
+                let id = host.add_pedal(track, &format!("pedal:{stem}"), None, None)?;
+                result["pedal"] = json!(id.0);
+                summary += &format!(" and added it to {}", track_name(host.project(), track));
+                edited = true;
+            }
+        }
+        Kind::Pattern => {
+            if let Some(track) = track {
+                let id = host.import_pattern(&written.path, Some(track))?;
+                result["pattern"] = json!(id.0);
+                summary += " and added it to the project";
+                edited = true;
+            }
+        }
+        Kind::KitRecipe => {
+            if args["add_drum_track"].as_bool() == Some(true) {
+                let id = host.add_drum_track(Some(stem.clone()))?;
+                result["track"] = json!(id.0);
+                summary += &format!(
+                    " and added the drum track {}",
+                    track_name(host.project(), id)
+                );
+                edited = true;
+            }
+        }
+    }
+    Ok(Done {
+        summary,
+        result,
+        edited,
+    })
 }
 
 /// One command, or a batch of several as one undo step.
@@ -1143,6 +1336,9 @@ pub(crate) mod fake {
         pub project: Project,
         pub history: History,
         pub applied: Vec<String>,
+        /// Library folders, for the authoring tools.
+        pub library: Option<crate::assistant::author::testing::TempLibrary>,
+        pub rescans: u32,
     }
 
     impl FakeHost {
@@ -1164,6 +1360,8 @@ pub(crate) mod fake {
                 project,
                 history: History::new().coalesce_window(std::time::Duration::ZERO),
                 applied: Vec::new(),
+                library: None,
+                rescans: 0,
             }
         }
     }
@@ -1203,7 +1401,22 @@ pub(crate) mod fake {
                         ParamInfo::choice("Voice", &["Smooth", "Crunch"], 0),
                     ],
                 )),
-                _ => bail!("no pedal kind {spec}"),
+                _ => {
+                    // A library pedal, read from its file as the engine would.
+                    let id = spec
+                        .strip_prefix("pedal:")
+                        .with_context(|| format!("no pedal kind {spec}"))?;
+                    let path = self.library().pedals.join(format!("{id}.pedal.json"));
+                    let text = std::fs::read_to_string(&path)
+                        .with_context(|| format!("no pedal kind {spec}"))?;
+                    let def =
+                        cantina_dsp::PedalDef::from_json(&text).map_err(|e| anyhow!("{e}"))?;
+                    let pedal = cantina_dsp::compile(&def).map_err(|e| anyhow!("{e}"))?;
+                    Ok((
+                        def.name.clone(),
+                        cantina_dsp::Processor::params(&pedal).to_vec(),
+                    ))
+                }
             }
         }
         fn add_pedal(
@@ -1246,6 +1459,33 @@ pub(crate) mod fake {
         }
         fn engine_report(&self) -> Value {
             json!({ "running": false })
+        }
+        fn library(&self) -> Folders {
+            self.library.as_ref().map_or_else(
+                || Folders {
+                    pedals: "/nonexistent/Pedals".into(),
+                    kits: "/nonexistent/Kits".into(),
+                    patterns: "/nonexistent/Patterns".into(),
+                },
+                |l| l.folders.clone(),
+            )
+        }
+        fn kit_dir(&self, kit: &str) -> Option<PathBuf> {
+            let dir = self.library().kits.join(kit);
+            dir.exists().then_some(dir)
+        }
+        fn rescan_library(&mut self) {
+            self.rescans += 1;
+        }
+        fn import_pattern(&mut self, path: &Path, _: Option<TrackId>) -> Result<PatternId> {
+            let text = std::fs::read_to_string(path)?;
+            let pattern = cantina_project::pattern_from_json(&text).map_err(|e| anyhow!(e))?;
+            let id = PatternId(self.project.fresh_id());
+            self.apply(Command::InsertPattern {
+                index: usize::MAX,
+                pattern: Pattern { id, ..pattern },
+            })?;
+            Ok(id)
         }
     }
 }

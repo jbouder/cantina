@@ -102,6 +102,8 @@ It can **change**:
 - drum patterns: write a new one, rewrite one, and place it on a drum
   track at a bar.
 
+It can also **write** new pedals, drum patterns and drum kits; see below.
+
 It asks first, with **Yes** and **No** in the chat, before it **removes a
 track**, **deletes a pattern** or **deletes a clip**. Audio files are never
 deleted or changed; a deleted clip's recording stays in the project
@@ -109,6 +111,40 @@ folder.
 
 It cannot record, play or stop, open plugins' windows, change your audio
 devices, or save, open or delete projects.
+
+## Write pedals, beats and kits
+
+Ask for something that does not exist yet and the assistant writes it:
+
+- *"Make me a pedal like a Big Muff, with a mids knob"*: a pedal in
+  Cantina's pedal format, saved to `~/Music/Cantina/Pedals`. It appears in
+  the pedal picker under **Your pedals**; ask it to "put it on my guitar"
+  and it adds it too.
+- *"Write a 6/8 blues shuffle"*: a drum pattern, saved to
+  `~/Music/Cantina/Patterns` and offered under **Import from the library**.
+  Ask for it on a drum track and it adds it to the project and places it.
+- *"A kit for lo-fi hip hop"*: a kit recipe, synthesised into a kit in
+  `~/Music/Cantina/Kits`, which drum tracks can pick at once.
+
+This is the [cantina-author](/guides/agents/) skill's loop, in the app.
+The assistant is given the same format references and examples, and every
+file it writes goes through the same code as `cantina-cli`:
+
+1. **Check**: the format's schema and the rules the app enforces. A
+   pattern is checked against the pads of the kit it will play on.
+2. **Render**: a pedal is run over a guitar DI and must not clip, be
+   silent or carry DC at its defaults; a pattern is played through its kit
+   and must make a sound; a kit is synthesised and checked.
+3. **Save**, only if both pass. The library folders are scanned at once,
+   so the new file is in the pickers straight away.
+
+A file that fails is **never saved**: the assistant gets the problems and
+tries again, up to three times per message, then tells you what kept
+failing. It never overwrites a pedal or pattern of yours without asking,
+and never replaces an installed kit.
+
+Writing files sends the format references (about 30 KB of text) with
+every message, so each request is larger than a plain chat.
 
 ## Where your key is kept
 
