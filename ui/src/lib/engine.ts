@@ -121,6 +121,42 @@ export interface Jam {
   };
   /** The rig the input plays through, by its file's name less `.rig.json`. */
   rig?: string | null;
+  /** What plays with the drums; absent is the drums alone. */
+  backing?: JamBacking;
+}
+
+/** How often a progression's chords are played. Mirrors `Rhythm` in cantina-project. */
+export type JamRhythm = "whole" | "half" | "quarter" | "eighth";
+
+/** What plays with a jam's drums. Mirrors `Backing` in cantina-project. */
+export type JamBacking =
+  | { kind: "none" }
+  | {
+      kind: "progression";
+      /** Roman numerals or chord names, `|` between bars. */
+      chords: string;
+      instrument: Instrument;
+      rhythm: JamRhythm;
+      /** The rig the voice plays through, by file name less `.rig.json`. */
+      rig?: string | null;
+      levelDb: number;
+    }
+  | { kind: "audio"; file: string; bpm: number; levelDb: number }
+  | { kind: "track"; project: string; track: string; levelDb: number };
+
+/** A stock chord progression. Mirrors `PresetInfo` in src-tauri. */
+export interface JamPreset {
+  genre: string;
+  name: string;
+  chords: string;
+}
+
+/** A project's audio track a jam can play. Mirrors `JamTrackInfo` in src-tauri. */
+export interface JamTrack {
+  name: string;
+  /** The project's tempo, which the jam takes. */
+  bpm: number;
+  seconds: number;
 }
 
 /** Where a jam's section or tempo changes. Mirrors `JamMark` in src-tauri. */
@@ -147,6 +183,12 @@ export interface JamStatus {
   tempo: number;
   /** Rig pedals left out because they are not installed. */
   missing: string[];
+  /** What the backing left out: pedals, files. */
+  backingMissing: string[];
+  /** The tempo is the backing's, which the jam follows. */
+  tempoLocked: boolean;
+  /** The stock chord progressions, by genre. */
+  presets: JamPreset[];
 }
 
 /** A drum track's rows muted or soloed for listening while editing. Mirrors `RowMix` in src-tauri. */
@@ -3156,7 +3198,62 @@ function mockJamStatus(jam: NonNullable<typeof mockJam>): JamStatus {
     barTicks: mockJamBarTicks(jam.setup),
     tempo: jam.tempos.at(-1)?.bpm ?? jam.setup.tempo,
     missing: [],
+    backingMissing: [],
+    tempoLocked: jam.setup.backing?.kind === "audio" || jam.setup.backing?.kind === "track",
+    presets: MOCK_PRESETS.map((p) => ({ ...p })),
   };
+}
+
+/** The stock progressions, as the shell lists them (cantina-project's `PRESETS`). */
+const MOCK_PRESETS: JamPreset[] = [
+  {
+    genre: "Blues",
+    name: "12-bar blues",
+    chords: "I7 | I7 | I7 | I7 | IV7 | IV7 | I7 | I7 | V7 | IV7 | I7 | V7",
+  },
+  {
+    genre: "Blues",
+    name: "Quick-change blues",
+    chords: "I7 | IV7 | I7 | I7 | IV7 | IV7 | I7 | I7 | V7 | IV7 | I7 | V7",
+  },
+  {
+    genre: "Blues",
+    name: "Minor blues",
+    chords: "i7 | i7 | i7 | i7 | iv7 | iv7 | i7 | i7 | bVI7 | V7 | i7 | V7",
+  },
+  { genre: "Rock", name: "I–bVII–IV", chords: "I | bVII | IV | I" },
+  { genre: "Rock", name: "I–IV–V", chords: "I | IV | V | IV" },
+  { genre: "Pop", name: "I–V–vi–IV", chords: "I | V | vi | IV" },
+  { genre: "Pop", name: "vi–IV–I–V", chords: "vi | IV | I | V" },
+  { genre: "Punk", name: "Power chords", chords: "I5 | IV5 | V5 | IV5" },
+  { genre: "Metal", name: "Aeolian", chords: "i5 | bVI5 | bVII5 | i5" },
+  { genre: "Metal", name: "Phrygian", chords: "i5 | i5 | bII5 | i5" },
+  { genre: "Grunge", name: "i–bIII–bVII–IV", chords: "i | bIII | bVII | IV" },
+  { genre: "Funk", name: "Dorian vamp", chords: "i7 | i7 | IV7 | IV7" },
+  { genre: "Funk", name: "One-chord groove", chords: "I9 | I9 | I9 | IV9" },
+  { genre: "Jazz", name: "ii–V–I", chords: "ii7 | V7 | Imaj7 | Imaj7" },
+  { genre: "Jazz", name: "Turnaround", chords: "Imaj7 | vi7 | ii7 | V7" },
+  { genre: "Reggae", name: "I–IV", chords: "I | IV | I | V" },
+  { genre: "Hip-hop", name: "Minor loop", chords: "i7 | bVImaj7 | iv7 | V7" },
+  { genre: "Country", name: "I–IV–I–V", chords: "I | IV | I | V" },
+];
+
+/** The audio tracks of a project a jam can play as its backing. */
+export async function jamTracks(project: string): Promise<JamTrack[]> {
+  if (inTauri) return invoke<JamTrack[]>("jam_tracks", { project });
+  if (project === mock.project.name) {
+    return mock.project.tracks
+      .filter((t) => !t.kit && t.clips.length > 0)
+      .map((t) => ({
+        name: t.name,
+        bpm: mock.project.tempo.bpm,
+        seconds: Math.max(...t.clips.map((c) => (c.start + c.length) / MOCK_RATE)),
+      }));
+  }
+  return [
+    { name: "Rhythm", bpm: 96, seconds: 32 },
+    { name: "Bass", bpm: 96, seconds: 32 },
+  ];
 }
 
 function mockJamRestart(jam: NonNullable<typeof mockJam>, first?: GrooveSection) {
@@ -3216,6 +3313,17 @@ export async function jamOpen(): Promise<EngineStatus> {
     mockTransport.position = 0;
     mockJam = { setup: mockJamLast ?? mockJamDefault(), sections: [], tempos: [], end: null };
     mockJamRestart(mockJam);
+    // `?jambacking` gives it a bass playing a blues, for screenshots.
+    if (mockParams?.has("jambacking")) {
+      mockJam.setup.backing = {
+        kind: "progression",
+        chords: "I7 | IV7 | I7 | V7",
+        instrument: "bass",
+        rhythm: "quarter",
+        rig: "bass-clean",
+        levelDb: -2,
+      };
+    }
     // `?jam=playing` has it rolling with a chorus and a new tempo coming,
     // for screenshots; `?position` says where.
     if (mockParams?.get("jam") === "playing") {
@@ -3251,6 +3359,11 @@ export async function jamSet(setup: Jam): Promise<EngineStatus> {
   const groove = mockGrooves.find((g) => g.genre === setup.drums.groove && g.section === "verse");
   const next = structuredClone(setup);
   if (groove) next.timeSignature = { ...groove.timeSignature };
+  if (next.backing?.kind === "audio") next.tempo = next.backing.bpm;
+  if (next.backing?.kind === "track") {
+    const project = next.backing.project;
+    next.tempo = project === mock.project.name ? mock.project.tempo.bpm : 96;
+  }
   const rolling = mockTransport.playing || mockTransport.countIn > 0;
   const tempoChanged = next.tempo !== (mockJam.tempos.at(-1)?.bpm ?? mockJam.setup.tempo);
   mockJam.setup = next;
@@ -3306,6 +3419,10 @@ export async function jamSection(section: GrooveSection): Promise<EngineStatus> 
 export async function jamTempo(bpm: number): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("jam_tempo", { bpm });
   if (!mockJam) throw new Error("open a jam first");
+  const kind = mockJam.setup.backing?.kind;
+  if (kind === "audio" || kind === "track") {
+    throw new Error("the backing plays at its own tempo; the jam follows it");
+  }
   const tempo = Math.round(Math.min(300, Math.max(30, bpm)) * 10) / 10;
   if (mockTransport.playing || mockTransport.countIn > 0) {
     const at = mockJamNextBar(mockJam);

@@ -10,7 +10,14 @@
 //!   "timeSignature": { "numerator": 4, "denominator": 4 },
 //!   "key": { "tonic": "A", "mode": "major" },
 //!   "drums": { "kit": "studio", "groove": "Blues shuffle" },
-//!   "rig": "blues"
+//!   "rig": "blues",
+//!   "backing": {
+//!     "kind": "progression",
+//!     "chords": "I7 | IV7 | I7 | V7",
+//!     "instrument": "bass",
+//!     "rhythm": "quarter",
+//!     "rig": "bass-clean"
+//!   }
 //! }
 //! ```
 //!
@@ -18,6 +25,11 @@
 //! patterns of the jam's own, by section; a section the jam has its own
 //! pattern for plays that one. The rig is named by its file's name less
 //! `.rig.json`, stock or the user's.
+//!
+//! The backing is a chord progression (see [`crate::parse_progression`])
+//! played by a built-in guitar or bass through a rig, which follows the
+//! jam's tempo; or audio, a file or a project's track, which plays at its
+//! own tempo with the drums following it.
 
 use std::collections::BTreeMap;
 
@@ -25,6 +37,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::{Pattern, PPQ};
 use crate::pattern_file::{Meter, Section};
+use crate::tab::Instrument;
 
 /// The version a jam is written at.
 pub const JAM_VERSION: u32 = 1;
@@ -61,6 +74,92 @@ pub struct Jam {
     /// `.rig.json`; none plays the input dry.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rig: Option<String>,
+    /// What plays with the drums.
+    #[serde(default, skip_serializing_if = "Backing::is_none")]
+    pub backing: Backing,
+}
+
+/// What plays along with the drums.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "kebab-case",
+    rename_all_fields = "camelCase"
+)]
+pub enum Backing {
+    /// The drums alone.
+    #[default]
+    None,
+    /// A chord progression in the jam's key, played by a built-in guitar
+    /// or bass through a rig. It follows the jam's tempo.
+    Progression {
+        /// Roman numerals or chord names, `|` between bars.
+        chords: String,
+        /// Which voice plays it.
+        instrument: Instrument,
+        /// How often each chord is played.
+        #[serde(default)]
+        rhythm: Rhythm,
+        /// The rig the voice plays through, by its file's name less
+        /// `.rig.json`; none is the voice dry.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        rig: Option<String>,
+        /// Its level in decibels, −60 to 12.
+        #[serde(default)]
+        level_db: f32,
+    },
+    /// A WAV file, played from the jam's first bar at its own tempo,
+    /// round and round; the drums play at its tempo.
+    Audio {
+        /// Where the file is.
+        file: String,
+        /// The file's tempo, which the jam takes.
+        bpm: f64,
+        /// Its level in decibels, −60 to 12.
+        #[serde(default)]
+        level_db: f32,
+    },
+    /// An audio track of a project, its clips through its chain, round and
+    /// round from the start to the end of its last clip; the drums play
+    /// at the project's tempo.
+    Track {
+        /// The project's name.
+        project: String,
+        /// The track's name.
+        track: String,
+        /// Its level in decibels, −60 to 12.
+        #[serde(default)]
+        level_db: f32,
+    },
+}
+
+impl Backing {
+    /// True for the drums alone.
+    pub fn is_none(&self) -> bool {
+        matches!(self, Backing::None)
+    }
+
+    /// True when the jam plays at the backing's tempo, not its own.
+    pub fn sets_tempo(&self) -> bool {
+        matches!(self, Backing::Audio { .. } | Backing::Track { .. })
+    }
+}
+
+/// How often a progression's chords are played.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Rhythm {
+    /// Once, ringing for as long as the chord lasts.
+    Whole,
+    /// On every other beat.
+    #[default]
+    Half,
+    /// On every beat.
+    Quarter,
+    /// Twice a beat.
+    Eighth,
 }
 
 fn common_time() -> Meter {
@@ -164,6 +263,7 @@ impl Jam {
                 level_db: 0.0,
             },
             rig: None,
+            backing: Backing::None,
         }
     }
 
@@ -220,6 +320,57 @@ impl Jam {
         }
         if self.drums.groove.is_none() && self.drums.patterns.is_empty() {
             problems.push("the drums have neither a groove nor patterns".into());
+        }
+        let level = |db: f32| db.is_finite() && (-60.0..=12.0).contains(&db);
+        match &self.backing {
+            Backing::None => {}
+            Backing::Progression {
+                chords, level_db, ..
+            } => {
+                if let Some(tonic) = pitch_class(&self.key.tonic) {
+                    if let Err(p) = crate::chords::parse_progression(chords, tonic) {
+                        problems.extend(p.into_iter().map(|p| format!("the backing: {p}")));
+                    }
+                }
+                if !level(*level_db) {
+                    problems.push(format!(
+                        "the backing's level {level_db} dB is outside −60 to 12"
+                    ));
+                }
+            }
+            Backing::Audio {
+                file,
+                bpm,
+                level_db,
+            } => {
+                if file.trim().is_empty() {
+                    problems.push("the backing names no file".into());
+                }
+                if !(bpm.is_finite() && (slow..=fast).contains(bpm)) {
+                    problems.push(format!(
+                        "the backing's tempo {bpm} is outside {slow} to {fast} bpm"
+                    ));
+                }
+                if !level(*level_db) {
+                    problems.push(format!(
+                        "the backing's level {level_db} dB is outside −60 to 12"
+                    ));
+                }
+            }
+            Backing::Track {
+                project,
+                track,
+                level_db,
+            } => {
+                if project.trim().is_empty() || track.trim().is_empty() {
+                    problems.push("the backing names no project and track".into());
+                }
+                if !level(*level_db) {
+                    problems.push(format!(
+                        "the backing's level {level_db} dB is outside −60 to 12"
+                    ));
+                }
+            }
         }
         let bar = self.bar_ticks();
         for (section, pattern) in &self.drums.patterns {
@@ -308,6 +459,46 @@ mod tests {
         let problems = j.validate().unwrap_err();
         assert_eq!(problems.len(), 6, "{problems:?}");
         assert!(problems[5].contains("neither a groove"), "{problems:?}");
+    }
+
+    #[test]
+    fn a_backing_reads_and_its_chords_are_checked() {
+        let text = r#"{"version":1,"name":"B","tempo":90,"drums":{"kit":"k","groove":"Rock"},
+            "backing":{"kind":"progression","chords":"I | IV | V","instrument":"bass","levelDb":-3}}"#;
+        let j: Jam = serde_json::from_str(text).unwrap();
+        assert_eq!(
+            j.backing,
+            Backing::Progression {
+                chords: "I | IV | V".into(),
+                instrument: Instrument::Bass,
+                rhythm: Rhythm::Half,
+                rig: None,
+                level_db: -3.0,
+            }
+        );
+        assert_eq!(j.validate(), Ok(()));
+        assert!(!j.backing.sets_tempo());
+        let mut bad = j.clone();
+        bad.backing = Backing::Progression {
+            chords: "I | Q".into(),
+            instrument: Instrument::Guitar,
+            rhythm: Rhythm::Whole,
+            rig: None,
+            level_db: 0.0,
+        };
+        assert_eq!(
+            bad.validate().unwrap_err(),
+            vec!["the backing: \"Q\" is not a chord"]
+        );
+        let audio: Jam = serde_json::from_str(&text.replace(
+            r#""kind":"progression","chords":"I | IV | V","instrument":"bass""#,
+            r#""kind":"audio","file":"/x.wav","bpm":500"#,
+        ))
+        .unwrap();
+        assert!(audio.backing.sets_tempo());
+        assert!(audio.validate().unwrap_err()[0].contains("500"));
+        // None is left out of the file.
+        assert!(!serde_json::to_string(&jam()).unwrap().contains("backing"));
     }
 
     #[test]

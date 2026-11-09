@@ -5,6 +5,7 @@
 //! turns a [`Project`] into a graph and applies [`Command`]s as the UI
 //! sends them; the engine and the UI both read the same model.
 
+mod chords;
 mod command;
 mod file;
 mod fill;
@@ -19,6 +20,7 @@ pub mod schema;
 mod tab;
 pub mod tab_export;
 
+pub use chords::{parse_chord, parse_progression, Bar, Chord, Preset, PRESETS};
 pub use command::{Command, CommandError};
 pub use file::{
     audio_dir, create_layout, dir_for, list, load, load_str, save, LoadError, SaveError, AUDIO_DIR,
@@ -26,7 +28,9 @@ pub use file::{
 };
 pub use fill::generate_fill;
 pub use history::{History, UNDO_LIMIT};
-pub use jam::{pitch_class, section_name, Jam, JamDrums, Key, Mode, JAM_TEMPO, JAM_VERSION};
+pub use jam::{
+    pitch_class, section_name, Backing, Jam, JamDrums, Key, Mode, Rhythm, JAM_TEMPO, JAM_VERSION,
+};
 pub use journal::{replay, Entry as JournalEntry, Journal, Read as JournalRead, JOURNAL_FILE};
 pub use model::{
     Clip, ClipId, Fill, Humanize, Id, LoopRegion, PadMix, Pattern, PatternClip, PatternClipId,

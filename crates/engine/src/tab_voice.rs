@@ -12,6 +12,10 @@
 //!
 //! A jump in the timeline (a locate, a loop wrap) or a stop lets every
 //! string go, so nothing rings across the cut.
+//!
+//! Beside the score the voice can play a [`TabLoop`]: a phrase repeated
+//! every so many ticks until a tick, which is how a jam's chord backing
+//! goes on for as long as the jam does without a score that grows.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -38,6 +42,21 @@ pub struct TabEvent {
 /// Every note a track's tabs play, in order of tick.
 pub type TabScore = Vec<TabEvent>;
 
+/// A phrase played over and over: `notes`, their ticks counted from the
+/// start of each pass, every `period` ticks from `start`, and none from
+/// `until` on.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TabLoop {
+    /// In order of tick, each within `0..period`.
+    pub notes: Vec<TabEvent>,
+    /// Timeline tick the first pass starts on.
+    pub start: u64,
+    /// Ticks in a pass; 0 plays nothing.
+    pub period: u64,
+    /// No note starts on or after this tick; `u64::MAX` for ever.
+    pub until: u64,
+}
+
 /// Scores that can wait for the audio thread before `set_score` refuses.
 const SCORE_QUEUE: usize = 8;
 const RETIRED_QUEUE: usize = SCORE_QUEUE * 2;
@@ -63,6 +82,9 @@ pub struct TabVoice {
     score: Box<TabScore>,
     incoming: Consumer<Box<TabScore>>,
     retired: Producer<Box<TabScore>>,
+    looped: Box<TabLoop>,
+    incoming_loop: Consumer<Box<TabLoop>>,
+    retired_loop: Producer<Box<TabLoop>>,
     stats: Arc<TabVoiceStats>,
     /// Where the next block starts if the timeline runs on; anything else
     /// is a jump.
@@ -74,6 +96,9 @@ pub struct TabVoiceHandle {
     outgoing: Producer<Box<TabScore>>,
     retired: Consumer<Box<TabScore>>,
     score: TabScore,
+    outgoing_loop: Producer<Box<TabLoop>>,
+    retired_loop: Consumer<Box<TabLoop>>,
+    looped: Box<TabLoop>,
     stats: Arc<TabVoiceStats>,
 }
 
@@ -82,6 +107,8 @@ impl TabVoice {
     pub fn new() -> (TabVoice, TabVoiceHandle) {
         let (outgoing, incoming) = RingBuffer::new(SCORE_QUEUE);
         let (retired_in, retired_out) = RingBuffer::new(RETIRED_QUEUE);
+        let (outgoing_loop, incoming_loop) = RingBuffer::new(SCORE_QUEUE);
+        let (retired_loop_in, retired_loop_out) = RingBuffer::new(RETIRED_QUEUE);
         let stats = Arc::new(TabVoiceStats::default());
         let voice = TabVoice {
             guitar: Pluck::new(Instrument::Guitar),
@@ -89,6 +116,9 @@ impl TabVoice {
             score: Box::default(),
             incoming,
             retired: retired_in,
+            looped: Box::default(),
+            incoming_loop,
+            retired_loop: retired_loop_in,
             stats: Arc::clone(&stats),
             next: None,
         };
@@ -96,6 +126,9 @@ impl TabVoice {
             outgoing,
             retired: retired_out,
             score: Vec::new(),
+            outgoing_loop,
+            retired_loop: retired_loop_out,
+            looped: Box::default(),
             stats,
         };
         (voice, handle)
@@ -110,6 +143,14 @@ impl TabVoice {
             }
             self.stats.swaps.fetch_add(1, Ordering::Relaxed);
         }
+        while let Ok(next) = self.incoming_loop.pop() {
+            let old = std::mem::replace(&mut self.looped, next);
+            if let Err(rtrb::PushError::Full(old)) = self.retired_loop.push(old) {
+                std::mem::forget(old);
+                self.stats.leaked.fetch_add(1, Ordering::Relaxed);
+            }
+            self.stats.swaps.fetch_add(1, Ordering::Relaxed);
+        }
     }
 
     fn release_all(&mut self) {
@@ -117,36 +158,73 @@ impl TabVoice {
         self.bass.release_all();
     }
 
-    /// Plucks every note that starts in the block's span.
+    /// Plucks every note that starts in the block's span: the score's,
+    /// and the loop's in every pass the span touches.
     fn queue_notes(&mut self, ctx: &BlockContext) {
-        let (tempo, rate) = (ctx.tempo, ctx.rate.max(f64::MIN_POSITIVE));
         let end = ctx.position + ctx.span;
-        let t0 = tempo.samples_to_ticks(ctx.position, ctx.sample_rate);
-        let t1 = tempo.samples_to_ticks(end, ctx.sample_rate);
+        let t0 = ctx.tempo.samples_to_ticks(ctx.position, ctx.sample_rate);
+        let t1 = ctx.tempo.samples_to_ticks(end, ctx.sample_rate);
         let first = self.score.partition_point(|e| e.tick < t0);
-        for event in &self.score[first..] {
+        for i in first..self.score.len() {
+            let event = self.score[i];
             if event.tick >= t1 {
                 break;
             }
-            let sample = tempo.ticks_to_samples(event.tick, ctx.sample_rate);
-            if sample < ctx.position || sample >= end {
-                continue;
+            self.pluck(&event, 0.0, ctx);
+        }
+        let l = &self.looped;
+        if l.period == 0 || l.notes.is_empty() {
+            return;
+        }
+        let (start, period) = (l.start as f64, l.period as f64);
+        let from = t0.max(start);
+        let to = t1.min(l.until as f64);
+        if from >= to {
+            return;
+        }
+        let mut pass = ((from - start) / period).floor();
+        loop {
+            let base = start + pass * period;
+            if base >= to {
+                break;
             }
-            let off = tempo.ticks_to_samples(event.tick + event.ticks, ctx.sample_rate);
-            let length = ((off.saturating_sub(sample)) as f64 / rate).min(u32::MAX as f64) as u32;
-            let note = PluckNote {
-                length: length.max(1),
-                ..event.note
-            };
-            let voice = match event.instrument {
-                Instrument::Guitar => &mut self.guitar,
-                Instrument::Bass => &mut self.bass,
-            };
-            if voice.play(note, ctx.frame_of(sample)) {
-                self.stats.notes.fetch_add(1, Ordering::Relaxed);
-            } else {
-                self.stats.dropped.fetch_add(1, Ordering::Relaxed);
+            let (lo, hi) = (from - base, to - base);
+            let first = self.looped.notes.partition_point(|e| e.tick < lo);
+            for i in first..self.looped.notes.len() {
+                let event = self.looped.notes[i];
+                if event.tick >= hi {
+                    break;
+                }
+                self.pluck(&event, base, ctx);
             }
+            pass += 1.0;
+        }
+    }
+
+    /// Plucks `event`, `offset` ticks later than it says, if it starts in
+    /// the block.
+    fn pluck(&mut self, event: &TabEvent, offset: f64, ctx: &BlockContext) {
+        let (tempo, rate) = (ctx.tempo, ctx.rate.max(f64::MIN_POSITIVE));
+        let end = ctx.position + ctx.span;
+        let tick = event.tick + offset;
+        let sample = tempo.ticks_to_samples(tick, ctx.sample_rate);
+        if sample < ctx.position || sample >= end {
+            return;
+        }
+        let off = tempo.ticks_to_samples(tick + event.ticks, ctx.sample_rate);
+        let length = ((off.saturating_sub(sample)) as f64 / rate).min(u32::MAX as f64) as u32;
+        let note = PluckNote {
+            length: length.max(1),
+            ..event.note
+        };
+        let voice = match event.instrument {
+            Instrument::Guitar => &mut self.guitar,
+            Instrument::Bass => &mut self.bass,
+        };
+        if voice.play(note, ctx.frame_of(sample)) {
+            self.stats.notes.fetch_add(1, Ordering::Relaxed);
+        } else {
+            self.stats.dropped.fetch_add(1, Ordering::Relaxed);
         }
     }
 }
@@ -224,10 +302,33 @@ impl TabVoiceHandle {
         }
     }
 
-    /// Drops every score the audio thread has retired. Returns how many.
+    /// The loop as last set from this side.
+    pub fn looped(&self) -> &TabLoop {
+        &self.looped
+    }
+
+    /// Replaces the loop, sorting its notes by tick. Like
+    /// [`TabVoiceHandle::set_score`], false when the queue is full.
+    pub fn set_loop(&mut self, mut looped: TabLoop) -> bool {
+        looped.notes.sort_by(|a, b| a.tick.total_cmp(&b.tick));
+        self.collect();
+        match self.outgoing_loop.push(Box::new(looped.clone())) {
+            Ok(()) => {
+                *self.looped = looped;
+                true
+            }
+            Err(_) => false,
+        }
+    }
+
+    /// Drops every score and loop the audio thread has retired. Returns
+    /// how many.
     pub fn collect(&mut self) -> usize {
         let mut freed = 0;
         while self.retired.pop().is_ok() {
+            freed += 1;
+        }
+        while self.retired_loop.pop().is_ok() {
             freed += 1;
         }
         freed
@@ -307,6 +408,66 @@ mod tests {
         handle.set_score(vec![event(quarter, quarter, 1, 64.0)]);
         let out = run(&mut slow, &tempo, 0, 1_000, 0.5);
         assert_eq!(onset(&out), Some(48_000));
+    }
+
+    /// Onsets: the first sample of each stretch of sound after silence
+    /// of at least `gap` samples.
+    fn onsets(out: &[f32], gap: usize) -> Vec<usize> {
+        let mut found = Vec::new();
+        let mut quiet = gap;
+        for (i, s) in out.iter().enumerate() {
+            if s.abs() > 1e-4 {
+                if quiet >= gap {
+                    found.push(i);
+                }
+                quiet = 0;
+            } else {
+                quiet += 1;
+            }
+        }
+        found
+    }
+
+    #[test]
+    fn a_loop_repeats_its_phrase_until_it_ends() {
+        let tempo = TempoMap::default();
+        let beat = u64::from(PPQ);
+        let (mut voice, mut handle) = TabVoice::new();
+        voice.prepare(SR, BLOCK);
+        // A short note on beat 2 of every bar from bar 2, for three bars.
+        let mut short = event(beat, 60, 1, 64.0);
+        short.note.palm_mute = true;
+        assert!(handle.set_loop(TabLoop {
+            notes: vec![short],
+            start: 4 * beat,
+            period: 4 * beat,
+            until: 16 * beat,
+        }));
+        let out = run(&mut voice, &tempo, 0, 6 * 96_000 / BLOCK, 1.0);
+        // Beat 2 of bars 2, 3 and 4; nothing in bar 5 or after.
+        assert_eq!(onsets(&out, 20_000), vec![120_000, 216_000, 312_000]);
+        assert_eq!(voice.stats.notes.load(Ordering::Relaxed), 3);
+        assert_eq!(handle.looped().period, 4 * beat);
+    }
+
+    #[test]
+    fn a_loop_pass_that_spans_blocks_plays_each_note_once() {
+        let tempo = TempoMap::default();
+        let (mut voice, mut handle) = TabVoice::new();
+        voice.prepare(SR, BLOCK);
+        // A pass of 7 ticks with three notes: many passes in each block.
+        handle.set_loop(TabLoop {
+            notes: vec![
+                event(0, 1, 1, 64.0),
+                event(3, 1, 2, 59.0),
+                event(5, 1, 3, 55.0),
+            ],
+            start: 0,
+            period: 7,
+            until: 700,
+        });
+        run(&mut voice, &tempo, 0, 400, 1.0);
+        assert_eq!(voice.stats.notes.load(Ordering::Relaxed), 300);
     }
 
     #[test]

@@ -129,6 +129,7 @@ pub fn run() {
             commands::jam_stop,
             commands::jam_section,
             commands::jam_tempo,
+            commands::jam_tracks,
             commands::rig_apply,
             commands::rig_save,
             commands::rig_rename,

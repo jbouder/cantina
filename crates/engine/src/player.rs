@@ -414,8 +414,17 @@ impl PlayerHandle {
     /// at the engine's sample rate, have no more channels than the player,
     /// and hold the region the clip asks for.
     pub fn set_clips(&mut self, clips: Vec<Clip>) -> Result<()> {
+        // A file is read once, however many clips play it.
+        let mut infos: HashMap<&std::path::Path, wav::WavInfo> = HashMap::new();
         for clip in &clips {
-            let info = wav::info(&clip.path)?;
+            let info = match infos.get(clip.path.as_path()) {
+                Some(info) => info.clone(),
+                None => {
+                    let info = wav::info(&clip.path)?;
+                    infos.insert(&clip.path, info.clone());
+                    info
+                }
+            };
             if info.sample_rate as f64 != self.sample_rate {
                 bail!(
                     "{} is at {} Hz, the engine runs at {} Hz",

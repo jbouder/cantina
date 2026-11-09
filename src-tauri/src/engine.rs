@@ -37,8 +37,8 @@ use cantina_engine::{
     DeviceEvent, DeviceId, Endpoint, GraphConfig, Impulse, IrEntry, KitEntry, LoopRange, Meter,
     MeterHandle, MusicalPosition, Mute, NodeId, PatternData, Placement, Player, PlayerHandle,
     Recorder, RecorderHandle, Runtime, Scope, ScopeHandle, Score, Sequencer, SequencerHandle,
-    Stream, StreamConfig, Strip, TabVoice, TabVoiceHandle, TempoMap, TimeSignature,
-    TransportHandle, Watcher, MAX_BLOCK_FRAMES,
+    Stream, StreamConfig, Strip, TabLoop, TabScore, TabVoice, TabVoiceHandle, TempoMap,
+    TimeSignature, TransportHandle, Watcher, MAX_BLOCK_FRAMES,
 };
 use cantina_hosting::scan::{self, PluginList, Scanner};
 use cantina_hosting::{AudioUnitHandle, ClapHandle, Editor};
@@ -63,7 +63,7 @@ use crate::tabs;
 #[path = "engine_jam.rs"]
 mod jam_engine;
 use jam_engine::JamSession;
-pub use jam_engine::JamStatus;
+pub use jam_engine::{JamStatus, JamTrackInfo};
 
 /// Event name for status pushes to the UI.
 pub const STATUS_EVENT: &str = "engine://status";
@@ -1186,6 +1186,8 @@ struct SyncContext<'a> {
     practice: Practice,
     /// Drum scores that stand in for a track's pattern clips: a jam's.
     scores: &'a HashMap<TrackId, Score>,
+    /// What a track's voice plays in place of its tabs: a jam's backing.
+    voices: &'a HashMap<TrackId, (TabScore, TabLoop)>,
 }
 
 /// The meters the pump reads, in frame order: input, master, then one
@@ -1315,6 +1317,7 @@ impl Live {
             states,
             practice,
             scores,
+            voices,
         } = cx;
         let sample_rate = self.stream.info().sample_rate;
         let mut problems = Vec::new();
@@ -1430,8 +1433,16 @@ impl Live {
                             problems.push(format!("{}: {e:#}", track.name));
                         }
                     }
-                    let score = practice.score(track, project, sample_rate);
-                    if voice.score() != &score && !voice.set_score(score) {
+                    let (score, looped) = match voices.get(&track.id) {
+                        Some((score, looped)) => (score.clone(), looped.clone()),
+                        None => (
+                            practice.score(track, project, sample_rate),
+                            TabLoop::default(),
+                        ),
+                    };
+                    if (voice.score() != &score && !voice.set_score(score))
+                        || (voice.looped() != &looped && !voice.set_loop(looped))
+                    {
                         problems.push(format!(
                             "{}: the audio thread is not taking the tab",
                             track.name
@@ -3395,6 +3406,7 @@ impl Engine {
         self.check_audition();
         let heard = self.heard_project();
         let scores = self.jam_scores();
+        let voices = self.jam_voices();
         let jam_map = self.jam_tempo_map();
         let Some(live) = &mut self.live else {
             return Ok(());
@@ -3431,6 +3443,7 @@ impl Engine {
                 states: &self.plugin_states,
                 practice: self.practice,
                 scores: &scores,
+                voices: &voices,
             },
             &mut removed,
         );

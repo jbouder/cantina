@@ -1,11 +1,11 @@
 ---
 title: "Jam"
-description: "Jam mode is a practice room: drums from a stock groove or your own patterns, your rig on the input, a tempo and a key, on an endless loop you steer while you play: sections at the next bar, tempo nudges, tap tempo and a count-in."
+description: "Jam mode is a practice room: drums from a stock groove or your own patterns, a backing (a chord progression played by a built-in guitar or bass, an audio file or a project's track), your rig on the input, on an endless loop you steer while you play: sections at the next bar, tempo nudges, tap tempo and a count-in."
 ---
 
 Practising should not mean setting up a project, tracks and clips. Jam
-mode is a room of its own: pick a groove, a tempo, the key and the rig
-you play through, press **Play** and jam. It goes on until you stop it,
+mode is a room of its own: pick a groove, something to play over, a
+tempo, the key and the rig you play through, press **Play** and jam. It goes on until you stop it,
 and you change section and tempo as you go without stopping.
 
 Jamming never edits the project. The jam is heard *instead of* the
@@ -19,7 +19,7 @@ Press the **Jam** button (the note) in the title bar, choose
 **View ▸ Arrange** to go back to the project. The jam you had last comes
 back the next time you open it, tempo and all.
 
-![The Jam view: groove, kit, key and rig on the left with the input meter; the display, play, count-in and click, tempo, and the six sections on the right](../../../assets/guides/jam.png)
+![The Jam view: groove, kit, key and rig on the left with the meters; the display, play, count-in and click, tempo, the six sections and the backing on the right](../../../assets/guides/jam.png)
 
 ## Setting it up
 
@@ -29,7 +29,7 @@ back the next time you open it, tempo and all.
   pattern of the open project for each section you want; the jam keeps
   its own copy, so editing the pattern later does not change the jam.
 - **Kit**: the drum kit the groove plays on.
-- **Key**: the key the backing plays in.
+- **Key**: the key a chord progression's numerals count from.
 - **Rig**: what your input plays through, any stock rig or one of your
   own (see [rigs](/guides/rigs/)), or **None** to hear it dry. Its chain
   is listed under it. The [instrument profile](/guides/rigs/#your-instrument)
@@ -38,6 +38,77 @@ back the next time you open it, tempo and all.
 
 The meters show your input and what comes out.
 
+## Backing
+
+**Backing**, under the sections, is what plays with the drums:
+
+- **Drums only**.
+- **Chord progression**: chords played by a built-in guitar or bass, the
+  plucked-string voice that plays [tabs](/guides/tabs/), through a rig of
+  their own. It follows the jam's tempo and every change of it.
+- **Audio file**: a WAV file of your own, from the first bar, round and
+  round. Give **Its tempo** and the drums play at it.
+- **A project's track**: an audio track of any project, its clips through
+  its chain, round and round from the start of the project to the end of
+  the track's last clip. The drums play at the project's tempo.
+
+Audio cannot follow another tempo, so with an audio file or a track the
+tempo is the backing's: the tempo controls are off and the drums follow
+it. Audio is looped in whole bars, the nearest number to its length, so
+a backing a beat short or long still lines up with the bar. Choosing or
+leaving an audio backing while the jam plays stops it, to start again in
+step. Audio at another sample rate is converted once, to a copy in
+Cantina's cache; the file itself is never changed.
+
+**Level** sets the backing against the drums.
+
+### Chord progressions
+
+Pick a **Progression** from the presets, by genre, or type your own into
+**Chords**:
+
+| You type | You get |
+| --- | --- |
+| `I IV V IV` | One chord a bar |
+| `I7 \| IV7 \| I7 \| V7` | One a bar, with bar lines |
+| `\| ii7 V7 \| Imaj7 - \|` | Two a bar; `-` holds the chord before |
+| `Am \| F \| C/E \| G` | Chord names, with a bass note after `/` |
+
+With bar lines, the chords between two of them share the bar equally;
+without, each chord is a bar. The progression plays round and round from
+the first bar, whatever section the drums are in, and the ending rings
+its first chord.
+
+A Roman numeral counts from the key's tonic as a major scale does, in
+any mode: in A minor the minor third is `bIII`, so a minor rock
+progression is `i | bVI | bVII | i`. An upper-case numeral is a major
+chord, a lower-case one minor, and a suffix says the rest: `7`, `maj7`,
+`m7`, `6`, `9`, `add9`, `sus2`, `sus4`, `5` (a power chord), `dim` or
+`°`, `dim7`, `m7b5` or `ø`, `aug` or `+`. Chord names take the same
+suffixes, `m` for minor, and ignore the key.
+
+**Played by** picks the guitar or the bass, **Rhythm** how often each
+chord is played (once, on half notes, on every beat or on eighths, the
+off-beats strummed up), and **Through** the rig it plays through, from
+the rigs for that instrument. The guitar plays barre-chord shapes from
+the low E string; the bass plays each chord's bass note.
+
+The presets:
+
+| Genre | Progressions |
+| --- | --- |
+| Blues | 12-bar blues, quick-change blues, minor blues |
+| Rock | I–bVII–IV, I–IV–V |
+| Pop | I–V–vi–IV, vi–IV–I–V |
+| Punk | Power chords (I5–IV5–V5–IV5) |
+| Metal | Aeolian (i5–bVI5–bVII5), Phrygian (i5–bII5) |
+| Grunge | i–bIII–bVII–IV |
+| Funk | Dorian vamp, one-chord groove |
+| Jazz | ii–V–I, turnaround |
+| Reggae | I–IV |
+| Hip-hop | Minor loop |
+| Country | I–IV–I–V |
+
 ## Playing
 
 **Play** (or **Space**) starts the jam from the top: from the intro when
@@ -45,7 +116,7 @@ the groove has one, then the verse. With **Count in** on, the click
 counts a bar first. **Click** turns the metronome on for the whole jam.
 **Stop** (or **Space** again) stops and goes back to the top.
 
-![Jamming in the Midnight skin: the verse at bar 5, the chorus coming at bar 7 and 112 bpm at bar 9](../../../assets/guides/jam-playing.png)
+![Jamming in the Hi-fi skin with a bass playing a blues: the verse at bar 5, the chorus coming at bar 7 and 112 bpm at bar 9](../../../assets/guides/jam-playing.png)
 
 The display shows the section playing, the bar and beat, the tempo, and
 what is coming: a section or a tempo you asked for, and the bar it lands
@@ -79,8 +150,9 @@ does pressing one during the count-in, up to its last beat.
 with **⇧** by five. Type a tempo into the field, or press **Tap** (or
 **T**) on the beat: two taps or more set it, and a pause of two seconds
 starts a new count. While the jam plays, a new tempo lands on the next
-bar line, like a section. The drums and the click follow it at once
-and nothing clicks.
+bar line, like a section. The drums, a chord backing and the click
+follow it at once and nothing clicks. With an audio backing the tempo
+is the backing's.
 
 Keyboard shortcuts work anywhere in the view outside a text field or a
 menu; they are listed in [keyboard shortcuts](/reference/shortcuts/).

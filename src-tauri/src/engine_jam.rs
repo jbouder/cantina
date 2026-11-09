@@ -4,10 +4,15 @@
 
 use std::collections::BTreeMap;
 
-use cantina_project::{Jam, Meter, Section, DRUM_GAIN_DB, JAM_TEMPO};
+use cantina_project::{
+    Backing, Bar, Instrument, Jam, Meter, Rhythm, Section, DRUM_GAIN_DB, JAM_TEMPO,
+};
 
 use super::*;
-use crate::jam::{self, JamMark, Schedule, DRUM_TRACK, FIRST_PEDAL, INPUT_TRACK, JAM_IDS};
+use crate::jam::{
+    self, JamMark, Schedule, BACKING_TRACK, DRUM_TRACK, FIRST_BACKING_PEDAL, FIRST_PEDAL,
+    INPUT_TRACK, JAM_IDS,
+};
 
 /// A jam that is open: the engine hears it in place of the project.
 pub(super) struct JamSession {
@@ -25,6 +30,110 @@ pub(super) struct JamSession {
     missing: Vec<String>,
     /// Where the project's playhead was, put back on close.
     project_position: u64,
+    backing: JamBacking,
+}
+
+/// What the backing plays, built from the setup's.
+#[derive(Clone)]
+struct JamBacking {
+    play: BackingPlay,
+    /// Its rig's pedals, or the project track's chain, ids from
+    /// `first_pedal`.
+    chain: Vec<Pedal>,
+    first_pedal: u64,
+    /// What was left out: pedals not installed, files not found.
+    missing: Vec<String>,
+}
+
+#[derive(Clone)]
+enum BackingPlay {
+    None,
+    /// A progression's bars, for the voice.
+    Voice {
+        bars: Vec<Bar>,
+        instrument: Instrument,
+        rhythm: Rhythm,
+    },
+    /// Audio clips, repeated to cover a long jam, at this tempo.
+    Clips {
+        clips: Vec<Clip>,
+        bpm: f64,
+    },
+}
+
+impl JamBacking {
+    fn none(first_pedal: u64) -> Self {
+        Self {
+            play: BackingPlay::None,
+            chain: Vec::new(),
+            first_pedal,
+            missing: Vec::new(),
+        }
+    }
+
+    /// The tempo the jam takes from audio.
+    fn bpm(&self) -> Option<f64> {
+        match &self.play {
+            BackingPlay::Clips { bpm, .. } => Some(*bpm),
+            _ => None,
+        }
+    }
+}
+
+/// A backing setup with its level left out: changing only the level
+/// keeps what the backing is built from.
+fn source_of(backing: &Backing) -> Backing {
+    let mut b = backing.clone();
+    match &mut b {
+        Backing::None => {}
+        Backing::Progression { level_db, .. }
+        | Backing::Audio { level_db, .. }
+        | Backing::Track { level_db, .. } => *level_db = 0.0,
+    }
+    b
+}
+
+/// How long an audio backing's repeats cover, and the most clips they
+/// may take.
+const AUDIO_HORIZON_SECONDS: f64 = 6.0 * 3600.0;
+const MAX_BACKING_CLIPS: usize = 2048;
+
+/// Clips placed again every `period` samples from the start of the jam,
+/// those reaching past a period cut at it, for as many periods as the
+/// horizon and the limit on clips allow.
+fn repeated(clips: &[Clip], period: f64, sample_rate: f64) -> Vec<Clip> {
+    let inside: Vec<&Clip> = clips
+        .iter()
+        .filter(|c| (c.start as f64) < period && c.length > 0)
+        .collect();
+    if inside.is_empty() || period < 1.0 {
+        return Vec::new();
+    }
+    let passes = ((AUDIO_HORIZON_SECONDS * sample_rate / period).ceil() as usize)
+        .min(MAX_BACKING_CLIPS / inside.len())
+        .max(1);
+    let mut out = Vec::with_capacity(passes * inside.len());
+    for k in 0..passes {
+        let base = (k as f64 * period).round() as u64;
+        let next = ((k + 1) as f64 * period).round() as u64;
+        for c in &inside {
+            let start = base + c.start;
+            out.push(Clip {
+                id: ClipId(JAM_IDS + out.len() as u64),
+                start,
+                length: c.length.min(next.saturating_sub(start)),
+                ..(*c).clone()
+            });
+        }
+    }
+    out
+}
+
+/// Samples in a whole number of bars nearest `frames`, at least one.
+fn whole_bars(frames: u64, bpm: f64, meter: Meter, sample_rate: f64) -> f64 {
+    let beats = f64::from(meter.numerator) * 4.0 / f64::from(meter.denominator.max(1));
+    let bar = 60.0 / bpm * beats * sample_rate;
+    (frames as f64 / bar).round().max(1.0) * bar
 }
 
 /// The open jam as the UI sees it. Mirrors `JamStatus` in the UI.
@@ -47,6 +156,32 @@ pub struct JamStatus {
     pub tempo: f64,
     /// Rig pedals left out because they are not installed.
     pub missing: Vec<String>,
+    /// What the backing left out: pedals, files.
+    pub backing_missing: Vec<String>,
+    /// The tempo is the backing's, which the jam follows.
+    pub tempo_locked: bool,
+    /// The stock chord progressions, by genre.
+    pub presets: Vec<PresetInfo>,
+}
+
+/// A project's audio track a jam can play. Mirrors `JamTrack` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JamTrackInfo {
+    pub name: String,
+    /// The project's tempo, which the jam takes.
+    pub bpm: f64,
+    /// From the start to the end of its last clip.
+    pub seconds: f64,
+}
+
+/// A stock chord progression. Mirrors `JamPreset` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresetInfo {
+    pub genre: &'static str,
+    pub name: &'static str,
+    pub chords: &'static str,
 }
 
 /// Ids set aside for each rig's pedals.
@@ -131,6 +266,208 @@ impl Engine {
             .map(|r| r.path.clone())
     }
 
+    /// A rig's pedals with ids from `first`, and what was left out. Their
+    /// plugins' states replace those of any jam pedals in `range`.
+    fn jam_rig(
+        &mut self,
+        rig: Option<&str>,
+        first: u64,
+        range: std::ops::Range<u64>,
+    ) -> Result<(Vec<Pedal>, Vec<String>)> {
+        let (chain, states, missing) = match rig {
+            None => (Vec::new(), Vec::new(), Vec::new()),
+            Some(id) => match self.rig_path(id) {
+                None => (
+                    Vec::new(),
+                    Vec::new(),
+                    vec![format!("the rig {id:?} is not installed")],
+                ),
+                Some(path) => {
+                    let rig = crate::rigs::read(Path::new(&path))?;
+                    self.rig_chain(&rig, first)?
+                }
+            },
+        };
+        self.plugin_states.retain(|id, _| !range.contains(&id.0));
+        for (id, spec, state) in states {
+            self.plugin_states.insert(id, (spec, state));
+        }
+        Ok((chain, missing))
+    }
+
+    /// The ids a rig takes after `previous`, from `first` again when they
+    /// would reach `end`.
+    fn next_ids(previous: Option<u64>, first: u64, end: u64) -> u64 {
+        match previous {
+            Some(p) if p + 2 * RIG_IDS < end => p + RIG_IDS,
+            _ => first,
+        }
+    }
+
+    /// Builds the backing a setup asks for. Audio is checked and, at
+    /// another sample rate, converted to a copy in the cache.
+    fn jam_backing(&mut self, setup: &Jam, previous: Option<&JamBacking>) -> Result<JamBacking> {
+        let first = Self::next_ids(
+            previous.map(|b| b.first_pedal),
+            FIRST_BACKING_PEDAL,
+            AUDITION_IDS,
+        );
+        let range = FIRST_BACKING_PEDAL..AUDITION_IDS;
+        let sample_rate = self.project.sample_rate;
+        match &setup.backing {
+            Backing::None => Ok(JamBacking::none(first)),
+            Backing::Progression {
+                chords,
+                instrument,
+                rhythm,
+                rig,
+                ..
+            } => {
+                let tonic = cantina_project::pitch_class(&setup.key.tonic).unwrap_or(0);
+                let bars = cantina_project::parse_progression(chords, tonic)
+                    .map_err(|p| anyhow!("{}", p.join("; ")))?;
+                let (chain, missing) = self.jam_rig(rig.as_deref(), first, range)?;
+                Ok(JamBacking {
+                    play: BackingPlay::Voice {
+                        bars,
+                        instrument: *instrument,
+                        rhythm: *rhythm,
+                    },
+                    chain,
+                    first_pedal: first,
+                    missing,
+                })
+            }
+            Backing::Audio { file, bpm, .. } => {
+                let (path, frames) = self.jam_audio(Path::new(file))?;
+                let period = whole_bars(frames, *bpm, setup.time_signature, sample_rate);
+                let clip = Clip {
+                    id: ClipId(0),
+                    name: "Backing".into(),
+                    file: path.display().to_string(),
+                    start: 0,
+                    offset: 0,
+                    length: frames,
+                    tab: None,
+                };
+                self.plugin_states.retain(|id, _| !range.contains(&id.0));
+                Ok(JamBacking {
+                    play: BackingPlay::Clips {
+                        clips: repeated(&[clip], period, sample_rate),
+                        bpm: *bpm,
+                    },
+                    chain: Vec::new(),
+                    first_pedal: first,
+                    missing: Vec::new(),
+                })
+            }
+            Backing::Track { project, track, .. } => {
+                let (source, dir) = if *project == self.project.name {
+                    (self.project.clone(), self.project_dir.clone())
+                } else {
+                    self.projects.open(project)?
+                };
+                let t = source
+                    .tracks
+                    .iter()
+                    .find(|t| &t.name == track && !t.is_drums())
+                    .with_context(|| format!("{project} has no audio track {track:?}"))?;
+                let audio_dir = cantina_project::audio_dir(&dir);
+                let mut clips = Vec::new();
+                let mut missing = Vec::new();
+                for c in &t.clips {
+                    match self.jam_audio(&audio_dir.join(&c.file)) {
+                        Ok((path, _)) => {
+                            // A copy at another rate is as long, in time.
+                            let ratio = sample_rate / source.sample_rate;
+                            let at = |f: u64| (f as f64 * ratio).round() as u64;
+                            clips.push(Clip {
+                                file: path.display().to_string(),
+                                start: at(c.start),
+                                offset: at(c.offset),
+                                length: at(c.length),
+                                tab: None,
+                                ..c.clone()
+                            });
+                        }
+                        Err(e) => missing.push(format!("{}: {e:#}", c.name)),
+                    }
+                }
+                let end = clips.iter().map(|c| c.start + c.length).max().unwrap_or(0);
+                if end == 0 {
+                    bail!("{track} in {project} has no audio to play");
+                }
+                let bpm = source.tempo.bpm;
+                let period = whole_bars(end, bpm, setup.time_signature, sample_rate);
+                // The track's chain, with ids of the jam's; designed pedals
+                // only when this Cantina has them, plugins with their state.
+                let states = if dir == self.project_dir {
+                    self.plugin_states.clone()
+                } else {
+                    read_plugin_states(&dir)
+                };
+                self.plugin_states.retain(|id, _| !range.contains(&id.0));
+                let mut chain = Vec::new();
+                for (i, p) in t.chain.iter().enumerate() {
+                    if let Some(id) = p.spec.strip_prefix("pedal:") {
+                        if !self.designs.contains_key(id) && self.library.entry(id).is_none() {
+                            missing
+                                .push(format!("the designed pedal {id:?} is not in your library"));
+                            continue;
+                        }
+                    }
+                    let id = PedalId(first + i as u64);
+                    if let Some(state) = states.get(&p.id) {
+                        self.plugin_states.insert(id, state.clone());
+                    }
+                    chain.push(Pedal { id, ..p.clone() });
+                }
+                Ok(JamBacking {
+                    play: BackingPlay::Clips {
+                        clips: repeated(&clips, period, sample_rate),
+                        bpm,
+                    },
+                    chain,
+                    first_pedal: first,
+                    missing,
+                })
+            }
+        }
+    }
+
+    /// A WAV file at the engine's sample rate, and its length: the file
+    /// itself, or a copy converted once into the cache.
+    fn jam_audio(&self, path: &Path) -> Result<(PathBuf, u64)> {
+        let info = wav::info(path)
+            .with_context(|| format!("{} is not a WAV file Cantina can read", path.display()))?;
+        let rate = self.project.sample_rate;
+        if f64::from(info.sample_rate) == rate && usize::from(info.channels) <= CHANNELS {
+            return Ok((path.to_path_buf(), info.frames));
+        }
+        let cache = self
+            .app
+            .path()
+            .app_cache_dir()
+            .context("there is no cache folder")?
+            .join("jam-audio");
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        std::hash::Hash::hash(&path, &mut h);
+        let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok();
+        std::hash::Hash::hash(&modified, &mut h);
+        let name = format!("{:016x}-{}.wav", std::hash::Hasher::finish(&h), rate as u32);
+        let copy = cache.join(name);
+        if let Ok(have) = wav::info(&copy) {
+            return Ok((copy, have.frames));
+        }
+        let (info, channels) = wav::read_all(path)?;
+        let mut channels = fit_audio(channels, f64::from(info.sample_rate), rate);
+        channels.truncate(CHANNELS);
+        std::fs::create_dir_all(&cache).with_context(|| format!("creating {}", cache.display()))?;
+        wav::write(&copy, rate, &channels)?;
+        let frames = channels.first().map_or(0, Vec::len) as u64;
+        Ok((copy, frames))
+    }
+
     /// Builds what a setup plays: each section's pattern, and the rig's
     /// chain. A groove sets the meter. Refuses a setup that does not
     /// validate or gives the drums nothing to play. The rig of `previous`
@@ -190,36 +527,35 @@ impl Engine {
                 (p.chain.clone(), p.missing.clone(), p.first_pedal)
             }
             _ => {
-                let first = previous.map_or(FIRST_PEDAL, |p| p.first_pedal + RIG_IDS);
-                let first = if first + RIG_IDS >= AUDITION_IDS {
-                    FIRST_PEDAL
-                } else {
-                    first
-                };
-                let (chain, states, missing) = match setup.rig.clone() {
-                    None => (Vec::new(), Vec::new(), Vec::new()),
-                    Some(id) => match self.rig_path(&id) {
-                        None => (
-                            Vec::new(),
-                            Vec::new(),
-                            vec![format!("the rig {id:?} is not installed")],
-                        ),
-                        Some(path) => {
-                            let rig = crate::rigs::read(Path::new(&path))?;
-                            self.rig_chain(&rig, first)?
-                        }
-                    },
-                };
-                self.plugin_states
-                    .retain(|id, _| !(JAM_IDS..AUDITION_IDS).contains(&id.0));
-                for (id, spec, state) in states {
-                    self.plugin_states.insert(id, (spec, state));
-                }
+                let first = Self::next_ids(
+                    previous.map(|p| p.first_pedal),
+                    FIRST_PEDAL,
+                    FIRST_BACKING_PEDAL,
+                );
+                let (chain, missing) = self.jam_rig(
+                    setup.rig.as_deref(),
+                    first,
+                    FIRST_PEDAL..FIRST_BACKING_PEDAL,
+                )?;
                 (chain, missing, first)
             }
         };
+        let same_backing = previous.filter(|p| {
+            source_of(&p.setup.backing) == source_of(&setup.backing)
+                && p.setup.key == setup.key
+                && p.setup.time_signature == setup.time_signature
+        });
+        let backing = match same_backing {
+            Some(p) => p.backing.clone(),
+            None => self.jam_backing(&setup, previous.map(|p| &p.backing))?,
+        };
+        // Audio plays at its own tempo, and the jam at it.
+        if let Some(bpm) = backing.bpm() {
+            setup.tempo = (bpm.clamp(JAM_TEMPO.0, JAM_TEMPO.1) * 10.0).round() / 10.0;
+        }
         let mut session = JamSession {
             first_pedal,
+            backing,
             schedule: Schedule::new(bar, Section::Verse, setup.tempo, |_| bar, Section::Verse),
             setup,
             patterns,
@@ -251,6 +587,21 @@ impl Engine {
         let mut drums = Track::drums(DRUM_TRACK, "Drums", jam.setup.drums.kit.clone());
         drums.strip.gain_db = DRUM_GAIN_DB + jam.setup.drums.level_db;
         project.tracks = vec![input, drums];
+        let level = match &jam.setup.backing {
+            Backing::None => None,
+            Backing::Progression { level_db, .. }
+            | Backing::Audio { level_db, .. }
+            | Backing::Track { level_db, .. } => Some(*level_db),
+        };
+        if let Some(level_db) = level {
+            let mut backing = Track::new(BACKING_TRACK, "Backing");
+            backing.chain = jam.backing.chain.clone();
+            backing.strip.gain_db = level_db;
+            if let BackingPlay::Clips { clips, .. } = &jam.backing.play {
+                backing.clips = clips.clone();
+            }
+            project.tracks.push(backing);
+        }
         Some(project)
     }
 
@@ -274,10 +625,36 @@ impl Engine {
         HashMap::from([(DRUM_TRACK, jam.schedule.placements(&data))])
     }
 
+    /// What the backing's voice plays: the progression round and round
+    /// until an ending, which rings its first chord.
+    pub(super) fn jam_voices(&self) -> HashMap<TrackId, (TabScore, TabLoop)> {
+        let Some(jam) = &self.jam else {
+            return HashMap::new();
+        };
+        let BackingPlay::Voice {
+            bars,
+            instrument,
+            rhythm,
+        } = &jam.backing.play
+        else {
+            return HashMap::new();
+        };
+        let end = jam.schedule.end();
+        let until = jam.schedule.ending_start().unwrap_or(u64::MAX);
+        let looped =
+            jam::progression_loop(bars, *instrument, *rhythm, jam.setup.time_signature, until);
+        let score = match (jam.schedule.ending_start(), end) {
+            (Some(at), Some(end)) => jam::ending_chord(bars, *instrument, at, end - at),
+            _ => TabScore::new(),
+        };
+        HashMap::from([(BACKING_TRACK, (score, looped))])
+    }
+
     /// Hands the audio thread the jam's tempo map, the drums' score and
     /// where an ending stops, after the schedule changed.
     fn jam_send(&mut self) -> Result<()> {
         let scores = self.jam_scores();
+        let voices = self.jam_voices();
         let (Some(live), Some(jam)) = (&mut self.live, &self.jam) else {
             return Ok(());
         };
@@ -295,6 +672,15 @@ impl Engine {
             if let Source::Drums { sequencer, .. } = &mut live.track_mut(id)?.source {
                 if sequencer.score() != &score && !sequencer.set_score(score) {
                     bail!("the audio thread is not taking the drums");
+                }
+            }
+        }
+        for (id, (score, looped)) in voices {
+            if let Source::Audio { voice, .. } = &mut live.track_mut(id)?.source {
+                if (voice.score() != &score && !voice.set_score(score))
+                    || (voice.looped() != &looped && !voice.set_loop(looped))
+                {
+                    bail!("the audio thread is not taking the backing");
                 }
             }
         }
@@ -326,6 +712,16 @@ impl Engine {
             bar_ticks: bar,
             tempo: jam.schedule.tempo(),
             missing: jam.missing.clone(),
+            backing_missing: jam.backing.missing.clone(),
+            tempo_locked: jam.backing.bpm().is_some(),
+            presets: cantina_project::PRESETS
+                .iter()
+                .map(|p| PresetInfo {
+                    genre: p.genre,
+                    name: p.name,
+                    chords: p.chords,
+                })
+                .collect(),
         })
     }
 
@@ -416,7 +812,20 @@ impl Engine {
             }
         };
         let rig_changed = session.setup.rig != old.setup.rig;
-        if waits {
+        let backing_changed = source_of(&session.setup.backing) != source_of(&old.setup.backing);
+        // Audio sits on the timeline from the jam's first sample at its own
+        // tempo: a jam rolling at another cannot take it, or leave it, in
+        // time. It stops, to start again in step.
+        let regrid =
+            backing_changed && (session.backing.bpm().is_some() || old.backing.bpm().is_some());
+        if waits && regrid {
+            if let Some(live) = &mut self.live {
+                live.transport().stop();
+                live.transport().stop_at(None);
+                live.transport().locate(0);
+            }
+        }
+        if waits && !regrid {
             // The music goes on: the same sections, a new tempo on the
             // next bar.
             session.schedule = old.schedule;
@@ -429,12 +838,34 @@ impl Engine {
         }
         if rig_changed {
             self.with_track_faded(INPUT_TRACK, |e| e.sync())?;
+        } else if backing_changed && old.setup.backing != Backing::None {
+            self.with_track_faded(BACKING_TRACK, |e| e.sync())?;
         } else {
             self.sync()?;
         }
         self.jam_send()?;
         self.jam_remember();
         Ok(self.publish())
+    }
+
+    /// The audio tracks of a project a jam can play as its backing.
+    pub fn jam_tracks(&self, project: &str) -> Result<Vec<JamTrackInfo>> {
+        let source = if project == self.project.name {
+            self.project.clone()
+        } else {
+            self.projects.open(project)?.0
+        };
+        Ok(source
+            .tracks
+            .iter()
+            .filter(|t| !t.is_drums() && !t.clips.is_empty())
+            .map(|t| JamTrackInfo {
+                name: t.name.clone(),
+                bpm: source.tempo.bpm,
+                seconds: t.clips.iter().map(|c| c.end()).max().unwrap_or(0) as f64
+                    / source.sample_rate,
+            })
+            .collect())
     }
 
     fn jam_remember(&mut self) {
@@ -522,6 +953,9 @@ impl Engine {
         let (slow, fast) = JAM_TEMPO;
         if !bpm.is_finite() {
             bail!("{bpm} is not a tempo");
+        }
+        if self.jam.as_ref().is_some_and(|j| j.backing.bpm().is_some()) {
+            bail!("the backing plays at its own tempo; the jam follows it");
         }
         let bpm = (bpm.clamp(slow, fast) * 10.0).round() / 10.0;
         if self.jam_changes_wait() {

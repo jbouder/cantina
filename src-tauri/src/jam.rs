@@ -14,9 +14,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use cantina_dsp::pluck::Instrument as Voice;
+use cantina_dsp::PluckNote;
 use cantina_engine::sequencer::{PatternData, Placement, Score};
-use cantina_engine::{TempoMap, TimeSignature};
-use cantina_project::{Meter, Section, TrackId};
+use cantina_engine::{TabEvent, TabLoop, TabScore, TempoMap, TimeSignature};
+use cantina_project::{Bar, Chord, Instrument, Meter, Rhythm, Section, TrackId, PPQ};
 use serde::Serialize;
 
 /// The first id the jam's tracks and pedals take: far above any a
@@ -26,8 +28,12 @@ pub const JAM_IDS: u64 = 1 << 61;
 pub const INPUT_TRACK: TrackId = TrackId(JAM_IDS);
 /// The jam's drums.
 pub const DRUM_TRACK: TrackId = TrackId(JAM_IDS + 1);
+/// The backing: a progression's voice, or audio.
+pub const BACKING_TRACK: TrackId = TrackId(JAM_IDS + 2);
 /// The first id the rig's pedals take.
 pub const FIRST_PEDAL: u64 = JAM_IDS + 16;
+/// The first id the backing's pedals take, apart from the input rig's.
+pub const FIRST_BACKING_PEDAL: u64 = JAM_IDS + (1 << 59);
 
 /// The sections in the order the view lists them and keys 1 to 6 reach.
 pub const SECTIONS: [Section; 6] = [
@@ -173,6 +179,16 @@ impl Schedule {
         self.end
     }
 
+    /// Where the coming ending starts.
+    pub fn ending_start(&self) -> Option<u64> {
+        self.end?;
+        self.sections
+            .iter()
+            .rev()
+            .find(|(_, s)| *s == Section::Ending)
+            .map(|(t, _)| *t)
+    }
+
     /// The tempo map the transport plays: one meter, the tempo changes.
     pub fn tempo_map(&self, meter: Meter) -> TempoMap {
         let mut map = TempoMap::new(
@@ -265,10 +281,201 @@ pub fn first(available: &[Section]) -> Section {
     }
 }
 
+/// Ticks a strummed chord takes from its lowest string to its highest.
+const STRUM_TICKS: f64 = 6.0;
+
+/// The pitches a guitar plays for `chord`, lowest first, as a barre
+/// chord would: the bass from E2 up, then the fifth, the octave (or the
+/// seventh or sixth), the third, the fifth and the root (or the ninth)
+/// above. A power chord is three strings.
+pub fn guitar_voicing(chord: &Chord) -> Vec<f32> {
+    let has = |i: u8| chord.intervals.contains(&i);
+    let bass = 40 + (i32::from(chord.bass) - 4).rem_euclid(12);
+    let mut root = 40 + (i32::from(chord.root) - 4).rem_euclid(12);
+    if chord.bass != chord.root && root <= bass {
+        root += 12;
+    }
+    let fifth: i32 = [7, 6, 8].into_iter().find(|i| has(*i)).map_or(7, i32::from);
+    let third: Option<i32> = [4, 3, 5, 2].into_iter().find(|i| has(*i)).map(i32::from);
+    let mut notes = vec![bass];
+    if chord.bass != chord.root {
+        notes.push(root);
+    }
+    let Some(third) = third else {
+        // A power chord: root, fifth, octave.
+        notes.extend([root + fifth, root + 12]);
+        notes.dedup();
+        return notes.into_iter().map(|n| n as f32).collect();
+    };
+    let middle: i32 = [10, 11, 9]
+        .into_iter()
+        .find(|i| has(*i))
+        .map_or(12, i32::from);
+    let top = if has(14) { 26 } else { 24 };
+    for n in [
+        root + fifth,
+        root + middle,
+        root + 12 + third,
+        root + 12 + fifth,
+        root + top,
+    ] {
+        if n > *notes.last().expect("the bass is there") {
+            notes.push(n);
+        }
+    }
+    notes.truncate(6);
+    notes.into_iter().map(|n| n as f32).collect()
+}
+
+/// The note a bass plays for `chord`: its bass note from E1 up.
+pub fn bass_note(chord: &Chord) -> f32 {
+    (28 + (i32::from(chord.bass) - 4).rem_euclid(12)) as f32
+}
+
+/// The bass string a pitch is played on: E, A or D.
+fn bass_string(pitch: f32) -> u8 {
+    if pitch < 33.0 {
+        4
+    } else if pitch < 38.0 {
+        3
+    } else {
+        2
+    }
+}
+
+/// Ticks between strikes for a rhythm, and whether it is a strike at all
+/// (a whole note is struck once per chord).
+fn strike_ticks(rhythm: Rhythm, beat: f64) -> Option<f64> {
+    match rhythm {
+        Rhythm::Whole => None,
+        Rhythm::Half => Some(2.0 * beat),
+        Rhythm::Quarter => Some(beat),
+        Rhythm::Eighth => Some(beat / 2.0),
+    }
+}
+
+/// One chord's notes struck at `tick` for `ticks`: a strum across the
+/// guitar's strings (up on an off-beat eighth), or the bass's note.
+fn strike(
+    out: &mut TabScore,
+    chord: &Chord,
+    instrument: Instrument,
+    tick: f64,
+    ticks: f64,
+    velocity: f32,
+    up: bool,
+) {
+    match instrument {
+        Instrument::Guitar => {
+            let notes = guitar_voicing(chord);
+            let strings = notes.len();
+            for (i, pitch) in notes.into_iter().enumerate() {
+                // Strings count from the highest: the lowest note is on
+                // string 6, or the 5th or 4th for fewer notes.
+                let string = (6 - i) as u8;
+                let order = if up { strings - 1 - i } else { i };
+                let delay = order as f64 * STRUM_TICKS;
+                out.push(TabEvent {
+                    tick: tick + delay,
+                    ticks: (ticks - delay).max(1.0),
+                    instrument: Voice::Guitar,
+                    note: PluckNote::new(string, pitch, velocity * if up { 0.8 } else { 1.0 }, 0),
+                });
+            }
+        }
+        Instrument::Bass => {
+            let pitch = bass_note(chord);
+            out.push(TabEvent {
+                tick,
+                ticks: (ticks * 0.9).max(1.0),
+                instrument: Voice::Bass,
+                note: PluckNote::new(bass_string(pitch), pitch, velocity, 0),
+            });
+        }
+    }
+}
+
+/// Each chord of a progression with where it starts and how long it
+/// lasts, in ticks from the start; a held chord lasts on. The total is
+/// the progression's length.
+pub fn chord_spans(bars: &[Bar], bar_ticks: u64) -> (Vec<(f64, f64, Chord)>, u64) {
+    let mut spans: Vec<(f64, f64, Chord)> = Vec::new();
+    for (b, bar) in bars.iter().enumerate() {
+        let share = bar_ticks as f64 / bar.len().max(1) as f64;
+        for (i, chord) in bar.iter().enumerate() {
+            let at = b as f64 * bar_ticks as f64 + i as f64 * share;
+            match chord {
+                Some(c) => spans.push((at, share, c.clone())),
+                None => {
+                    if let Some(last) = spans.last_mut() {
+                        last.1 += share;
+                    }
+                }
+            }
+        }
+    }
+    (spans, bars.len() as u64 * bar_ticks)
+}
+
+/// A progression as the voice plays it: one pass of its chords, struck
+/// in the rhythm, repeated from the start of the jam until `until`.
+pub fn progression_loop(
+    bars: &[Bar],
+    instrument: Instrument,
+    rhythm: Rhythm,
+    meter: Meter,
+    until: u64,
+) -> TabLoop {
+    let beat = f64::from(PPQ) * 4.0 / f64::from(meter.denominator.max(1));
+    let bar_ticks = (beat * f64::from(meter.numerator.max(1))) as u64;
+    let (spans, period) = chord_spans(bars, bar_ticks);
+    let mut notes = TabScore::new();
+    for (start, length, chord) in &spans {
+        let end = start + length;
+        let step = strike_ticks(rhythm, beat).unwrap_or(*length);
+        let mut at = *start;
+        let mut k = 0;
+        while at < end - 0.5 {
+            let ticks = step.min(end - at);
+            let on_bar = (at % bar_ticks as f64).abs() < 0.5;
+            let velocity = if on_bar { 0.85 } else { 0.7 };
+            let up = rhythm == Rhythm::Eighth && k % 2 == 1;
+            strike(&mut notes, chord, instrument, at, ticks, velocity, up);
+            at += step;
+            k += 1;
+        }
+    }
+    notes.retain(|n| n.tick < period as f64);
+    notes.sort_by(|a, b| a.tick.total_cmp(&b.tick));
+    TabLoop {
+        notes,
+        start: 0,
+        period,
+        until,
+    }
+}
+
+/// What the backing plays when an ending starts at `at`: the
+/// progression's first chord, once, ringing for `ticks`.
+pub fn ending_chord(bars: &[Bar], instrument: Instrument, at: u64, ticks: u64) -> TabScore {
+    let mut out = TabScore::new();
+    if let Some(chord) = bars.iter().flatten().flatten().next() {
+        strike(
+            &mut out,
+            chord,
+            instrument,
+            at as f64,
+            ticks as f64,
+            0.85,
+            false,
+        );
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cantina_project::PPQ;
 
     const BAR: u64 = 4 * PPQ as u64;
     const SR: f64 = 48_000.0;
@@ -392,5 +599,140 @@ mod tests {
         // Too close to the line: the one after.
         assert_eq!(s.next_bar(&map, 95_500, SR, 1_000), bars(2));
         assert_eq!(s.next_bar(&map, 96_000, SR, 0), BAR);
+    }
+
+    fn chord(token: &str) -> Chord {
+        cantina_project::parse_chord(token, 9).unwrap()
+    }
+
+    #[test]
+    fn guitar_chords_are_barre_shapes() {
+        // E major: E2 B2 E3 G#3 B3 E4, the open E shape.
+        assert_eq!(
+            guitar_voicing(&chord("E")),
+            vec![40.0, 47.0, 52.0, 56.0, 59.0, 64.0]
+        );
+        // A minor 7 from E2's string: A2 E3 G3 C4 E4 A4.
+        assert_eq!(
+            guitar_voicing(&chord("Am7")),
+            vec![45.0, 52.0, 55.0, 60.0, 64.0, 69.0]
+        );
+        // A power chord is three strings.
+        assert_eq!(guitar_voicing(&chord("F#5")), vec![42.0, 49.0, 54.0]);
+        // C over E: E in the bass, the C shape above it.
+        let slash = guitar_voicing(&chord("C/E"));
+        assert_eq!(slash[0], 40.0);
+        assert_eq!(slash[1], 48.0);
+        assert!(slash.windows(2).all(|w| w[0] < w[1]), "{slash:?}");
+        assert_eq!(bass_note(&chord("A")), 33.0);
+        assert_eq!(bass_note(&chord("D#")), 39.0);
+    }
+
+    #[test]
+    fn a_progression_strikes_in_its_rhythm_and_loops() {
+        let prog = cantina_project::parse_progression("I | IV | - V", 9).unwrap();
+        let common = common();
+        let l = progression_loop(&prog, Instrument::Bass, Rhythm::Quarter, common, u64::MAX);
+        assert_eq!(l.period, bars(3));
+        // A note on every beat of three bars.
+        assert_eq!(l.notes.len(), 12);
+        let beat = f64::from(PPQ);
+        assert_eq!(l.notes[4].tick, 4.0 * beat);
+        // Bar 3 holds IV for two beats, then V.
+        assert_eq!(l.notes[9].note.pitch, bass_note(&chord("IV")));
+        assert_eq!(l.notes[10].note.pitch, bass_note(&chord("V")));
+        // Half notes on a guitar: a six-string strum on beats 1 and 3.
+        let l = progression_loop(&prog[..1], Instrument::Guitar, Rhythm::Half, common, 7);
+        assert_eq!(l.notes.len(), 12);
+        assert_eq!(
+            (l.notes[1].tick, l.notes[6].tick),
+            (STRUM_TICKS, 2.0 * beat)
+        );
+        assert_eq!(l.until, 7);
+        // A whole-note chord rings for as long as it lasts, holds and all.
+        let l = progression_loop(&prog, Instrument::Bass, Rhythm::Whole, common, 0);
+        assert_eq!(l.notes.len(), 3);
+        assert_eq!(l.notes[1].ticks, 6.0 * beat * 0.9);
+    }
+
+    #[test]
+    fn an_ending_rings_the_first_chord() {
+        let prog = cantina_project::parse_progression("vi | IV", 9).unwrap();
+        let end = ending_chord(&prog, Instrument::Guitar, bars(8), BAR);
+        assert_eq!(end.len(), 6);
+        assert_eq!(end[0].tick, bars(8) as f64);
+        assert_eq!(end[0].note.pitch, guitar_voicing(&chord("vi"))[0]);
+    }
+
+    /// Renders a progression through the voice, as the jam's backing
+    /// track plays it, at 120 bpm: what comes out, and the notes plucked.
+    fn render(chords: &str, instrument: Instrument, rhythm: Rhythm, bars: u64) -> (Vec<f32>, u64) {
+        use cantina_engine::{Endpoint, GraphConfig, Runtime, TabVoice};
+        let prog = cantina_project::parse_progression(chords, 4).unwrap();
+        let (mut runtime, mut controller) = Runtime::new(GraphConfig {
+            sample_rate: SR,
+            max_block_frames: 256,
+            channels: 1,
+        })
+        .unwrap();
+        let (voice, mut handle) = TabVoice::new();
+        let id = controller.graph_mut().add(Box::new(voice));
+        controller
+            .graph_mut()
+            .connect(id, Endpoint::Output)
+            .unwrap();
+        controller.commit().unwrap();
+        assert!(handle.set_loop(progression_loop(
+            &prog,
+            instrument,
+            rhythm,
+            common(),
+            u64::MAX
+        )));
+        controller.transport_mut().play();
+        let frames = (bars * 96_000) as usize;
+        let out = runtime.render(&[vec![0.0; frames]], 256).remove(0);
+        let notes = handle
+            .stats()
+            .notes
+            .load(std::sync::atomic::Ordering::Relaxed);
+        (out, notes)
+    }
+
+    fn peak_rms(out: &[f32]) -> (f32, f32) {
+        let peak = out.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+        let rms = (out.iter().map(|s| s * s).sum::<f32>() / out.len() as f32).sqrt();
+        (peak, rms)
+    }
+
+    #[test]
+    fn a_backing_renders_in_time_and_in_range() {
+        // E minor: i | bVI | bVII | i, half-note strums, four bars at 120.
+        let (out, notes) = render("i | bVI | bVII | i", Instrument::Guitar, Rhythm::Half, 4);
+        assert_eq!(notes, 4 * 2 * 6);
+        let (peak, rms) = peak_rms(&out);
+        eprintln!(
+            "guitar: peak {:.1} dBFS, rms {:.1} dBFS",
+            20.0 * peak.log10(),
+            20.0 * rms.log10()
+        );
+        assert!(peak < 1.0 && rms > 0.01, "peak {peak} rms {rms}");
+        // Every strum starts on its beat: the 10 ms after it are louder
+        // than the 10 ms before, where the last strum is dying away.
+        for strum in 1..8 {
+            let at = strum * 48_000;
+            let (_, before) = peak_rms(&out[at - 480..at]);
+            let (_, after) = peak_rms(&out[at..at + 480]);
+            assert!(after > 2.0 * before, "strum {strum}: {before} then {after}");
+        }
+        let (out, notes) = render("i | bVI | bVII | i", Instrument::Bass, Rhythm::Quarter, 4);
+        assert_eq!(notes, 16);
+        let (peak, rms) = peak_rms(&out);
+        eprintln!(
+            "bass: peak {:.1} dBFS, rms {:.1} dBFS",
+            20.0 * peak.log10(),
+            20.0 * rms.log10()
+        );
+        assert!(peak < 1.0 && rms > 0.01, "peak {peak} rms {rms}");
     }
 }
