@@ -1,6 +1,6 @@
 ---
 title: "Rigs"
-description: "Rigs are ready-made chains for a style: pick one by genre, audition it on your live input against your own chain, apply it, save your own and share them; the stock rigs for guitar and bass."
+description: "Rigs are ready-made chains for a style: pick one by genre, audition it on your live input against your own chain, apply it, suit it to your instrument with the instrument profile, save your own and share them; the stock rigs for guitar and bass."
 ---
 
 Most of the time you want "a metalcore tone" before you want to know what
@@ -32,8 +32,9 @@ Narrow it with **Genre** or by typing in the search.
 ![Auditioning the Metalcore rig, with A and B to compare it with the track's own chain, Apply and Stop](../../../assets/guides/rigs-audition.png)
 
 Applied, a rig is ordinary pedals: turn knobs, add, remove and reorder
-them as with any chain. A rig that asks for some input gain starts with a
-**Gain** pedal set to it.
+them as with any chain. When the rig's own input gain and your
+[instrument profile](#your-instrument)'s trim add up to anything, it
+starts with a **Gain** pedal set to that.
 
 From the keyboard the list is one tab stop: ↑ and ↓ move through it,
 Space auditions the rig under the cursor (again stops), Return applies
@@ -43,12 +44,47 @@ If a rig names a plugin, a designed pedal or an impulse response that is
 not installed, the rest of it still plays: the picker and a notice say
 which pedals were left out and why.
 
+## Your instrument
+
+The same rig sounds very different into different pickups: a high-gain
+rig that is tight on a humbucker turns to mush on hot active pickups and
+thin on a vintage single coil. So rigs trim their input to suit what you
+play, from the **instrument profile** in **Settings ▸ Instrument**:
+
+- **You play**: guitar or bass. The picker opens on that instrument's rigs.
+- **Pickups**: single coils, humbuckers or active. Until you calibrate,
+  rigs trim by a nominal amount for them: +4 dB for single coils, nothing
+  for humbuckers (the stock rigs are leveled for a passive humbucker), −6
+  dB for active pickups.
+- **Tuning**: where a new tab starts when you transcribe a clip.
+- **Calibrate**: with the engine running, press it and play as hard as you
+  ever do for four seconds. Cantina measures the loudest peak at the input
+  and from then on trims rigs so that peak lands at −6 dBFS, the level the
+  stock rigs are leveled for: a peak of −12 dBFS gives rigs +6 dB. The
+  display says what it measured and the trim. **Forget** goes back to the
+  nominal trim. Calibrate again when you change the interface's gain knob
+  or another instrument; a calibration that heard nothing, or clipped,
+  says so and keeps the old one.
+
+![The Instrument section of Settings, calibrated](../../../assets/guides/instrument-profile.png)
+
+The trim is part of the leading **Gain** pedal a rig gets when you
+audition or apply it, so you can see it and change it. Chains already on
+your tracks keep their levels when the profile changes; apply the rig
+again to pick up the new trim. The profile is an app setting, not part of
+a rig or a project: a rig file says nothing about your instrument, and
+[`cantina-cli render rig`](/reference/cli/#render-rig) renders it exactly
+as written.
+
 ## Saving and sharing your rigs
 
 **Save chain as rig…** writes the track's chain, every knob as it is, to a
 rig of your own: give it a name and, if you like, a genre, the instrument
 and a line on what it sounds like. It appears in the picker straight away,
-marked *yours*. Saving under a name you already used replaces that rig.
+marked *yours*. Saving under a name you already used replaces that rig. A
+**Gain** pedal first in the chain is saved as the rig's input gain, less
+your profile's trim, so the rig sounds the same applied again, here or on
+someone else's instrument.
 
 Your rigs are files, one `<name>.rig.json` each, in
 `~/Music/Cantina/Rigs`, a library folder Cantina watches like the others:

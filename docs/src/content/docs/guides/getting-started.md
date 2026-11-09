@@ -66,6 +66,24 @@ included. Allow it, or Cantina hears nothing.
 The **Engine** key starts and stops the audio. Its light is on while audio
 is running. Your choices are remembered for next time.
 
+## Tell Cantina what you play
+
+Under **Instrument** in Settings, say what you play through: **Guitar** or
+**Bass**, the **Pickups** (single coils, humbuckers or active) and the
+**Tuning**. The [rigs](/guides/rigs/), ready-made chains for a style, use
+it to set how hard they drive their first pedal, so a high-gain rig suits
+a hot active pickup and a vintage single coil alike. The tuning is where a
+new tab starts.
+
+Then calibrate: with the engine running, press **Calibrate** and play as
+hard as you ever do for four seconds. Cantina measures the loudest peak
+and shows how much it will trim the rigs by. Calibrate again after you
+change the interface's gain knob or pick up another instrument.
+
+![The Instrument section of Settings: guitar, humbuckers, standard tuning, and the calibration](../../../assets/guides/instrument-profile.png)
+
+## The rest of Settings
+
 The rest of Settings holds the **Skin**, **Motion** (Reduce flashing),
 the optional **Assistant**, off until you connect a model (see
 [The assistant](/guides/assistant/)), and **Updates**.
@@ -84,7 +102,13 @@ Nothing moving on the **IN** meter means nothing is reaching Cantina; see
 
 ## Add pedals
 
-The pedalboard for the selected track sits under the timeline. The dashed
+The pedalboard for the selected track sits under the timeline. For a
+tone in one step, press **Rigs** above it and pick one for your style:
+metal, rock, blues, funk, jazz, ambient and more, for guitar and for bass.
+**Audition** to hear it, **Apply** to keep it; [Rigs](/guides/rigs/) has
+the rest.
+
+To build a chain yourself, the dashed
 **Add a pedal** slot at the end opens the picker: the stock pedals, the
 pedals you have designed, and the Audio Unit and CLAP plugins installed on
 your Mac.

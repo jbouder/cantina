@@ -85,7 +85,10 @@ installed still loads: the rest of the chain plays, and Cantina, like
 
 ## Levels
 
-`inputGainDb` is how hot the rig wants its input. Every stock rig plays
+`inputGainDb` is how hot the rig wants its input. In the app, the
+[instrument profile](/guides/rigs/#your-instrument)'s trim is added to it
+and the sum is a Gain pedal at the head of the chain; the file and
+`cantina-cli render rig` know nothing of the profile. Every stock rig plays
 the DI of its instrument at about -19 dBFS RMS (cleans a few dB lower so
 their peaks stay under -1.5 dBFS), within 6 dB of each other, so
 switching rigs does not jump in volume. A test pins each one's peak, RMS

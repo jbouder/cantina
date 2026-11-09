@@ -15,6 +15,7 @@ import overdriveDef from "../../../pedals/overdrive.pedal.json";
 import phaserDef from "../../../pedals/phaser.pedal.json";
 import tremoloDef from "../../../pedals/tremolo.pedal.json";
 import { ACTIONS, type ActionId, type ActionState } from "./actions";
+import { profileTrim } from "./calibrate";
 import { type AnalysisFrame, analysisOf, decodeFrame, encodeFrame } from "./frame";
 import {
   type BrokenFile,
@@ -83,6 +84,8 @@ export interface EngineStatus {
   rigs: RigInfo[];
   /** The rig heard on a track in place of its chain. Session state, never saved. */
   rigAudition: RigAudition | null;
+  /** What the player plays through, and the trim it gives rigs. An app setting. */
+  instrumentProfile: InstrumentProfileStatus;
   /** Rows muted or soloed on drum tracks, by track id. Session state, never saved. */
   drumRows: Record<number, DrumRows>;
 }
@@ -91,6 +94,24 @@ export interface EngineStatus {
 export interface DrumRows {
   muted: string[];
   soloed: string[];
+}
+
+/** How hot an instrument's pickups are. */
+export type Pickups = "singleCoil" | "humbucker" | "active";
+
+/** What the player plays through. Mirrors `InstrumentProfile` in src-tauri. */
+export interface InstrumentProfile {
+  instrument: Instrument;
+  pickups: Pickups;
+  /** The open strings from the lowest, as MIDI notes. */
+  tuning: number[];
+  /** The input's peak playing hard, in dBFS; null until calibrated. */
+  calibratedPeakDb: number | null;
+}
+
+/** The profile and the trim it gives every rig's input. */
+export interface InstrumentProfileStatus extends InstrumentProfile {
+  trimDb: number;
 }
 
 /** A rig the picker offers. Mirrors `RigInfo` in src-tauri. */
@@ -1210,10 +1231,11 @@ function mockUserRig(path: string) {
 /** A rig's pedals as the stand-in's chain: values set by name, as the shell resolves them. */
 function mockRigChain(rig: RigFile): PedalInfo[] {
   const chain: PedalInfo[] = [];
-  if (rig.inputGainDb) {
+  const input = (rig.inputGainDb ?? 0) + mock.instrumentProfile.trimDb;
+  if (Math.abs(input) >= 0.05) {
     const gain = mockPedal(mockNextId++, "gain");
     const first = gain.params[0];
-    if (first) first.value = rig.inputGainDb;
+    if (first) first.value = Math.max(-60, Math.min(24, input));
     chain.push(gain);
   }
   for (const p of rig.chain) {
@@ -1400,6 +1422,18 @@ const mock: EngineStatus = {
   grooves: [],
   rigs: [],
   // `?rigaudition` hears the Metalcore rig on the guitar track, for screenshots.
+  // `?calibrated=-12` starts the profile calibrated at that peak, for screenshots.
+  instrumentProfile: (() => {
+    const peak = mockParams?.get("calibrated");
+    const profile: InstrumentProfile = {
+      instrument: mockParams?.get("instrument") === "bass" ? "bass" : "guitar",
+      pickups: "humbucker",
+      tuning:
+        mockParams?.get("instrument") === "bass" ? [28, 33, 38, 43] : [40, 45, 50, 55, 59, 64],
+      calibratedPeakDb: peak ? Number(peak) : null,
+    };
+    return { ...profile, trimDb: profileTrim(profile) };
+  })(),
   rigAudition: mockParams?.has("rigaudition")
     ? {
         track: 1,
@@ -1532,6 +1566,7 @@ function mockStatus(): EngineStatus {
     rigAudition: mock.rigAudition
       ? { ...mock.rigAudition, missing: [...mock.rigAudition.missing] }
       : null,
+    instrumentProfile: { ...mock.instrumentProfile, tuning: [...mock.instrumentProfile.tuning] },
     drumRows: structuredClone(mock.drumRows),
     metronome: { ...mock.metronome, sounds: [...mock.metronome.sounds] },
     countIn: mock.countIn,
@@ -2427,6 +2462,24 @@ export async function rigAudition(
 }
 
 /** While auditioning, hears the rig (A) or the track's own chain (B). */
+/**
+ * Sets what the player plays through. Rigs applied or auditioned from
+ * now on trim their input from it. An app setting, not undoable.
+ */
+export async function instrumentProfileSet(profile: InstrumentProfile): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("instrument_profile_set", { profile });
+  const peak = profile.calibratedPeakDb;
+  if (peak !== null && !(Number.isFinite(peak) && peak >= -90 && peak <= 6)) {
+    throw new Error(`a calibration of ${peak} dBFS is not a level an input gives`);
+  }
+  mock.instrumentProfile = {
+    ...profile,
+    tuning: [...profile.tuning],
+    trimDb: profileTrim(profile),
+  };
+  return mockStatus();
+}
+
 export async function rigAb(hearRig: boolean): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("rig_ab", { hearRig });
   if (!mock.rigAudition) throw new Error("no rig is being auditioned");
@@ -2454,13 +2507,18 @@ export async function rigSave(track: number, rig: RigDraft): Promise<EngineStatu
   const path = `${MOCK_RIGS_DIR}/${rigSlug(name)}.rig.json`;
   const at = mockUserRigs.findIndex((r) => r.info.path === path);
   if (at >= 0 && !rig.replace) throw new Error(`there is already a rig called ${name}`);
+  // A Gain pedal first is the rig's input gain, less the profile's trim.
+  const [first, ...rest] = t.chain;
+  const leading = first?.spec === "gain" && !first.bypassed;
+  const gain = leading ? (first.params[0]?.value ?? 0) - mock.instrumentProfile.trimDb : 0;
   const file: RigFile = {
     version: 1,
     name,
     genre: rig.genre.trim(),
     description: rig.description.trim(),
     instrument: rig.instrument,
-    chain: t.chain.map((p) => ({
+    inputGainDb: Math.max(-24, Math.min(24, Math.round(gain * 10) / 10)),
+    chain: (leading ? rest : t.chain).map((p) => ({
       pedal: p.spec,
       params: Object.fromEntries(p.params.map((q) => [q.name.toLowerCase(), q.value])),
       bypassed: p.bypassed,

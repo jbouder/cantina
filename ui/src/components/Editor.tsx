@@ -6,6 +6,7 @@ import {
   clock,
   type DrumRows,
   type EngineStatus,
+  type InstrumentProfile,
   type IrInfo,
   type KitInfo,
   type LibraryStatus,
@@ -64,6 +65,8 @@ type Props = {
   rigAudition: RigAudition | null;
   /** The rig picker starts open: `?rigs` in the browser, for screenshots. */
   rigsOpen?: boolean;
+  /** What the player plays through: the picker's and the transcription's defaults. */
+  profile: InstrumentProfile;
   /** Rows muted or soloed on drum tracks, by track id. */
   drumRows: Record<number, DrumRows>;
   tempo: Tempo;
@@ -107,6 +110,7 @@ export function Editor({
   rigs,
   rigAudition,
   rigsOpen = false,
+  profile,
   drumRows,
   tempo,
   position,
@@ -337,6 +341,7 @@ export function Editor({
                 onStatus={onStatus}
                 onError={onError}
                 initiallyOpen={rigsOpen}
+                defaultInstrument={profile.instrument}
               />
             )}
             <PedalChain
@@ -364,6 +369,7 @@ export function Editor({
         ) : (
           <ClipList
             track={track}
+            profile={profile}
             patterns={patterns}
             sampleRate={sampleRate}
             tempo={tempo}
@@ -378,6 +384,7 @@ export function Editor({
 
 type ClipsProps = {
   track: TrackStatus;
+  profile: InstrumentProfile;
   patterns: PatternInfo[];
   sampleRate: number;
   tempo: Tempo;
@@ -386,7 +393,7 @@ type ClipsProps = {
 };
 
 /** The track's clips as a list with a delete each: the timeline for the keyboard. */
-function ClipList({ track, patterns, sampleRate, tempo, onStatus, onError }: ClipsProps) {
+function ClipList({ track, profile, patterns, sampleRate, tempo, onStatus, onError }: ClipsProps) {
   const run = (action: Promise<EngineStatus>) => action.then(onStatus, (e) => onError(String(e)));
   // `?transcribe=<clip id>` opens the sheet in the browser, for screenshots.
   const [transcribing, setTranscribing] = useState<number | null>(() => {
@@ -469,6 +476,7 @@ function ClipList({ track, patterns, sampleRate, tempo, onStatus, onError }: Cli
       {sheetClip ? (
         <TranscribeSheet
           clip={sheetClip}
+          profile={profile}
           onStatus={onStatus}
           onClose={() => setTranscribing(null)}
         />

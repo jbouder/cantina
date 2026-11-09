@@ -127,7 +127,9 @@ synthesised bass line at DI level, `crates/cli/fixtures/di-bass.wav`) for a
 bass rig, or whatever source is named. Bypassed pedals are skipped and
 pedals that are not installed are left out with a warning, as in the app.
 The numbers are the same as for a pedal; `latency` is the whole chain's.
-Only the file plays a part: a render is the same on every machine.
+Only the file plays a part: the app's [instrument
+profile](/guides/rigs/#your-instrument) is a setting, not part of the
+rig, so a render is the same on every machine.
 
 ## render pattern
 

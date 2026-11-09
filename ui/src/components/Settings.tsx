@@ -14,6 +14,7 @@ import { SKINS, useSkin } from "../skins";
 import { AssistantSettings } from "./AssistantSettings";
 import { Button } from "./Button";
 import { DevicePicker } from "./DevicePicker";
+import { InstrumentSettings } from "./InstrumentSettings";
 import { Lcd } from "./Lcd";
 import { Select } from "./Select";
 import { Sheet } from "./Sheet";
@@ -30,7 +31,7 @@ type Props = {
   /** Check for a release as the sheet opens, for Cantina ▸ Check for Updates. */
   checkForUpdates?: boolean;
   /** A section to scroll to as the sheet opens. */
-  section?: "assistant" | null;
+  section?: "assistant" | "instrument" | null;
 };
 
 const WARN_CHOICES = [5, 10, 20, 50, 100];
@@ -173,6 +174,11 @@ export function Settings({
           ))}
         </Select>
       </section>
+      <InstrumentSettings
+        status={status}
+        onStatusChange={onStatusChange}
+        reveal={section === "instrument"}
+      />
       <section aria-labelledby="skin-label" className="grid gap-2">
         <h3 id="skin-label" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
           Skin

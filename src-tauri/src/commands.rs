@@ -579,6 +579,15 @@ pub fn rig_apply(
     engine.lock().rig_apply(track, &path).map_err(fail)
 }
 
+/// Sets what the player plays through, which rigs trim their input from.
+#[tauri::command]
+pub fn instrument_profile_set(
+    engine: State<'_, EngineState>,
+    profile: crate::settings::InstrumentProfile,
+) -> Result<EngineStatus, String> {
+    engine.lock().instrument_profile_set(profile).map_err(fail)
+}
+
 /// Writes a track's chain to the Rigs library folder as a rig.
 #[tauri::command]
 pub fn rig_save(

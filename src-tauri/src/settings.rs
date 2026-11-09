@@ -92,6 +92,70 @@ impl Default for AssistantSettings {
     }
 }
 
+/// The pickups an instrument has: how hot it is into the interface
+/// before anyone measures it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Pickups {
+    /// Vintage-output single coils: quieter than the rigs expect.
+    SingleCoil,
+    /// Passive humbuckers: the level the rigs are leveled for.
+    Humbucker,
+    /// Active pickups with a preamp: hotter.
+    Active,
+}
+
+/// The peak, in dBFS, the stock rigs are leveled for: a passive
+/// humbucker played hard into a DI, as the CLI's DI fixtures are.
+pub const RIG_REFERENCE_PEAK_DB: f32 = -6.0;
+
+/// The most a profile trims a rig's input either way.
+pub const MAX_PROFILE_TRIM_DB: f32 = 18.0;
+
+/// What the player plays through, so a rig's input gain suits it: the
+/// instrument, its pickups and tuning, and the peak a calibration
+/// measured playing hard. Mirrors `InstrumentProfile` in the UI.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct InstrumentProfile {
+    pub instrument: cantina_project::Instrument,
+    pub pickups: Pickups,
+    /// The open strings from the lowest, as MIDI notes.
+    pub tuning: Vec<u8>,
+    /// The input's peak, in dBFS, over a few seconds of playing hard;
+    /// none until the player calibrates.
+    pub calibrated_peak_db: Option<f32>,
+}
+
+impl Default for InstrumentProfile {
+    fn default() -> Self {
+        Self {
+            instrument: cantina_project::Instrument::Guitar,
+            pickups: Pickups::Humbucker,
+            tuning: vec![40, 45, 50, 55, 59, 64],
+            calibrated_peak_db: None,
+        }
+    }
+}
+
+impl InstrumentProfile {
+    /// Decibels a rig's input gain is trimmed by: what brings the
+    /// calibrated peak to the level the rigs are leveled for or, before a
+    /// calibration, a nominal amount for the pickups. To half a decibel,
+    /// within ±18 dB.
+    pub fn trim_db(&self) -> f32 {
+        let trim = match self.calibrated_peak_db {
+            Some(peak) if peak.is_finite() => RIG_REFERENCE_PEAK_DB - peak,
+            _ => match self.pickups {
+                Pickups::SingleCoil => 4.0,
+                Pickups::Humbucker => 0.0,
+                Pickups::Active => -6.0,
+            },
+        };
+        ((trim * 2.0).round() / 2.0).clamp(-MAX_PROFILE_TRIM_DB, MAX_PROFILE_TRIM_DB)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
@@ -110,6 +174,8 @@ pub struct Settings {
     pub count_in: bool,
     /// The assistant's endpoint and model, and whether it is on.
     pub assistant: AssistantSettings,
+    /// What the player plays through; rigs trim their input from it.
+    pub instrument: InstrumentProfile,
 }
 
 impl Default for Settings {
@@ -123,6 +189,7 @@ impl Default for Settings {
             recent_projects: Vec::new(),
             count_in: true,
             assistant: AssistantSettings::default(),
+            instrument: InstrumentProfile::default(),
         }
     }
 }
@@ -152,6 +219,29 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_profile_trims_to_the_rigs_reference_peak() {
+        let mut p = InstrumentProfile::default();
+        assert_eq!(p.trim_db(), 0.0, "a humbucker is what the rigs expect");
+        p.pickups = Pickups::SingleCoil;
+        assert_eq!(p.trim_db(), 4.0);
+        p.pickups = Pickups::Active;
+        assert_eq!(p.trim_db(), -6.0);
+        // A measurement wins over the pickups, to half a decibel.
+        p.calibrated_peak_db = Some(-1.2);
+        assert_eq!(p.trim_db(), -5.0);
+        p.calibrated_peak_db = Some(-14.3);
+        assert_eq!(p.trim_db(), 8.5);
+        p.calibrated_peak_db = Some(-80.0);
+        assert_eq!(p.trim_db(), MAX_PROFILE_TRIM_DB, "held to range");
+        // An old settings file has no profile: the default.
+        let loaded: Settings = serde_json::from_str(r#"{"countIn":false}"#).unwrap();
+        assert_eq!(loaded.instrument, InstrumentProfile::default());
+        let json = serde_json::to_string(&p).unwrap();
+        assert!(json.contains(r#""pickups":"active""#), "{json}");
+        assert!(json.contains(r#""calibratedPeakDb":-80.0"#), "{json}");
+    }
 
     #[test]
     fn round_trips_and_defaults_missing_fields() {
