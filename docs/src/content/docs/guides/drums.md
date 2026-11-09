@@ -18,7 +18,7 @@ can go through a compressor or a reverb.
 
 ## Kits
 
-Pick a kit from **Kit**. Four come with Cantina:
+Pick a kit from **Kit**. Eight come with Cantina:
 
 | Kit | Sounds |
 | --- | --- |
@@ -26,9 +26,14 @@ Pick a kit from **Kit**. Four come with Cantina:
 | Tight rock | A heavy kick, a hard snare, closed and short open hats, two toms, crash, ride and cowbell |
 | Electronic | Two kicks, two snares, a clap, hats, two toms and percussion |
 | Metal (synth) | A short, clicky kick and a cracking snare with three velocity layers each for fast doubles, tight hats, three toms, crash, china and ride. Synthesised from `recipes/metal.recipe.json` |
+| Metal (triggered) | A triggered kick, one layer so every hit is the same, as metal drummers trigger theirs, a cracking snare, tight hats, three toms, crash, china and ride. Synthesized from `recipes/metal-triggered.recipe.json` |
+| Jazz (brushes) | A small tuned-up kick, a brushed snare, soft hats with a pedal hat, a long singing ride, three higher-tuned toms, crash and a swish. Synthesized from `recipes/jazz.recipe.json` |
+| Vintage 60s/70s | A dead, thumpy kick, a fat snare, dark hats, deep toms and dark cymbals. Synthesized from `recipes/vintage.recipe.json` |
+| Hip-hop 808 | A long, booming 808 kick, a snare and a clap, crisp hats, sine toms and a cowbell. Synthesized from `recipes/hiphop-808.recipe.json` |
 
-Every kit has the same names for the kick, snare, hats and toms, so a
-pattern written on one plays on the others. The open hat is cut off by the
+Every kit has the same names for the kick, snare, hats and toms, and all
+but Electronic for the crash, ride and china, so a pattern written on one
+plays on the others; every stock groove is tested on every kit. The open hat is cut off by the
 closed one, as on a real kit.
 
 To make your own kit, copy one of the stock kits from `kits/` in the

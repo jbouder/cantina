@@ -1,9 +1,9 @@
 //! The stock kit recipes in `recipes/` synthesised, written as a kit
 //! folder, loaded the way the app loads kits, and played on the sampler:
 //! every pad sounds, the hats choke, and the pads patterns share are
-//! there, so a pattern written for a stock kit plays on it. The metal
-//! recipe also ships synthesised, as `kits/metal`; that folder must be
-//! what the recipe makes.
+//! there, so a pattern written for a stock kit plays on it. Every recipe
+//! but lo-fi also ships synthesised, as `kits/<name>`; each folder must be
+//! what its recipe makes.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -42,6 +42,10 @@ fn the_stock_recipes_make_kits_the_sampler_plays() {
     for (name, title, extra) in [
         ("lofi", "Lo-fi (synth)", "clap"),
         ("metal", "Metal (synth)", "china"),
+        ("jazz", "Jazz (brushes)", "ride"),
+        ("vintage", "Vintage 60s/70s", "ride"),
+        ("hiphop-808", "Hip-hop 808", "clap"),
+        ("metal-triggered", "Metal (triggered)", "china"),
     ] {
         sampler_plays(name, title, extra);
     }
@@ -80,17 +84,23 @@ fn sampler_plays(name: &str, title: &str, extra: &str) {
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-/// `kits/metal` is `recipes/metal.recipe.json` synthesised: the same
-/// `kit.json`, and every sample the same to within the 16-bit rounding
-/// `synth-kit` writes. Change the recipe, then run
-/// `cantina-cli synth-kit recipes/metal.recipe.json kits/metal`.
+/// Each synthesised stock kit, `kits/<name>`, is `recipes/<name>.recipe.json`
+/// synthesised: the same `kit.json`, and every sample the same to within
+/// the 16-bit rounding `synth-kit` writes. Change a recipe, then run
+/// `cantina-cli synth-kit recipes/<name>.recipe.json kits/<name>`.
 #[test]
-fn the_metal_kit_is_its_recipe_synthesised() {
-    let (want, samples) = synthesize(&recipe("metal"));
-    let (have, loaded) = kit::load(&root().join("kits/metal")).unwrap();
+fn the_synthesised_kits_are_their_recipes() {
+    for name in ["metal", "jazz", "vintage", "hiphop-808", "metal-triggered"] {
+        kit_is_its_recipe(name);
+    }
+}
+
+fn kit_is_its_recipe(name: &str) {
+    let (want, samples) = synthesize(&recipe(name));
+    let (have, loaded) = kit::load(&root().join(format!("kits/{name}"))).unwrap();
     assert_eq!(
         have, want,
-        "kits/metal/kit.json is not what the recipe makes"
+        "kits/{name}/kit.json is not what the recipe makes"
     );
     let mut index = 0;
     for pad in loaded.pads() {
@@ -110,7 +120,7 @@ fn the_metal_kit_is_its_recipe_synthesised() {
                 .fold(0.0f32, |m, (a, b)| m.max((a - b).abs()));
             assert!(
                 worst <= 2.0 / 32_767.0,
-                "{} differs from the recipe by {worst}; regenerate kits/metal",
+                "{} differs from the recipe by {worst}; regenerate kits/{name}",
                 s.file
             );
         }
