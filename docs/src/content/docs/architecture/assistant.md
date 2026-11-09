@@ -105,7 +105,7 @@ the tool, so a malformed call never reaches the project.
 
 | Reads | Edits | Asks first |
 | --- | --- | --- |
-| `get_project`, `get_pattern`, `list_pedal_kinds`, `list_kits`, `get_engine` | `write_pedal`, `write_pattern`, `write_kit_recipe`, `set_tempo`, `add_track`, `add_drum_track`, `rename_track`, `set_mix`, `arm_track`, `add_pedal`, `remove_pedal`, `move_pedal`, `set_pedal_params`, `bypass_pedal`, `add_pattern`, `set_pattern`, `place_pattern`, `set_loop` | `remove_track`, `delete_pattern`, `delete_clip`, and a write that replaces a library file |
+| `get_project`, `get_pattern`, `list_pedal_kinds`, `list_kits`, `get_engine`, `search_docs`, `read_docs` | `write_pedal`, `write_pattern`, `write_kit_recipe`, `set_tempo`, `add_track`, `add_drum_track`, `rename_track`, `set_mix`, `arm_track`, `add_pedal`, `remove_pedal`, `move_pedal`, `set_pedal_params`, `bypass_pedal`, `add_pattern`, `set_pattern`, `place_pattern`, `set_loop` | `remove_track`, `delete_pattern`, `delete_clip`, `apply_chain`, and a write that replaces a library file |
 
 Tools run against a `Host`: the project, its revision, `apply`, and the
 few things only the engine knows (pedal kinds and their parameters, the
@@ -127,6 +127,28 @@ methods the UI's commands call:
 - **Values are held to range.** Parameters are set by name in their own
   unit, a choice by its name, and clamped by `ParamInfo::clamp` as a knob
   would be.
+
+### Docs and diagnosis
+
+`build.rs` compiles every page of `docs/src/content/docs/guides` and
+`reference` into the shell (`OUT_DIR/docs_pages.rs`), so `search_docs` and
+`read_docs` (`assistant/docs.rs`) serve the docs of the build that is
+running, offline, with each page's address and its sections' anchors
+for the answer to link. Search is a plain term count, weighted to titles,
+returning the best-matching paragraph; there are a few dozen pages.
+
+`get_engine` is `Engine::engine_report`: what the status already knows
+(running, devices, rate, buffer, the latency breakdown, the last error),
+plus, while a stream is open, the input and output peaks (`MeterHandle::peek`,
+which leaves the meters alone), the stream's counters (output underruns,
+input overruns, callbacks, largest block), the scanner's failures, and
+every pedal in the project that cannot be built: a plugin spec the scan
+has not found, or a design with no copy.
+
+`apply_chain` builds a suggested chain as one `Command::Batch` of the
+removals and insertions (`Engine::chain_set`, sharing `new_pedal` with
+`chain_add`), and always asks the player first, so a suggestion is never
+applied without a yes.
 
 ### Authoring
 

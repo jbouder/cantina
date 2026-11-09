@@ -1734,6 +1734,15 @@ impl crate::assistant::tools::Host for Engine {
         self.library_rescan();
     }
 
+    fn set_chain(
+        &mut self,
+        track: TrackId,
+        pedals: Vec<(String, Vec<f32>)>,
+        replace: bool,
+    ) -> Result<Vec<PedalId>> {
+        self.chain_set(track, pedals, replace)
+    }
+
     fn import_pattern(&mut self, path: &Path, track: Option<TrackId>) -> Result<PatternId> {
         let id = PatternId(self.project.fresh_id());
         self.pattern_import(&path.display().to_string(), track.map(|t| t.0))?;
@@ -1760,8 +1769,36 @@ impl crate::assistant::tools::Host for Engine {
                 "inputClipping": input.peak >= 0.99,
                 "outputUnderrunFrames": stats.output_underruns.load(Ordering::Relaxed),
                 "inputOverrunFrames": stats.input_overruns.load(Ordering::Relaxed),
+                "outputCallbacks": stats.output_callbacks.load(Ordering::Relaxed),
+                "largestBlockFrames": stats.max_block_frames.load(Ordering::Relaxed),
             })
         });
+        // Pedals in the project that cannot be built: a plugin the scanner
+        // has not found, or a design the project has no copy of.
+        let scanned: HashSet<&str> = self
+            .plugins
+            .plugins
+            .iter()
+            .map(|p| p.spec.as_str())
+            .collect();
+        let unavailable: Vec<serde_json::Value> = self
+            .project
+            .tracks
+            .iter()
+            .flat_map(|t| t.chain.iter().map(move |p| (t, p)))
+            .filter_map(|(t, p)| {
+                let why = if p.spec.starts_with("au:") || p.spec.starts_with("clap:") {
+                    (!scanned.contains(p.spec.as_str()))
+                        .then_some("the plugin is not installed, or has not been scanned")
+                } else if let Some(id) = p.spec.strip_prefix("pedal:") {
+                    (!self.designs.contains_key(id))
+                        .then_some("the designed pedal's file is missing; it passes the signal through")
+                } else {
+                    None
+                }?;
+                Some(serde_json::json!({ "track": t.name, "pedal": p.id.0, "kind": p.spec, "why": why }))
+            })
+            .collect();
         serde_json::json!({
             "running": status.running,
             "input": status.input_name,
@@ -1776,6 +1813,7 @@ impl crate::assistant::tools::Host for Engine {
                 "roundTripMs": ms((status.latency.input_frames + status.latency.output_frames) as f64),
             },
             "live": live,
+            "pedalsUnavailable": unavailable,
             "lastError": status.error,
             "notice": status.notice,
             "pluginsFailedToScan": self.plugins.failed.iter().map(|f| serde_json::json!({
@@ -3955,6 +3993,20 @@ impl Engine {
         index: Option<usize>,
         values: Option<Vec<f32>>,
     ) -> Result<PedalId> {
+        let id = PedalId(self.project.fresh_id());
+        let pedal = self.new_pedal(id, spec, values)?;
+        self.apply(Command::InsertPedal {
+            track,
+            index: index.unwrap_or(usize::MAX),
+            pedal,
+        })?;
+        Ok(id)
+    }
+
+    /// A pedal of `spec` with id `id`, ready to insert: a new cabinet on
+    /// the first impulse installed, a library pedal copied into the
+    /// project, and the values (held to range) or the defaults.
+    fn new_pedal(&mut self, id: PedalId, spec: &str, values: Option<Vec<f32>>) -> Result<Pedal> {
         // A new cabinet starts on the first impulse installed.
         let spec = match (spec, self.irs.first_id()) {
             ("cab", Some(first)) => format!("cab:{first}"),
@@ -3982,19 +4034,47 @@ impl Engine {
             }
             _ => defaults,
         };
-        let id = PedalId(self.project.fresh_id());
-        let pedal = Pedal {
+        Ok(Pedal {
             id,
             spec: spec.clone(),
             values,
             bypassed: false,
-        };
-        self.apply(Command::InsertPedal {
-            track,
-            index: index.unwrap_or(usize::MAX),
-            pedal,
-        })?;
-        Ok(id)
+        })
+    }
+
+    /// Gives a track these pedals as one edit, after its chain or in
+    /// place of it; returns their ids.
+    fn chain_set(
+        &mut self,
+        track: TrackId,
+        pedals: Vec<(String, Vec<f32>)>,
+        replace: bool,
+    ) -> Result<Vec<PedalId>> {
+        let existing: Vec<PedalId> = self
+            .project
+            .track(track)
+            .with_context(|| format!("no track {track}"))?
+            .chain
+            .iter()
+            .map(|p| p.id)
+            .collect();
+        let mut commands = Vec::new();
+        if replace {
+            commands.extend(existing.into_iter().map(|id| Command::RemovePedal { id }));
+        }
+        let first = self.project.fresh_id();
+        let mut ids = Vec::new();
+        for (n, (spec, values)) in pedals.into_iter().enumerate() {
+            let id = PedalId(first + n as u64);
+            commands.push(Command::InsertPedal {
+                track,
+                index: usize::MAX,
+                pedal: self.new_pedal(id, &spec, Some(values))?,
+            });
+            ids.push(id);
+        }
+        self.apply(Command::Batch { commands })?;
+        Ok(ids)
     }
 
     pub fn chain_remove(&mut self, id: u64) -> Result<EngineStatus> {

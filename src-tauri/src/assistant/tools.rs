@@ -72,6 +72,14 @@ pub trait Host {
     /// Adds a pattern file to the project, as Import Pattern does;
     /// returns its id.
     fn import_pattern(&mut self, path: &Path, track: Option<TrackId>) -> Result<PatternId>;
+    /// Gives a track these pedals, in order, after its chain or in place
+    /// of it, as one edit; returns their ids.
+    fn set_chain(
+        &mut self,
+        track: TrackId,
+        pedals: Vec<(String, Vec<f32>)>,
+        replace: bool,
+    ) -> Result<Vec<PedalId>>;
 }
 
 /// What a tool did: one line for the card, what goes back to the model,
@@ -768,6 +776,105 @@ pub static TOOLS: &[Tool] = &[
         },
         ask: None,
         run: |host, args| write_file(host, Kind::KitRecipe, args),
+    },
+    Tool {
+        name: "search_docs",
+        description: "Searches Cantina's own guides and reference pages, the docs of this build. Returns the best pages with their address and the passage that matched. Use it to ground answers about the app, and link the page.",
+        schema: || object(json!({ "query": { "type": "string", "minLength": 2 } }), &[]),
+        ask: None,
+        run: |_, args| {
+            let query = args["query"].as_str().unwrap_or_default();
+            let found = super::docs::search(query, 5);
+            Done::read(format!("Searched the docs for \"{}\"", query.trim()), json!({ "results": found }))
+        },
+    },
+    Tool {
+        name: "read_docs",
+        description: "Reads one docs page in full by its page (such as \"guides/latency\") or address, with the address of each section to link.",
+        schema: || object(json!({ "page": { "type": "string" } }), &[]),
+        ask: None,
+        run: |_, args| {
+            let page = args["page"].as_str().unwrap_or_default();
+            let found = super::docs::read(page)
+                .with_context(|| format!("no docs page {page:?}; use search_docs to find one"))?;
+            Done::read(format!("Read the guide {}", found["title"].as_str().unwrap_or(page)), found)
+        },
+    },
+    Tool {
+        name: "apply_chain",
+        description: "Builds a suggested pedal chain on a track as one undoable step: these pedals in order from the input, with their settings, in place of the track's chain (or after it with replace false). Use it only once the player has said to apply your suggestion; they are asked to confirm.",
+        schema: || {
+            object(
+                json!({
+                    "track": track_arg(),
+                    "pedals": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 12,
+                        "items": object(
+                            json!({
+                                "kind": { "type": "string" },
+                                "params": { "type": "object", "additionalProperties": { "type": ["number", "string", "boolean"] } },
+                            }),
+                            &["params"],
+                        ),
+                    },
+                    "replace": { "type": "boolean", "description": "Replace the track's chain (the default), or add after it." },
+                }),
+                &["replace"],
+            )
+        },
+        ask: Some(|host, args| {
+            let project = host.project();
+            let Ok(track) = track_ref(project, &args["track"]) else {
+                return Some("Apply the suggested chain?".into());
+            };
+            let names: Vec<String> = args["pedals"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|p| {
+                    let kind = p["kind"].as_str().unwrap_or("?");
+                    host.pedal_kinds()
+                        .into_iter()
+                        .find(|(spec, _)| spec == kind)
+                        .map_or_else(|| kind.to_string(), |(_, name)| name)
+                })
+                .collect();
+            let replacing = args["replace"].as_bool() != Some(false)
+                && project.track(track).is_some_and(|t| !t.chain.is_empty());
+            Some(format!(
+                "Set {}'s chain to {}{}?",
+                track_name(project, track),
+                names.join(" → "),
+                if replacing { ", replacing what is there" } else { "" }
+            ))
+        }),
+        run: |host, args| {
+            let track = track_ref(host.project(), &args["track"])?;
+            let mut pedals = Vec::new();
+            let mut names = Vec::new();
+            for (n, p) in args["pedals"].as_array().into_iter().flatten().enumerate() {
+                let spec = p["kind"].as_str().unwrap_or_default().trim().to_string();
+                let (name, params) = host
+                    .pedal_kind(&spec)
+                    .with_context(|| format!("pedal {}: {spec:?} is not a pedal kind; call list_pedal_kinds", n + 1))?;
+                let mut values: Vec<f32> = params.iter().map(|q| q.default).collect();
+                for (key, value) in p["params"].as_object().into_iter().flatten() {
+                    let (i, info) = param_ref(&name, &params, key)?;
+                    values[i] = param_value(info, value)?;
+                }
+                names.push(name);
+                pedals.push((spec, values));
+            }
+            let replace = args["replace"].as_bool() != Some(false);
+            let ids = host.set_chain(track, pedals, replace)?;
+            Ok(Done {
+                summary: format!("Set {}'s chain to {}", track_name(host.project(), track), names.join(" → ")),
+                result: json!({ "ok": true, "pedals": ids.iter().map(|i| i.0).collect::<Vec<_>>() }),
+                edited: true,
+            })
+        },
     },
 ];
 
@@ -1477,6 +1584,37 @@ pub(crate) mod fake {
         fn rescan_library(&mut self) {
             self.rescans += 1;
         }
+        fn set_chain(
+            &mut self,
+            track: TrackId,
+            pedals: Vec<(String, Vec<f32>)>,
+            replace: bool,
+        ) -> Result<Vec<PedalId>> {
+            let mut commands = Vec::new();
+            if replace {
+                for p in &self.project.track(track).context("no track")?.chain {
+                    commands.push(Command::RemovePedal { id: p.id });
+                }
+            }
+            let first = self.project.fresh_id();
+            let ids: Vec<PedalId> = (0..pedals.len() as u64)
+                .map(|i| PedalId(first + i))
+                .collect();
+            for (id, (spec, values)) in ids.iter().zip(pedals) {
+                commands.push(Command::InsertPedal {
+                    track,
+                    index: usize::MAX,
+                    pedal: Pedal {
+                        id: *id,
+                        spec,
+                        values,
+                        bypassed: false,
+                    },
+                });
+            }
+            self.apply(Command::Batch { commands })?;
+            Ok(ids)
+        }
         fn import_pattern(&mut self, path: &Path, _: Option<TrackId>) -> Result<PatternId> {
             let text = std::fs::read_to_string(path)?;
             let pattern = cantina_project::pattern_from_json(&text).map_err(|e| anyhow!(e))?;
@@ -1684,6 +1822,60 @@ mod tests {
         let out = run(&mut host, "remove_track", &json!({"track": 1}));
         assert!(out.ok);
         assert_eq!(host.project.tracks.len(), 1);
+    }
+
+    #[test]
+    fn a_suggested_chain_asks_and_is_one_step() {
+        let mut host = FakeHost::new();
+        let args = json!({"track": "Guitar", "pedals": [
+            {"kind": "gain", "params": {"Gain": 6}},
+            {"kind": "overdrive", "params": {"Drive": 25, "Voice": "Crunch"}},
+        ]});
+        assert_eq!(
+            confirm(&host, "apply_chain", &args).unwrap(),
+            "Set Guitar's chain to Gain → Overdrive, replacing what is there?"
+        );
+        let out = run(&mut host, "apply_chain", &args);
+        assert!(out.ok, "{:?}", out.result);
+        assert_eq!(out.summary, "Set Guitar's chain to Gain → Overdrive");
+        let chain = &host.project.tracks[0].chain;
+        assert_eq!(chain.len(), 2);
+        assert_eq!(chain[1].values, [25.0, 3000.0, 1.0]);
+        assert_eq!(host.applied.len(), 1, "one step");
+        host.history.undo(&mut host.project).unwrap();
+        assert_eq!(
+            host.project.tracks[0].chain.len(),
+            1,
+            "undo puts the old chain back"
+        );
+        assert_eq!(host.project.tracks[0].chain[0].id, PedalId(2));
+        // A mistake in the third pedal adds none of them.
+        let bad = json!({"track": 1, "pedals": [{"kind": "gain"}, {"kind": "wah"}]});
+        assert!(!run(&mut host, "apply_chain", &bad).ok);
+        assert_eq!(host.project.tracks[0].chain.len(), 1);
+    }
+
+    #[test]
+    fn the_docs_are_searched_and_read_without_the_host() {
+        let mut host = FakeHost::new();
+        let out = run(
+            &mut host,
+            "search_docs",
+            &json!({"query": "latency buffer"}),
+        );
+        assert!(out.ok && out.undo.is_none());
+        assert!(!out.result["results"].as_array().unwrap().is_empty());
+        let out = run(
+            &mut host,
+            "read_docs",
+            &json!({"page": "guides/troubleshooting"}),
+        );
+        assert!(out.ok);
+        assert!(out.result["url"]
+            .as_str()
+            .unwrap()
+            .ends_with("guides/troubleshooting/"));
+        assert!(!run(&mut host, "read_docs", &json!({"page": "nope"})).ok);
     }
 
     #[test]
