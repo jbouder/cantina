@@ -95,6 +95,7 @@ export default defineConfig({
             { label: "Pedals", slug: "guides/pedals" },
             { label: "Designing pedals", slug: "guides/designer" },
             { label: "Drums", slug: "guides/drums" },
+            { label: "Tabs", slug: "guides/tabs" },
             { label: "The stage", slug: "guides/stage" },
             { label: "Skins", slug: "guides/skins" },
             { label: "Authoring with an agent", slug: "guides/agents" },

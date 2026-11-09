@@ -31,6 +31,7 @@ mod delay_line;
 mod echo;
 mod envelope;
 pub mod fft;
+pub mod fretboard;
 mod gain;
 mod gate;
 pub mod kit;
