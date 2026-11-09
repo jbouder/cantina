@@ -89,8 +89,9 @@ It can **read**:
 - the pedals you can add (stock and your library) and the installed drum
   kits with their pads;
 - the audio engine: whether it is running, the devices, sample rate,
-  buffer size, latency, the input and output meters, and plugins that
-  failed to load.
+  buffer size, latency, dropouts, the input and output meters, plugins
+  that failed to scan and pedals that cannot be built;
+- Cantina's guides and reference pages.
 
 It can **change**:
 
@@ -98,7 +99,8 @@ It can **change**:
 - tracks: add an audio or a drum track, rename, arm, set the fader, pan,
   mute and solo (and the master's fader and mute);
 - pedal chains: add a pedal (with its knobs set in the same step), remove,
-  reorder, bypass, and set parameters by name;
+  reorder, bypass, set parameters by name, and build a whole suggested
+  chain in one step (it asks first);
 - drum patterns: write a new one, rewrite one, and place it on a drum
   track at a bar.
 
@@ -111,6 +113,29 @@ folder.
 
 It cannot record, play or stop, open plugins' windows, change your audio
 devices, or save, open or delete projects.
+
+## Tone and troubleshooting
+
+Ask the questions you would ask another player:
+
+- *"What does the Tone knob on my overdrive do?"* It reads the pedal and
+  its settings, and explains them in Cantina's terms.
+- *"How do I get a Gilmour-style lead?"* It suggests a chain from the
+  pedals you have, with settings, and says why. **Nothing changes** until
+  you say *"set it up"*; then it asks once more with **Yes** and **No**,
+  and builds the whole chain as **one** step, so a single Undo puts your
+  old chain back.
+- *"Why does it crackle?"*, *"Why is there a delay?"*, *"Why is my input
+  so quiet?"*, *"My plugin won't load"*. It reads the engine before it
+  answers: whether audio is running, the devices, sample rate and buffer
+  size, the round-trip latency, dropouts counted since the engine started,
+  the input and output peaks, plugins that failed to scan, and pedals in
+  the project that cannot be built. It answers from those numbers rather
+  than guessing.
+
+Its answers come from Cantina's own guides, built into the app, and link
+to the page or section it used, such as [Latency](/guides/latency/) or
+[Troubleshooting](/guides/troubleshooting/). Links open in your browser.
 
 ## Write pedals, beats and kits
 

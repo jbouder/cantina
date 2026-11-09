@@ -228,7 +228,8 @@ fn submenu<R: Runtime>(
 }
 
 /// The docs site.
-const DOCS: &str = "https://cantina-docs.vibeproject.workers.dev/";
+/// The docs site.
+pub(crate) const DOCS: &str = "https://cantina-docs.vibeproject.workers.dev/";
 /// The repository on GitHub.
 const REPO: &str = "https://github.com/jbouder/cantina";
 

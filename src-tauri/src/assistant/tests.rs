@@ -229,3 +229,64 @@ fn a_kit_is_built_with_a_track_and_a_pattern_written_for_it() {
     assert!(folders.kits.join("boom-bap/kit.json").exists());
     assert!(folders.patterns.join("Half time.pattern.json").exists());
 }
+
+#[test]
+fn crackle_is_diagnosed_from_the_engine_and_the_docs() {
+    let host = Arc::new(Mutex::new(FakeHost::new()));
+    let model = Scripted::new(vec![
+        call("1", "get_engine", json!({})),
+        call("2", "search_docs", json!({"query": "crackles buffer size"})),
+        say("Raise the buffer to 256 frames; see the latency guide."),
+    ]);
+    let thread = thread("why does it crackle?");
+    converse_with(&model, &mut HostTools::new(host.clone()), &thread, true);
+    let seen = model.seen.lock().unwrap();
+    // The prompt says to read the numbers, and the engine report and the
+    // docs' addresses reached the model.
+    assert!(seen[0][0]["content"]
+        .as_str()
+        .unwrap()
+        .contains("read get_engine first"));
+    assert!(seen[1].last().unwrap()["content"]
+        .as_str()
+        .unwrap()
+        .contains("running"));
+    assert!(seen[2].last().unwrap()["content"]
+        .as_str()
+        .unwrap()
+        .contains("https://"));
+    assert!(
+        host.lock().unwrap().applied.is_empty(),
+        "diagnosing changes nothing"
+    );
+}
+
+#[test]
+fn a_suggested_chain_is_applied_only_with_the_players_yes_as_one_step() {
+    for yes in [false, true] {
+        let host = Arc::new(Mutex::new(FakeHost::new()));
+        let model = Scripted::new(vec![
+            call(
+                "1",
+                "apply_chain",
+                json!({"track": "Guitar", "pedals": [{"kind": "overdrive", "params": {"Drive": 30}}, {"kind": "gain"}]}),
+            ),
+            say("ok"),
+        ]);
+        let thread = thread("yes, set that up");
+        converse_with(&model, &mut HostTools::new(host.clone()), &thread, yes);
+        let host = host.lock().unwrap();
+        let chain: Vec<&str> = host.project.tracks[0]
+            .chain
+            .iter()
+            .map(|p| p.spec.as_str())
+            .collect();
+        if yes {
+            assert_eq!(chain, ["overdrive", "gain"]);
+            assert_eq!(host.applied.len(), 1);
+        } else {
+            assert_eq!(chain, ["gain"]);
+            assert!(host.applied.is_empty());
+        }
+    }
+}

@@ -8,6 +8,11 @@ sidebar:
 Most audio problems come down to the route: which device, which input, and
 whether macOS lets Cantina use it. Work down the section that matches.
 
+If you have connected the [assistant](/guides/assistant/#tone-and-troubleshooting),
+you can also ask it: *"why does it crackle?"* It reads the engine's own
+numbers (buffer size, dropouts, levels, plugins that would not load) and
+these guides before it answers.
+
 ## No sound
 
 1. **Is the engine running?** The light on the **Engine** key is on while
@@ -74,6 +79,9 @@ with the built-in microphone and speakers together. Use headphones, or turn
 the track's gain down before arming it.
 
 ## Still stuck
+
+Ask the [assistant](/guides/assistant/#tone-and-troubleshooting), if you
+use it: it can read what the engine is reporting right now.
 
 [Open an issue](https://github.com/jbouder/cantina/issues/new) with your
 macOS version, your interface, the sample rate and buffer size from Settings,
