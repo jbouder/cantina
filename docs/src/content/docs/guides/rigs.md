@@ -106,6 +106,9 @@ its id: the person you share with needs the pedal file too, so save it to
 your library and send both. Cantina reminds you when a rig uses a design
 only the project has.
 
+A [jam](/guides/jam/) plays your input through a rig too, and its chord
+backing through another, both picked by name.
+
 ## The stock rigs
 
 Every stock rig is leveled against the same DI, so switching from one to

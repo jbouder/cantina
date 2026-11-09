@@ -1,12 +1,12 @@
----
-title: "Jam"
+---title: "Jam"
 description: "Jam mode is a practice room, on stage too: stock jams and your own saved ones, drums from a stock groove or your own patterns, a backing (a chord progression played by a built-in guitar or bass, an audio file or a project's track), your rig on the input, on an endless loop you steer while you play: sections at the next bar, tempo nudges, tap tempo and a count-in; and Keep that, for the riff you were not recording."
 ---
 
 Practising should not mean setting up a project, tracks and clips. Jam
-mode is a room of its own: pick a groove, something to play over, a
-tempo, the key and the rig you play through, press **Play** and jam. It goes on until you stop it,
-and you change section and tempo as you go without stopping.
+mode is a room of its own: drums, something to play over, a tempo, a key
+and the rig you play through. Press **Play** and it goes on until you
+stop it; change section and tempo as you go, and when you play something
+worth having, **Keep that** saves the last minutes you played.
 
 Jamming never edits the project. The jam is heard *instead of* the
 project while it is open, and when you leave, the project is heard again
@@ -15,11 +15,24 @@ with its playhead where it was.
 ## Opening it
 
 Press the **Jam** button (the note) in the title bar, choose
-**View ▸ Jam**, or press **J**. Press **Leave**, **J** again or choose
-**View ▸ Arrange** to go back to the project. The jam you had last comes
+**View ▸ Jam**, or press **J**. **Leave**, **J** again or
+**View ▸ Arrange** goes back to the project. The jam you had last comes
 back the next time you open it, tempo and all.
 
-![The Jam view: groove, kit, key and rig on the left with the meters; the display, play, count-in and click, tempo, the six sections and the backing on the right](../../../assets/guides/jam.png)
+![The Jam view: the jams, groove, kit, key, rig and Keep that length on the left with the meters; the display, play, count-in, click, Keep that, tempo, the six sections and the backing on the right](../../../assets/guides/jam.png)
+
+## A first jam
+
+1. Open the **Jams** list at the top and pick a stock jam for a style
+   you play, say *Blues in A*. It sets the drums, a bass playing the
+   changes, the tempo, the key and a rig for your guitar.
+2. Press **Play** (or **Space**). With **Count in** on, the click counts
+   a bar, the intro plays, and the verse goes round.
+3. Press **3** for the chorus, **5** for a fill, **2** for the verse
+   again: each lands on the next bar line.
+4. Nudge the tempo with **↑** and **↓**.
+5. Played something good? Press **Return** to keep it.
+6. **6** plays the ending and stops.
 
 ## Setting it up
 
@@ -38,47 +51,50 @@ back the next time you open it, tempo and all.
 
 The meters show your input and what comes out.
 
-## Jams: saving and opening
+## Playing
 
-The **Jams** list at the top opens a jam: one of the stock jams, a
-groove, a backing, a tempo, a key and a rig for each common style, or
-one of yours. Opening one replaces the jam playing; the music goes on,
-with a new tempo from the next bar.
+**Play** (or **Space**) starts the jam from the top: from the intro when
+the groove has one, then the verse. With **Count in** on, the click
+counts a bar first. **Click** turns the metronome on for the whole jam.
+**Stop** (or **Space** again) stops and goes back to the top.
 
-**Save…** writes the jam as it is (groove, backing, progression, tempo,
-key and rig) to `~/Music/Cantina/Jams/<name>.jam.json` with a name, a
-genre and a line on it. It then shows under *Yours*. Saving under a
-name you already have replaces that jam; the stock jams are never
-changed. A jam file dropped into that folder appears in the list within
-a second, and one that does not load is listed with the reason, as
-other library files are. The [jam format](/reference/jam-format/)
-describes the file, so you, or a [coding agent](/guides/agents/), can
-write one.
+![Jamming in the Hi-fi skin with a bass playing a blues: the verse at bar 5, the chorus coming at bar 7 and 112 bpm at bar 9](../../../assets/guides/jam-playing.png)
 
-![Save jam, with a name, genre and description, in the Toxic skin](../../../assets/guides/jam-save.png)
+The display shows the section playing, the bar and beat, the tempo, and
+what is coming: a section or a tempo you asked for, and the bar it lands
+on.
 
-The stock jams:
+## Sections
 
-| Jam | Groove | Tempo | Key | Rig | Backing |
-| --- | --- | --- | --- | --- | --- |
-| Alternative in G | Alternative | 112 | G major | alternative | guitar, `I \| V \| vi \| IV` |
-| Grunge in E | Grunge | 100 | E minor | grunge | bass, `i \| bIII \| bVII \| IV` |
-| Slow Burn in D | Half-time | 80 | D minor | shoegaze | guitar, `i \| bVI \| bIII \| bVII` |
-| Blues in A | Blues shuffle | 96 | A major | blues | bass, the 12-bar blues |
-| Minor Blues in E | Blues shuffle | 78 | E minor | blues | bass, the minor blues |
-| Country in G | Rock | 112 | G major | country | bass, `I \| IV \| I \| V` |
-| Funk in E | Funk | 100 | E minor | funk-clean | bass, `i7 \| i7 \| IV7 \| IV7` |
-| Hip-hop in C | Hip-hop | 90 | C minor | jazz-clean | bass, `i7 \| bVImaj7 \| iv7 \| V7` |
-| Jazz in B♭ | Jazz | 140 | B♭ major | jazz-clean | bass, `ii7 \| V7 \| Imaj7 \| Imaj7` |
-| Djent in B | Djent | 120 | B minor | djent | bass, `i5 \| i5 \| bII5 \| i5` |
-| Heavy Metal in E | Heavy metal | 152 | E minor | heavy-metal | bass, `i5 \| bVI5 \| bVII5 \| i5` |
-| Metalcore in D | Metalcore | 140 | D minor | metalcore | bass, `i5 \| bVI5 \| bIII5 \| bVII5` |
-| Thrash in E | Thrash | 200 | E minor | thrash | bass, `i5 \| i5 \| bII5 \| i5` |
-| Pop in C | Pop | 108 | C major | alternative | guitar, `I \| V \| vi \| IV` |
-| Punk in D | Punk | 184 | D major | punk | bass, `I5 \| IV5 \| V5 \| IV5` |
-| Reggae in A | Reggae | 76 | A major | funk-clean | bass, `I \| IV \| I \| V` |
-| Hard Rock in A | Hard rock | 132 | A major | hard-rock | bass, `I5 \| I5 \| bVII5 \| IV5` |
-| Rock in E | Rock | 120 | E major | classic-rock | bass, `I \| bVII \| IV \| I` |
+Press a section, or a number key, to play it from the next bar:
+
+| Key | Section | Plays |
+| --- | --- | --- |
+| 1 | Intro | Once, then the verse |
+| 2 | Verse | Round and round |
+| 3 | Chorus | Round and round |
+| 4 | Bridge | Round and round |
+| 5 | Fill | Once, then back to the section it interrupted |
+| 6 | Ending | Once, then the jam stops |
+
+The change lands exactly on the bar line, to the sample, however close
+to it you press, as long as there is a moment to spare: pressed in the
+last few hundredths of a second of a bar, it waits for the bar after.
+Pressing another section before the bar arrives replaces the one that
+was coming. A section the groove has no pattern for is greyed out.
+
+While stopped, pressing a section makes the jam start with it, and so
+does pressing one during the count-in, up to its last beat.
+
+## Tempo
+
+**−** and **+** (or **↓** and **↑**) nudge the tempo a beat per minute;
+with **⇧** by five. Type a tempo into the field, or press **Tap** (or
+**T**) on the beat: two taps or more set it, and a pause of two seconds
+starts a new count. While the jam plays, a new tempo lands on the next
+bar line, like a section. The drums, a chord backing and the click
+follow it at once and nothing clicks. With an audio backing the tempo
+is the backing's.
 
 ## Backing
 
@@ -151,50 +167,47 @@ The presets:
 | Hip-hop | Minor loop |
 | Country | I–IV–I–V |
 
-## Playing
+## Jams: saving and opening
 
-**Play** (or **Space**) starts the jam from the top: from the intro when
-the groove has one, then the verse. With **Count in** on, the click
-counts a bar first. **Click** turns the metronome on for the whole jam.
-**Stop** (or **Space** again) stops and goes back to the top.
+The **Jams** list at the top opens a jam: one of the stock jams, a
+groove, a backing, a tempo, a key and a rig for each common style, or
+one of yours. Opening one replaces the jam playing; the music goes on,
+with a new tempo from the next bar.
 
-![Jamming in the Hi-fi skin with a bass playing a blues: the verse at bar 5, the chorus coming at bar 7 and 112 bpm at bar 9](../../../assets/guides/jam-playing.png)
+**Save…** writes the jam as it is (groove, backing, progression, tempo,
+key and rig) to `~/Music/Cantina/Jams/<name>.jam.json` with a name, a
+genre and a line on it. It then shows under *Yours*. Saving under a
+name you already have replaces that jam; the stock jams are never
+changed. A jam file dropped into that folder appears in the list within
+a second, and one that does not load is listed with the reason, as
+other library files are. The [jam format](/reference/jam-format/)
+describes the file, so you, or a [coding agent](/guides/agents/), can
+write one.
 
-The display shows the section playing, the bar and beat, the tempo, and
-what is coming: a section or a tempo you asked for, and the bar it lands
-on.
+![Save jam, with a name, genre and description, in the Toxic skin](../../../assets/guides/jam-save.png)
 
-## Sections
+The stock jams:
 
-Press a section, or a number key, to play it from the next bar:
-
-| Key | Section | Plays |
-| --- | --- | --- |
-| 1 | Intro | Once, then the verse |
-| 2 | Verse | Round and round |
-| 3 | Chorus | Round and round |
-| 4 | Bridge | Round and round |
-| 5 | Fill | Once, then back to the section it interrupted |
-| 6 | Ending | Once, then the jam stops |
-
-The change lands exactly on the bar line, to the sample, however close
-to it you press, as long as there is a moment to spare: pressed in the
-last few hundredths of a second of a bar, it waits for the bar after.
-Pressing another section before the bar arrives replaces the one that
-was coming. A section the groove has no pattern for is greyed out.
-
-While stopped, pressing a section makes the jam start with it, and so
-does pressing one during the count-in, up to its last beat.
-
-## Tempo
-
-**−** and **+** (or **↓** and **↑**) nudge the tempo a beat per minute;
-with **⇧** by five. Type a tempo into the field, or press **Tap** (or
-**T**) on the beat: two taps or more set it, and a pause of two seconds
-starts a new count. While the jam plays, a new tempo lands on the next
-bar line, like a section. The drums, a chord backing and the click
-follow it at once and nothing clicks. With an audio backing the tempo
-is the backing's.
+| Jam | Style | Groove | Tempo | Key | Rig | Backing |
+| --- | --- | --- | --- | --- | --- | --- |
+| Alternative in G | Alternative | Alternative | 112 | G major | alternative | guitar, `I \| V \| vi \| IV` |
+| Blues in A | Blues | Blues shuffle | 96 | A major | blues | bass, the 12-bar blues |
+| Country in G | Country | Rock | 112 | G major | country | bass, `I \| IV \| I \| V` |
+| Djent in B | Metal | Djent | 120 | B minor | djent | bass, `i5 \| i5 \| bII5 \| i5` |
+| Funk in E | Funk | Funk | 100 | E minor | funk-clean | bass, `i7 \| i7 \| IV7 \| IV7` |
+| Grunge in E | Alternative | Grunge | 100 | E minor | grunge | bass, `i \| bIII \| bVII \| IV` |
+| Hard Rock in A | Rock | Hard rock | 132 | A major | hard-rock | bass, `I5 \| I5 \| bVII5 \| IV5` |
+| Heavy Metal in E | Metal | Heavy metal | 152 | E minor | heavy-metal | bass, `i5 \| bVI5 \| bVII5 \| i5` |
+| Hip-hop in C | Hip-hop | Hip-hop | 90 | C minor | jazz-clean | bass, `i7 \| bVImaj7 \| iv7 \| V7` |
+| Jazz in B♭ | Jazz | Jazz | 140 | B♭ major | jazz-clean | bass, `ii7 \| V7 \| Imaj7 \| Imaj7` |
+| Metalcore in D | Metal | Metalcore | 140 | D minor | metalcore | bass, `i5 \| bVI5 \| bIII5 \| bVII5` |
+| Minor Blues in E | Blues | Blues shuffle | 78 | E minor | blues | bass, the minor blues |
+| Pop in C | Pop | Pop | 108 | C major | alternative | guitar, `I \| V \| vi \| IV` |
+| Punk in D | Punk | Punk | 184 | D major | punk | bass, `I5 \| IV5 \| V5 \| IV5` |
+| Reggae in A | Reggae | Reggae | 76 | A major | funk-clean | bass, `I \| IV \| I \| V` |
+| Rock in E | Rock | Rock | 120 | E major | classic-rock | bass, `I \| bVII \| IV \| I` |
+| Slow Burn in D | Alternative | Half-time | 80 | D minor | shoegaze | guitar, `i \| bVI \| bIII \| bVII` |
+| Thrash in E | Metal | Thrash | 200 | E minor | thrash | bass, `i5 \| i5 \| bII5 \| i5` |
 
 ## Keep that
 
@@ -219,11 +232,11 @@ files in `~/Music/Cantina/Jams/Takes`: `Jam-1.wav`, the dry take, and
     played under the take, their patterns added to the project.
 
   The take lines up with the drums on the project's bars. An empty
-  project takes the jam's tempo and the take starts at bar 1; a project
-  with music in it keeps its tempo, and the take goes after its last bar.
-  A project has one tempo, the one the jam ended at: a take that spans a
-  tempo change lines up where it starts and drifts from the bars after
-  the change.
+  project takes the tempo the jam ended at and the take starts at bar 1;
+  a project with music in it keeps its own tempo, and the take goes after
+  its last bar. A project has one tempo, so a take that spans one of the
+  jam's tempo changes lines up where it starts and drifts from the bars
+  after the change.
 - **Just keep the files**: the take stays in `Jams/Takes` and nothing
   else changes.
 
@@ -240,6 +253,20 @@ beat through a tempo change. **Esc** comes back to the Jam view.
 
 ![Jamming on stage in the Neon skin: the warp tunnel scene with play, the chorus at bar 24, the tempo and the six sections over it](../../../assets/guides/jam-stage.png)
 
-Keyboard shortcuts work anywhere in the view outside a text field or a
-menu; they are listed in [keyboard shortcuts](/reference/shortcuts/).
-MIDI control of sections and tempo is not there yet.
+## Keys
+
+These work anywhere in the Jam view, and on stage, outside a text field
+or a menu. They are also in [keyboard shortcuts](/reference/shortcuts/).
+
+| Key | Does |
+| --- | --- |
+| Space | Plays the jam from the top, or stops it |
+| 1–6 | Intro, verse, chorus, bridge, fill or ending from the next bar |
+| ↑ ↓ | The tempo a beat per minute up or down from the next bar; with ⇧ by five |
+| T | Taps the tempo |
+| Return | Keep that |
+| P | The jam on stage |
+| J | Leaves the jam |
+
+MIDI control of sections and tempo is not there yet: there is no MIDI
+input in Cantina so far.
