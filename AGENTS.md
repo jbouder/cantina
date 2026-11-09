@@ -156,11 +156,23 @@ scripts/skill-fixtures.sh                                 # every skill example 
 The docs site: `cd docs && npm install && npm run dev`; `npm run build`
 there before finishing a docs change.
 
-Before finishing any change, run what CI runs (`.github/workflows/ci.yml`):
-`npm run check`, `node scripts/skill-references.mjs --check`,
-`npm run test:scenes`, `npm run build` (the shell embeds `ui/dist`), then
-`cargo fmt --all --check`, clippy, `cargo test --workspace`,
-`scripts/skill-fixtures.sh` and `cargo doc` as above. All must pass.
+CI (`.github/workflows/ci.yml`) is the gate: it runs everything, the UI
+and Rust jobs in parallel, and a pull request merges only when it is
+green. Locally, before pushing, run the checks for what the change
+touches rather than the whole suite:
+
+- **Any UI change**: `npm run check`.
+- **Rust**: `cargo fmt --all`, clippy and the tests of the crates you
+  changed (`cargo clippy -p <crate> --all-targets -- -D warnings`,
+  `cargo test -p <crate>`); a change to a public item, `cargo doc` for
+  that crate with `RUSTDOCFLAGS="-D warnings"`.
+- **A format or the schemas**: regenerate as below, then
+  `node scripts/skill-references.mjs --check` and
+  `scripts/skill-fixtures.sh`.
+- **Scenes** (`packages/scenes`): `npm run test:scenes`.
+- **Docs**: `npm run build` in `docs/`.
+
+Leave the rest to CI, and fix it on the branch if CI finds something.
 Audio you cannot hear: prove a DSP change with tests and `cantina-cli
 render` numbers (peak, RMS, DC, latency), not by assertion.
 
@@ -177,7 +189,8 @@ finish each issue before starting the next:
    m<milestone>/<topic> origin/main`. Work only in that worktree.
 3. **Do the work** to the rules above: code, tests, docs and, for UI
    changes, screenshots.
-4. **Run what CI runs** (above) locally until it all passes.
+4. **Run the checks for what changed** (above) locally until they pass;
+   CI runs the rest.
 5. **Open a pull request** that says `Closes #<issue>`, on the issue's
    milestone, in the shape the recent ones use (What, How, Proof,
    Screenshots). Say plainly what was not tested, such as on hardware.
