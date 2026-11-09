@@ -13,7 +13,7 @@ use crate::tab::Tab;
 
 /// The format version this crate writes. The loader upgrades older files;
 /// see `file.rs` for the migrations.
-pub const FORMAT_VERSION: u32 = 8;
+pub const FORMAT_VERSION: u32 = 9;
 
 /// Ticks per quarter note in pattern and pattern clip positions. The
 /// same as the engine's tempo map, so a tick here is a tick there.
@@ -158,18 +158,124 @@ pub struct Pattern {
     /// One row per pad that has hits.
     #[serde(default)]
     pub rows: Vec<PatternRow>,
+    /// How far the hits stray from the grid and from their velocity,
+    /// for the whole pattern; a row can have its own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub humanize: Option<Humanize>,
+    /// Seeds the humanizing and the chance of each step, so the pattern
+    /// plays the same way every time; change it for another take.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub seed: u32,
+}
+
+fn is_zero_u32(v: &u32) -> bool {
+    *v == 0
+}
+
+/// How far hits stray, like a drummer's hands: up to ±48 ticks (a
+/// sixty-fourth of a bar of 4/4) late or early at a `timing` of 1, and up
+/// to ±30% in velocity at a `velocity` of 1. Each pass of a pattern is a
+/// little different, and the same every time it plays.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Humanize {
+    /// 0 is on the grid, 1 the most.
+    #[serde(default)]
+    pub timing: f32,
+    /// 0 is as written, 1 the most.
+    #[serde(default)]
+    pub velocity: f32,
+}
+
+/// What a step does beyond its velocity: whether it plays, how many
+/// times, and with a grace note before it.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StepMark {
+    /// The step, from 0.
+    pub step: u16,
+    /// The chance it plays on a pass, 0 to 1.
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    pub chance: f32,
+    /// Hits in the step, evenly spaced: 1, or 2 to 4 for a ratchet.
+    #[serde(default = "one_u8", skip_serializing_if = "is_one_u8")]
+    pub ratchet: u8,
+    /// A soft grace note just before it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub flam: bool,
+}
+
+fn one() -> f32 {
+    1.0
+}
+fn is_one(v: &f32) -> bool {
+    *v == 1.0
+}
+fn one_u8() -> u8 {
+    1
+}
+fn is_one_u8(v: &u8) -> bool {
+    *v == 1
+}
+
+impl StepMark {
+    /// A mark that changes nothing.
+    pub fn plain(step: u16) -> Self {
+        Self {
+            step,
+            chance: 1.0,
+            ratchet: 1,
+            flam: false,
+        }
+    }
+
+    /// True when the mark changes nothing and need not be kept.
+    pub fn is_plain(&self) -> bool {
+        self.chance == 1.0 && self.ratchet == 1 && !self.flam
+    }
 }
 
 /// One pad's steps. `steps` holds exactly the pattern's length of
 /// velocities from 0 (no hit) to 1.
 #[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PatternRow {
     /// The pad's id in the kit format.
     pub pad: String,
     /// Velocity per step, 0 for no hit.
     pub steps: Vec<f32>,
+    /// This row's own swing, 0 to 1, instead of the pattern's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub swing: Option<f32>,
+    /// This row's own humanizing, instead of the pattern's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub humanize: Option<Humanize>,
+    /// Steps that play by chance, ratchet or flam, in step order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub marks: Vec<StepMark>,
+}
+
+impl PatternRow {
+    /// A row with these velocities and nothing else.
+    pub fn new(pad: impl Into<String>, steps: Vec<f32>) -> Self {
+        Self {
+            pad: pad.into(),
+            steps,
+            ..Self::default()
+        }
+    }
+
+    /// The mark at a step, plain when there is none.
+    pub fn mark(&self, step: u16) -> StepMark {
+        self.marks
+            .iter()
+            .find(|m| m.step == step)
+            .copied()
+            .unwrap_or_else(|| StepMark::plain(step))
+    }
 }
 
 impl Pattern {
@@ -182,6 +288,8 @@ impl Pattern {
             length: 16,
             swing: 0.0,
             rows: Vec::new(),
+            humanize: None,
+            seed: 0,
         }
     }
 
@@ -247,6 +355,9 @@ impl Pattern {
                 self.swing
             ));
         }
+        if let Some(h) = self.humanize {
+            check_humanize(&h, &self.label())?;
+        }
         let mut pads = std::collections::HashSet::new();
         for row in &self.rows {
             if row.pad.is_empty() {
@@ -279,9 +390,49 @@ impl Pattern {
                     row.pad
                 ));
             }
+            if row
+                .swing
+                .is_some_and(|s| !s.is_finite() || !(0.0..=1.0).contains(&s))
+            {
+                return Err(format!(
+                    "{} row {:?} has a swing outside 0 to 1",
+                    self.label(),
+                    row.pad
+                ));
+            }
+            if let Some(h) = row.humanize {
+                check_humanize(&h, &format!("{} row {:?}", self.label(), row.pad))?;
+            }
+            let mut last = None;
+            for m in &row.marks {
+                let at = format!("{} row {:?} step {}", self.label(), row.pad, m.step + 1);
+                if usize::from(m.step) >= row.steps.len() {
+                    return Err(format!("{at} is past the pattern's end"));
+                }
+                if last.is_some_and(|l| l >= m.step) {
+                    return Err(format!("{at} is out of order or marked twice"));
+                }
+                last = Some(m.step);
+                if !m.chance.is_finite() || !(0.0..=1.0).contains(&m.chance) {
+                    return Err(format!("{at} has a chance outside 0 to 1"));
+                }
+                if !(1..=4).contains(&m.ratchet) {
+                    return Err(format!("{at} ratchets {} times; 1 to 4", m.ratchet));
+                }
+            }
         }
         Ok(())
     }
+}
+
+/// Checks a humanize amount is from 0 to 1.
+fn check_humanize(h: &Humanize, at: &str) -> Result<(), String> {
+    for (name, v) in [("timing", h.timing), ("velocity", h.velocity)] {
+        if !v.is_finite() || !(0.0..=1.0).contains(&v) {
+            return Err(format!("{at} humanizes {name} by {v}, outside 0 to 1"));
+        }
+    }
+    Ok(())
 }
 
 /// A region of the timeline, in samples, that playback can loop over.
@@ -825,6 +976,7 @@ mod tests {
         pattern.rows.push(PatternRow {
             pad: "kick".into(),
             steps: vec![0.0; 16],
+            ..Default::default()
         });
         pattern.rows[0].steps[4] = 0.8;
         assert_eq!(pattern.velocity("kick", 4), 0.8);

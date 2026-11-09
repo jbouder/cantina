@@ -7,6 +7,12 @@ import Schema from '../../../../components/Schema.astro';
 
 A drum pattern as a file of its own, `<name>.pattern.json`: the pattern a project holds, without its id. See [pattern files](/guides/drums/#pattern-files).
 
+A pattern's feel is optional: `humanize` (`timing` and `velocity`, 0 to
+1) and a `seed` for the whole pattern; on a row, its own `swing` and
+`humanize`, and `marks`, in step order, for steps that play by `chance`
+(0 to 1), `ratchet` (1 to 4 hits) or with a `flam`. A plain pattern has
+none of these, and plays on the grid as written.
+
 A stock groove's file also carries a `groove` object: its genre, the
 section of a song it is for, its time signature, the tempos it suits and
 its feel. Cantina uses it to file the groove under **Add a groove**; a

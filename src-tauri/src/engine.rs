@@ -355,6 +355,33 @@ pub struct PatternInfo {
     pub length: u16,
     pub swing: f32,
     pub rows: Vec<PatternRow>,
+    /// The pattern's humanize, if it has one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub humanize: Option<cantina_project::Humanize>,
+    /// Seeds humanize and chance; 0 is left out.
+    #[serde(skip_serializing_if = "is_zero_seed")]
+    pub seed: u32,
+}
+
+fn is_zero_seed(v: &u32) -> bool {
+    *v == 0
+}
+
+impl PatternInfo {
+    /// The status of a pattern: every field, since the grid sends it back
+    /// whole to `pattern_replace`.
+    fn of(q: &Pattern) -> Self {
+        Self {
+            id: q.id.0,
+            name: q.name.clone(),
+            steps_per_beat: q.steps_per_beat,
+            length: q.length,
+            swing: q.swing,
+            rows: q.rows.clone(),
+            humanize: q.humanize,
+            seed: q.seed,
+        }
+    }
 }
 
 /// What a journal left behind. Mirrors `RecoveryInfo` in the UI.
@@ -449,6 +476,23 @@ pub struct PatternClipInfo {
     pub start: u64,
     pub offset: u64,
     pub length: u64,
+    /// The clip's fill, if it plays one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fill: Option<cantina_project::Fill>,
+}
+
+impl PatternClipInfo {
+    /// The status of a pattern clip: every field the UI shows or sends back.
+    fn of(c: &cantina_project::PatternClip) -> Self {
+        Self {
+            id: c.id.0,
+            pattern: c.pattern.0,
+            start: c.start,
+            offset: c.offset,
+            length: c.length,
+            fill: c.fill.clone(),
+        }
+    }
 }
 
 /// A pedal in a chain. Mirrors `PedalInfo` in the UI.
@@ -1673,17 +1717,59 @@ pub(crate) fn score_for(
 /// A pattern with its pads resolved against a kit, leaving out the rows
 /// `mix` silences.
 fn pattern_data(pattern: &Pattern, kit: &LoadedKit, mix: Option<&RowMix>) -> Arc<PatternData> {
-    Arc::new(PatternData {
-        steps_per_beat: pattern.steps_per_beat as u32,
-        length: pattern.length as u32,
-        swing: pattern.swing,
-        rows: pattern
-            .rows
+    let mut rows = Vec::new();
+    let mut feel = Vec::new();
+    for row in &pattern.rows {
+        if !mix.is_none_or(|m| m.plays(&row.pad)) {
+            continue;
+        }
+        if let Some(i) = kit.pad_index(&row.pad) {
+            rows.push((i, row.steps.clone()));
+            feel.push(row_feel(row));
+        }
+    }
+    // The hits are worked out here, off the audio thread.
+    Arc::new(PatternData::with_feel(
+        pattern.steps_per_beat as u32,
+        pattern.length as u32,
+        pattern.swing,
+        rows,
+        feel,
+        pattern_humanize(pattern),
+        pattern.seed,
+    ))
+}
+
+/// A row's feel as the sequencer takes it.
+fn row_feel(row: &cantina_project::PatternRow) -> cantina_engine::sequencer::RowFeel {
+    cantina_engine::sequencer::RowFeel {
+        swing: row.swing,
+        humanize: row.humanize.map(|h| cantina_engine::sequencer::Humanize {
+            timing: h.timing,
+            velocity: h.velocity,
+        }),
+        marks: row
+            .marks
             .iter()
-            .filter(|row| mix.is_none_or(|m| m.plays(&row.pad)))
-            .filter_map(|row| kit.pad_index(&row.pad).map(|i| (i, row.steps.clone())))
+            .map(|m| cantina_engine::sequencer::Mark {
+                step: u32::from(m.step),
+                chance: m.chance,
+                ratchet: m.ratchet,
+                flam: m.flam,
+            })
             .collect(),
-    })
+    }
+}
+
+/// A pattern's own humanize as the sequencer takes it.
+fn pattern_humanize(pattern: &Pattern) -> cantina_engine::sequencer::Humanize {
+    pattern
+        .humanize
+        .map(|h| cantina_engine::sequencer::Humanize {
+            timing: h.timing,
+            velocity: h.velocity,
+        })
+        .unwrap_or_default()
 }
 
 /// The installed drum kits: found once, each loaded the first time a
@@ -2860,33 +2946,12 @@ impl Engine {
                             }),
                         })
                         .collect(),
-                    pattern_clips: t
-                        .pattern_clips
-                        .iter()
-                        .map(|c| PatternClipInfo {
-                            id: c.id.0,
-                            pattern: c.pattern.0,
-                            start: c.start,
-                            offset: c.offset,
-                            length: c.length,
-                        })
-                        .collect(),
+                    pattern_clips: t.pattern_clips.iter().map(PatternClipInfo::of).collect(),
                     strip: t.strip.clone(),
                     latency_frames: t.chain.iter().map(|p| self.pedal_latency(p.id)).sum(),
                 })
                 .collect(),
-            patterns: p
-                .patterns
-                .iter()
-                .map(|q| PatternInfo {
-                    id: q.id.0,
-                    name: q.name.clone(),
-                    steps_per_beat: q.steps_per_beat,
-                    length: q.length,
-                    swing: q.swing,
-                    rows: q.rows.clone(),
-                })
-                .collect(),
+            patterns: p.patterns.iter().map(PatternInfo::of).collect(),
             master: p.master.clone(),
             loop_region: p.loop_region,
         }
@@ -5766,6 +5831,7 @@ mod tests {
         groove.rows.push(cantina_project::PatternRow {
             pad: "kick".into(),
             steps: [vec![1.0], vec![0.0; 15]].concat(),
+            ..Default::default()
         });
         let audition: Auditioning = Some((
             TrackId(1),
@@ -5795,6 +5861,7 @@ mod tests {
             beat.rows.push(cantina_project::PatternRow {
                 pad: pad.into(),
                 steps: [vec![1.0], vec![0.0; 15]].concat(),
+                ..Default::default()
             });
         }
         project.patterns.push(beat);
@@ -5869,6 +5936,42 @@ mod tests {
             "the same fill"
         );
         assert!(!Arc::ptr_eq(&score[0].pattern, &score[1].pattern));
+    }
+
+    #[test]
+    fn the_status_carries_every_field_of_a_pattern_and_a_clip_back_to_the_ui() {
+        let mut p = Pattern::new(PatternId(5), "Beat");
+        p.humanize = Some(cantina_project::Humanize {
+            timing: 0.3,
+            velocity: 0.2,
+        });
+        p.seed = 9;
+        let mut row = cantina_project::PatternRow::new("kick", vec![1.0; 16]);
+        row.swing = Some(0.5);
+        row.marks.push(cantina_project::StepMark {
+            flam: true,
+            ..cantina_project::StepMark::plain(0)
+        });
+        p.rows.push(row);
+        // What the UI gets is what `pattern_replace` takes back: nothing lost.
+        let json = serde_json::to_value(PatternInfo::of(&p)).unwrap();
+        let back: Pattern = serde_json::from_value(json).unwrap();
+        assert_eq!(back, p);
+        let clip = cantina_project::PatternClip {
+            id: cantina_project::PatternClipId(4),
+            pattern: PatternId(5),
+            start: 0,
+            offset: 0,
+            length: 3840,
+            fill: Some(cantina_project::Fill {
+                pattern: PatternId(6),
+                every: 4,
+                at_end: true,
+            }),
+        };
+        let json = serde_json::to_value(PatternClipInfo::of(&clip)).unwrap();
+        assert_eq!(json["fill"]["every"], 4);
+        assert_eq!(json["fill"]["atEnd"], true);
     }
 
     #[test]

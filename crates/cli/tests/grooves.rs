@@ -121,3 +121,25 @@ fn every_groove_plays_on_every_stock_kit_without_clipping() {
     }
     println!("loudest: {} at peak {:.3}", worst.1, worst.0);
 }
+
+#[test]
+fn a_humanized_render_is_identical_every_time_and_differs_from_the_grid() {
+    let path = root().join("patterns/funk/Funk verse.pattern.json");
+    let (plain, _) = groove_from_json(&fs::read_to_string(path).unwrap()).unwrap();
+    let mut human = plain.clone();
+    human.humanize = Some(cantina_project::Humanize {
+        timing: 0.6,
+        velocity: 0.6,
+    });
+    human.seed = 42;
+    human.rows[0].marks.push(cantina_project::StepMark {
+        ratchet: 3,
+        flam: true,
+        ..cantina_project::StepMark::plain(4)
+    });
+    let kit = root().join("kits/rock");
+    let render = |p: &Pattern| render_pattern(p, &kit, 100.0, 8, 0.5).unwrap().0;
+    let a = render(&human);
+    assert_eq!(a, render(&human), "the same samples every run");
+    assert_ne!(a, render(&plain), "humanize moves the hits");
+}

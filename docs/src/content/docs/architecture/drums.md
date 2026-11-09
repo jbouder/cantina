@@ -113,9 +113,22 @@ audio track.
 node that owns a `Sampler` and a **score**: the patterns placed on the
 timeline as `Placement`s, each a pattern from a tick for a number of
 ticks, looping inside that span from an offset into the pattern. Every
-block it asks the tempo map which ticks the block covers, works out
-which steps (with their swing) land inside it and at which frame, and
-queues each hit on the sampler for exactly that frame. Nothing is
+block it asks the tempo map which ticks the block covers, looks up which
+hits land inside it and at which frame, and queues each on the sampler
+for exactly that frame.
+
+Hits come from a table each `PatternData` works out when it is built,
+off the audio thread (`PatternData::built`): every hit of every row with
+its swing (the row's own, or the pattern's), humanize, ratchets (2 to 4
+evenly spaced hits, a little softer each), flams (a grace note 30 ticks
+early at 45% velocity) and chance. When the pattern humanizes or plays
+by chance the table covers eight passes, each different, then repeats;
+otherwise one. Randomness comes from a hash of the pattern's seed, row,
+step and pass (splitmix64), so the same pattern plays the same way every
+time and an offline render is identical from run to run. Each hit keeps
+its step's own tick, and a clip plays a hit when its step is inside the
+clip, so a humanized hit or a flam just before a clip's start still
+plays. The audio thread only binary-searches and reads the table. Nothing is
 remembered between blocks, so a locate, a loop wrap or a tempo change
 needs no special handling: the next block is computed from where the
 transport is, and the engine's tests check hits land once each across

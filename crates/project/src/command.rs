@@ -864,6 +864,7 @@ impl Command {
                         p.rows.push(PatternRow {
                             pad: pad.clone(),
                             steps,
+                            ..Default::default()
                         });
                         p.rows.sort_by(|a, b| a.pad.cmp(&b.pad));
                     }
@@ -887,6 +888,7 @@ impl Command {
                 p.length = *length;
                 for row in &mut p.rows {
                     row.steps.resize(*length as usize, 0.0);
+                    row.marks.retain(|m| m.step < *length);
                 }
                 p.rows.retain(|r| r.steps.iter().any(|v| *v > 0.0));
                 Ok(Command::ReplacePattern { pattern: was })

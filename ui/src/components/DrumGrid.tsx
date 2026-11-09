@@ -44,6 +44,7 @@ import {
   patternSetStep,
   patternSetSwing,
   RESOLUTIONS,
+  type StepMark,
   type StockGroove,
   type Tempo,
   type TrackStatus,
@@ -63,6 +64,7 @@ import {
   regionOf,
   setCells,
   shiftRegion,
+  stepMark,
   strokeCells,
 } from "../lib/gridEdit";
 import { dropPatternAt, setPatternDrag, usePatternDrag } from "../lib/pattern-drag";
@@ -70,6 +72,7 @@ import { DRAG_THRESHOLD } from "../lib/reorder";
 import { Button } from "./Button";
 import { GrooveBrowser } from "./GrooveBrowser";
 import { Led } from "./Led";
+import { PatternFeel } from "./PatternFeel";
 import { Select } from "./Select";
 
 /** Grooves in genre order, as the shell sorts them, grouped by genre. */
@@ -77,6 +80,29 @@ function groupByGenre(grooves: StockGroove[]): [string, StockGroove[]][] {
   const groups = new Map<string, StockGroove[]>();
   for (const g of grooves) groups.set(g.genre, [...(groups.get(g.genre) ?? []), g]);
   return [...groups];
+}
+
+/** A mark as the cell shows it: ×3 for a ratchet, f for a flam, 50 for a chance. */
+function markLabel(m: StepMark | undefined): string {
+  if (!m) return "";
+  const parts = [
+    (m.ratchet ?? 1) > 1 ? `×${m.ratchet}` : "",
+    m.flam ? "f" : "",
+    (m.chance ?? 1) < 1 ? `${Math.round((m.chance ?? 1) * 100)}` : "",
+  ];
+  return parts.filter(Boolean).join(" ");
+}
+
+/** A mark as a screen reader says it. */
+function markSpoken(m: StepMark | undefined): string {
+  if (!m) return "";
+  const parts = [
+    (m.ratchet ?? 1) > 1 ? `ratchet ${m.ratchet}` : "",
+    m.flam ? "flam" : "",
+    (m.chance ?? 1) < 1 ? `${Math.round((m.chance ?? 1) * 100)}% chance` : "",
+  ];
+  const said = parts.filter(Boolean).join(", ");
+  return said ? `, ${said}` : "";
 }
 
 type Props = {
@@ -266,6 +292,9 @@ export function DrumGrid({
     const next = list.includes(pad) ? list.filter((p) => p !== pad) : [...list, pad];
     run(drumRowsSet(track.id, { ...rows, [kind]: next }));
   };
+  /** A cell's mark, if it has one. */
+  const markAt = (pad: string, step: number) =>
+    pattern?.rows.find((r) => r.pad === pad)?.marks?.find((m) => m.step === step);
   /** A row muted, or left out by a solo. */
   const silent = (pad: string) =>
     rows.muted.includes(pad) || (rows.soloed.length > 0 && !rows.soloed.includes(pad));
@@ -441,6 +470,18 @@ export function DrumGrid({
         replace(selection ? duplicateRegion(pattern, padIds, selection) : doublePattern(pattern));
       } else if (key === "h" && !e.shiftKey) {
         replace(halvePattern(pattern));
+      } else if ((key === "c" || key === "r" || key === "f") && !e.shiftKey) {
+        // Chance, ratchet and flam, on the selection's hits or the cell.
+        const r = region ?? { top: padIndex, bottom: padIndex, from: s, to: s };
+        const cells: { pad: string; step: number }[] = [];
+        for (let row = r.top; row <= r.bottom; row++) {
+          for (let step = r.from; step <= r.to; step++) {
+            const id = padIds[row];
+            if (id) cells.push({ pad: id, step });
+          }
+        }
+        const kind = key === "c" ? "chance" : key === "r" ? "ratchet" : "flam";
+        replace(stepMark(pattern, cells, kind));
       } else if (key === "m" && !e.shiftKey) {
         toggleRow(pad, "muted");
       } else if (key === "s" && !e.shiftKey) {
@@ -847,6 +888,20 @@ export function DrumGrid({
         </div>
       ) : null}
       {pattern && pads.length > 0 ? (
+        <PatternFeel
+          pattern={pattern}
+          pad={
+            focused
+              ? {
+                  id: focused.pad,
+                  name: pads.find((p) => p.id === focused.pad)?.name ?? focused.pad,
+                }
+              : null
+          }
+          onReplace={replace}
+        />
+      ) : null}
+      {pattern && pads.length > 0 ? (
         <div className="surface-lcd overflow-x-auto p-2">
           <table
             ref={grid}
@@ -912,7 +967,7 @@ export function DrumGrid({
                           data-step={s}
                           tabIndex={tabbable(pad.id, s) ? 0 : -1}
                           aria-pressed={v > 0}
-                          aria-label={`${pad.name}, step ${s + 1}${v > 0 ? `, ${velocityLabel(v)}` : ""}`}
+                          aria-label={`${pad.name}, step ${s + 1}${v > 0 ? `, ${velocityLabel(v)}${markSpoken(markAt(pad.id, s))}` : ""}`}
                           onPointerDown={(e) => onCellDown(e, pad.id, s)}
                           onPointerMove={onCellMove}
                           onPointerUp={() => onCellUp(pad.id, s)}
@@ -934,9 +989,17 @@ export function DrumGrid({
                               className="absolute inset-x-0.5 bottom-0.5 block bg-lcd-fg"
                               style={{
                                 height: `${Math.round(v * 90) + 10}%`,
-                                opacity: 0.45 + v * 0.55,
+                                opacity: (0.45 + v * 0.55) * (markAt(pad.id, s)?.chance ?? 1),
                               }}
                             />
+                          ) : null}
+                          {v > 0 && markLabel(markAt(pad.id, s)) ? (
+                            <span
+                              aria-hidden="true"
+                              className="absolute top-0 left-0.5 font-bold font-lcd text-[9px] text-lcd-fg leading-none mix-blend-difference"
+                            >
+                              {markLabel(markAt(pad.id, s))}
+                            </span>
                           ) : null}
                         </button>
                       </td>

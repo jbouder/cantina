@@ -63,6 +63,28 @@
       ],
       "type": "object"
     },
+    "Humanize": {
+      "description": "How far hits stray, like a drummer's hands: up to ±48 ticks (a sixty-fourth of a bar of 4/4) late or early at a `timing` of 1, and up to ±30% in velocity at a `velocity` of 1. Each pass of a pattern is a little different, and the same every time it plays.",
+      "properties": {
+        "timing": {
+          "default": 0.0,
+          "description": "0 is on the grid, 1 the most.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "velocity": {
+          "default": 0.0,
+          "description": "0 is as written, 1 the most.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
     "Meter": {
       "description": "A time signature, as a groove states it.",
       "properties": {
@@ -90,6 +112,24 @@
     "PatternRow": {
       "description": "One pad's steps. `steps` holds exactly the pattern's length of velocities from 0 (no hit) to 1.",
       "properties": {
+        "humanize": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Humanize"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "This row's own humanizing, instead of the pattern's."
+        },
+        "marks": {
+          "description": "Steps that play by chance, ratchet or flam, in step order.",
+          "items": {
+            "$ref": "#/$defs/StepMark"
+          },
+          "type": "array"
+        },
         "pad": {
           "description": "The pad's id in the kit format.",
           "minLength": 1,
@@ -103,6 +143,16 @@
             "type": "number"
           },
           "type": "array"
+        },
+        "swing": {
+          "description": "This row's own swing, 0 to 1, instead of the pattern's.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": [
+            "number",
+            "null"
+          ]
         }
       },
       "required": [
@@ -146,6 +196,40 @@
         }
       ]
     },
+    "StepMark": {
+      "description": "What a step does beyond its velocity: whether it plays, how many times, and with a grace note before it.",
+      "properties": {
+        "chance": {
+          "description": "The chance it plays on a pass, 0 to 1.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "flam": {
+          "description": "A soft grace note just before it.",
+          "type": "boolean"
+        },
+        "ratchet": {
+          "description": "Hits in the step, evenly spaced: 1, or 2 to 4 for a ratchet.",
+          "format": "uint8",
+          "maximum": 4,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "step": {
+          "description": "The step, from 0.",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "step"
+      ],
+      "type": "object"
+    },
     "TempoRange": {
       "description": "The tempos a groove suits, in beats per minute.",
       "properties": {
@@ -177,6 +261,17 @@
     "groove": {
       "$ref": "#/$defs/Groove"
     },
+    "humanize": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Humanize"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "How far the hits stray from the grid and from their velocity, for the whole pattern; a row can have its own."
+    },
     "length": {
       "description": "Steps in the pattern, which loops after the last.",
       "format": "uint16",
@@ -196,6 +291,12 @@
         "$ref": "#/$defs/PatternRow"
       },
       "type": "array"
+    },
+    "seed": {
+      "description": "Seeds the humanizing and the chance of each step, so the pattern plays the same way every time; change it for another take.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
     },
     "stepsPerBeat": {
       "description": "Steps per quarter note: 2 for eighths, 4 for sixteenths, 8 for thirty-seconds; 3 and 6 for triplets.",

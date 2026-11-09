@@ -269,6 +269,10 @@ fn migrate(from: u32, mut value: Value) -> Value {
         // 7 -> 8: fills. A pattern clip may carry `fill`; a version 7
         // file has none, so no clip plays a fill.
         7 => value,
+        // 8 -> 9: feel. A pattern may carry `humanize` and `seed`, and a
+        // row `swing`, `humanize` and `marks`; a version 8 file has none,
+        // so every hit plays on the grid, as written, every time.
+        8 => value,
         _ => value,
     }
 }
@@ -561,6 +565,64 @@ mod tests {
             drums["patternClips"][0].get("fill").is_none(),
             "no fill, no field"
         );
+    }
+
+    #[test]
+    fn a_version_9_file_has_feel_and_a_version_8_file_plays_on_the_grid() {
+        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+        let v9 = load_str(
+            &fs::read_to_string(fixtures.join("v9.json")).unwrap(),
+            Path::new("v9/project.json"),
+        )
+        .unwrap();
+        let p = &v9.patterns[0];
+        assert_eq!(p.seed, 7);
+        assert_eq!(p.humanize.map(|h| h.velocity), Some(0.4));
+        let row = &p.rows[0];
+        assert_eq!(row.swing, Some(0.5));
+        assert_eq!(row.mark(0).ratchet, 2);
+        assert!(row.mark(4).flam && row.mark(4).chance == 0.5);
+        assert!(row.mark(1).is_plain());
+        let text = serde_json::to_string(&v9).unwrap();
+        assert_eq!(load_str(&text, Path::new("v9/project.json")).unwrap(), v9);
+
+        let v8 = load_str(
+            &fs::read_to_string(fixtures.join("v8.json")).unwrap(),
+            Path::new("v8/project.json"),
+        )
+        .unwrap();
+        assert!(v8.patterns.iter().all(|p| p.humanize.is_none()
+            && p.seed == 0
+            && p.rows
+                .iter()
+                .all(|r| r.swing.is_none() && r.marks.is_empty())));
+        let json = serde_json::to_value(&v8).unwrap();
+        assert!(
+            json["patterns"][0].get("humanize").is_none(),
+            "no feel, no field"
+        );
+    }
+
+    #[test]
+    fn marks_out_of_order_or_out_of_range_are_refused() {
+        let mut p = crate::Pattern::new(crate::PatternId(1), "Beat");
+        p.rows.push(crate::PatternRow::new("kick", vec![1.0; 16]));
+        let mark = |step, ratchet, chance| crate::StepMark {
+            ratchet,
+            chance,
+            ..crate::StepMark::plain(step)
+        };
+        for (marks, says) in [
+            (vec![mark(16, 1, 1.0)], "past the pattern's end"),
+            (vec![mark(3, 1, 1.0), mark(2, 1, 1.0)], "out of order"),
+            (vec![mark(2, 5, 1.0)], "ratchets 5 times"),
+            (vec![mark(2, 1, 1.5)], "chance outside 0 to 1"),
+        ] {
+            let mut bad = p.clone();
+            bad.rows[0].marks = marks;
+            let err = bad.validate().unwrap_err();
+            assert!(err.contains(says), "{err}");
+        }
     }
 
     #[test]

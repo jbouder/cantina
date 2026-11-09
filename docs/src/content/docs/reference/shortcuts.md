@@ -97,6 +97,9 @@ With a step focused.
 | Esc | Clears the selection |
 | ⇧-drag | Selects cells |
 | Drag across | Paints or erases hits |
+| C | Steps the chance of the hits: 100, 75, 50, 25% |
+| R | Steps the ratchet: 1 to 4 hits in the step |
+| F | Turns a flam on or off |
 
 ## Groove browser
 

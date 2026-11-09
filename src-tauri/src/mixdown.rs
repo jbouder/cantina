@@ -450,10 +450,12 @@ mod tests {
             PatternRow {
                 pad: "kick".into(),
                 steps: kick,
+                ..Default::default()
             },
             PatternRow {
                 pad: "snare".into(),
                 steps: snare,
+                ..Default::default()
             },
         ];
         let ticks = beat.ticks();

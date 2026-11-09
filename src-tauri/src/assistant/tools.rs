@@ -1291,6 +1291,7 @@ fn rows(value: &Value, length: u16) -> Result<Vec<PatternRow>> {
         out.push(PatternRow {
             pad: pad.clone(),
             steps,
+            ..Default::default()
         });
     }
     Ok(out)
