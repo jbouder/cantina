@@ -87,6 +87,25 @@ With a step focused.
 | ⇧↑ ⇧↓ | Makes the hit 10% harder or softer |
 | Home, End | Jumps to the ends of the row |
 
+## Tab editor
+
+With the tab focused and Edit on.
+
+| Keys | Does |
+| --- | --- |
+| ← → ↑ ↓ | Moves the caret a grid step, or to the next string |
+| 0–9 | Types a fret at the caret; two digits quickly for 10 to 24 |
+| ⌥← ⌥→ | Moves the selected notes a grid step |
+| ⌥↑ ⌥↓ | Moves the selected notes to the next string, keeping the pitch |
+| ⇧← ⇧→ | Shortens or lengthens the selected notes |
+| H P S B | Hammer-on, pull-off, slide, bend (½, full, 1½, off) |
+| V M L | Vibrato, palm mute, let ring |
+| N X T | Harmonic, dead note, tap |
+| ⌫ | Deletes the selected notes |
+| ⌘A | Selects every note |
+| Esc | Clears the selection |
+| ⇧-click | Adds a note to the selection or takes it away |
+
 ## Performance mode
 
 While the stage is full screen.

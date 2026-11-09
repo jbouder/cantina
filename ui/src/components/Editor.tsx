@@ -312,6 +312,7 @@ export function Editor({
             sampleRate={sampleRate}
             position={position}
             playing={playing}
+            onStatus={onStatus}
             onError={onError}
           />
         ) : (

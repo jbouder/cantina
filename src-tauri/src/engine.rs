@@ -642,29 +642,64 @@ impl EngineState {
     }
 
     /// Builds a transcribed tab's notes again on another grid, from what
-    /// it heard, as one undoable edit. Nothing is transcribed again.
-    pub fn clip_tab_requantise(&self, id: u64, grid: tabs::Grid) -> Result<EngineStatus> {
+    /// it heard, as one undoable edit. Nothing is transcribed again. With
+    /// a selection, only the notes in its span change.
+    pub fn clip_tab_requantise(
+        &self,
+        id: u64,
+        grid: tabs::Grid,
+        selection: &[u32],
+    ) -> Result<EngineStatus> {
+        self.edit_clip_tab(id, |clip, tab| {
+            if tab.heard.is_empty() {
+                bail!(
+                    "{}'s tab was not transcribed, so there is nothing to re-quantise",
+                    clip.name
+                );
+            }
+            Ok(tabs::requantise(tab, grid, selection))
+        })
+    }
+
+    /// Fits the selected notes of a clip's tab (all of them with none
+    /// selected) to the fretboard again, as one undoable edit.
+    pub fn clip_tab_refit(&self, id: u64, selection: &[u32]) -> Result<EngineStatus> {
+        self.edit_clip_tab(id, |_, tab| Ok(tabs::refit(tab, selection)))
+    }
+
+    /// Takes the notes at `remove` out of a clip's tab and adds `add`, as
+    /// one undoable edit: how the tab editor changes anything.
+    pub fn clip_tab_edit(
+        &self,
+        id: u64,
+        remove: Vec<u32>,
+        add: Vec<cantina_project::TabNote>,
+    ) -> Result<EngineStatus> {
+        self.edit_clip_tab(id, |_, _| Ok((remove, add)))
+    }
+
+    /// Applies the edit `make` builds from a clip and its tab; a change
+    /// of nothing is not an edit and leaves the history alone.
+    fn edit_clip_tab(
+        &self,
+        id: u64,
+        make: impl FnOnce(&Clip, &cantina_project::Tab) -> Result<tabs::NotesEdit>,
+    ) -> Result<EngineStatus> {
         let id = ClipId(id);
         let mut engine = self.lock();
         let (_, clip) = engine
             .project
             .clip(id)
             .with_context(|| format!("no clip {id}"))?;
-        let mut tab = clip
+        let tab = clip
             .tab
-            .clone()
+            .as_ref()
             .with_context(|| format!("{} has no tab", clip.name))?;
-        if tab.heard.is_empty() {
-            bail!(
-                "{}'s tab was not transcribed, so there is nothing to re-quantise",
-                clip.name
-            );
+        let (remove, add) = make(clip, tab)?;
+        if remove.is_empty() && add.is_empty() {
+            return Ok(engine.status());
         }
-        tab.notes = tabs::notes(&tab, grid);
-        engine.apply(Command::SetClipTab {
-            id,
-            tab: Some(Box::new(tab)),
-        })
+        engine.apply(Command::EditTabNotes { id, remove, add })
     }
 }
 
@@ -2784,7 +2819,7 @@ impl Engine {
                 self.refresh_scores()
             }
             // A tab is read, not heard: nothing in the graph changes.
-            Command::SetClipTab { .. } => Ok(()),
+            Command::SetClipTab { .. } | Command::EditTabNotes { .. } => Ok(()),
             Command::Batch { commands } if commands.iter().all(is_light) => {
                 for c in commands {
                     self.react(c)?;
@@ -4834,6 +4869,7 @@ fn is_light(command: &Command) -> bool {
         command,
         Command::SetParam { .. }
             | Command::SetClipTab { .. }
+            | Command::EditTabNotes { .. }
             | Command::ArmTrack { .. }
             | Command::RenameTrack { .. }
             | Command::SetTempo { .. }

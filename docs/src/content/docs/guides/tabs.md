@@ -103,6 +103,51 @@ reading ahead; drag the panel's top edge up to see more rows.
 | `P.M. - -` | Palm mute, for as long as the dashes run |
 | `let ring - -` | Let the notes ring into each other |
 
+## Fix a tab
+
+Press **Edit** beside the tab. A box, the caret, marks where typing goes:
+a string and a grid step. Choose the step with **Grid**: eighths,
+sixteenths or their triplets.
+
+![Editing a tab: the caret, the grid and the technique buttons](../../../assets/guides/tab-edit.png)
+
+- **Type frets.** Move the caret with the arrow keys, ↑ and ↓ between
+  strings and ← and → a grid step, and type a fret. A note there gets the
+  fret; otherwise a new note one step long starts there. Type two digits
+  quickly for frets 10 to 24.
+- **Select notes.** Click a note; ⇧-click adds or removes one; ⌘A selects
+  them all, and Esc clears the selection. With nothing selected, an edit
+  works on the note under the caret.
+- **Move and resize.** ⌥← and ⌥→ move the notes a grid step. ⌥↑ and ⌥↓
+  move them to the next string, keeping the pitch, so the fret changes;
+  a note that would fall off the neck stays put. ⇧← and ⇧→ shorten and
+  lengthen them.
+- **Techniques.** Press a letter, or its button: H hammer-on, P pull-off,
+  S slide, B bend (each press steps through ½, full, 1½ and off),
+  V vibrato, M palm mute, L let ring, N harmonic, X dead note and T tap.
+  A letter turns the technique off when every selected note has it.
+- **Delete** with ⌫.
+
+Every edit is one step of **Undo**, and is kept if the app quits
+unexpectedly. The [shortcut reference](/reference/shortcuts/) lists the
+keys under **Tab editor**.
+
+### Re-fit and re-quantise a passage
+
+**Re-fit** places the selected notes on the fretboard again, as one hand
+position, keeping their timing and techniques: useful after moving a
+passage by hand, or to bring a run that jumps around the neck into one
+place. Notes outside the selection are left alone, and dead notes and
+harmonics stay where they are.
+
+**Re-quantise** builds the selected notes again on the chosen grid, from
+what Cantina heard, so a bar of triplets can be fixed without touching
+the sixteenths around it. It finds the heard notes of the same pitch that
+started within a beat of each selected note. It is there only for a tab
+that was transcribed.
+
+With nothing selected, both work on the whole tab.
+
 ## How frets are chosen
 
 The same note can be played in several places. An E above middle C is
@@ -132,13 +177,6 @@ after another on the same string is a hammer-on (going up) or a pull-off
 (going down), a short low note in a chug is palm-muted, and a note whose
 pitch rose is a bend. Slides, vibrato and harmonics are left for you to
 mark.
-
-## Playing a passage somewhere else
-
-Sometimes you play a passage higher up the neck than Cantina chose. Select
-it and re-fit it to a region, such as the 7th to 10th fret, and Cantina
-places those notes there wherever they reach, as one hand position,
-without moving anything outside the selection.
 
 ## Tunings
 

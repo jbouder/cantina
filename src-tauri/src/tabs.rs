@@ -227,6 +227,104 @@ pub fn notes(tab: &Tab, grid: Grid) -> Vec<TabNote> {
     out
 }
 
+/// An edit to a tab's notes: the indices to take away and the notes to
+/// add, as `Command::EditTabNotes` carries them.
+pub type NotesEdit = (Vec<u32>, Vec<TabNote>);
+
+/// Re-quantises the notes at `selection`, or every note when it is
+/// empty, from what the tab heard. A selected note stands for the heard
+/// notes of its pitch (or an octave off, which cleaning may have fixed)
+/// that started within a beat of it; those alone are built again, so
+/// the notes around the selection stay as they are.
+pub fn requantise(tab: &Tab, grid: Grid, selection: &[u32]) -> NotesEdit {
+    let chosen: Vec<u32> = selection
+        .iter()
+        .copied()
+        .filter(|&i| (i as usize) < tab.notes.len())
+        .collect();
+    if chosen.is_empty() {
+        return ((0..tab.notes.len() as u32).collect(), notes(tab, grid));
+    }
+    let beat = tab.seconds(u64::from(PPQ));
+    let heard = tab
+        .heard
+        .iter()
+        .filter(|h| {
+            chosen.iter().any(|&i| {
+                let n = &tab.notes[i as usize];
+                let near = (h.onset - tab.seconds(n.start)).abs() <= beat;
+                let pitch = tab.pitch(n).map(i16::from);
+                let same = pitch.is_some_and(|p| matches!((i16::from(h.pitch) - p).abs(), 0 | 12));
+                near && same
+            })
+        })
+        .cloned()
+        .collect();
+    let part = Tab {
+        heard,
+        notes: Vec::new(),
+        ..tab.clone()
+    };
+    (chosen, notes(&part, grid))
+}
+
+/// Places the notes at `selection` (every note when it is empty) on the
+/// fretboard again, as one hand position, and keeps their timing and
+/// techniques. Dead notes and harmonics stay where they are, and notes
+/// that land where they were are left alone.
+pub fn refit(tab: &Tab, selection: &[u32]) -> NotesEdit {
+    let board = Fretboard::new(tab.tuning.clone(), tab.capo, FRETS);
+    let fitted: Vec<usize> = (0..tab.notes.len())
+        .filter(|&i| !tab.notes[i].dead && !tab.notes[i].harmonic)
+        .collect();
+    let notes: Vec<fretboard::Note> = fitted
+        .iter()
+        .map(|&i| {
+            let n = &tab.notes[i];
+            fretboard::Note {
+                pitch: tab.pitch(n).unwrap_or(0),
+                start: tab.seconds(n.start),
+                end: tab.seconds(n.end()),
+                velocity: n.velocity,
+                bend: n.bend.map_or(0.0, |b| b.semitones),
+            }
+        })
+        .collect();
+    let places: Vec<Option<fretboard::Place>> = fitted
+        .iter()
+        .map(|&i| {
+            Some(fretboard::Place {
+                string: tab.notes[i].string,
+                fret: tab.notes[i].fret,
+            })
+        })
+        .collect();
+    let chosen: Vec<usize> = (0..fitted.len())
+        .filter(|&k| selection.is_empty() || selection.contains(&(fitted[k] as u32)))
+        .collect();
+    let options = FitOptions {
+        chord_window: tab.seconds(1) / 2.0,
+        ..FitOptions::default()
+    };
+    let new = fretboard::refit(&board, &notes, &places, &chosen, options);
+    let mut edit: NotesEdit = (Vec::new(), Vec::new());
+    for &k in &chosen {
+        let (Some(was), Some(now)) = (places[k], new[k]) else {
+            continue;
+        };
+        if was != now {
+            let i = fitted[k];
+            edit.0.push(i as u32);
+            edit.1.push(TabNote {
+                string: now.string,
+                fret: now.fret,
+                ..tab.notes[i]
+            });
+        }
+    }
+    edit
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -355,6 +453,58 @@ mod tests {
         let fine = super::notes(&tab, Grid::Sixteenth);
         assert_eq!(fine[0].start, 240);
         assert_eq!(fine[1].start, 720);
+    }
+
+    #[test]
+    fn a_selection_requantises_only_its_span() {
+        // Four notes a beat apart; on eighths each snaps to a beat line.
+        let notes = [
+            heard(57, 0.02, 0.4),
+            heard(59, 0.52, 0.9),
+            heard(60, 1.13, 1.4),
+            heard(62, 1.52, 1.9),
+        ];
+        let mut tab = transcribed(
+            "Take",
+            &settings(Grid::Eighth),
+            &tempo(120.0),
+            0,
+            0.0,
+            &notes,
+        )
+        .unwrap();
+        assert_eq!(tab.notes.len(), 4);
+        // Move the first note by hand: a whole-tab re-quantise undoes it,
+        // a re-quantise of the third note alone keeps it.
+        tab.notes[0].start = 120;
+        let (remove, add) = requantise(&tab, Grid::Sixteenth, &[2]);
+        assert_eq!(remove, vec![2]);
+        assert_eq!(tab.pitch(&add[0]), Some(60));
+        assert_eq!(add.len(), 1);
+        // 1.13 s is 2.26 beats: the 9th sixteenth on sixteenths.
+        assert_eq!(add[0].start, 2160);
+        let (remove, add) = requantise(&tab, Grid::Sixteenth, &[]);
+        assert_eq!(remove.len(), 4);
+        assert_eq!(add[0].start, 0);
+    }
+
+    #[test]
+    fn refitting_moves_the_selection_and_keeps_its_timing() {
+        let mut tab = Tab::new("Riff", Instrument::Guitar, 6).unwrap();
+        // E4 at the 24th fret of the low E, and an A at the 5th fret of
+        // the low E that is not selected.
+        let mut high = TabNote::new(6, 24, 960, 480);
+        high.vibrato = true;
+        tab.notes = vec![TabNote::new(6, 5, 0, 480), high];
+        let (remove, add) = refit(&tab, &[1]);
+        assert_eq!(remove, vec![1]);
+        let moved = add[0];
+        assert_ne!((moved.string, moved.fret), (6, 24));
+        assert_eq!(tab.pitch(&moved), Some(64), "the same pitch");
+        assert_eq!((moved.start, moved.length, moved.vibrato), (960, 480, true));
+        // Already where it fits best: nothing to change.
+        tab.notes[1] = moved;
+        assert_eq!(refit(&tab, &[1]), (vec![], vec![]));
     }
 
     #[test]

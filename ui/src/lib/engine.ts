@@ -25,6 +25,7 @@ import {
   patternFileName,
 } from "./library";
 import { mockAnalysis, mockBeat } from "./mockAnalysis";
+import { sortTabNotes, tabPitch } from "./tabEdit";
 
 export type { BrokenFile, LibraryKind, LibraryPattern, LibraryStatus };
 export { brokenOf, patternFileName };
@@ -2030,12 +2031,20 @@ export async function clipTranscribe(id: number, settings: TabSettings): Promise
     notes,
     transcribed: true,
   };
-  mockTabs.delete(id);
   return mockEdit("set tab");
 }
 
-/** The stand-in's tabs, made up on first look and kept. */
-const mockTabs = new Map<number, Tab>();
+/**
+ * The stand-in keeps a clip's whole tab beside its summary, made up on
+ * first look, so undo and redo, which copy the project, take it along.
+ */
+type MockTabSummary = TabSummary & { full?: Tab };
+
+function mockFullTab(clip: ClipInfo): Tab {
+  const summary = clip.tab as MockTabSummary;
+  summary.full ??= mockTab(clip);
+  return summary.full;
+}
 
 /**
  * The stand-in's tab for a clip: a two-bar riff that uses every
@@ -2095,23 +2104,104 @@ export async function clipTab(id: number): Promise<Tab | null> {
   if (inTauri) return invoke<Tab | null>("clip_tab", { id });
   const { clip } = mockClipAt(id);
   if (!clip.tab) return null;
-  let tab = mockTabs.get(id);
-  if (!tab) {
-    tab = mockTab(clip);
-    mockTabs.set(id, tab);
-  }
-  return tab;
+  return structuredClone(mockFullTab(clip));
 }
 
-/** Builds a transcribed tab's notes again on another grid, without transcribing again. */
-export async function clipTabRequantise(id: number, grid: TabGrid): Promise<EngineStatus> {
-  if (inTauri) return invoke<EngineStatus>("clip_tab_requantise", { id, grid });
+/** The stand-in's `EditTabNotes`: checked as the engine checks it. */
+function mockTabEdit(id: number, remove: number[], add: TabNote[]): EngineStatus {
+  const { clip } = mockClipAt(id);
+  if (!clip.tab) throw new Error(`${clip.name} has no tab`);
+  if (remove.length === 0 && add.length === 0) return mockStatus();
+  const tab = mockFullTab(clip);
+  const gone = new Set(remove);
+  if (gone.size !== remove.length) throw new Error("a note is removed twice");
+  for (const i of remove) {
+    if (i < 0 || i >= tab.notes.length) throw new Error(`there is no note ${i + 1}`);
+  }
+  for (const n of add) {
+    if (n.string < 1 || n.string > tab.tuning.length) {
+      throw new Error(`strings run from 1 to ${tab.tuning.length}`);
+    }
+    if (n.fret < 0 || n.fret > 30) throw new Error(`fret ${n.fret} is past 30`);
+    if (n.length <= 0) throw new Error("a note needs a length");
+  }
+  tab.notes = sortTabNotes([...tab.notes.filter((_, i) => !gone.has(i)), ...add]);
+  clip.tab.notes = tab.notes.length;
+  const label =
+    remove.length === 0
+      ? add.length === 1
+        ? "add note"
+        : "add notes"
+      : add.length === 0
+        ? remove.length === 1
+          ? "delete note"
+          : "delete notes"
+        : "edit tab";
+  return mockEdit(label);
+}
+
+/** Edits a tab's notes: takes away those at `remove` (indices) and adds `add`, as one undoable edit. */
+export async function clipTabEdit(
+  id: number,
+  remove: number[],
+  add: TabNote[],
+): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("clip_tab_edit", { id, remove, add });
+  return mockTabEdit(id, remove, add);
+}
+
+/**
+ * Builds a transcribed tab's notes again on another grid, without
+ * transcribing again: the selected notes (indices), or all of them.
+ */
+export async function clipTabRequantise(
+  id: number,
+  grid: TabGrid,
+  selection: number[] = [],
+): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("clip_tab_requantise", { id, grid, selection });
   const { clip } = mockClipAt(id);
   if (!clip.tab) throw new Error(`${clip.name} has no tab`);
   if (!clip.tab.transcribed) {
     throw new Error(`${clip.name}'s tab was not transcribed, so there is nothing to re-quantise`);
   }
-  return mockEdit("set tab");
+  // The stand-in heard nothing: it snaps the notes it has to the grid.
+  const step = { "1/8": 480, "1/16": 240, "1/8t": 320, "1/16t": 160 }[grid];
+  const tab = mockFullTab(clip);
+  const chosen = selection.length > 0 ? selection : tab.notes.map((_, i) => i);
+  const add = chosen.map((i) => {
+    const n = tab.notes[i] as TabNote;
+    const start = Math.round(n.start / step) * step;
+    return { ...n, start, length: Math.max(step, Math.round(n.length / step) * step) };
+  });
+  return mockTabEdit(id, chosen, add);
+}
+
+/** Fits the selected notes (indices), or all of them, to the fretboard again. */
+export async function clipTabRefit(id: number, selection: number[] = []): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("clip_tab_refit", { id, selection });
+  const { clip } = mockClipAt(id);
+  if (!clip.tab) throw new Error(`${clip.name} has no tab`);
+  // The stand-in's fretboard: the lowest fret that plays the same pitch.
+  const tab = mockFullTab(clip);
+  const chosen = selection.length > 0 ? selection : tab.notes.map((_, i) => i);
+  const remove: number[] = [];
+  const add: TabNote[] = [];
+  for (const i of chosen) {
+    const n = tab.notes[i] as TabNote;
+    if (n.dead || n.harmonic) continue;
+    const pitch = tabPitch(tab, n.string, n.fret);
+    let best = n;
+    for (let s = 1; s <= tab.tuning.length; s++) {
+      const fret = pitch - tabPitch(tab, s, 0);
+      if (fret >= 0 && fret <= 24 && fret < best.fret) best = { ...n, string: s, fret };
+    }
+    if (best !== n) {
+      remove.push(i);
+      add.push(best);
+    }
+  }
+  return mockTabEdit(id, remove, add);
 }
 
 export async function clipRemove(id: number): Promise<EngineStatus> {

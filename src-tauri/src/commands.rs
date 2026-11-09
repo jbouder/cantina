@@ -738,14 +738,41 @@ pub fn clip_tab(
     state.clip_tab(id).map_err(fail)
 }
 
-/// Re-quantises a transcribed tab to another grid from what it heard.
+/// Re-quantises a transcribed tab to another grid from what it heard:
+/// the notes in the selection's span, or all of them.
 #[tauri::command]
 pub fn clip_tab_requantise(
     state: tauri::State<'_, EngineState>,
     id: u64,
     grid: crate::tabs::Grid,
+    selection: Option<Vec<u32>>,
 ) -> Result<EngineStatus, String> {
-    state.clip_tab_requantise(id, grid).map_err(fail)
+    state
+        .clip_tab_requantise(id, grid, &selection.unwrap_or_default())
+        .map_err(fail)
+}
+
+/// Fits the selected notes of a tab (or all) to the fretboard again.
+#[tauri::command]
+pub fn clip_tab_refit(
+    state: tauri::State<'_, EngineState>,
+    id: u64,
+    selection: Option<Vec<u32>>,
+) -> Result<EngineStatus, String> {
+    state
+        .clip_tab_refit(id, &selection.unwrap_or_default())
+        .map_err(fail)
+}
+
+/// Edits a tab's notes: removes those at `remove`, adds `add`.
+#[tauri::command]
+pub fn clip_tab_edit(
+    state: tauri::State<'_, EngineState>,
+    id: u64,
+    remove: Vec<u32>,
+    add: Vec<cantina_project::TabNote>,
+) -> Result<EngineStatus, String> {
+    state.clip_tab_edit(id, remove, add).map_err(fail)
 }
 
 /// Stops the running export, bounce or transcription.

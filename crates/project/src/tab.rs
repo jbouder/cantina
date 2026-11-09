@@ -102,7 +102,7 @@ pub struct Bend {
 
 /// One note: where it is played, when, and how.
 #[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TabNote {
     /// The string, 1 for the highest-pitched.
