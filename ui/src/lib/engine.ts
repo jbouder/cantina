@@ -84,6 +84,10 @@ export interface AssistantSettings {
   endpoint: string;
   /** The model's id at the endpoint. */
   model: string;
+  /** Talks as Tapster, the house droid; off gives plain replies. */
+  persona: boolean;
+  /** Beeps and chirps on a reply and on an error, in the window only. */
+  sounds: boolean;
 }
 
 /** The assistant as the shell reports it. Mirrors `AssistantStatus` in src-tauri. */
@@ -1009,8 +1013,15 @@ const mock: EngineStatus = {
   },
   countIn: !(mockParams?.has("nocountin") ?? false),
   assistant: mockParams?.has("assistant")
-    ? { enabled: true, endpoint: MOCK_ENDPOINT, model: "droid-large", hasKey: true }
-    : { enabled: false, endpoint: "", model: "", hasKey: false },
+    ? {
+        enabled: true,
+        endpoint: MOCK_ENDPOINT,
+        model: "droid-large",
+        hasKey: true,
+        persona: !mockParams.has("plain"),
+        sounds: false,
+      }
+    : { enabled: false, endpoint: "", model: "", hasKey: false, persona: true, sounds: false },
 
   library: {
     pedalsDir: "/Users/you/Music/Cantina/Pedals",
@@ -1272,6 +1283,8 @@ export async function assistantConfigure(settings: AssistantSettings): Promise<E
     enabled: settings.enabled,
     endpoint: settings.endpoint.trim(),
     model: settings.model.trim(),
+    persona: settings.persona,
+    sounds: settings.sounds,
     hasKey: settings.enabled && mockKey !== null,
   };
   mockPublish();

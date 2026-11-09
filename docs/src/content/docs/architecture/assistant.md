@@ -180,6 +180,23 @@ a mutex around `tools::fake::FakeHost` in tests), so playback and editing
 carry on while the model writes. The system prompt gets a one-line
 summary of the project (`brief`) on every step.
 
+## The droid
+
+With `AssistantSettings::persona` on (the default), `HostTools` puts
+`assistant::persona()` before the system prompt: Tapster, an original
+house droid, with a voice for status lines and an instruction to keep
+technical answers plain and correct and never to claim or quote any
+existing character. Off, the prompt is the same without it.
+
+The UI side is `components/Droid.tsx`, an SVG drawn in the current text
+color plus the skin's LCD and LED tokens, with four states (idle,
+thinking, speaking, error) animated by the `.droid-*` rules in
+`styles.css`, all inside `prefers-reduced-motion: no-preference`. The
+panel's console uses `surface-lcd` for the readout and `Led` for Link,
+Busy and Fault. `lib/chirps.ts` synthesises the optional chirps with Web
+Audio in the web view; they reach the system output directly and never the
+engine's graph.
+
 ## Testing
 
 `provider.rs` tests run against a one-thread HTTP server on localhost

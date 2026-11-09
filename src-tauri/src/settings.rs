@@ -63,7 +63,7 @@ impl MetronomeSettings {
 
 /// The assistant's connection: off until the player turns it on. The API
 /// key is not kept here but in the login Keychain (`assistant::keychain`).
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AssistantSettings {
     /// Nothing is shown and nothing is sent anywhere until this is on.
@@ -74,6 +74,22 @@ pub struct AssistantSettings {
     pub endpoint: String,
     /// The model to ask, by the id the endpoint lists it under.
     pub model: String,
+    /// Talks as Tapster, the house droid; off gives plain replies.
+    pub persona: bool,
+    /// Beeps and chirps in the window on a reply and on an error.
+    pub sounds: bool,
+}
+
+impl Default for AssistantSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            endpoint: String::new(),
+            model: String::new(),
+            persona: true,
+            sounds: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -168,7 +184,10 @@ mod tests {
             enabled: true,
             endpoint: "http://localhost:11434/v1".into(),
             model: "llama3.2".into(),
+            ..AssistantSettings::default()
         };
+        // The droid talks by default; its sounds are off until asked for.
+        assert!(s.assistant.persona && !s.assistant.sounds);
         s.save(&path).unwrap();
         assert_eq!(Settings::load(&path).unwrap().assistant, s.assistant);
         assert!(!fs::read_to_string(&path).unwrap().contains("key"));

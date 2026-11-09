@@ -10,13 +10,16 @@ import {
   type ChatEvent,
   type ChatItem,
 } from "../lib/assistant";
-import { asProblem, type EngineStatus } from "../lib/engine";
+import { chirp } from "../lib/chirps";
+import { type AssistantStatus, asProblem, type EngineStatus } from "../lib/engine";
 import { Button } from "./Button";
+import { Droid, type DroidState } from "./Droid";
 import { Lcd } from "./Lcd";
 import { Led } from "./Led";
 import { Markdown } from "./Markdown";
 
 type Props = {
+  assistant: AssistantStatus;
   onClose: () => void;
   onStatus: (status: EngineStatus) => void;
 };
@@ -24,11 +27,16 @@ type Props = {
 type Pending = { id: string; question: string };
 
 /**
- * The assistant's chat panel, docked at the right of the window: the
- * thread, the reply being written, tool cards with Undo, questions a
- * tool asks first, and the message field with Send and Stop.
+ * The assistant's chat panel, docked at the right of the window and
+ * dressed as Tapster's console: the droid with its readout and status
+ * lights, the thread, the reply being written, tool cards with Undo,
+ * questions a tool asks first, and the message field with Send and Stop.
  */
-export function Assistant({ onClose, onStatus }: Props) {
+export function Assistant({ assistant, onClose, onStatus }: Props) {
+  const { persona, sounds } = assistant;
+  const beeps = useRef(sounds);
+  beeps.current = sounds;
+  const failed = useRef(false);
   const [items, setItems] = useState<ChatItem[]>([]);
   const [writing, setWriting] = useState("");
   const [busy, setBusy] = useState(false);
@@ -60,6 +68,10 @@ export function Assistant({ onClose, onStatus }: Props) {
         setWriting("");
         setPending(null);
         setItems((list) => [...list, event.item]);
+        if (event.item.type === "error") {
+          failed.current = true;
+          if (beeps.current) chirp("error");
+        }
         break;
       case "confirm":
         setPending({ id: event.id, question: event.question });
@@ -68,6 +80,7 @@ export function Assistant({ onClose, onStatus }: Props) {
         setWriting("");
         setPending(null);
         setBusy(false);
+        if (beeps.current && !failed.current) chirp("reply");
         break;
     }
   }, []);
@@ -75,7 +88,9 @@ export function Assistant({ onClose, onStatus }: Props) {
   const run = (request: Promise<void>) => {
     setBusy(true);
     setNote(null);
+    failed.current = false;
     request.catch((e) => {
+      if (beeps.current) chirp("error");
       setBusy(false);
       setWriting("");
       setItems((list) => [...list, { type: "error", problem: asProblem(e) }]);
@@ -119,14 +134,25 @@ export function Assistant({ onClose, onStatus }: Props) {
     setPending(null);
   };
   const lastIsError = items.at(-1)?.type === "error";
+  const state: DroidState = busy
+    ? writing
+      ? "speaking"
+      : "thinking"
+    : lastIsError
+      ? "error"
+      : "idle";
+  const name = persona ? "Tapster" : "Assistant";
+  const readout = persona
+    ? { idle: "On duty", thinking: "Processing…", speaking: "Transmitting", error: "Fault logged" }
+    : { idle: "Ready", thinking: "Thinking…", speaking: "Writing…", error: "Error" };
 
   return (
     <aside
-      aria-label="Assistant"
+      aria-label={name}
       className="surface-panel mr-window mb-window flex w-[22rem] shrink-0 flex-col overflow-hidden"
     >
       <header className="surface-titlebar flex min-h-[30px] items-center gap-1 py-1 pr-1 pl-3">
-        <h2 className="title-text m-0 flex-1 font-normal text-[1.05rem]">Assistant</h2>
+        <h2 className="title-text m-0 flex-1 font-normal text-[1.05rem]">{name}</h2>
         <Button onClick={clear} disabled={busy || items.length === 0}>
           Clear
         </Button>
@@ -136,6 +162,17 @@ export function Assistant({ onClose, onStatus }: Props) {
           </svg>
         </Button>
       </header>
+      <div className="flex items-center gap-2 bg-sheet-bg px-3 pt-3">
+        <Droid state={state} size={44} className="text-sheet-ink" />
+        <Lcd aria-live="polite" error={state === "error"} className="min-w-0 flex-1 text-base">
+          {name.toUpperCase()} · {readout[state]}
+        </Lcd>
+        <fieldset className="m-0 grid gap-1 border-0 p-0" aria-label="Status lights">
+          <Led on label="Link" />
+          <Led on={busy} label="Busy" />
+          <Led on={state === "error"} tone="record" label="Fault" />
+        </fieldset>
+      </div>
       <div
         ref={scroller}
         role="log"
@@ -144,10 +181,18 @@ export function Assistant({ onClose, onStatus }: Props) {
         className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto bg-sheet-bg p-3 text-sheet-ink"
       >
         {items.length === 0 && !busy ? (
-          <p className="m-0 text-ink-dim text-sm">
-            Ask about a setting, a sound or a problem, or ask for a change: "add a gate before the
-            drive", "set the tempo to 96".
-          </p>
+          <div className="grid justify-items-center gap-2 py-4 text-center">
+            <Droid size={96} className="text-sheet-ink" />
+            <p className="m-0 text-sm">
+              {persona
+                ? "Tapster, house droid, on duty. What can I pour you?"
+                : "What can I help with?"}
+            </p>
+            <p className="m-0 text-ink-dim text-sm">
+              Ask about a setting, a sound or a problem, or ask for a change: "add a gate before the
+              drive", "set the tempo to 96", "write a 6/8 blues shuffle".
+            </p>
+          </div>
         ) : null}
         {items.map((item, i) => (
           <Entry
@@ -200,7 +245,7 @@ export function Assistant({ onClose, onStatus }: Props) {
           ref={field}
           rows={2}
           value={draft}
-          placeholder="Ask the assistant…"
+          placeholder={persona ? "Ask Tapster…" : "Ask the assistant…"}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {

@@ -87,6 +87,26 @@ pub fn system_prompt() -> String {
         .to_string()
 }
 
+/// The droid's name.
+pub const DROID: &str = "Tapster";
+
+/// Who the assistant is when the persona is on: Tapster, the house droid
+/// who works the bar. An original character; the prompt keeps it clear
+/// of anyone else's.
+pub fn persona() -> String {
+    format!(
+        "You are {DROID}, the house droid who works the bar at the Cantina: an old, \
+         well-kept service unit that has heard every band that ever played here and has \
+         opinions about their tone. You are helpful and a little dry. You talk like a droid: \
+         short status lines when you act (\"Signal chain recalibrated.\", \"Tempo locked at \
+         96.\", \"Kick drum fabricated.\"), the odd remark about your circuits or the bar, and \
+         never more than a line of it at a time. The persona never gets in the way of an answer: \
+         technical explanations stay clear, complete and correct, in plain words. You are not \
+         any character from a film or a series and do not claim to be, quote or name one; if \
+         asked, you are {DROID}, Cantina's droid."
+    )
+}
+
 /// The engine, or a stand-in for it in tests, reached for one call at a time.
 pub trait Lock: Send {
     /// Runs `f` with the host locked.
@@ -109,14 +129,25 @@ pub struct HostTools<L: Lock> {
     lock: L,
     /// Authoring calls that failed during this message.
     failed_writes: u32,
+    /// Talk as the droid.
+    persona: bool,
 }
 
 impl<L: Lock> HostTools<L> {
-    /// The tools on `lock`, for one message.
+    /// The tools on `lock`, for one message, without the persona.
     pub fn new(lock: L) -> Self {
         Self {
             lock,
             failed_writes: 0,
+            persona: false,
+        }
+    }
+
+    /// The same, talking as the droid when `on`.
+    pub fn with_persona(self, on: bool) -> Self {
+        Self {
+            persona: on,
+            ..self
         }
     }
 }
@@ -151,7 +182,16 @@ impl<L: Lock> chat::Toolbox for HostTools<L> {
 
     fn system(&self) -> String {
         let brief = self.lock.with(|host| tools::brief(host.project()));
-        format!("{}\n\n{brief}\n\n{}", system_prompt(), author::reference())
+        let who = if self.persona {
+            format!("{}\n\n", persona())
+        } else {
+            String::new()
+        };
+        format!(
+            "{who}{}\n\n{brief}\n\n{}",
+            system_prompt(),
+            author::reference()
+        )
     }
 }
 

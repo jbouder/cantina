@@ -952,7 +952,14 @@ async fn answer(
             connection,
             client: provider::chat_client(),
         };
-        let mut tools = crate::assistant::HostTools::new(app.clone());
+        let persona = {
+            use tauri::Manager;
+            app.state::<EngineState>()
+                .lock()
+                .assistant_settings()
+                .persona
+        };
+        let mut tools = crate::assistant::HostTools::new(app.clone()).with_persona(persona);
         let sink = |event: chat::Event| {
             let _ = channel.send(event);
         };

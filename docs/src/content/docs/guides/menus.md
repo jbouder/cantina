@@ -94,7 +94,7 @@ in a text field. The menu shows them without a shortcut for that reason.
 | Pedal Designer | | Opens the selected track's first designed pedal in the [designer](/guides/designer/), or starts a new design on it. |
 | Stage | | The [stage](/guides/stage/) sheet. |
 | Performance Mode | P | The stage full screen. |
-| Assistant | ⌘J | Shows or hides the [assistant](/guides/assistant/)'s chat panel. Only once the assistant is connected. |
+| Tapster (Assistant) | ⌘J | Shows or hides the [assistant](/guides/assistant/)'s chat panel. Only once the assistant is connected. Called Assistant with the droid persona off. |
 | Skin | | One item per [skin](/guides/skins/), the current one checked. The same choice as in Settings. |
 | Zoom In, Zoom Out, Zoom to Fit | ⌘=, ⌘−, ⌘0 | Zoom the timeline, or fit the whole song. |
 | Show Meters | | Checked while the in and out meters show under the toolbar. Remembered for next time. |
