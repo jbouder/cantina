@@ -201,3 +201,59 @@ fn kinds_and_schema_print_json() {
     }
     assert_eq!(run(&["schema", "song"]).status.code(), Some(2));
 }
+
+#[test]
+fn check_reads_jams_and_names_what_they_lack() {
+    for entry in std::fs::read_dir(root().join("jams")).unwrap() {
+        let file = entry.unwrap().path();
+        let out = run(&["check", path(&file)]);
+        assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
+        assert!(
+            text(&out.stdout).starts_with("ok: jam "),
+            "{}",
+            text(&out.stdout)
+        );
+        assert!(
+            !text(&out.stdout).contains("warning"),
+            "{}: {}",
+            file.display(),
+            text(&out.stdout)
+        );
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let jam = |body: &str| {
+        let file = dir.path().join("x.jam.json");
+        std::fs::write(&file, body).unwrap();
+        run(&["check", path(&file)])
+    };
+    // A genre with no stock groove, and nothing of its own: invalid.
+    let out =
+        jam(r#"{"version":1,"name":"X","tempo":100,"drums":{"kit":"rock","groove":"Polka"}}"#);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(
+        text(&out.stderr).contains("no stock groove"),
+        "{}",
+        text(&out.stderr)
+    );
+    // A rig that is not there, and a chord that is not one.
+    let out = jam(
+        r#"{"version":1,"name":"X","tempo":100,"drums":{"kit":"rock","groove":"Rock"},"rig":"nope"}"#,
+    );
+    assert_eq!(out.status.code(), Some(0));
+    assert!(
+        text(&out.stdout).contains("\"nope\" is not installed"),
+        "{}",
+        text(&out.stdout)
+    );
+    let out = jam(
+        r#"{"version":1,"name":"X","tempo":100,"key":{"tonic":"A","mode":"minor"},
+            "drums":{"kit":"rock","groove":"Rock"},
+            "backing":{"kind":"progression","chords":"i | Zz","instrument":"bass"}}"#,
+    );
+    assert_eq!(out.status.code(), Some(1));
+    assert!(
+        text(&out.stderr).contains("\"Zz\" is not a chord"),
+        "{}",
+        text(&out.stderr)
+    );
+}

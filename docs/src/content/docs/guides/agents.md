@@ -1,9 +1,9 @@
 ---
 title: "Authoring with an agent"
-description: "Ask a coding agent for a pedal, a rig, a beat or a drum kit and get a file that loads: the cantina-author skill, the write-check-render-place loop, the library folders and example prompts."
+description: "Ask a coding agent for a pedal, a rig, a beat, a jam or a drum kit and get a file that loads: the cantina-author skill, the write-check-render-place loop, the library folders and example prompts."
 ---
 
-Everything Cantina reads is JSON: pedals, rigs, drum kits, patterns and projects.
+Everything Cantina reads is JSON: pedals, rigs, jams, drum kits, patterns and projects.
 A coding agent such as Claude Code can write any of them. Cantina gives it
 the three things it needs to get them right without you in the loop: a
 schema for every format, a command line tool that checks a file and
@@ -89,8 +89,9 @@ The [command line](/reference/cli/) reference has every command and flag.
 | `~/Music/Cantina/Kits/` | a folder per kit with `kit.json` and samples | a drum track's **Kit** list |
 | `~/Music/Cantina/Patterns/` | `<Name>.pattern.json` | the **Pattern** menu, under *Import from the library* |
 | `~/Music/Cantina/Rigs/` | `<id>.rig.json` | the rig picker on an audio track's pedalboard, marked *yours* |
+| `~/Music/Cantina/Jams/` | `<id>.jam.json` | the Jam view's **Jams** list, under *Yours* |
 
-Cantina watches the four folders while it runs. A file added or changed
+Cantina watches the five folders while it runs. A file added or changed
 there appears within a second; a file that does not load is listed as
 *will not load* with the same reason `cantina-cli check` gives, and cannot
 be picked until it is fixed. See [library folders](/guides/drums/#library-folders).
@@ -145,10 +146,12 @@ version, all of which `render` measures:
 Nothing here needs an agent. The same references serve a person:
 
 - the [pedal format](/reference/pedal-format/), [kit format](/reference/kit-format/),
-  [rig format](/reference/rig-format/) and [pattern files](/guides/drums/#pattern-files);
+  [rig format](/reference/rig-format/), [jam format](/reference/jam-format/)
+  and [pattern files](/guides/drums/#pattern-files);
 - a generated page per schema: [pedal](/reference/schemas/pedal/),
   [kit](/reference/schemas/kit/), [kit recipe](/reference/schemas/kit-recipe/),
-  [pattern](/reference/schemas/pattern/), [rig](/reference/schemas/rig/) and
+  [pattern](/reference/schemas/pattern/), [rig](/reference/schemas/rig/),
+  [jam](/reference/schemas/jam/) and
   [project](/reference/schemas/project/);
 - `cantina-cli check` and `render` from a terminal, and an editor that
   validates against the `"$schema"` as you type.

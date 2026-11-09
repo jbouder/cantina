@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Country in G",
+  "genre": "Country",
+  "description": "Boom-chick I–IV–V for chicken picking.",
+  "tempo": 112,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "G",
+    "mode": "major"
+  },
+  "drums": {
+    "kit": "acoustic",
+    "groove": "Rock",
+    "levelDb": 0
+  },
+  "rig": "country",
+  "backing": {
+    "kind": "progression",
+    "chords": "I | IV | I | V",
+    "instrument": "bass",
+    "rhythm": "half",
+    "rig": "bass-clean",
+    "levelDb": -2
+  }
+}

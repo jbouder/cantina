@@ -290,6 +290,100 @@ One pedal in a rig.
 | `pedal` | yes | string (not empty) | What it is: a stock name (`overdrive`), `cab:<impulse id>`, `pedal:<designed pedal id>`, `au:…` or `clap:…`. |
 | `state` |  | string | A plugin's saved state, base64, applied before `params`. |
 
+## Cantina jam (`jam`)
+
+What plays along while you practise: drums from a stock groove (named by its genre) or patterns of the jam's own by section, a backing (a chord progression played by a built-in guitar or bass through a rig, an audio file, or a project's track), a tempo, a key and the rig the input plays through (named by its file less `.rig.json`).
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `backing` |  | `Backing` | What plays with the drums. |
+| `description` |  | string | One line on what it is. |
+| `drums` | yes | `JamDrums` | The drums. |
+| `genre` |  | string | The style it is for: `Blues`, `Rock`… |
+| `key` |  | `Key` | The key the backing plays in. Default `{"mode":"minor","tonic":"E"}`. |
+| `name` | yes | string (not empty) | Shown in the jam list. |
+| `rig` |  | string | The rig the input plays through, by its file's name less `.rig.json`; none plays the input dry. |
+| `tempo` | yes | number (≥ 30, ≤ 300) | Beats per minute, 30 to 300. |
+| `timeSignature` |  | `Meter` | The meter every section plays in. Default `{"denominator":4,"numerator":4}`. |
+| `version` | yes | integer (≥ 1, ≤ 1) | The format version, 1. |
+
+Where it goes: `*.jam.json`, checked by `cantina-cli`. Schema: `https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json`.
+
+### `Humanize`
+
+How far hits stray, like a drummer's hands: up to ±48 ticks (a sixty-fourth of a bar of 4/4) late or early at a `timing` of 1, and up to ±30% in velocity at a `velocity` of 1. Each pass of a pattern is a little different, and the same every time it plays.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `timing` |  | number (≥ 0, ≤ 1) | 0 is on the grid, 1 the most. Default `0`. |
+| `velocity` |  | number (≥ 0, ≤ 1) | 0 is as written, 1 the most. Default `0`. |
+
+### `JamDrums`
+
+The drums of a jam.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `groove` |  | string | A stock groove, by its genre (`Rock`, `Blues shuffle`): each section plays that groove's pattern for it. |
+| `kit` | yes | string | The kit, by id. |
+| `levelDb` |  | number (≥ -60, ≤ 12) | The drums' level in decibels, −60 to 12. Default `0`. |
+| `patterns` |  | object | Patterns of the jam's own, by section, played in place of the groove's: pattern files' objects, without an id. |
+
+### `Key`
+
+A key: its tonic and whether it is major or minor.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `mode` | yes | `Mode` | Major or minor. |
+| `tonic` | yes | string (matching `^[A-Ga-g][#b♯♭]*$`) | A note name: `A`, `F#`, `Bb`. |
+
+### `Meter`
+
+A time signature, as a groove states it.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `denominator` | yes | `2`, `4`, `8`, `16` | The note value of a beat: 4 for quarter notes, 8 for eighths. |
+| `numerator` | yes | integer (≥ 1, ≤ 16) | Beats in a bar. |
+
+### `Pattern`
+
+A step sequencer pattern: a grid of pads against steps, with a velocity per cell. Patterns belong to the project and refer to pads by the ids the kit format uses (`kick`, `snare`, `hh-closed`…), so a pattern plays on any drum track whose kit has those pads.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `humanize` |  | `Humanize` | How far the hits stray from the grid and from their velocity, for the whole pattern; a row can have its own. |
+| `length` | yes | integer (≥ 1, ≤ 128) | Steps in the pattern, which loops after the last. |
+| `name` | yes | string (not empty) | Shown in the pattern picker. |
+| `rows` |  | array of `PatternRow` | One row per pad that has hits. Default `[]`. |
+| `seed` |  | integer (≥ 0) | Seeds the humanizing and the chance of each step, so the pattern plays the same way every time; change it for another take. |
+| `stepsPerBeat` | yes | `1`, `2`, `3`, `4`, `6`, `8` | Steps per quarter note: 2 for eighths, 4 for sixteenths, 8 for thirty-seconds; 3 and 6 for triplets. |
+| `swing` | yes | number (≥ 0, ≤ 1) | 0 is straight; 1 delays every second step by a third of a step, a triplet feel. |
+
+### `PatternRow`
+
+One pad's steps. `steps` holds exactly the pattern's length of velocities from 0 (no hit) to 1.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `humanize` |  | `Humanize` | This row's own humanizing, instead of the pattern's. |
+| `marks` |  | array of `StepMark` | Steps that play by chance, ratchet or flam, in step order. |
+| `pad` | yes | string (not empty) | The pad's id in the kit format. |
+| `steps` | yes | array of number (≥ 0, ≤ 1) | Velocity per step, 0 for no hit. |
+| `swing` |  | number (≥ 0, ≤ 1) | This row's own swing, 0 to 1, instead of the pattern's. |
+
+### `StepMark`
+
+What a step does beyond its velocity: whether it plays, how many times, and with a grace note before it.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `chance` |  | number (≥ 0, ≤ 1) | The chance it plays on a pass, 0 to 1. |
+| `flam` |  | boolean | A soft grace note just before it. |
+| `ratchet` |  | integer (≥ 1, ≤ 4) | Hits in the step, evenly spaced: 1, or 2 to 4 for a ratchet. |
+| `step` | yes | integer (≥ 0) | The step, from 0. |
+
 ## Cantina project (`project`)
 
 A whole project. Saved as `project.json` inside a `Name.cantina/` directory next to `audio/`, `plugins/` and `pedals/`.

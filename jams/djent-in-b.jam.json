@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Djent in B",
+  "genre": "Metal",
+  "description": "A low B pedal for syncopated riffs.",
+  "tempo": 120,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "B",
+    "mode": "minor"
+  },
+  "drums": {
+    "kit": "metal-triggered",
+    "groove": "Djent",
+    "levelDb": 0
+  },
+  "rig": "djent",
+  "backing": {
+    "kind": "progression",
+    "chords": "i5 | i5 | bII5 | i5",
+    "instrument": "bass",
+    "rhythm": "whole",
+    "rig": "bass-metal",
+    "levelDb": -4
+  }
+}

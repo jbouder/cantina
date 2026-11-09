@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Metalcore in D",
+  "genre": "Metal",
+  "description": "Breakdown-ready D minor.",
+  "tempo": 140,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "D",
+    "mode": "minor"
+  },
+  "drums": {
+    "kit": "metal-triggered",
+    "groove": "Metalcore",
+    "levelDb": 0
+  },
+  "rig": "metalcore",
+  "backing": {
+    "kind": "progression",
+    "chords": "i5 | bVI5 | bIII5 | bVII5",
+    "instrument": "bass",
+    "rhythm": "eighth",
+    "rig": "bass-metal",
+    "levelDb": -3
+  }
+}

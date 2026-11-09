@@ -118,6 +118,8 @@ pub struct EngineStatus {
     pub grooves: Vec<library::StockGroove>,
     /// Every rig the picker offers: the stock ones, then the user's.
     pub rigs: Vec<crate::rigs::RigInfo>,
+    /// Every jam the Jam view offers: the stock ones, then the user's.
+    pub jams: Vec<crate::jams::JamInfo>,
     /// The rig being heard on a track in place of its chain, if one is.
     /// Session state, not part of the project.
     pub rig_audition: Option<RigAuditionStatus>,
@@ -2310,6 +2312,8 @@ pub struct Engine {
     grooves: Vec<library::StockGroove>,
     /// The stock rigs, found once at launch.
     stock_rigs: Vec<crate::rigs::RigInfo>,
+    /// The stock jams, found once at launch.
+    stock_jams: Vec<crate::jams::JamInfo>,
     /// A rig heard on a track in place of its chain.
     rig_audition: Option<RigAudition>,
     /// Rows muted or soloed on drum tracks, for listening while editing.
@@ -2563,6 +2567,7 @@ impl Engine {
             kits: projects.kits_dir(),
             patterns: projects.patterns_dir(),
             rigs: projects.rigs_dir(),
+            jams: projects.jams_dir(),
         };
         // The folders are where files written outside the app go, so they
         // exist from the first launch.
@@ -2572,6 +2577,7 @@ impl Engine {
         let library_status = folders.scan();
         let grooves = library::scan_grooves(&groove_roots(&app));
         let stock_rigs = crate::rigs::scan_stock(&rig_roots(&app));
+        let stock_jams = crate::jams::scan_stock(&jam_roots(&app));
         let mut engine = Self {
             app,
             live: None,
@@ -2599,6 +2605,7 @@ impl Engine {
             practice: Practice::default(),
             grooves,
             stock_rigs,
+            stock_jams,
             rig_audition: None,
             drum_rows: RowMixes::new(),
             jam: None,
@@ -2748,6 +2755,12 @@ impl Engine {
                 .stock_rigs
                 .iter()
                 .chain(&self.library_status.rigs)
+                .cloned()
+                .collect(),
+            jams: self
+                .stock_jams
+                .iter()
+                .chain(&self.library_status.jams)
                 .cloned()
                 .collect(),
             instrument_profile: InstrumentProfileStatus {
@@ -6201,6 +6214,26 @@ fn groove_roots(app: &AppHandle) -> Vec<PathBuf> {
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("..")
                 .join("patterns"),
+        );
+    }
+    roots
+}
+
+/// Where the stock jams are: the bundle's `jams/`, and the repository's
+/// in a debug build.
+fn jam_roots(app: &AppHandle) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Some(extra) = std::env::var_os("CANTINA_JAMS") {
+        roots.extend(std::env::split_paths(&extra));
+    }
+    if let Ok(resources) = app.path().resource_dir() {
+        roots.push(resources.join("jams"));
+    }
+    if cfg!(debug_assertions) {
+        roots.push(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("jams"),
         );
     }
     roots

@@ -1,6 +1,7 @@
-//! Jams: what plays along while you practise. A jam is a drum groove, a
-//! tempo, a key and the rig you play through; it is not a project and
-//! jamming never edits one.
+//! Jams: what plays along while you practise, as a file of its own,
+//! `<name>.jam.json`. A jam is a drum groove, a backing, a tempo, a key
+//! and the rig you play through; it is not a project and jamming never
+//! edits one. `jam.schema.json` describes the file.
 //!
 //! ```json
 //! {
@@ -22,8 +23,9 @@
 //! ```
 //!
 //! The drums play a stock groove's sections, named by its genre, or
-//! patterns of the jam's own, by section; a section the jam has its own
-//! pattern for plays that one. The rig is named by its file's name less
+//! patterns of the jam's own, by section, written as pattern files are,
+//! without an id; a section the jam has its own pattern for plays that
+//! one. The rig is named by its file's name less
 //! `.rig.json`, stock or the user's.
 //!
 //! The backing is a chord progression (see [`crate::parse_progression`])
@@ -34,6 +36,7 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::model::{Pattern, PPQ};
 use crate::pattern_file::{Meter, Section};
@@ -41,6 +44,9 @@ use crate::tab::Instrument;
 
 /// The version a jam is written at.
 pub const JAM_VERSION: u32 = 1;
+
+/// What a jam file's name ends with.
+pub const JAM_SUFFIX: &str = ".jam.json";
 
 /// The slowest and fastest a jam plays, in beats per minute.
 pub const JAM_TEMPO: (f64, f64) = (30.0, 300.0);
@@ -162,6 +168,80 @@ pub enum Rhythm {
     Eighth,
 }
 
+/// A jam's own patterns as pattern files write them: an id means
+/// nothing outside a project, so none is written and any read is 0.
+mod patterns_without_ids {
+    use super::*;
+    use serde::de::Error as _;
+    use serde::ser::Error as _;
+    use serde::{Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(
+        patterns: &BTreeMap<Section, Pattern>,
+        s: S,
+    ) -> Result<S::Ok, S::Error> {
+        let mut out = BTreeMap::new();
+        for (section, p) in patterns {
+            let mut v = serde_json::to_value(p).map_err(S::Error::custom)?;
+            if let Some(o) = v.as_object_mut() {
+                o.remove("id");
+            }
+            out.insert(*section, v);
+        }
+        out.serialize(s)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        d: D,
+    ) -> Result<BTreeMap<Section, Pattern>, D::Error> {
+        let raw: BTreeMap<Section, Value> = BTreeMap::deserialize(d)?;
+        raw.into_iter()
+            .map(|(section, mut v)| {
+                if let Some(o) = v.as_object_mut() {
+                    o.insert("id".into(), Value::from(0));
+                }
+                serde_json::from_value(v)
+                    .map(|p| (section, p))
+                    .map_err(D::Error::custom)
+            })
+            .collect()
+    }
+}
+
+/// Reads and checks a jam file's text. A `"$schema"` field is ignored.
+pub fn jam_from_json(text: &str) -> Result<Jam, Vec<String>> {
+    let mut value: Value =
+        serde_json::from_str(text).map_err(|e| vec![format!("not a jam: {e}")])?;
+    if let Some(o) = value.as_object_mut() {
+        o.remove("$schema");
+    }
+    let jam: Jam = serde_json::from_value(value).map_err(|e| vec![format!("not a jam: {e}")])?;
+    jam.validate()?;
+    Ok(jam)
+}
+
+/// A jam as the text of its file, pointing at its schema.
+pub fn jam_to_json(jam: &Jam) -> String {
+    let mut value = serde_json::to_value(jam).expect("a jam serializes");
+    if let Some(o) = value.as_object_mut() {
+        let mut with = serde_json::Map::new();
+        with.insert(
+            "$schema".into(),
+            Value::from("https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json"),
+        );
+        with.extend(std::mem::take(o));
+        *o = with;
+    }
+    let mut text = serde_json::to_string_pretty(&value).expect("a jam serializes");
+    text.push('\n');
+    text
+}
+
+/// The file name for a jam id.
+pub fn jam_file_name(id: &str) -> String {
+    format!("{id}{JAM_SUFFIX}")
+}
+
 fn common_time() -> Meter {
     Meter {
         numerator: 4,
@@ -181,8 +261,16 @@ pub struct JamDrums {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub groove: Option<String>,
     /// Patterns of the jam's own, by section, played in place of the
-    /// groove's.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    /// groove's: pattern files' objects, without an id.
+    #[serde(
+        default,
+        skip_serializing_if = "BTreeMap::is_empty",
+        with = "patterns_without_ids"
+    )]
+    #[cfg_attr(
+        any(test, feature = "schema"),
+        schemars(with = "BTreeMap<Section, Pattern>")
+    )]
     pub patterns: BTreeMap<Section, Pattern>,
     /// The drums' level in decibels, −60 to 12.
     #[serde(default)]
@@ -499,6 +587,26 @@ mod tests {
         assert!(audio.validate().unwrap_err()[0].contains("500"));
         // None is left out of the file.
         assert!(!serde_json::to_string(&jam()).unwrap().contains("backing"));
+    }
+
+    #[test]
+    fn a_file_round_trips_without_pattern_ids() {
+        let mut j = jam();
+        let mut p = Pattern::new(PatternId(42), "Mine");
+        p.length = 16;
+        p.rows.push(PatternRow::new("kick", vec![1.0; 16]));
+        j.drums.patterns.insert(Section::Chorus, p);
+        let text = jam_to_json(&j);
+        assert!(text.starts_with("{\n  \"$schema\""), "{text}");
+        assert!(!text.contains("\"id\""), "{text}");
+        let back = jam_from_json(&text).unwrap();
+        assert_eq!(back.drums.patterns[&Section::Chorus].id, PatternId(0));
+        assert_eq!(
+            back.drums.patterns[&Section::Chorus].rows,
+            j.drums.patterns[&Section::Chorus].rows
+        );
+        assert_eq!(jam_file_name("blues"), "blues.jam.json");
+        assert!(jam_from_json("{}").unwrap_err()[0].starts_with("not a jam"));
     }
 
     #[test]

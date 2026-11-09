@@ -549,7 +549,15 @@ impl Engine {
             {
                 setup.time_signature = g.groove.time_signature;
             }
-            for g in grooves {
+            // The genre's grooves in the verse's meter, the first for each
+            // section: a jazz waltz is not a 4/4 jazz bridge.
+            for g in grooves
+                .into_iter()
+                .filter(|g| g.groove.time_signature == setup.time_signature)
+            {
+                if patterns.contains_key(&g.groove.section) {
+                    continue;
+                }
                 let text = std::fs::read_to_string(&g.path)
                     .with_context(|| format!("reading {}", g.path))?;
                 let (pattern, _) = cantina_project::groove_from_json(&text)
@@ -1202,6 +1210,49 @@ impl Engine {
         ));
         self.notice_seq = self.notice_seq.wrapping_add(1);
         Ok(self.publish())
+    }
+
+    /// Saves the jam as it is now to the Jams library folder as `name`,
+    /// with a genre and a line on it. A jam of that name already there is
+    /// replaced only when asked.
+    pub fn jam_save(
+        &mut self,
+        name: &str,
+        genre: &str,
+        description: &str,
+        replace: bool,
+    ) -> Result<EngineStatus> {
+        let jam = self.jam.as_ref().context("open a jam first")?;
+        let name = name.trim();
+        if name.is_empty() {
+            bail!("a jam needs a name");
+        }
+        let mut setup = jam.setup.clone();
+        setup.name = name.to_string();
+        setup.genre = genre.trim().to_string();
+        setup.description = description.trim().to_string();
+        setup.tempo = jam.schedule.tempo();
+        setup.version = cantina_project::JAM_VERSION;
+        setup.validate().map_err(|p| anyhow!("{}", p.join("; ")))?;
+        let path = crate::jams::path_for(&self.folders.jams, name);
+        if path.exists() && !replace {
+            bail!("you already have a jam called {name}");
+        }
+        crate::jams::write(&path, &setup)?;
+        if let Some(jam) = &mut self.jam {
+            jam.setup.name = setup.name.clone();
+            jam.setup.genre = setup.genre.clone();
+            jam.setup.description = setup.description.clone();
+        }
+        self.jam_remember();
+        self.library_status = self.folders.scan();
+        Ok(self.publish())
+    }
+
+    /// Opens a jam file, stock or the user's, in place of the jam playing.
+    pub fn jam_load(&mut self, path: &str) -> Result<EngineStatus> {
+        let setup = crate::jams::read(Path::new(path))?;
+        self.jam_set(setup)
     }
 
     fn jam_remember(&mut self) {

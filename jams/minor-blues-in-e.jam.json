@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Minor Blues in E",
+  "genre": "Blues",
+  "description": "A slow minor blues: room for long bends.",
+  "tempo": 78,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "E",
+    "mode": "minor"
+  },
+  "drums": {
+    "kit": "vintage",
+    "groove": "Blues shuffle",
+    "levelDb": 0
+  },
+  "rig": "blues",
+  "backing": {
+    "kind": "progression",
+    "chords": "i7 | i7 | i7 | i7 | iv7 | iv7 | i7 | i7 | bVI7 | V7 | i7 | V7",
+    "instrument": "bass",
+    "rhythm": "half",
+    "rig": "bass-clean",
+    "levelDb": -2
+  }
+}

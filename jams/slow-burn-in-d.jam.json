@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Slow Burn in D",
+  "genre": "Alternative",
+  "description": "A half-time minor drift for atmospheres.",
+  "tempo": 80,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "D",
+    "mode": "minor"
+  },
+  "drums": {
+    "kit": "acoustic",
+    "groove": "Half-time",
+    "levelDb": 0
+  },
+  "rig": "shoegaze",
+  "backing": {
+    "kind": "progression",
+    "chords": "i | bVI | bIII | bVII",
+    "instrument": "guitar",
+    "rhythm": "whole",
+    "rig": "ambient",
+    "levelDb": -8
+  }
+}

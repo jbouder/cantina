@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Rock in E",
+  "genre": "Rock",
+  "description": "Straight eighths and the I–bVII–IV every rock song borrows.",
+  "tempo": 120,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "E",
+    "mode": "major"
+  },
+  "drums": {
+    "kit": "rock",
+    "groove": "Rock",
+    "levelDb": 0
+  },
+  "rig": "classic-rock",
+  "backing": {
+    "kind": "progression",
+    "chords": "I | bVII | IV | I",
+    "instrument": "bass",
+    "rhythm": "eighth",
+    "rig": "bass-rock",
+    "levelDb": -3
+  }
+}

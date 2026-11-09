@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Reggae in A",
+  "genre": "Reggae",
+  "description": "One drop under a I–IV skank.",
+  "tempo": 76,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "A",
+    "mode": "major"
+  },
+  "drums": {
+    "kit": "vintage",
+    "groove": "Reggae",
+    "levelDb": 0
+  },
+  "rig": "funk-clean",
+  "backing": {
+    "kind": "progression",
+    "chords": "I | IV | I | V",
+    "instrument": "bass",
+    "rhythm": "half",
+    "rig": "bass-clean",
+    "levelDb": -2
+  }
+}

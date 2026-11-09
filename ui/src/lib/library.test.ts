@@ -14,6 +14,7 @@ describe("library", () => {
       kitsDir: "/k",
       patternsDir: "/t",
       rigsDir: "/r",
+      jamsDir: "/j",
       patterns: [],
       broken: [
         { kind: "pedal", name: "a.pedal.json", path: "/p/a.pedal.json", reason: "x" },

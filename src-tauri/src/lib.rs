@@ -12,6 +12,7 @@ mod commands;
 mod engine;
 mod frame;
 mod jam;
+mod jams;
 mod library;
 mod menu;
 mod mixdown;
@@ -133,6 +134,8 @@ pub fn run() {
             commands::jam_keep,
             commands::jam_keep_place,
             commands::jam_capture_set,
+            commands::jam_save,
+            commands::jam_load,
             commands::rig_apply,
             commands::rig_save,
             commands::rig_rename,

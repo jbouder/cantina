@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Alternative in G",
+  "genre": "Alternative",
+  "description": "Open, ringing chords to build a riff over.",
+  "tempo": 112,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "G",
+    "mode": "major"
+  },
+  "drums": {
+    "kit": "acoustic",
+    "groove": "Alternative",
+    "levelDb": 0
+  },
+  "rig": "alternative",
+  "backing": {
+    "kind": "progression",
+    "chords": "I | V | vi | IV",
+    "instrument": "guitar",
+    "rhythm": "half",
+    "rig": "ambient",
+    "levelDb": -8
+  }
+}

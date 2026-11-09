@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Hard Rock in A",
+  "genre": "Rock",
+  "description": "A driving A with power chords under it.",
+  "tempo": 132,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "A",
+    "mode": "major"
+  },
+  "drums": {
+    "kit": "rock",
+    "groove": "Hard rock",
+    "levelDb": 0
+  },
+  "rig": "hard-rock",
+  "backing": {
+    "kind": "progression",
+    "chords": "I5 | I5 | bVII5 | IV5",
+    "instrument": "bass",
+    "rhythm": "eighth",
+    "rig": "bass-rock",
+    "levelDb": -3
+  }
+}

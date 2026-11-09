@@ -1,0 +1,20 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Desert Blues",
+  "genre": "Blues",
+  "description": "A slow minor blues in D: the stock shuffle, a bass on half notes, room for bends.",
+  "tempo": 82,
+  "timeSignature": { "numerator": 4, "denominator": 4 },
+  "key": { "tonic": "D", "mode": "minor" },
+  "drums": { "kit": "vintage", "groove": "Blues shuffle", "levelDb": -2 },
+  "rig": "blues",
+  "backing": {
+    "kind": "progression",
+    "chords": "i7 | i7 | i7 | i7 | iv7 | iv7 | i7 | i7 | bVI7 | V7 | i7 | V7",
+    "instrument": "bass",
+    "rhythm": "half",
+    "rig": "bass-clean",
+    "levelDb": -2
+  }
+}

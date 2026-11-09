@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Pop in C",
+  "genre": "Pop",
+  "description": "The four chords, strummed.",
+  "tempo": 108,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "C",
+    "mode": "major"
+  },
+  "drums": {
+    "kit": "acoustic",
+    "groove": "Pop",
+    "levelDb": 0
+  },
+  "rig": "alternative",
+  "backing": {
+    "kind": "progression",
+    "chords": "I | V | vi | IV",
+    "instrument": "guitar",
+    "rhythm": "quarter",
+    "rig": "jazz-clean",
+    "levelDb": -6
+  }
+}

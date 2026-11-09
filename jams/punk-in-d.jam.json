@@ -1,0 +1,30 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
+  "version": 1,
+  "name": "Punk in D",
+  "genre": "Punk",
+  "description": "Fast and loud: three chords and the truth.",
+  "tempo": 184,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "key": {
+    "tonic": "D",
+    "mode": "major"
+  },
+  "drums": {
+    "kit": "rock",
+    "groove": "Punk",
+    "levelDb": 0
+  },
+  "rig": "punk",
+  "backing": {
+    "kind": "progression",
+    "chords": "I5 | IV5 | V5 | IV5",
+    "instrument": "bass",
+    "rhythm": "eighth",
+    "rig": "bass-rock",
+    "levelDb": -3
+  }
+}

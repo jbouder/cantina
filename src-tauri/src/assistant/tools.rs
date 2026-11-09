@@ -1576,6 +1576,7 @@ pub(crate) mod fake {
                     kits: "/nonexistent/Kits".into(),
                     patterns: "/nonexistent/Patterns".into(),
                     rigs: "/nonexistent/Rigs".into(),
+                    jams: "/nonexistent/Jams".into(),
                 },
                 |l| l.folders.clone(),
             )

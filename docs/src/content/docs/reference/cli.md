@@ -1,6 +1,6 @@
 ---
 title: "Command line"
-description: "cantina-cli checks, renders and lists everything Cantina reads, without the app: pedals, kits, kit recipes, patterns, tabs, rigs and projects."
+description: "cantina-cli checks, renders and lists everything Cantina reads, without the app: pedals, kits, kit recipes, patterns, tabs, rigs, jams and projects."
 ---
 
 `cantina-cli` proves a file works without a window, a microphone or anyone
@@ -34,10 +34,11 @@ cantina-cli check <file or folder> [--as <format>] [--kit <dir>] [--kits <dir>].
 
 Validates a pedal (`*.pedal.json`), a kit (a folder with `kit.json`), a kit
 recipe (`*.recipe.json`), a pattern (`*.pattern.json`), a tab
-(`*.tab.json`), a [rig](/reference/rig-format/) (`*.rig.json`) or a project
-(a folder with `project.json`). The format comes from the name, then a
-`$schema` field, then the keys;
-`--as pedal|kit|kit-recipe|pattern|tab|rig|project` overrides it.
+(`*.tab.json`), a [rig](/reference/rig-format/) (`*.rig.json`), a
+[jam](/reference/jam-format/) (`*.jam.json`) or a project (a folder with
+`project.json`). The format comes from the name, then a `$schema` field,
+then the keys; `--as pedal|kit|kit-recipe|pattern|tab|rig|jam|project`
+overrides it.
 
 First the file is checked against its [schema](/schemas/pedal.schema.json),
 with each problem at its JSON pointer and, inside a pedal, the node's id
@@ -68,6 +69,13 @@ Then the rules beyond the schema, the ones the app enforces:
   impulse that is not installed is a warning: the app plays the rest of
   the rig without it. The summary names the instrument, the genre, the
   pedal count and the chain's latency.
+- **Jam**: its tempo, meter, key and levels are in range and its chord
+  progression reads, each chord that does not named. A groove that is no
+  stock genre (in the meter the jam plays) fails the jam unless it has
+  patterns of its own; a tempo outside a groove's range, a kit, rig or
+  audio file that is not installed, and a pattern pad the kit lacks are
+  warnings. Its rigs are built as `check` builds a rig. The summary names
+  the groove, kit, tempo, key, sections and backing.
 - **Project**: every pedal in a chain is a stock pedal, a plugin, or a
   designed pedal whose `pedals/<id>.pedal.json` is in the project and
   compiles; each drum track's kit is found (in `--kits`, then
