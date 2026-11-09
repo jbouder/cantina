@@ -852,6 +852,7 @@ export function App() {
                   kits={status.kits}
                   library={status.library}
                   audition={status.audition}
+                  practice={status.practice}
                   tempo={status.project.tempo}
                   position={frame.position}
                   playing={transport.playing}

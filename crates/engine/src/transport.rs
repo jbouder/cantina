@@ -104,7 +104,13 @@ pub enum TransportCommand {
     StopAt(Option<u64>),
     /// Replace the tempo map.
     SetTempoMap(Box<TempoMap>),
+    /// Move the timeline this many samples per frame: 1, or down to
+    /// [`MIN_RATE`] for practice.
+    SetRate(f64),
 }
+
+/// The slowest practice speed.
+pub const MIN_RATE: f64 = 0.5;
 
 /// Transport state published by the audio thread.
 #[derive(Debug, Default)]
@@ -119,7 +125,7 @@ struct Shared {
 }
 
 /// A contiguous run of frames within one block.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Segment {
     /// Frames in the segment.
     pub frames: usize,
@@ -129,6 +135,11 @@ pub struct Segment {
     pub playing: bool,
     /// The count-in, when the segment is part of one.
     pub count_in: Option<CountIn>,
+    /// Timeline samples the segment covers: `frames` while playing at
+    /// full speed, fewer at a practice speed, none while stopped.
+    pub span: u64,
+    /// Timeline samples per frame.
+    pub rate: f64,
 }
 
 /// The audio-thread half.
@@ -142,6 +153,10 @@ pub struct Transport {
     count_in: Option<CountIn>,
     /// Where to stop, ahead of the position.
     stop_at: Option<u64>,
+    /// Timeline samples per frame, and the part of a sample the
+    /// timeline has moved past `position` at a practice speed.
+    rate: f64,
+    fraction: f64,
 }
 
 /// The UI-thread half.
@@ -149,6 +164,8 @@ pub struct TransportHandle {
     shared: Arc<Shared>,
     commands: Producer<TransportCommand>,
     tempo: TempoMap,
+    /// The rate as last set from this side.
+    rate: f64,
 }
 
 impl Transport {
@@ -165,11 +182,14 @@ impl Transport {
             loop_range: None,
             count_in: None,
             stop_at: None,
+            rate: 1.0,
+            fraction: 0.0,
         };
         let handle = TransportHandle {
             shared,
             commands: producer,
             tempo,
+            rate: 1.0,
         };
         (transport, handle)
     }
@@ -194,13 +214,24 @@ impl Transport {
                 }
                 // A take is waiting for this position; it holds until then.
                 TransportCommand::Locate(_) if self.count_in.is_some() => {}
-                TransportCommand::Locate(sample) => self.position = sample,
+                TransportCommand::Locate(sample) => {
+                    self.position = sample;
+                    self.fraction = 0.0;
+                }
                 TransportCommand::SetLoop(range) => {
                     self.loop_range = range.filter(|r| !r.is_empty());
                 }
                 TransportCommand::StopAt(sample) => self.stop_at = sample,
                 TransportCommand::SetTempoMap(map) => {
                     retire(std::mem::replace(&mut self.tempo, map));
+                }
+                TransportCommand::SetRate(rate) => {
+                    self.rate = if rate.is_finite() {
+                        rate.clamp(MIN_RATE, 1.0)
+                    } else {
+                        1.0
+                    };
+                    self.fraction = 0.0;
                 }
             }
         }
@@ -223,20 +254,52 @@ impl Transport {
                 position: self.position,
                 playing: false,
                 count_in: Some(count),
+                span: 0,
+                rate: self.rate,
             };
         }
         let mut frames = self.frames_before_wrap(remaining);
         if let Some(stop) = self.stop_at.filter(|s| self.playing && *s > self.position) {
-            frames = frames.min((stop - self.position).min(usize::MAX as u64) as usize);
+            frames = frames.min(self.frames_for(stop - self.position));
         }
-        let segment = Segment {
+        let mut segment = Segment {
             frames,
             position: self.position,
             playing: self.playing,
             count_in: None,
+            span: 0,
+            rate: self.rate,
         };
         if self.playing {
-            self.position += segment.frames as u64;
+            // The timeline moves `rate` samples a frame; at a practice
+            // speed the part of a sample left over carries to the next
+            // segment, and a wrap or a stop lands exactly on its sample.
+            let span = if self.rate == 1.0 {
+                frames as u64
+            } else {
+                let exact = self.fraction + frames as f64 * self.rate;
+                let whole = exact.floor();
+                self.fraction = exact - whole;
+                whole as u64
+            };
+            let limit = [
+                self.stop_at.filter(|s| *s > self.position),
+                self.loop_range
+                    .filter(|r| r.contains(self.position))
+                    .map(|r| r.end),
+            ]
+            .into_iter()
+            .flatten()
+            .min();
+            let span = match limit {
+                Some(limit) if self.position + span >= limit => {
+                    self.fraction = 0.0;
+                    limit - self.position
+                }
+                _ => span,
+            };
+            segment.span = span;
+            self.position += span;
             // Stopping comes before wrapping: a take over a loop ends at
             // the loop's end and the playhead stays there.
             if self.stop_at == Some(self.position) {
@@ -253,11 +316,23 @@ impl Transport {
         segment
     }
 
+    /// Frames until the timeline has moved `samples` samples, at the
+    /// rate: at least one.
+    fn frames_for(&self, samples: u64) -> usize {
+        let frames = if self.rate == 1.0 {
+            samples
+        } else {
+            ((samples as f64 - self.fraction) / self.rate)
+                .ceil()
+                .max(1.0) as u64
+        };
+        frames.min(usize::MAX as u64) as usize
+    }
+
     fn frames_before_wrap(&self, remaining: usize) -> usize {
         match self.loop_range {
             Some(range) if self.playing && range.contains(self.position) => {
-                let to_end = range.end - self.position;
-                remaining.min(to_end.min(usize::MAX as u64) as usize)
+                remaining.min(self.frames_for(range.end - self.position))
             }
             _ => remaining,
         }
@@ -296,6 +371,11 @@ impl Transport {
     /// Timeline sample of the next frame.
     pub fn position(&self) -> u64 {
         self.position
+    }
+
+    /// Timeline samples per frame.
+    pub fn rate(&self) -> f64 {
+        self.rate
     }
 }
 
@@ -386,6 +466,27 @@ impl TransportHandle {
         sent
     }
 
+    /// Sets the practice speed: timeline samples per frame, from
+    /// [`MIN_RATE`] to 1. Recordings fall silent below 1; the click,
+    /// drums and tab voices slow down with the timeline.
+    pub fn set_rate(&mut self, rate: f64) -> bool {
+        let rate = if rate.is_finite() {
+            rate.clamp(MIN_RATE, 1.0)
+        } else {
+            1.0
+        };
+        let sent = self.send(TransportCommand::SetRate(rate));
+        if sent {
+            self.rate = rate;
+        }
+        sent
+    }
+
+    /// The practice speed as last set from this side.
+    pub fn rate(&self) -> f64 {
+        self.rate
+    }
+
     /// The tempo map as last set from this side.
     pub fn tempo_map(&self) -> &TempoMap {
         &self.tempo
@@ -450,6 +551,8 @@ mod tests {
                 position: 0,
                 playing: false,
                 count_in: None,
+                span: 0,
+                rate: 1.0,
             }]
         );
         assert!(!handle.is_playing());
@@ -516,6 +619,8 @@ mod tests {
                 position: 1000,
                 playing: true,
                 count_in: None,
+                span: 10,
+                rate: 1.0,
             }
         );
         assert_eq!(handle.position(), 1010);
@@ -549,12 +654,16 @@ mod tests {
                     position: 120,
                     playing: true,
                     count_in: None,
+                    span: 30,
+                    rate: 1.0,
                 },
                 Segment {
                     frames: 34,
                     position: 100,
                     playing: true,
                     count_in: None,
+                    span: 34,
+                    rate: 1.0,
                 },
             ]
         );
@@ -582,6 +691,59 @@ mod tests {
         transport.apply_commands(|_| {});
         transport.publish();
         assert_eq!(handle.loop_range(), None);
+    }
+
+    #[test]
+    fn a_practice_speed_moves_the_timeline_slower_and_still_wraps_exactly() {
+        let (mut transport, mut handle) = Transport::new(TempoMap::default());
+        assert!(handle.set_rate(0.5));
+        assert_eq!(handle.rate(), 0.5);
+        handle.locate(1000);
+        handle.play();
+        transport.apply_commands(|_| {});
+        let segs = segments(&mut transport, 64);
+        assert_eq!(segs.len(), 1);
+        assert_eq!((segs[0].span, segs[0].rate), (32, 0.5));
+        assert_eq!(handle.position(), 1032);
+
+        // A speed that does not divide evenly carries the remainder: 30
+        // frames at 0.75 is 22.5 samples, so 22 then 23.
+        handle.set_rate(0.75);
+        handle.locate(0);
+        transport.apply_commands(|_| {});
+        let spans: Vec<u64> = (0..4)
+            .map(|_| segments(&mut transport, 30)[0].span)
+            .collect();
+        assert_eq!(spans, vec![22, 23, 22, 23]);
+        assert_eq!(handle.position(), 90);
+
+        // The loop still ends on its exact sample and starts again.
+        handle.set_rate(0.5);
+        handle.set_loop(Some(LoopRange {
+            start: 100,
+            end: 150,
+        }));
+        handle.locate(120);
+        transport.apply_commands(|_| {});
+        let segs = segments(&mut transport, 64);
+        assert_eq!(segs[0].frames, 60);
+        assert_eq!(segs[0].span, 30);
+        assert_eq!(segs[1].position, 100);
+        assert_eq!(segs[1].span, 2);
+        assert_eq!(handle.position(), 102);
+
+        // A stop point too, and full speed is as before.
+        handle.set_loop(None);
+        handle.stop_at(Some(111));
+        transport.apply_commands(|_| {});
+        let segs = segments(&mut transport, 64);
+        assert_eq!(segs[0].span, 9);
+        assert!(!transport.is_playing());
+        assert_eq!(handle.position(), 111);
+        handle.set_rate(7.0);
+        assert_eq!(handle.rate(), 1.0);
+        handle.set_rate(0.1);
+        assert_eq!(handle.rate(), MIN_RATE);
     }
 
     #[test]
@@ -642,6 +804,8 @@ mod tests {
                 position: 1000,
                 playing: true,
                 count_in: None,
+                span: (4096 - before) as u64,
+                rate: 1.0,
             }
         );
         assert_eq!(handle.clock().count_in(), 0);

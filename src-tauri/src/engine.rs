@@ -37,8 +37,8 @@ use cantina_engine::{
     DeviceEvent, DeviceId, Endpoint, GraphConfig, Impulse, IrEntry, KitEntry, LoopRange, Meter,
     MeterHandle, MusicalPosition, Mute, NodeId, PatternData, Placement, Player, PlayerHandle,
     Recorder, RecorderHandle, Runtime, Scope, ScopeHandle, Score, Sequencer, SequencerHandle,
-    Stream, StreamConfig, Strip, TempoMap, TimeSignature, TransportHandle, Watcher,
-    MAX_BLOCK_FRAMES,
+    Stream, StreamConfig, Strip, TabVoice, TabVoiceHandle, TempoMap, TimeSignature,
+    TransportHandle, Watcher, MAX_BLOCK_FRAMES,
 };
 use cantina_hosting::scan::{self, PluginList, Scanner};
 use cantina_hosting::{AudioUnitHandle, ClapHandle, Editor};
@@ -104,6 +104,57 @@ pub struct EngineStatus {
     pub count_in: bool,
     /// The assistant's connection, without its key. An app setting.
     pub assistant: crate::assistant::AssistantStatus,
+    /// Hearing tabs, muting what was recorded under them, and the
+    /// practice speed. Session state, not part of the project.
+    pub practice: Practice,
+}
+
+/// Practice with a tab: hear it played, mute the recording it came from
+/// and slow everything that can follow down. Mirrors `Practice` in the UI.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Practice {
+    /// Play every track's tabs through the plucked-string voice, into
+    /// the track's pedals.
+    pub voice: bool,
+    /// Silence the recordings on tracks that have a tab, to play the
+    /// part yourself. Drums and other tracks play on.
+    pub mute_recordings: bool,
+    /// The practice speed, 0.5 to 1. Below 1 the click, the drums and
+    /// the tab voice slow down; recordings cannot follow and fall silent,
+    /// and nothing can be recorded.
+    pub speed: f64,
+}
+
+impl Default for Practice {
+    fn default() -> Self {
+        Self {
+            voice: false,
+            mute_recordings: false,
+            speed: 1.0,
+        }
+    }
+}
+
+impl Practice {
+    /// Whether `track`'s recordings are muted for practice.
+    fn mutes(&self, track: &Track) -> bool {
+        self.mute_recordings && track.clips.iter().any(|c| c.tab.is_some())
+    }
+
+    /// What the voice plays on `track`: its tabs when the voice is on.
+    fn score(
+        &self,
+        track: &Track,
+        project: &Project,
+        sample_rate: f64,
+    ) -> cantina_engine::TabScore {
+        if self.voice {
+            crate::tabs::timeline_notes(track, &tempo_map(&project.tempo), sample_rate)
+        } else {
+            Vec::new()
+        }
+    }
 }
 
 /// The metronome's settings and the sounds it offers. Mirrors
@@ -873,6 +924,9 @@ enum Source {
         player: PlayerHandle,
         recorder_node: NodeId,
         recorder: RecorderHandle,
+        /// Plays the track's tabs, into its pedals, when practising.
+        voice_node: NodeId,
+        voice: TabVoiceHandle,
     },
     Drums {
         /// The kit id the sequencer was built with; a change rebuilds it.
@@ -889,8 +943,9 @@ impl Source {
                 mute,
                 player_node,
                 recorder_node,
+                voice_node,
                 ..
-            } => vec![*mute, *player_node, *recorder_node],
+            } => vec![*mute, *player_node, *recorder_node, *voice_node],
             Source::Drums { sequencer_node, .. } => vec![*sequencer_node],
         }
     }
@@ -951,6 +1006,7 @@ struct SyncContext<'a> {
     audition: Option<(TrackId, PatternId)>,
     audio_dir: &'a Path,
     states: &'a PluginStates,
+    practice: Practice,
 }
 
 /// The meters the pump reads, in frame order: input, master, then one
@@ -1077,6 +1133,7 @@ impl Live {
             audition,
             audio_dir,
             states,
+            practice,
         } = cx;
         let sample_rate = self.stream.info().sample_rate;
         let mut problems = Vec::new();
@@ -1174,14 +1231,30 @@ impl Live {
             }
             live.pedals = pedals;
             match &mut live.source {
-                Source::Audio { mute, player, .. } => {
+                Source::Audio {
+                    mute,
+                    player,
+                    voice,
+                    ..
+                } => {
                     self.controller
                         .set_param(*mute, 0, if track.armed { 1.0 } else { 0.0 });
-                    let clips = engine_clips(track, audio_dir);
+                    let clips = if practice.mutes(track) {
+                        Vec::new()
+                    } else {
+                        engine_clips(track, audio_dir)
+                    };
                     if player.clips() != clips.as_slice() {
                         if let Err(e) = player.set_clips(clips) {
                             problems.push(format!("{}: {e:#}", track.name));
                         }
+                    }
+                    let score = practice.score(track, project, sample_rate);
+                    if voice.score() != &score && !voice.set_score(score) {
+                        problems.push(format!(
+                            "{}: the audio thread is not taking the tab",
+                            track.name
+                        ));
                     }
                 }
                 Source::Drums { sequencer, kit, .. } => {
@@ -1270,12 +1343,16 @@ impl Live {
                 // Takes are mono: the input is one channel.
                 let (recorder, recorder_handle) = Recorder::new(sample_rate, 1);
                 let recorder_node = graph.add(Box::new(recorder));
+                let (voice, voice_handle) = TabVoice::new();
+                let voice_node = graph.add(Box::new(voice));
                 Source::Audio {
                     mute,
                     player_node,
                     player: player_handle,
                     recorder_node,
                     recorder: recorder_handle,
+                    voice_node,
+                    voice: voice_handle,
                 }
             }
         }
@@ -1301,6 +1378,25 @@ impl Live {
             let score = score_for(track, project, &loaded, audition);
             if sequencer.score() != &score && !sequencer.set_score(score) {
                 bail!("{}: the audio thread is not taking patterns", track.name);
+            }
+        }
+        Ok(())
+    }
+
+    /// Sends every audio track's tab voice what it plays now: after a
+    /// tab edit, a tempo change or a change of practice.
+    fn refresh_tab_voices(&mut self, project: &Project, practice: Practice) -> Result<()> {
+        let sample_rate = self.stream.info().sample_rate;
+        for live in &mut self.tracks {
+            let Source::Audio { voice, .. } = &mut live.source else {
+                continue;
+            };
+            let Some(track) = project.track(live.id) else {
+                continue;
+            };
+            let score = practice.score(track, project, sample_rate);
+            if voice.score() != &score && !voice.set_score(score) {
+                bail!("{}: the audio thread is not taking the tab", track.name);
             }
         }
         Ok(())
@@ -1379,12 +1475,16 @@ impl Live {
                     mute,
                     player_node,
                     recorder_node,
+                    voice_node,
                     ..
                 } => {
                     graph.connect(Endpoint::Input, *mute)?;
                     graph.connect(*mute, track.bus)?;
                     graph.connect(*mute, *recorder_node)?;
                     graph.connect(*player_node, track.delay)?;
+                    // The tab voice plays like the recording, through the
+                    // track's pedals.
+                    graph.connect(*voice_node, track.delay)?;
                 }
                 Source::Drums { sequencer_node, .. } => {
                     graph.connect(*sequencer_node, track.delay)?;
@@ -1775,6 +1875,9 @@ pub struct Engine {
     /// The track the stage analyses, or none for the master. Session
     /// state, kept across rebuilds of the stream.
     analysis_source: Option<TrackId>,
+    /// Hearing tabs and practice speed. Session state, kept across
+    /// rebuilds of the stream.
+    practice: Practice,
     recording: Vec<Recording>,
     last_error: Option<String>,
     notice: Option<String>,
@@ -2052,6 +2155,7 @@ impl Engine {
             irs,
             audition: None,
             analysis_source: None,
+            practice: Practice::default(),
             recording: Vec::new(),
             last_error,
             notice: None,
@@ -2185,6 +2289,7 @@ impl Engine {
             },
             count_in: self.settings.count_in,
             assistant: crate::assistant::AssistantStatus::of(&self.settings.assistant),
+            practice: self.practice,
         }
     }
 
@@ -2789,11 +2894,11 @@ impl Engine {
                 }
                 Ok(())
             }
-            Command::RenameTrack { .. } | Command::SetTempo { .. } => {
-                if let Command::SetTempo { tempo } = command {
-                    live.set_tempo_map(tempo_map(tempo));
-                }
-                Ok(())
+            Command::RenameTrack { .. } => Ok(()),
+            Command::SetTempo { tempo } => {
+                live.set_tempo_map(tempo_map(tempo));
+                // Tab notes sit on the timeline by sample: their ticks move.
+                live.refresh_tab_voices(&self.project, self.practice)
             }
             Command::SetGain { .. }
             | Command::SetPan { .. }
@@ -2818,8 +2923,10 @@ impl Engine {
                 self.check_audition();
                 self.refresh_scores()
             }
-            // A tab is read, not heard: nothing in the graph changes.
-            Command::SetClipTab { .. } | Command::EditTabNotes { .. } => Ok(()),
+            // A tab is heard only through the voice.
+            Command::SetClipTab { .. } | Command::EditTabNotes { .. } => {
+                live.refresh_tab_voices(&self.project, self.practice)
+            }
             Command::Batch { commands } if commands.iter().all(is_light) => {
                 for c in commands {
                     self.react(c)?;
@@ -2860,6 +2967,7 @@ impl Engine {
                 audition: self.audition,
                 audio_dir: &audio_dir,
                 states: &self.plugin_states,
+                practice: self.practice,
             },
             &mut removed,
         );
@@ -3156,6 +3264,27 @@ impl Engine {
             _ => None,
         };
         self.refresh_scores()?;
+        Ok(self.publish())
+    }
+
+    /// Sets how to practise: hear the tabs, mute the recordings under
+    /// them, and the speed from 50% to 100%. Not an edit: nothing is
+    /// recorded or saved.
+    pub fn practice_set(&mut self, practice: Practice) -> Result<EngineStatus> {
+        if !(0.5..=1.0).contains(&practice.speed) {
+            bail!(
+                "a practice speed is 50% to 100%, not {:.0}%",
+                practice.speed * 100.0
+            );
+        }
+        if practice.speed < 1.0 && !self.recording.is_empty() {
+            bail!("stop recording before slowing down");
+        }
+        self.practice = practice;
+        if let Some(live) = &mut self.live {
+            live.transport().set_rate(practice.speed);
+        }
+        self.sync()?;
         Ok(self.publish())
     }
 
@@ -3946,6 +4075,9 @@ impl Engine {
             .collect();
         if armed.is_empty() {
             bail!("arm a track before recording");
+        }
+        if self.practice.speed < 1.0 {
+            bail!("set the practice speed back to 100% to record");
         }
         let audio_dir = cantina_project::audio_dir(&self.project_dir);
         cantina_project::create_layout(&self.project_dir)?;
@@ -4766,6 +4898,7 @@ impl Engine {
         controller
             .transport_mut()
             .set_tempo_map(tempo_map(&self.project.tempo));
+        controller.transport_mut().set_rate(self.practice.speed);
         let graph = controller.graph_mut();
         let m = &self.project.master;
         let master = graph.add(Box::new(Strip::new(m.gain_db, 0.0, m.mute)));

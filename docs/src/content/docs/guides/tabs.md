@@ -148,6 +148,28 @@ that was transcribed.
 
 With nothing selected, both work on the whole tab.
 
+## Play and practise
+
+Above the tab are the practice controls. They are not part of the
+project: nothing is saved, and Undo does not see them.
+
+- **Hear tab** plays every tab in the project through a plucked-string
+  voice, a guitar or a bass to match the tab. It plays into the track's
+  pedals, so it has your tone, and it plays bends, vibrato, palm mutes,
+  dead notes and harmonics. It is a simple synthesised string, there
+  to check the notes and learn the part, not to replace the take.
+- **Mute recording** silences the recordings on tracks that have a tab,
+  so you can play the part yourself. Drums and other tracks play on.
+- **Loop selection** loops playback from the first selected note to the
+  end of the last. Select notes with **Edit** on; turn the loop off with
+  **L** or on the timeline as usual.
+- **Speed** slows the click, the drums and the tab voice to between 50%
+  and 100%, without changing their pitch. Double-click it for 100%.
+  Recordings cannot be slowed yet, so they are silent below 100%, and
+  recording waits until the speed is back at 100%.
+
+![Practising: the tab voice on at 75%, recordings muted](../../../assets/guides/tab-practice.png)
+
 ## How frets are chosen
 
 The same note can be played in several places. An E above middle C is

@@ -9,6 +9,7 @@ import {
   type LibraryStatus,
   type PatternInfo,
   type PedalKindInfo,
+  type Practice,
   patternClipRemove,
   type Tempo,
   type TrackStatus,
@@ -42,6 +43,8 @@ type Props = {
   kits: KitInfo[];
   library: LibraryStatus;
   audition: AuditionStatus | null;
+  /** Hearing tabs and practice speed, for the Tab tab. */
+  practice: Practice;
   tempo: Tempo;
   position: number;
   playing: boolean;
@@ -78,6 +81,7 @@ export function Editor({
   kits,
   library,
   audition,
+  practice,
   tempo,
   position,
   playing,
@@ -312,6 +316,7 @@ export function Editor({
             sampleRate={sampleRate}
             position={position}
             playing={playing}
+            practice={practice}
             onStatus={onStatus}
             onError={onError}
           />

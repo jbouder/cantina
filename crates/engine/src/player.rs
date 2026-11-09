@@ -309,6 +309,12 @@ impl Node for Player {
             self.seen_clips_version = clips_version;
             self.started = false;
         }
+        // A recording cannot follow a timeline slowed for practice: it is
+        // silent, and finds its place again back at full speed.
+        if ctx.playing && !ctx.at_full_speed() {
+            self.started = false;
+            return;
+        }
         if !self.started || ctx.position != self.expected || ctx.loop_range != self.loop_range {
             self.seek(ctx.position, ctx.loop_range);
         }

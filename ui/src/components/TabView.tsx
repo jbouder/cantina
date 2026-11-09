@@ -14,6 +14,9 @@ import {
   clipTabRefit,
   clipTabRequantise,
   type EngineStatus,
+  loopSet,
+  type Practice,
+  practiceSet,
   type Tab,
   type TabGrid,
   transportLocate,
@@ -56,6 +59,7 @@ type Props = {
   /** Playhead, in seconds. */
   position: number;
   playing: boolean;
+  practice: Practice;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
 };
@@ -115,7 +119,15 @@ function rowHeight(strings: number): number {
  * wraps the bars into rows for reading along. Click a beat to move the
  * playhead there.
  */
-export function TabView({ clips, sampleRate, position, playing, onStatus, onError }: Props) {
+export function TabView({
+  clips,
+  sampleRate,
+  position,
+  playing,
+  practice,
+  onStatus,
+  onError,
+}: Props) {
   const [clipId, setClipId] = useState(clips[0]?.id ?? 0);
   const clip = clips.find((c) => c.id === clipId) ?? clips[0];
   const [tab, setTab] = useState<Tab | null>(null);
@@ -200,6 +212,27 @@ export function TabView({ clips, sampleRate, position, playing, onStatus, onErro
   }, [cursor, playing, page, height]);
 
   if (!clip) return null;
+
+  const practise = (next: Practice) => {
+    practiceSet(next).then(onStatus, (e) => onError(String(e)));
+  };
+
+  // The loop runs from the first selected note to the end of the last.
+  const loopSelection = () => {
+    if (!tab || selection.length === 0) return;
+    const notes = selection.map((i) => tab.notes[i]).filter((n) => n !== undefined);
+    const from = Math.min(...notes.map((n) => n.start));
+    const to = Math.max(...notes.map((n) => n.start + n.length));
+    const start = Math.max(0, Math.round(sampleAt(clip, tab, sampleRate, from)));
+    const end = Math.round(sampleAt(clip, tab, sampleRate, to));
+    loopSet({ start, end, on: true }).then(
+      (status) => {
+        onStatus(status);
+        return transportLocate(start);
+      },
+      (e) => onError(String(e)),
+    );
+  };
 
   /** Sends an edit; the notes it added stay selected. */
   const send = (edit: NotesEdit | null) => {
@@ -439,6 +472,52 @@ export function TabView({ clips, sampleRate, position, playing, onStatus, onErro
         </Button>
       </div>
       <div className="grid min-w-0 gap-2">
+        <div role="toolbar" aria-label="Practice" className="flex flex-wrap items-center gap-1">
+          <Button
+            aria-pressed={practice.voice}
+            variant={practice.voice ? "transport" : "panel"}
+            title="Play the tabs through a plucked-string voice, into the track's pedals"
+            onClick={() => practise({ ...practice, voice: !practice.voice })}
+          >
+            Hear tab
+          </Button>
+          <Button
+            aria-pressed={practice.muteRecordings}
+            variant={practice.muteRecordings ? "transport" : "panel"}
+            title="Silence the recordings under the tabs, to play the part yourself"
+            onClick={() => practise({ ...practice, muteRecordings: !practice.muteRecordings })}
+          >
+            Mute recording
+          </Button>
+          <label className="flex items-center gap-1 font-bold text-[11px] uppercase tracking-[0.08em]">
+            Speed
+            <input
+              type="range"
+              className="fader w-28"
+              aria-label="Practice speed"
+              aria-valuetext={`${Math.round(practice.speed * 100)}%`}
+              min={50}
+              max={100}
+              step={5}
+              value={Math.round(practice.speed * 100)}
+              onChange={(e) => practise({ ...practice, speed: Number(e.target.value) / 100 })}
+              onDoubleClick={() => practise({ ...practice, speed: 1 })}
+            />
+            <output className="surface-lcd px-1.5 py-0.5 font-lcd text-sm leading-none tabular-nums">
+              <span className="lcd-text">{Math.round(practice.speed * 100)}%</span>
+            </output>
+          </label>
+          <Button
+            disabled={!tab || selection.length === 0}
+            title="Loop playback over the selected notes"
+            onClick={loopSelection}
+          >
+            Loop selection
+          </Button>
+          {practice.speed < 1 ? (
+            <span className="text-ink-dim text-xs">Recordings are silent below 100%</span>
+          ) : null}
+        </div>
         {editing && tab ? (
           <div
             role="toolbar"

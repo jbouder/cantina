@@ -79,6 +79,16 @@ pub struct BlockContext<'a> {
     pub playing: bool,
     /// Timeline sample of the first frame.
     pub position: u64,
+    /// Timeline samples the block covers while playing: `frames` at
+    /// full speed, fewer at a practice speed. The next block starts at
+    /// `position + span`.
+    pub span: u64,
+    /// Timeline samples per frame: 1, or less at a practice speed.
+    /// Recordings cannot follow a slower timeline, so players fall
+    /// silent and recorders hold while it is below 1; nodes that work
+    /// from the tempo map (the click, drums, tab voices) simply play
+    /// their events further apart.
+    pub rate: f64,
     /// The active loop, if any.
     pub loop_range: Option<LoopRange>,
     /// The count-in, while one runs: `playing` is false and the position
@@ -86,6 +96,24 @@ pub struct BlockContext<'a> {
     pub count_in: Option<CountIn>,
     /// The tempo map, for nodes that follow bars and beats.
     pub tempo: &'a TempoMap,
+}
+
+impl BlockContext<'_> {
+    /// The frame of this block at which a timeline sample in
+    /// `position..position + span` sounds.
+    pub fn frame_of(&self, sample: u64) -> usize {
+        let into = sample.saturating_sub(self.position);
+        if self.rate == 1.0 {
+            into as usize
+        } else {
+            ((into as f64 / self.rate) as usize).min(self.frames.saturating_sub(1))
+        }
+    }
+
+    /// True at full speed: recordings play and takes record.
+    pub fn at_full_speed(&self) -> bool {
+        self.rate == 1.0
+    }
 }
 
 /// Something that runs in the graph. Stock and hosted pedals are wrapped
@@ -777,6 +805,8 @@ mod tests {
         BlockContext {
             sample_rate: 48_000.0,
             frames,
+            span: frames as u64,
+            rate: 1.0,
             playing: false,
             position: 0,
             loop_range: None,

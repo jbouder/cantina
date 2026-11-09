@@ -75,6 +75,18 @@ export interface EngineStatus {
   countIn: boolean;
   /** The assistant's connection, never its key. An app setting. */
   assistant: AssistantStatus;
+  /** Hearing tabs and practice speed. Session state, not part of the project. */
+  practice: Practice;
+}
+
+/** How to practise with a tab. Mirrors `Practice` in src-tauri. */
+export interface Practice {
+  /** Play every track's tabs through the plucked-string voice, into the track's pedals. */
+  voice: boolean;
+  /** Silence the recordings on tracks that have a tab; drums and other tracks play on. */
+  muteRecordings: boolean;
+  /** 0.5 to 1. Below 1 the click, drums and tab voice slow down and recordings fall silent. */
+  speed: number;
 }
 
 /** The assistant's endpoint and model. Mirrors `AssistantSettings` in src-tauri. */
@@ -1087,6 +1099,10 @@ const mock: EngineStatus = {
   kits: mockKits,
   irs: MOCK_IRS,
   audition: mockParams?.has("audition") ? { track: MOCK_DRUMS, pattern: 11 } : null,
+  // `?practice` turns the voice on at 75%, for screenshots.
+  practice: mockParams?.has("practice")
+    ? { voice: true, muteRecordings: true, speed: 0.75 }
+    : { voice: false, muteRecordings: false, speed: 1 },
   analysisSource: null,
   metronome: {
     on: mockParams?.has("metronome") ?? false,
@@ -1185,6 +1201,7 @@ function mockStatus(): EngineStatus {
       master: { ...mock.project.master },
     },
     audition: mock.audition ? { ...mock.audition } : null,
+    practice: { ...mock.practice },
     metronome: { ...mock.metronome, sounds: [...mock.metronome.sounds] },
     countIn: mock.countIn,
     assistant: { ...mock.assistant },
@@ -1937,6 +1954,22 @@ export async function patternAudition(
   return mockStatus();
 }
 
+/**
+ * Sets how to practise: hear the tabs, mute the recordings under them, and
+ * the speed from 50% to 100%. Not an edit.
+ */
+export async function practiceSet(practice: Practice): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("practice_set", { practice });
+  if (!(practice.speed >= 0.5 && practice.speed <= 1)) {
+    throw new Error(`a practice speed is 50% to 100%, not ${Math.round(practice.speed * 100)}%`);
+  }
+  if (practice.speed < 1 && mockTransport.recording) {
+    throw new Error("stop recording before slowing down");
+  }
+  mock.practice = { ...practice };
+  return mockStatus();
+}
+
 /** Takes a pedal out of the signal path, or puts it back. */
 export async function pedalSetBypass(id: number, on: boolean): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("pedal_set_bypass", { id, on });
@@ -2357,6 +2390,7 @@ export async function transportPlay(): Promise<EngineStatus> {
 export async function transportRecord(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("transport_record");
   if (!mock.project.tracks.some((t) => t.armed)) throw new Error("arm a track before recording");
+  if (mock.practice.speed < 1) throw new Error("set the practice speed back to 100% to record");
   mockTransport.countIn = mock.countIn ? MOCK_COUNT_BEATS * mockBeatSeconds() : 0;
   mockTransport.recording = true;
   return mockStatus();
@@ -2822,7 +2856,7 @@ function openMeterChannel() {
   if (mockParams?.has("position")) mockTransport.position = Number(mockParams.get("position"));
   window.setInterval(() => {
     t += 1 / 60;
-    if (mockTransport.playing) mockTransport.position += 1 / 60;
+    if (mockTransport.playing) mockTransport.position += mock.practice.speed / 60;
     if (mockTransport.countIn > 0 && !mockParams?.has("countin")) {
       mockTransport.countIn = Math.max(0, mockTransport.countIn - 1 / 60);
       mockTransport.playing = mockTransport.countIn === 0;

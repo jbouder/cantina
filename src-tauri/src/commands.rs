@@ -775,6 +775,16 @@ pub fn clip_tab_edit(
     state.clip_tab_edit(id, remove, add).map_err(fail)
 }
 
+/// Sets how to practise: hear the tabs, mute the recordings under them,
+/// and the practice speed.
+#[tauri::command]
+pub fn practice_set(
+    state: tauri::State<'_, EngineState>,
+    practice: crate::engine::Practice,
+) -> Result<EngineStatus, String> {
+    state.lock().practice_set(practice).map_err(fail)
+}
+
 /// Stops the running export, bounce or transcription.
 #[tauri::command]
 pub fn render_cancel() {

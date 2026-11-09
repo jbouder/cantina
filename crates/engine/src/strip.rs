@@ -140,6 +140,8 @@ mod tests {
         BlockContext {
             sample_rate: 48_000.0,
             frames,
+            span: frames as u64,
+            rate: 1.0,
             playing: false,
             position: 0,
             loop_range: None,

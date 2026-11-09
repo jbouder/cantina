@@ -1,4 +1,5 @@
-Golden renders: 48 kHz, 64-frame blocks, 12 000 frames per fixture.
+Golden renders: 48 kHz, 64-frame blocks, 12 000 frames per fixture;
+the tab voice's phrases (pluck-*) are 24 000 frames.
 Regenerate with UPDATE_GOLDEN=1 cargo test -p cantina-dsp --test golden
 
 tuner_impulse                peak  1.00000  rms  0.00913  nonzero 0..1
@@ -129,3 +130,8 @@ cab-synthetic_impulse        peak  0.22630  rms  0.00913  nonzero 0..300
 cab-synthetic_sine           peak  0.98840  rms  0.48934  nonzero 1..12000
 cab-synthetic_sweep          peak  3.99186  rms  0.81508  nonzero 1..12000
 cab-synthetic_square         peak  4.65242  rms  2.09783  nonzero 0..5099
+pluck-guitar_chord           peak  0.51158  rms  0.05852  nonzero 0..24000
+pluck-guitar_bend            peak  0.17563  rms  0.02174  nonzero 0..21439
+pluck-guitar_vibrato         peak  0.19532  rms  0.01672  nonzero 0..24000
+pluck-guitar_techniques      peak  0.19946  rms  0.03849  nonzero 0..24000
+pluck-bass_line              peak  0.20812  rms  0.04075  nonzero 0..24000

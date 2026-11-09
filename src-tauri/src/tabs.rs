@@ -13,8 +13,8 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use cantina_dsp::fretboard::{self, FitOptions, Fretboard};
-use cantina_engine::{transcribe, wav};
-use cantina_project::{Bend, Clip, HeardNote, Instrument, Tab, TabNote, Tempo, PPQ};
+use cantina_engine::{transcribe, wav, TabEvent, TabScore, TempoMap};
+use cantina_project::{Bend, Clip, HeardNote, Instrument, Tab, TabNote, Tempo, Track, PPQ};
 use serde::{Deserialize, Serialize};
 
 /// The highest fret a fitted note may use.
@@ -325,6 +325,75 @@ pub fn refit(tab: &Tab, selection: &[u32]) -> NotesEdit {
     edit
 }
 
+/// The pitch a natural harmonic over `fret` sounds above the open
+/// string, in semitones: the 12th an octave, the 7th and 19th an octave
+/// and a fifth, the 5th and 24th two octaves, and so on.
+fn harmonic_interval(fret: u8) -> u8 {
+    match fret {
+        12 => 12,
+        7 | 19 => 19,
+        5 | 24 => 24,
+        4 | 9 | 16 => 28,
+        3 => 31,
+        _ => fret,
+    }
+}
+
+/// Every note the tabs of a track's clips play, on the timeline in ticks
+/// of `tempo` (the project's tempo map, never a practice speed), for the
+/// tab voice. A note the clip has trimmed away is not played, and one
+/// that runs past the clip's end stops there.
+pub fn timeline_notes(track: &Track, tempo: &TempoMap, sample_rate: f64) -> TabScore {
+    let mut score = TabScore::new();
+    for clip in &track.clips {
+        let Some(tab) = &clip.tab else { continue };
+        let instrument = match tab.instrument {
+            Instrument::Guitar => cantina_dsp::pluck::Instrument::Guitar,
+            Instrument::Bass => cantina_dsp::pluck::Instrument::Bass,
+        };
+        let clip_end = clip.offset + clip.length;
+        for note in &tab.notes {
+            let from = tab.file_frame(note.start, sample_rate);
+            if !clip.plays_frame(from) {
+                continue;
+            }
+            let to = tab.file_frame(note.end(), sample_rate).min(clip_end);
+            let Some(open) = tab.open_string(note.string) else {
+                continue;
+            };
+            let above = if note.harmonic {
+                harmonic_interval(note.fret)
+            } else {
+                note.fret
+            };
+            let pitch = f32::from(open) + f32::from(tab.capo) + f32::from(above);
+            let at = |frame: u64| {
+                tempo.samples_to_ticks(clip.start + (frame - clip.offset), sample_rate)
+            };
+            let tick = at(from);
+            score.push(TabEvent {
+                tick,
+                ticks: (at(to) - tick).max(1.0),
+                instrument,
+                note: cantina_dsp::PluckNote {
+                    string: note.string,
+                    pitch,
+                    velocity: note.velocity,
+                    length: 0,
+                    bend: note.bend.map_or(0.0, |b| b.semitones),
+                    release: note.bend.is_some_and(|b| b.release),
+                    vibrato: note.vibrato,
+                    palm_mute: note.palm_mute,
+                    dead: note.dead,
+                    harmonic: note.harmonic,
+                },
+            });
+        }
+    }
+    score.sort_by(|a, b| a.tick.total_cmp(&b.tick));
+    score
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -453,6 +522,41 @@ mod tests {
         let fine = super::notes(&tab, Grid::Sixteenth);
         assert_eq!(fine[0].start, 240);
         assert_eq!(fine[1].start, 720);
+    }
+
+    #[test]
+    fn a_tracks_tabs_are_placed_on_the_timeline_for_the_voice() {
+        let map = TempoMap::new(120.0, cantina_engine::TimeSignature::COMMON);
+        let mut track = Track::new(cantina_project::TrackId(1), "Guitar");
+        let mut c = clip(48_000, 24_000);
+        let mut tab = Tab::new("Riff", Instrument::Guitar, 6).unwrap();
+        tab.tempo = tempo(120.0);
+        // Tick 0 is the clip's first frame; at 120 bpm 960 ticks is half
+        // a second, 24 000 frames.
+        tab.origin = 24_000;
+        tab.capo = 2;
+        tab.notes = vec![
+            TabNote::new(6, 3, 0, 960),
+            TabNote {
+                harmonic: true,
+                ..TabNote::new(1, 7, 960, 960)
+            },
+            // Past the clip's end: not played.
+            TabNote::new(1, 0, 96_000, 960),
+        ];
+        c.length = 96_000;
+        c.tab = Some(tab);
+        track.clips.push(c);
+        let score = timeline_notes(&track, &map, 48_000.0);
+        assert_eq!(score.len(), 2);
+        // The clip starts at 48 000: one second, two beats, 1920 ticks.
+        assert!((score[0].tick - 1920.0).abs() < 1e-6);
+        assert!((score[0].ticks - 960.0).abs() < 1e-6);
+        // G on the low E with a capo at 2: 40 + 2 + 3.
+        assert_eq!(score[0].note.pitch, 45.0);
+        // A harmonic over the 7th of the high E sounds an octave and a fifth up.
+        assert_eq!(score[1].note.pitch, 64.0 + 2.0 + 19.0);
+        assert!(score[1].note.harmonic);
     }
 
     #[test]
