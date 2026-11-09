@@ -76,7 +76,10 @@ pub use recipe::{synthesize, KitRecipe, PadRecipe, Voice, RECIPE_VERSION};
 pub use render::Renderer;
 pub use resample::resample;
 pub use reverb::Reverb;
-pub use sampler::{Sampler, Trigger, MAX_TRIGGERS, MAX_VOICES};
+pub use sampler::{
+    pad_param, Sampler, Trigger, MAX_TRIGGERS, MAX_VOICES, PAD_DECAY, PAD_LEVEL, PAD_MUTE, PAD_PAN,
+    PAD_PARAMS, PAD_TUNE,
+};
 pub use shaper::Curve;
 pub use smooth::Smoother;
 pub use tuner::Tuner;

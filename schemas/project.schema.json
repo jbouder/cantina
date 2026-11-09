@@ -216,6 +216,41 @@
       ],
       "type": "object"
     },
+    "PadMix": {
+      "description": "One pad's place in a drum track's mix.",
+      "properties": {
+        "decay": {
+          "default": 1.0,
+          "description": "How much of each hit rings, 0.05 to 1: 1 is all of it.",
+          "format": "float",
+          "type": "number"
+        },
+        "levelDb": {
+          "default": 0.0,
+          "description": "Level in dB, −60 to 12.",
+          "format": "float",
+          "type": "number"
+        },
+        "mute": {
+          "default": false,
+          "description": "Silences the pad.",
+          "type": "boolean"
+        },
+        "pan": {
+          "default": 0.0,
+          "description": "−1 left to 1 right, added to the kit's pan.",
+          "format": "float",
+          "type": "number"
+        },
+        "tune": {
+          "default": 0.0,
+          "description": "Semitones, −12 to 12.",
+          "format": "float",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
     "Pattern": {
       "description": "A step sequencer pattern: a grid of pads against steps, with a velocity per cell. Patterns belong to the project and refer to pads by the ids the kit format uses (`kick`, `snare`, `hh-closed`…), so a pattern plays on any drum track whose kit has those pads.",
       "properties": {
@@ -736,6 +771,13 @@
           "description": "Shown in the track header.",
           "type": "string"
         },
+        "pads": {
+          "additionalProperties": {
+            "$ref": "#/$defs/PadMix"
+          },
+          "description": "A drum track's pad mixer, by pad id; a pad not here is as the kit has it.",
+          "type": "object"
+        },
         "patternClips": {
           "description": "Patterns on the timeline, for a drum track.",
           "items": {
@@ -838,7 +880,7 @@
       "type": "array"
     },
     "version": {
-      "const": 9,
+      "const": 10,
       "description": "The format version, `FORMAT_VERSION` when written; older files are upgraded on load.",
       "format": "uint32",
       "minimum": 0,

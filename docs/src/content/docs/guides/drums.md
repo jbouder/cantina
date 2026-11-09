@@ -198,6 +198,26 @@ when the groove is added to a project:
   does not have are kept, so the pattern still plays them on another kit,
   and a notice names them.
 
+## The pad mixer
+
+**Mixer**, beside **Grooves**, opens the pad mixer: for each pad of the
+kit, without editing the kit,
+
+- **M** mutes the pad.
+- **Level** from −60 to +12 dB.
+- **Pan**, added to where the kit puts it.
+- **Tune** up or down a fifth and more, ±12 semitones, for a deeper kick
+  or a higher snare.
+- **Decay**: how much of each hit rings, down to 5%; a shorter decay
+  tightens a boomy kick or a washy cymbal.
+
+The settings are saved with the drum track. Level and mute change
+smoothly, even while a hit rings; pan, tune and decay take effect from
+the next hit. Double-click a fader to put it back to the kit's own, and
+every change is one step of **Undo**.
+
+![The pad mixer: the kick tuned down with a shorter decay, the snare a little left, the open hat muted](../../../assets/guides/pad-mixer.png)
+
 ## Feel
 
 Grid-perfect drums sound programmed. Under the pattern controls:

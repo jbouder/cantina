@@ -72,6 +72,7 @@ import { DRAG_THRESHOLD } from "../lib/reorder";
 import { Button } from "./Button";
 import { GrooveBrowser } from "./GrooveBrowser";
 import { Led } from "./Led";
+import { PadMixer } from "./PadMixer";
 import { PatternFeel } from "./PatternFeel";
 import { Select } from "./Select";
 
@@ -175,6 +176,10 @@ export function DrumGrid({
   );
   const auditioning = audition?.track === track.id ? audition.pattern : null;
   const [chosen, setChosen] = useState<number | null>(auditioning);
+  // `?padmixer` opens the pad mixer, for screenshots.
+  const [mixing, setMixing] = useState(() =>
+    new URLSearchParams(window.location.search).has("padmixer"),
+  );
   // `?grooves` opens the groove browser, for screenshots.
   const [browsing, setBrowsing] = useState(() =>
     new URLSearchParams(window.location.search).has("grooves"),
@@ -705,6 +710,15 @@ export function DrumGrid({
         >
           Grooves
         </Button>
+        <Button
+          aria-pressed={mixing}
+          aria-expanded={mixing}
+          variant={mixing ? "transport" : "panel"}
+          onClick={() => setMixing(!mixing)}
+          title="The pad mixer: each pad's level, pan, tune, decay and mute"
+        >
+          Mixer
+        </Button>
         {pattern ? (
           <>
             <Button onClick={exportPattern} title="Write this pattern to a .pattern.json file">
@@ -791,6 +805,7 @@ export function DrumGrid({
           </>
         ) : null}
       </div>
+      {mixing ? <PadMixer track={track} run={run} /> : null}
       {browsing ? (
         <GrooveBrowser
           track={track.id}

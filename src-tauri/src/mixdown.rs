@@ -666,6 +666,7 @@ mod tests {
                     chain: Vec::new(),
                     clips: vec![clip],
                     pattern_clips: Vec::new(),
+                    pads: Default::default(),
                     ..track
                 },
             }

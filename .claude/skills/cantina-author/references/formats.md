@@ -277,7 +277,7 @@ A whole project. Saved as `project.json` inside a `Name.cantina/` directory next
 | `sampleRate` | yes | number (> 0) | The rate every file in `audio/` is at, and the rate the engine must run at to play them. |
 | `tempo` |  | `Tempo` | Tempo and time signature. Default `{"bpm":120,"denominator":4,"numerator":4}`. |
 | `tracks` |  | array of `Track` | Tracks, top to bottom. Default `[]`. |
-| `version` | yes | exactly `9` | The format version, `FORMAT_VERSION` when written; older files are upgraded on load. |
+| `version` | yes | exactly `10` | The format version, `FORMAT_VERSION` when written; older files are upgraded on load. |
 
 Where it goes: `project.json` in a `Name.cantina/` folder. Schema: `https://cantina-docs.vibeproject.workers.dev/schemas/project.schema.json`.
 
@@ -344,6 +344,18 @@ A region of the timeline, in samples, that playback can loop over.
 | `end` | yes | integer (≥ 0) | Sample just after it; playback wraps from here to `start`. |
 | `on` | yes | boolean | True while playback loops. The region stays when it is off. |
 | `start` | yes | integer (≥ 0) | First sample of the loop. |
+
+### `PadMix`
+
+One pad's place in a drum track's mix.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `decay` |  | number | How much of each hit rings, 0.05 to 1: 1 is all of it. Default `1`. |
+| `levelDb` |  | number | Level in dB, −60 to 12. Default `0`. |
+| `mute` |  | boolean | Silences the pad. Default `false`. |
+| `pan` |  | number | −1 left to 1 right, added to the kit's pan. Default `0`. |
+| `tune` |  | number | Semitones, −12 to 12. Default `0`. |
 
 ### `Pattern`
 
@@ -477,5 +489,6 @@ A track: an armed input with a chain of pedals, the clips or patterns it plays, 
 | `id` | yes | `TrackId` | Unique within the project. |
 | `kit` |  | string (matching `^[^/\\]+$`) | The drum kit, by id, for a drum track. An audio track has none. A drum track plays patterns through its kit instead of audio from its input and clips. |
 | `name` | yes | string | Shown in the track header. |
+| `pads` |  | object | A drum track's pad mixer, by pad id; a pad not here is as the kit has it. |
 | `patternClips` |  | array of `PatternClip` | Patterns on the timeline, for a drum track. |
 | `strip` |  | `Strip` | The track's mixer strip. Default `{"gainDb":0,"mute":false,"pan":0,"solo":false}`. |

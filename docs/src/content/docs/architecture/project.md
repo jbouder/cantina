@@ -31,7 +31,7 @@ field's doc comment as its description; a file may name it in a
 
 ```json
 {
-  "version": 9,
+  "version": 10,
   "name": "Song",
   "sampleRate": 48000.0,
   "tempo": { "bpm": 120.0, "numerator": 4, "denominator": 4 },

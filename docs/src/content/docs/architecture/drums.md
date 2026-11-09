@@ -24,6 +24,18 @@ each step lands on from the tempo map and the sampler does the rest.
 
 - **Velocity** is gain, linearly: a hit at 0.5 is half the amplitude of
   one at 1. Zero is not a hit.
+- **The pad mixer** is five parameters a pad after the sampler's own
+  `Level` (`pad_param(pad, PAD_LEVEL | PAD_PAN | PAD_TUNE | PAD_DECAY |
+  PAD_MUTE)`), named after the kit's pads. Level and mute go through a
+  per-pad `Smoother` that every voice of the pad follows, so a change
+  mid-hit fades rather than clicks. Pan (added to the kit's), tune (the
+  playback rate, by semitones) and decay (an exponential fade reaching
+  −60 dB at that share of the sample's length) are taken by each hit as
+  it starts. At their defaults every one multiplies by exactly 1 or adds
+  exactly 0, so `tests/golden/sampler_beat.wav` and every stock render
+  are unchanged. A drum track keeps its settings in `project.json` as
+  `pads` (version 10), by pad id, and the shell sends them to the
+  sequencer's sampler on every sync and after `SetPadMix`.
 - **Pan** is constant power. A mono sample sits at −3 dB a side when
   centred; a stereo sample plays at unity when centred and the pan
   becomes a balance.
