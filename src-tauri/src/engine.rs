@@ -355,6 +355,33 @@ pub struct PatternInfo {
     pub length: u16,
     pub swing: f32,
     pub rows: Vec<PatternRow>,
+    /// The pattern's humanize, if it has one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub humanize: Option<cantina_project::Humanize>,
+    /// Seeds humanize and chance; 0 is left out.
+    #[serde(skip_serializing_if = "is_zero_seed")]
+    pub seed: u32,
+}
+
+fn is_zero_seed(v: &u32) -> bool {
+    *v == 0
+}
+
+impl PatternInfo {
+    /// The status of a pattern: every field, since the grid sends it back
+    /// whole to `pattern_replace`.
+    fn of(q: &Pattern) -> Self {
+        Self {
+            id: q.id.0,
+            name: q.name.clone(),
+            steps_per_beat: q.steps_per_beat,
+            length: q.length,
+            swing: q.swing,
+            rows: q.rows.clone(),
+            humanize: q.humanize,
+            seed: q.seed,
+        }
+    }
 }
 
 /// What a journal left behind. Mirrors `RecoveryInfo` in the UI.
@@ -449,6 +476,23 @@ pub struct PatternClipInfo {
     pub start: u64,
     pub offset: u64,
     pub length: u64,
+    /// The clip's fill, if it plays one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fill: Option<cantina_project::Fill>,
+}
+
+impl PatternClipInfo {
+    /// The status of a pattern clip: every field the UI shows or sends back.
+    fn of(c: &cantina_project::PatternClip) -> Self {
+        Self {
+            id: c.id.0,
+            pattern: c.pattern.0,
+            start: c.start,
+            offset: c.offset,
+            length: c.length,
+            fill: c.fill.clone(),
+        }
+    }
 }
 
 /// A pedal in a chain. Mirrors `PedalInfo` in the UI.
@@ -2902,33 +2946,12 @@ impl Engine {
                             }),
                         })
                         .collect(),
-                    pattern_clips: t
-                        .pattern_clips
-                        .iter()
-                        .map(|c| PatternClipInfo {
-                            id: c.id.0,
-                            pattern: c.pattern.0,
-                            start: c.start,
-                            offset: c.offset,
-                            length: c.length,
-                        })
-                        .collect(),
+                    pattern_clips: t.pattern_clips.iter().map(PatternClipInfo::of).collect(),
                     strip: t.strip.clone(),
                     latency_frames: t.chain.iter().map(|p| self.pedal_latency(p.id)).sum(),
                 })
                 .collect(),
-            patterns: p
-                .patterns
-                .iter()
-                .map(|q| PatternInfo {
-                    id: q.id.0,
-                    name: q.name.clone(),
-                    steps_per_beat: q.steps_per_beat,
-                    length: q.length,
-                    swing: q.swing,
-                    rows: q.rows.clone(),
-                })
-                .collect(),
+            patterns: p.patterns.iter().map(PatternInfo::of).collect(),
             master: p.master.clone(),
             loop_region: p.loop_region,
         }
@@ -5913,6 +5936,42 @@ mod tests {
             "the same fill"
         );
         assert!(!Arc::ptr_eq(&score[0].pattern, &score[1].pattern));
+    }
+
+    #[test]
+    fn the_status_carries_every_field_of_a_pattern_and_a_clip_back_to_the_ui() {
+        let mut p = Pattern::new(PatternId(5), "Beat");
+        p.humanize = Some(cantina_project::Humanize {
+            timing: 0.3,
+            velocity: 0.2,
+        });
+        p.seed = 9;
+        let mut row = cantina_project::PatternRow::new("kick", vec![1.0; 16]);
+        row.swing = Some(0.5);
+        row.marks.push(cantina_project::StepMark {
+            flam: true,
+            ..cantina_project::StepMark::plain(0)
+        });
+        p.rows.push(row);
+        // What the UI gets is what `pattern_replace` takes back: nothing lost.
+        let json = serde_json::to_value(PatternInfo::of(&p)).unwrap();
+        let back: Pattern = serde_json::from_value(json).unwrap();
+        assert_eq!(back, p);
+        let clip = cantina_project::PatternClip {
+            id: cantina_project::PatternClipId(4),
+            pattern: PatternId(5),
+            start: 0,
+            offset: 0,
+            length: 3840,
+            fill: Some(cantina_project::Fill {
+                pattern: PatternId(6),
+                every: 4,
+                at_end: true,
+            }),
+        };
+        let json = serde_json::to_value(PatternClipInfo::of(&clip)).unwrap();
+        assert_eq!(json["fill"]["every"], 4);
+        assert_eq!(json["fill"]["atEnd"], true);
     }
 
     #[test]
