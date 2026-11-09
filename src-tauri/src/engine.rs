@@ -1722,6 +1722,24 @@ impl crate::assistant::tools::Host for Engine {
         self.track_remove(track.0).map(drop)
     }
 
+    fn library(&self) -> library::Folders {
+        self.folders.clone()
+    }
+
+    fn kit_dir(&self, kit: &str) -> Option<PathBuf> {
+        self.kits.entry(kit).map(|k| k.path.clone())
+    }
+
+    fn rescan_library(&mut self) {
+        self.library_rescan();
+    }
+
+    fn import_pattern(&mut self, path: &Path, track: Option<TrackId>) -> Result<PatternId> {
+        let id = PatternId(self.project.fresh_id());
+        self.pattern_import(&path.display().to_string(), track.map(|t| t.0))?;
+        Ok(id)
+    }
+
     fn engine_report(&self) -> serde_json::Value {
         let status = self.status();
         let rate = status.sample_rate;

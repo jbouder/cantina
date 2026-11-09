@@ -15,6 +15,12 @@ Ask for *"a fuzz with an octave-up blend"*, *"a half-time beat at 140"* or
 loads and sounds sane by the numbers, and puts it where Cantina picks it
 up.
 
+:::tip[No coding agent?]
+Cantina's own [assistant](/guides/assistant/#write-pedals-beats-and-kits)
+runs the same loop inside the app, with the same references and the same
+checks. It needs only an API key or a local model, not a coding agent.
+:::
+
 ## Install the skill
 
 The knowledge an agent needs is packaged as a skill, `cantina-author`, in

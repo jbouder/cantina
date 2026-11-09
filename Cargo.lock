@@ -363,6 +363,7 @@ name = "cantina"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cantina-cli",
  "cantina-dsp",
  "cantina-engine",
  "cantina-hosting",

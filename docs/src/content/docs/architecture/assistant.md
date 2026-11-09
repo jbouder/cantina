@@ -105,7 +105,7 @@ the tool, so a malformed call never reaches the project.
 
 | Reads | Edits | Asks first |
 | --- | --- | --- |
-| `get_project`, `get_pattern`, `list_pedal_kinds`, `list_kits`, `get_engine` | `set_tempo`, `add_track`, `add_drum_track`, `rename_track`, `set_mix`, `arm_track`, `add_pedal`, `remove_pedal`, `move_pedal`, `set_pedal_params`, `bypass_pedal`, `add_pattern`, `set_pattern`, `place_pattern`, `set_loop` | `remove_track`, `delete_pattern`, `delete_clip` |
+| `get_project`, `get_pattern`, `list_pedal_kinds`, `list_kits`, `get_engine` | `write_pedal`, `write_pattern`, `write_kit_recipe`, `set_tempo`, `add_track`, `add_drum_track`, `rename_track`, `set_mix`, `arm_track`, `add_pedal`, `remove_pedal`, `move_pedal`, `set_pedal_params`, `bypass_pedal`, `add_pattern`, `set_pattern`, `place_pattern`, `set_loop` | `remove_track`, `delete_pattern`, `delete_clip`, and a write that replaces a library file |
 
 Tools run against a `Host`: the project, its revision, `apply`, and the
 few things only the engine knows (pedal kinds and their parameters, the
@@ -127,6 +127,30 @@ methods the UI's commands call:
 - **Values are held to range.** Parameters are set by name in their own
   unit, a choice by its name, and clamped by `ParamInfo::clamp` as a knob
   would be.
+
+### Authoring
+
+`write_pedal`, `write_pattern` and `write_kit_recipe` bring the
+cantina-author skill into the app (`assistant/author.rs`). The system
+prompt includes `author::reference()`: the skill's generated
+`formats.md` and `node-catalog.md`, its `design-rules.md` and its
+examples, compiled in with `include_str!`, so they change when the
+formats do (`scripts/skill-references.mjs --check` already fails CI on a
+stale reference).
+
+`author::write` drafts the file in a scratch folder and runs the
+`cantina-cli` library's own code on it: `check`, then `render::render_pedal`
+over the DI (judged: no clipping, not silent, no NaN, DC under 0.001; the
+level is a warning), `render::render_pattern` through the kit, or
+`synth::synth_kit` and a kit check. Only then is it written to the library
+folder, atomically, and the library rescanned; nothing is saved on any
+failure. A pedal or pattern is overwritten only with `replace`, which
+asks the player first; a kit is never replaced, so its samples are never
+touched. `HostTools` counts failed writes per message and refuses after
+`author::MAX_TRIES`, telling the model to stop and explain.
+
+Rendering and synthesis run under the engine lock, since they are tools;
+they take tens of milliseconds and never touch the audio thread.
 
 `HostTools` is the loop's `Toolbox` over the registry. It locks the
 engine for each call only (the `Lock` trait: the `AppHandle` in the app,

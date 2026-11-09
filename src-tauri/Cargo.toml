@@ -19,6 +19,8 @@ workspace = true
 
 [dependencies]
 anyhow = "1.0.104"
+# The assistant checks, renders and synthesises what it writes with the CLI's own code.
+cantina-cli = { path = "../crates/cli" }
 cantina-dsp.workspace = true
 cantina-engine.workspace = true
 cantina-hosting.workspace = true
