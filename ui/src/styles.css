@@ -306,3 +306,73 @@
     }
   }
 }
+
+/*
+ * Tapster, the assistant's droid (components/Droid.tsx): it blinks when
+ * idle, scans while thinking, moves its grille while speaking and blinks
+ * its light on an error. Nothing moves under Reduce Motion.
+ */
+.droid .droid-eye,
+.droid .droid-grille rect,
+.droid .droid-light {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes droid-blink {
+  0%,
+  93%,
+  100% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0.15);
+  }
+}
+@keyframes droid-scan {
+  0%,
+  100% {
+    transform: translateX(-8px);
+  }
+  50% {
+    transform: translateX(8px);
+  }
+}
+@keyframes droid-talk {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+@keyframes droid-flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .droid-idle .droid-eye {
+    animation: droid-blink 5s infinite;
+  }
+  .droid-thinking .droid-eye {
+    animation: droid-scan 1.2s ease-in-out infinite;
+  }
+  .droid-thinking .droid-light,
+  .droid-error .droid-light {
+    animation: droid-flash 0.8s steps(2) infinite;
+  }
+  .droid-speaking .droid-grille rect {
+    animation: droid-talk 0.32s ease-in-out infinite;
+  }
+  .droid-speaking .droid-grille rect:nth-child(2n) {
+    animation-delay: -0.16s;
+  }
+  .droid-speaking .droid-grille rect:nth-child(3n) {
+    animation-duration: 0.24s;
+  }
+}

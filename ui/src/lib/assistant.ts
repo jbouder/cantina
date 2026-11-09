@@ -107,7 +107,8 @@ export async function assistantOpenUrl(url: string): Promise<void> {
  * adds an Overdrive to the first track, "remove" asks first, "offline"
  * fails, and anything else gets a reply with a list and some code. The
  * thread is kept in localStorage, as the shell keeps it in a file.
- * `?chat` starts with a conversation in it for the screenshots.
+ * `?chat` starts with a conversation in it for the screenshots, and
+ * `?chat=empty` with none.
  */
 const STORE = "cantina.assistant.thread";
 
@@ -148,7 +149,8 @@ const standIn = (() => {
     } catch {
       // A stand-in with no storage starts empty.
     }
-    return new URLSearchParams(window.location.search).has("chat") ? structuredClone(SAMPLE) : [];
+    const chat = new URLSearchParams(window.location.search).get("chat");
+    return chat !== null && chat !== "empty" ? structuredClone(SAMPLE) : [];
   };
   const save = (items: ChatItem[]) => {
     try {

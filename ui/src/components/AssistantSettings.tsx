@@ -61,6 +61,8 @@ export function AssistantSettings({ assistant, onStatusChange, reveal = false }:
         enabled: next.enabled,
         endpoint: next.endpoint,
         model: next.model,
+        persona: next.persona,
+        sounds: next.sounds,
       }).then(onStatusChange);
     },
     [assistant, onStatusChange],
@@ -216,6 +218,24 @@ export function AssistantSettings({ assistant, onStatusChange, reveal = false }:
               onChange={(model) => configure({ model })}
             />
           )}
+          <div className="flex flex-wrap items-center gap-1">
+            <Button
+              aria-pressed={assistant.persona}
+              onClick={() => configure({ persona: !assistant.persona })}
+              variant={assistant.persona ? "transport" : "panel"}
+              title="Talks as Tapster, the house droid. Off gives plain replies."
+            >
+              Droid persona
+            </Button>
+            <Button
+              aria-pressed={assistant.sounds}
+              onClick={() => configure({ sounds: !assistant.sounds })}
+              variant={assistant.sounds ? "transport" : "panel"}
+              title="Beeps and chirps on a reply and on an error, in the window only."
+            >
+              Droid sounds
+            </Button>
+          </div>
           <div className="flex items-center gap-2">
             <Lcd
               aria-live="polite"

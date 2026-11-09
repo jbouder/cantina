@@ -9,6 +9,32 @@ with any service that speaks the OpenAI chat completions API, hosted or
 running on your own machine. You bring the model and the key; Cantina has
 no account or server of its own.
 
+## Meet Tapster
+
+The assistant is **Tapster**, the house droid who works the bar: an old,
+well-kept service unit that has heard every band that ever played the
+Cantina. It is helpful and a little dry, and talks like a droid when it
+acts (*"Signal chain recalibrated."*), but its explanations stay plain and
+correct. Tapster is Cantina's own character, drawn for the app.
+
+![Tapster's console, empty and waiting, in the Midnight skin](../../../assets/guides/assistant-droid.png)
+
+Its console shows Tapster's face and a readout of what it is doing, with
+three lights: **Link** (connected), **Busy** (thinking or writing) and
+**Fault** (the last request failed). Tapster blinks while idle, scans
+while thinking, talks while writing and goes red on a fault. With your
+system's **Reduce motion** on (System Settings ▸ Accessibility ▸ Display),
+it holds still.
+
+In Settings ▸ Assistant:
+
+- **Droid persona** (on by default). Off, the assistant answers plainly,
+  without the droid's voice, and the panel is called **Assistant**.
+- **Droid sounds** (off by default). On, Tapster chirps when a reply
+  arrives and warbles on an error. The sounds are made in the window and
+  play through your Mac's output. They never go through Cantina's audio
+  engine, so they are never in a recording, an export or the stage.
+
 ## Connect a provider
 
 Open **Settings** (the gear at the top right) and scroll to **Assistant**.
@@ -52,10 +78,11 @@ Cantina's tools than the large hosted ones.
 
 ## The chat panel
 
-Once the assistant is on, with an endpoint and a model, a speech-bubble
-key appears beside **Engine** at the top right. Press it, choose
-**View ▸ Assistant** or press **⌘J** to open the chat at the right of the
-window; the same again closes it.
+Once the assistant is on, with an endpoint and a model, a key with
+Tapster's face appears beside **Engine** at the top right. Press it,
+choose **View ▸ Tapster** (**View ▸ Assistant** with the persona off) or
+press **⌘J** to open the chat at the right of the window; the same again
+closes it.
 
 ![The chat panel beside the studio, with a reply, a change it made and its Undo](../../../assets/guides/assistant-chat.png)
 

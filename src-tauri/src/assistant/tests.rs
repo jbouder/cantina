@@ -290,3 +290,25 @@ fn a_suggested_chain_is_applied_only_with_the_players_yes_as_one_step() {
         }
     }
 }
+
+#[test]
+fn the_droid_talks_only_when_its_persona_is_on() {
+    for on in [true, false] {
+        let host = Arc::new(Mutex::new(FakeHost::new()));
+        let model = Scripted::new(vec![say("Tempo locked.")]);
+        let thread = thread("hi");
+        converse_with(
+            &model,
+            &mut HostTools::new(host).with_persona(on),
+            &thread,
+            true,
+        );
+        let system = model.seen.lock().unwrap()[0][0]["content"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(system.contains("You are Tapster"), on);
+        // Plain or not, the working rules are there.
+        assert!(system.contains("Call get_project before changing anything"));
+    }
+}

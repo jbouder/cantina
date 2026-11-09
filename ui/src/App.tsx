@@ -3,6 +3,7 @@ import { Assistant } from "./components/Assistant";
 import { Button } from "./components/Button";
 import { Designer } from "./components/Designer";
 import { Divider } from "./components/Divider";
+import { Droid } from "./components/Droid";
 import { Editor, isEditorTab } from "./components/Editor";
 import { EngineControl } from "./components/EngineControl";
 import { ExportSheet } from "./components/ExportSheet";
@@ -632,6 +633,7 @@ export function App() {
     assistant: {
       enabled: ready,
       checked: assistantOpen && ready,
+      label: status?.assistant.persona ? "Tapster" : "Assistant",
       run: () => setAssistantOpen((open) => !open),
     },
     ...skinBindings,
@@ -719,16 +721,14 @@ export function App() {
           <EngineControl status={status} busy={busy} onToggle={toggle} />
           {ready ? (
             <Button
-              aria-label="Assistant"
-              title="Assistant (⌘J)"
+              aria-label={status?.assistant.persona ? "Tapster" : "Assistant"}
+              title={`${status?.assistant.persona ? "Tapster" : "Assistant"} (⌘J)`}
               aria-pressed={assistantOpen}
               variant={assistantOpen ? "transport" : "panel"}
               onClick={() => setAssistantOpen((open) => !open)}
-              className="px-2"
+              className="px-1.5"
             >
-              <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
-                <path d="M2 2h12v9H6l-3 3v-3H2zm1.5 1.5v6h1v1.4l1.4-1.4h7.6v-6zM5 5.5h6V7H5z" />
-              </svg>
+              <Droid size={20} />
             </Button>
           ) : null}
           <Button
@@ -871,8 +871,12 @@ export function App() {
             </div>
           ) : null}
         </main>
-        {assistantOpen && ready ? (
-          <Assistant onClose={() => setAssistantOpen(false)} onStatus={setStatus} />
+        {assistantOpen && ready && status ? (
+          <Assistant
+            assistant={status.assistant}
+            onClose={() => setAssistantOpen(false)}
+            onStatus={setStatus}
+          />
         ) : null}
       </div>
       {stageOpen && status ? (
