@@ -240,7 +240,7 @@ pub fn link_url(which: &str, version: &str) -> Option<String> {
     match which {
         "docs" => Some(DOCS.to_string()),
         "shortcuts" => Some(format!("{DOCS}guides/menus/")),
-        "assistant" => Some(format!("{DOCS}guides/assistant/")),
+        "assistant" => Some(format!("{DOCS}guides/assistant/#what-is-sent-and-when")),
         "releases" => Some(format!("{REPO}/releases")),
         "issue" => {
             let body = format!(
@@ -440,7 +440,7 @@ mod tests {
         assert_eq!(link_url("docs", "1.0.0").unwrap(), DOCS);
         assert!(link_url("assistant", "1.0.0")
             .unwrap()
-            .ends_with("/guides/assistant/"));
+            .ends_with("/guides/assistant/#what-is-sent-and-when"));
         assert!(link_url("releases", "1.0.0")
             .unwrap()
             .ends_with("/releases"));

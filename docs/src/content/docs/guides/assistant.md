@@ -1,6 +1,6 @@
 ---
 title: "The assistant"
-description: "Connect an AI provider to Cantina's optional chat assistant: hosted APIs and local models, where your key is kept, and exactly what is sent off your Mac and when."
+description: "Cantina's optional chat assistant, Tapster: exactly what is sent off your Mac and when, connecting a hosted API or a local model, where your key is kept, what it can read, change and write, and how undo works with it."
 ---
 
 Cantina has an optional chat assistant. It is **off until you turn it on**,
@@ -8,6 +8,10 @@ and while it is off nothing is shown and nothing leaves your Mac. It works
 with any service that speaks the OpenAI chat completions API, hosted or
 running on your own machine. You bring the model and the key; Cantina has
 no account or server of its own.
+
+Once connected it can explain settings and sounds, diagnose problems from
+the engine's own numbers, change your project (every change undoable),
+and write new pedals, drum patterns and kits into your library.
 
 ## Meet Tapster
 
@@ -34,6 +38,45 @@ In Settings ▸ Assistant:
   arrives and warbles on an error. The sounds are made in the window and
   play through your Mac's output. They never go through Cantina's audio
   engine, so they are never in a recording, an export or the stage.
+
+## What is sent, and when
+
+Read this before you paste a key. **While the assistant is off, nothing is
+sent anywhere.** With it on, Cantina sends requests to the endpoint you
+chose, and only then:
+
+| When | What is sent |
+| --- | --- |
+| Settings lists the models (when the section opens, or the endpoint or key changes) | Your key |
+| You press **Test connection** | Your key, the model's name, and, for an endpoint with no model list, a two-word prompt |
+| You send a message or press **Retry**, and each time the assistant carries on after using a tool | Everything below |
+
+Each request for a message contains exactly:
+
+- **your key** and **the model's name**;
+- **Cantina's instructions to the model**: who the assistant is (Tapster,
+  unless the persona is off), how to use its tools, and the reference for
+  Cantina's file formats with their examples (about 30 KB of text, the
+  same for everyone);
+- **a one-line project summary**: the project's name, tempo, time
+  signature, and its tracks' names and kinds;
+- **the conversation so far**: your messages, its replies, and what each
+  of its tools returned. That includes whatever it read: track, pedal,
+  clip and pattern names and settings; the drum kits and pedals you have;
+  device names, levels and dropout counts; docs pages; and the files it
+  wrote with their check and render results. Older parts of a long
+  conversation are left out.
+
+**Never sent:** audio of any kind (recordings, your input, renders), your
+audio files, project files, settings, or anything from another app. No
+feature of the assistant sends audio.
+
+What the provider does with a request is up to the provider: read its
+data policy, or use a local model, where nothing leaves your Mac.
+
+The conversation is kept on your Mac in
+`~/Library/Application Support/com.jbouder.cantina/assistant-thread.json`
+until you press **Clear**.
 
 ## Connect a provider
 
@@ -75,6 +118,18 @@ A model running on your Mac keeps everything on your Mac.
 
 Smaller local models answer more slowly and make more mistakes with
 Cantina's tools than the large hosted ones.
+
+## Where your key is kept
+
+Your API key goes into the macOS **Keychain**, under
+`com.jbouder.cantina.assistant`. It is never written to a project, to
+Cantina's settings file or to a log, and once saved it is never shown
+again: Settings only says that one is saved. Press **Remove key** to
+delete it from the Keychain. You can also see or delete it in the
+Keychain Access app.
+
+The requests themselves are made by Cantina's native side, not by its
+window, so the key never travels back into the interface.
 
 ## The chat panel
 
@@ -141,6 +196,24 @@ folder.
 It cannot record, play or stop, open plugins' windows, change your audio
 devices, or save, open or delete projects.
 
+## Undo and the assistant
+
+Everything the assistant changes in a project goes through the same edits
+as the window, so:
+
+- **Each change is one step** in **Edit ▸ Undo**, named like any other
+  (*Undo add overdrive*). A suggested chain, a pedal with its knobs set, or
+  a mixer change touching several controls is still one step.
+- The **Undo** link on a change's card undoes that change, as long as
+  nothing else has happened to the project since. Otherwise it says so,
+  and Edit ▸ Undo steps back through the history in order.
+- Its changes are saved with the project, recovered after a crash, and
+  marked as unsaved edits like yours.
+- **Files it writes** to your library (pedals, patterns, kits) are not
+  project edits, so Undo does not delete them; delete them in Finder if
+  you do not want them. Adding one to a track is a project edit and can be
+  undone.
+
 ## Tone and troubleshooting
 
 Ask the questions you would ask another player:
@@ -197,40 +270,6 @@ and never replaces an installed kit.
 
 Writing files sends the format references (about 30 KB of text) with
 every message, so each request is larger than a plain chat.
-
-## Where your key is kept
-
-Your API key goes into the macOS **Keychain**, under
-`com.jbouder.cantina.assistant`. It is never written to a project, to
-Cantina's settings file or to a log, and once saved it is never shown
-again: Settings only says that one is saved. Press **Remove key** to
-delete it from the Keychain. You can also see or delete it in the
-Keychain Access app.
-
-The requests themselves are made by Cantina's native side, not by its
-window, so the key never travels back into the interface.
-
-## What is sent, and when
-
-Nothing is sent while the assistant is off. With it on, Cantina contacts
-the endpoint only:
-
-- to list its models, when you open Settings or change the endpoint or key;
-- when you press **Test connection**;
-- when you send a message, press **Retry**, or the assistant carries on
-  after a change it made.
-
-Each message sends your key, a short description of the assistant, a
-summary of the project (its name, tempo and track names), and the
-conversation so far: your messages, its replies, and what its tools read
-and changed. When it reads the project or the engine, those details
-(track and pedal names and settings, clip and pattern names, device names
-and levels) are sent as part of the conversation. Older parts of a long
-conversation are left out. No audio and no file is ever sent.
-
-The conversation is kept on your Mac in
-`~/Library/Application Support/com.jbouder.cantina/assistant-thread.json`
-until you press **Clear**.
 
 ## Turn it off
 
