@@ -90,7 +90,8 @@ in a text field. The menu shows them without a shortcut for that reason.
 
 | Item | Shortcut | What it does |
 | --- | --- | --- |
-| Arrange | | Back to the arrangement: closes the stage, performance mode and the pedal designer. |
+| Arrange | | Back to the arrangement: closes the stage, performance mode, the pedal designer and the jam. |
+| Jam | J | Opens or leaves [jam mode](/guides/jam/), checked while it is open. While jamming, Play plays the jam and Record is off. |
 | Pedal Designer | | Opens the selected track's first designed pedal in the [designer](/guides/designer/), or starts a new design on it. |
 | Stage | | The [stage](/guides/stage/) sheet. |
 | Performance Mode | P | The stage full screen. |

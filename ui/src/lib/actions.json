@@ -145,6 +145,11 @@
     "arrange": {
       "label": "Arrange"
     },
+    "jam": {
+      "label": "Jam",
+      "key": "J",
+      "checkable": true
+    },
     "designer": {
       "label": "Pedal Designer"
     },
@@ -309,6 +314,7 @@
       "title": "View",
       "items": [
         "arrange",
+        "jam",
         "designer",
         "stage",
         "perform",
@@ -392,6 +398,16 @@
         ["⇧ with a pad key", "Plays it as an accent, at full strength"],
         ["← →", "In step entry, move the cursor a step"],
         ["Esc", "Stops recording or step entry"]
+      ]
+    },
+    {
+      "title": "Jam",
+      "note": "In the Jam view, outside a text field or menu.",
+      "keys": [
+        ["Space", "Plays the jam from the top, or stops it"],
+        ["1–6", "Plays the intro, verse, chorus, bridge, fill or ending from the next bar"],
+        ["↑ ↓", "Nudges the tempo a beat per minute from the next bar; ⇧ by five"],
+        ["T", "Taps the tempo: two taps or more set it"]
       ]
     },
     {

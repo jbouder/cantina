@@ -55,6 +55,7 @@ without ⌘ do nothing while you are typing in a text field. The
 
 | Keys | Does |
 | --- | --- |
+| J | Jam |
 | P | Performance Mode |
 | ⌘J | Assistant |
 | ⌘= | Zoom In |
@@ -112,6 +113,17 @@ With a pad focused, in the Pads panel of the Beats tab.
 | ⇧ with a pad key | Plays it as an accent, at full strength |
 | ← → | In step entry, move the cursor a step |
 | Esc | Stops recording or step entry |
+
+## Jam
+
+In the Jam view, outside a text field or menu.
+
+| Keys | Does |
+| --- | --- |
+| Space | Plays the jam from the top, or stops it |
+| 1–6 | Plays the intro, verse, chorus, bridge, fill or ending from the next bar |
+| ↑ ↓ | Nudges the tempo a beat per minute from the next bar; ⇧ by five |
+| T | Taps the tempo: two taps or more set it |
 
 ## Groove browser
 

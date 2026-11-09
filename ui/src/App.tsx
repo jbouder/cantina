@@ -7,6 +7,7 @@ import { Droid } from "./components/Droid";
 import { Editor, isEditorTab } from "./components/Editor";
 import { EngineControl } from "./components/EngineControl";
 import { ExportSheet } from "./components/ExportSheet";
+import { JamView } from "./components/JamView";
 import { Lcd } from "./components/Lcd";
 import { Meter } from "./components/Meter";
 import { Notice } from "./components/Notice";
@@ -48,6 +49,10 @@ import {
   engineStatus,
   engineStop,
   inTauri,
+  jamClose,
+  jamOpen,
+  jamPlay,
+  jamStop,
   kitImport,
   loopSet,
   type MeterFrame,
@@ -172,9 +177,32 @@ export function App() {
   const [stageOpen, setStageOpen] = useState(() => params?.has("stage") ?? false);
   const closeStage = useCallback(() => setStageOpen(false), []);
   const [performing, setPerforming] = useState(() => params?.has("perform") ?? false);
+  // Jam mode: the jam is heard in place of the project. In a browser
+  // `?jam` opens it.
+  const [jamming, setJamming] = useState(() => params?.has("jam") ?? false);
   const perform = useCallback(() => {
     setStageOpen(false);
     setPerforming(true);
+  }, []);
+  const openJam = useCallback(() => {
+    setStageOpen(false);
+    setPerforming(false);
+    jamOpen().then(
+      (s) => {
+        setStatus(s);
+        setJamming(true);
+      },
+      (e) => setError(String(e)),
+    );
+  }, []);
+  const leaveJam = useCallback(() => {
+    jamClose().then(
+      (s) => {
+        setStatus(s);
+        setJamming(false);
+      },
+      (e) => setError(String(e)),
+    );
   }, []);
   const closeProjects = useCallback(() => {
     setProjectsOpen(false);
@@ -280,7 +308,14 @@ export function App() {
   const initialTab = isEditorTab(tabParam) ? tabParam : undefined;
 
   useEffect(() => {
+    if (params?.has("jam")) {
+      jamOpen().then(setStatus, (e) => setError(String(e)));
+      return;
+    }
     engineStatus().then(setStatus, (e) => setError(String(e)));
+  }, []);
+
+  useEffect(() => {
     const stopStatus = onStatus(setStatus);
     const stopMeters = onMeters(setFrame);
     return () => {
@@ -516,12 +551,15 @@ export function App() {
       run: () => timelineEdit.current?.splitAtPlayhead(),
     },
     play: {
-      enabled: running && (rolling || hasClips),
-      label: rolling ? "Stop" : "Play",
-      run: () => report(rolling ? transportStop() : transportPlay()),
+      enabled: running && (jamming || rolling || hasClips),
+      label: rolling || frame.countIn > 0 ? "Stop" : "Play",
+      run: () => {
+        if (jamming) report(rolling || frame.countIn > 0 ? jamStop() : jamPlay());
+        else report(rolling ? transportStop() : transportPlay());
+      },
     },
     record: {
-      enabled: running && !rolling && tracks.some((t) => t.armed && !t.kit),
+      enabled: running && !jamming && !rolling && tracks.some((t) => t.armed && !t.kit),
       run: () => report(transportRecord()),
     },
     countIn: {
@@ -622,7 +660,13 @@ export function App() {
         setStageOpen(false);
         setPerforming(false);
         setDesigning(null);
+        if (jamming) leaveJam();
       },
+    },
+    jam: {
+      enabled: has && !frame.recording,
+      checked: jamming,
+      run: () => (jamming ? leaveJam() : openJam()),
     },
     // The selected track's first designed pedal, or a new design on it.
     designer: {
@@ -736,6 +780,19 @@ export function App() {
             </Button>
           ) : null}
           <Button
+            aria-label="Jam"
+            title="Jam (J)"
+            aria-pressed={jamming}
+            variant={jamming ? "transport" : "panel"}
+            disabled={!status || frame.recording}
+            onClick={() => (jamming ? leaveJam() : openJam())}
+            className="px-2"
+          >
+            <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
+              <path d="M11 1.5v8.6a2.4 2.4 0 1 1-1.5-2.2V4.3L6 5.2v6.4a2.4 2.4 0 1 1-1.5-2.2V3.1z" />
+            </svg>
+          </Button>
+          <Button
             aria-label="Stage"
             title="Stage"
             aria-haspopup="dialog"
@@ -761,7 +818,7 @@ export function App() {
         </>
       }
       meters={
-        metersShown ? (
+        metersShown && !jamming ? (
           <>
             <Meter label="In" level={frame.input} />
             <Meter label="Out" level={frame.output} />
@@ -795,7 +852,16 @@ export function App() {
             </Lcd>
           ) : null}
 
-          {status && transport ? (
+          {status && jamming ? (
+            <JamView
+              status={status}
+              frame={frame}
+              onPlay={() => bound.current.play.run()}
+              onLeave={leaveJam}
+              onStatus={setStatus}
+              onError={setError}
+            />
+          ) : status && transport ? (
             <div
               ref={body}
               className="grid min-h-0 flex-1"

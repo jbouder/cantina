@@ -11,6 +11,7 @@ mod assistant;
 mod commands;
 mod engine;
 mod frame;
+mod jam;
 mod library;
 mod menu;
 mod mixdown;
@@ -121,6 +122,13 @@ pub fn run() {
             commands::groove_audition,
             commands::rig_audition,
             commands::rig_ab,
+            commands::jam_open,
+            commands::jam_close,
+            commands::jam_set,
+            commands::jam_play,
+            commands::jam_stop,
+            commands::jam_section,
+            commands::jam_tempo,
             commands::rig_apply,
             commands::rig_save,
             commands::rig_rename,

@@ -88,6 +88,65 @@ export interface EngineStatus {
   instrumentProfile: InstrumentProfileStatus;
   /** Rows muted or soloed on drum tracks, by track id. Session state, never saved. */
   drumRows: Record<number, DrumRows>;
+  /** The jam, while jam mode is open. Session state, not part of the project. */
+  jam: JamStatus | null;
+}
+
+/** A key: its tonic and whether it is major or minor. Mirrors `Key` in cantina-project. */
+export interface JamKey {
+  /** A note name: `A`, `F#`, `Bb`. */
+  tonic: string;
+  mode: "major" | "minor";
+}
+
+/** What a jam is. Mirrors `Jam` in cantina-project. */
+export interface Jam {
+  version: number;
+  name: string;
+  genre?: string;
+  description?: string;
+  /** Beats per minute, 30 to 300. */
+  tempo: number;
+  timeSignature: { numerator: number; denominator: number };
+  key: JamKey;
+  drums: {
+    /** The kit, by id. */
+    kit: string;
+    /** A stock groove, by its genre; each section plays its pattern. */
+    groove?: string | null;
+    /** Patterns of the jam's own, by section, in place of the groove's. */
+    patterns?: Partial<Record<GrooveSection, PatternInfo>>;
+    /** The drums' level in dB, −60 to 12. */
+    levelDb: number;
+  };
+  /** The rig the input plays through, by its file's name less `.rig.json`. */
+  rig?: string | null;
+}
+
+/** Where a jam's section or tempo changes. Mirrors `JamMark` in src-tauri. */
+export interface JamMark {
+  sample: number;
+  tick: number;
+  section: GrooveSection;
+  bpm: number;
+}
+
+/** The open jam. Mirrors `JamStatus` in src-tauri. */
+export interface JamStatus {
+  setup: Jam;
+  /** The sections the drums have a pattern for, in order. */
+  sections: GrooveSection[];
+  /** Each section's length in bars. */
+  bars: Partial<Record<GrooveSection, number>>;
+  /** Where the section or tempo changes, and is going to. */
+  marks: JamMark[];
+  /** The sample an ending stops the jam on, when one is coming. */
+  end: number | null;
+  barTicks: number;
+  /** The tempo last asked for. */
+  tempo: number;
+  /** Rig pedals left out because they are not installed. */
+  missing: string[];
 }
 
 /** A drum track's rows muted or soloed for listening while editing. Mirrors `RowMix` in src-tauri. */
@@ -1301,6 +1360,7 @@ function mockPattern(id: number, name: string): PatternInfo {
 const MOCK_DRUMS = 10;
 
 const mock: EngineStatus = {
+  jam: null,
   running: mockParams?.has("running") ?? false,
   sampleRate: MOCK_RATE,
   bufferFrames: 128,
@@ -1568,6 +1628,7 @@ function mockStatus(): EngineStatus {
       : null,
     instrumentProfile: { ...mock.instrumentProfile, tuning: [...mock.instrumentProfile.tuning] },
     drumRows: structuredClone(mock.drumRows),
+    jam: mockJam ? mockJamStatus(mockJam) : null,
     metronome: { ...mock.metronome, sounds: [...mock.metronome.sounds] },
     countIn: mock.countIn,
     assistant: { ...mock.assistant },
@@ -3014,6 +3075,249 @@ export async function audioSamples(file: string): Promise<Float32Array> {
       pluck * 0.8 * (Math.sin(2 * Math.PI * hz * t) + 0.4 * Math.sin(2 * Math.PI * hz * 2.01 * t));
   }
   return out;
+}
+
+// ----- jams -----
+
+const JAM_PPQ = 960;
+/** The stand-in's jam: the setup and the schedule, as the shell keeps them. */
+let mockJam: {
+  setup: Jam;
+  sections: { tick: number; section: GrooveSection }[];
+  tempos: { tick: number; bpm: number }[];
+  end: number | null;
+} | null = null;
+
+function mockJamPatterns(setup: Jam): Partial<Record<GrooveSection, number>> {
+  const bar = (JAM_PPQ * 4 * setup.timeSignature.numerator) / setup.timeSignature.denominator;
+  const bars: Partial<Record<GrooveSection, number>> = {};
+  for (const g of mockGrooves.filter((g) => g.genre === setup.drums.groove)) {
+    bars[g.section] = ((g.length / g.stepsPerBeat) * JAM_PPQ) / bar;
+  }
+  for (const [section, p] of Object.entries(setup.drums.patterns ?? {})) {
+    if (p) bars[section as GrooveSection] = ((p.length / p.stepsPerBeat) * JAM_PPQ) / bar;
+  }
+  return bars;
+}
+
+function mockJamBarTicks(setup: Jam): number {
+  return (JAM_PPQ * 4 * setup.timeSignature.numerator) / setup.timeSignature.denominator;
+}
+
+/** Seconds at a tick, through the stand-in's tempo changes. */
+function mockJamSeconds(tempos: { tick: number; bpm: number }[], tick: number): number {
+  let seconds = 0;
+  for (let i = 0; i < tempos.length; i++) {
+    const from = tempos[i];
+    if (!from || from.tick >= tick) break;
+    const to = Math.min(tempos[i + 1]?.tick ?? tick, tick);
+    seconds += ((to - from.tick) / JAM_PPQ) * (60 / from.bpm);
+  }
+  return seconds;
+}
+
+function mockJamTick(tempos: { tick: number; bpm: number }[], seconds: number): number {
+  let tick = 0;
+  let at = 0;
+  for (let i = 0; i < tempos.length; i++) {
+    const t = tempos[i];
+    if (!t) break;
+    const next = tempos[i + 1];
+    const span = next ? mockJamSeconds(tempos, next.tick) - at : Number.POSITIVE_INFINITY;
+    if (seconds - at <= span) return t.tick + ((seconds - at) * t.bpm * JAM_PPQ) / 60;
+    at += span;
+    tick = next?.tick ?? tick;
+  }
+  return tick;
+}
+
+const JAM_ORDER: GrooveSection[] = ["intro", "verse", "chorus", "bridge", "fill", "ending"];
+
+function mockJamStatus(jam: NonNullable<typeof mockJam>): JamStatus {
+  const bars = mockJamPatterns(jam.setup);
+  const ticks = [...new Set([...jam.sections, ...jam.tempos].map((m) => m.tick))].sort(
+    (a, b) => a - b,
+  );
+  const at = <T extends { tick: number }>(list: T[], tick: number) =>
+    [...list].reverse().find((m) => m.tick <= tick) ?? list[0];
+  return {
+    setup: structuredClone(jam.setup),
+    sections: JAM_ORDER.filter((s) => bars[s] !== undefined),
+    bars,
+    marks: ticks
+      .filter((t) => jam.end === null || t < jam.end)
+      .map((tick) => ({
+        tick,
+        sample: Math.round(mockJamSeconds(jam.tempos, tick) * MOCK_RATE),
+        section: at(jam.sections, tick)?.section ?? "verse",
+        bpm: at(jam.tempos, tick)?.bpm ?? jam.setup.tempo,
+      })),
+    end: jam.end === null ? null : Math.round(mockJamSeconds(jam.tempos, jam.end) * MOCK_RATE),
+    barTicks: mockJamBarTicks(jam.setup),
+    tempo: jam.tempos.at(-1)?.bpm ?? jam.setup.tempo,
+    missing: [],
+  };
+}
+
+function mockJamRestart(jam: NonNullable<typeof mockJam>, first?: GrooveSection) {
+  const bars = mockJamPatterns(jam.setup);
+  const has = JAM_ORDER.filter((s) => bars[s] !== undefined);
+  const start =
+    first ?? (has.includes("intro") ? "intro" : has.includes("verse") ? "verse" : has[0]);
+  jam.sections = [];
+  jam.tempos = [{ tick: 0, bpm: jam.setup.tempo }];
+  jam.end = null;
+  if (start) mockJamSwitch(jam, 0, start);
+}
+
+function mockJamSwitch(jam: NonNullable<typeof mockJam>, at: number, section: GrooveSection) {
+  const bars = mockJamPatterns(jam.setup);
+  const length = (bars[section] ?? 1) * mockJamBarTicks(jam.setup);
+  const back =
+    [...jam.sections]
+      .reverse()
+      .filter((m) => m.tick < at)
+      .find((m) => ["verse", "chorus", "bridge"].includes(m.section))?.section ?? "verse";
+  jam.sections = jam.sections.filter((m) => m.tick < at);
+  jam.sections.push({ tick: at, section });
+  jam.end = null;
+  if (section === "intro" || section === "fill")
+    jam.sections.push({ tick: at + length, section: back });
+  if (section === "ending") jam.end = at + length;
+}
+
+function mockJamNextBar(jam: NonNullable<typeof mockJam>): number {
+  const bar = mockJamBarTicks(jam.setup);
+  return Math.ceil(mockJamTick(jam.tempos, mockTransport.position + 0.03) / bar) * bar;
+}
+
+function mockJamDefault(): Jam {
+  return {
+    version: 1,
+    name: "Jam",
+    tempo: 100,
+    timeSignature: { numerator: 4, denominator: 4 },
+    key: { tonic: "E", mode: "minor" },
+    drums: { kit: mockKits[0]?.id ?? "studio", groove: "Rock", levelDb: 0 },
+    rig: "classic-rock",
+  };
+}
+
+let mockJamLast: Jam | null = null;
+let mockProjectPosition = 0;
+
+/** Opens jam mode: the last jam is heard in place of the project, which it never edits. */
+export async function jamOpen(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("jam_open");
+  if (mockTransport.recording) throw new Error("stop recording before jamming");
+  if (!mockJam) {
+    mockProjectPosition = mockTransport.position;
+    mockTransport.playing = false;
+    mockTransport.position = 0;
+    mockJam = { setup: mockJamLast ?? mockJamDefault(), sections: [], tempos: [], end: null };
+    mockJamRestart(mockJam);
+    // `?jam=playing` has it rolling with a chorus and a new tempo coming,
+    // for screenshots; `?position` says where.
+    if (mockParams?.get("jam") === "playing") {
+      const bar = mockJamBarTicks(mockJam.setup);
+      mockJamSwitch(mockJam, 6 * bar, "chorus");
+      mockJam.tempos.push({ tick: 8 * bar, bpm: 112 });
+      mockTransport.playing = true;
+      mockTransport.position = Number(mockParams.get("position") ?? 9);
+    }
+  }
+  return mockStatus();
+}
+
+/** Leaves jam mode: the project is heard again, its playhead where it was. */
+export async function jamClose(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("jam_close");
+  if (mockJam) {
+    mockJam = null;
+    mockTransport.playing = false;
+    mockTransport.countIn = 0;
+    mockTransport.position = mockProjectPosition;
+  }
+  return mockStatus();
+}
+
+/** Changes the jam's groove, kit, tempo, key or rig; remembered for next time. */
+export async function jamSet(setup: Jam): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("jam_set", { setup });
+  if (!mockJam) throw new Error("open a jam first");
+  if (!setup.drums.groove && Object.keys(setup.drums.patterns ?? {}).length === 0) {
+    throw new Error("the drums have neither a groove nor patterns");
+  }
+  const groove = mockGrooves.find((g) => g.genre === setup.drums.groove && g.section === "verse");
+  const next = structuredClone(setup);
+  if (groove) next.timeSignature = { ...groove.timeSignature };
+  const rolling = mockTransport.playing || mockTransport.countIn > 0;
+  const tempoChanged = next.tempo !== (mockJam.tempos.at(-1)?.bpm ?? mockJam.setup.tempo);
+  mockJam.setup = next;
+  if (!rolling) mockJamRestart(mockJam);
+  else if (tempoChanged) {
+    const at = mockJamNextBar(mockJam);
+    mockJam.tempos = mockJam.tempos.filter((t) => t.tick < at);
+    mockJam.tempos.push({ tick: at, bpm: next.tempo });
+  }
+  mockJamLast = structuredClone(next);
+  return mockStatus();
+}
+
+/** Plays the jam from the top, after a count-in when count-in is on. */
+export async function jamPlay(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("jam_play");
+  if (!mockJam) throw new Error("open a jam first");
+  mockJam.setup.tempo = mockJam.tempos.at(-1)?.bpm ?? mockJam.setup.tempo;
+  const first = mockJam.sections[0]?.section;
+  mockJamRestart(mockJam, mockTransport.playing ? undefined : first);
+  mockTransport.position = 0;
+  mockTransport.countIn = mock.countIn ? MOCK_COUNT_BEATS * (60 / mockJam.setup.tempo) : 0;
+  mockTransport.playing = !mock.countIn;
+  return mockStatus();
+}
+
+/** Stops the jam and goes back to the top. */
+export async function jamStop(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("jam_stop");
+  mockTransport.playing = false;
+  mockTransport.countIn = 0;
+  mockTransport.position = 0;
+  if (mockJam) mockJamRestart(mockJam);
+  return mockStatus();
+}
+
+/** Plays a section from the next bar; stopped, the jam starts with it. */
+export async function jamSection(section: GrooveSection): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("jam_section", { section });
+  if (!mockJam) throw new Error("open a jam first");
+  if (mockJamPatterns(mockJam.setup)[section] === undefined) {
+    throw new Error(`the drums have no ${section}`);
+  }
+  if (mockTransport.playing || mockTransport.countIn > 0) {
+    mockJamSwitch(mockJam, mockJamNextBar(mockJam), section);
+  } else {
+    mockJamRestart(mockJam, section);
+  }
+  return mockStatus();
+}
+
+/** Sets the jam's tempo: playing, from the next bar; stopped, from the top. */
+export async function jamTempo(bpm: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("jam_tempo", { bpm });
+  if (!mockJam) throw new Error("open a jam first");
+  const tempo = Math.round(Math.min(300, Math.max(30, bpm)) * 10) / 10;
+  if (mockTransport.playing || mockTransport.countIn > 0) {
+    const at = mockJamNextBar(mockJam);
+    mockJam.tempos = mockJam.tempos.filter((t) => t.tick < at);
+    mockJam.tempos.push({ tick: at, bpm: tempo });
+  } else {
+    mockJam.setup.tempo = tempo;
+    const first = mockJam.sections[0]?.section;
+    mockJamRestart(mockJam, first);
+  }
+  mockJamLast = { ...structuredClone(mockJam.setup), tempo };
+  return mockStatus();
 }
 
 // ----- the transport -----
