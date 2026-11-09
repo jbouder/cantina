@@ -21,6 +21,7 @@ import { Button } from "./Button";
 import { DrumGrid } from "./DrumGrid";
 import { RenderBar, useRenderProgress } from "./ExportSheet";
 import { PedalChain } from "./PedalChain";
+import { TranscribeSheet } from "./TranscribeSheet";
 
 /** The editor's tabs; a drum track has Beats, an audio track does not. */
 export type EditorTab = "beats" | "pedalboard" | "clips";
@@ -325,61 +326,85 @@ type ClipsProps = {
 /** The track's clips as a list with a delete each: the timeline for the keyboard. */
 function ClipList({ track, patterns, sampleRate, tempo, onStatus, onError }: ClipsProps) {
   const run = (action: Promise<EngineStatus>) => action.then(onStatus, (e) => onError(String(e)));
+  // `?transcribe=<clip id>` opens the sheet in the browser, for screenshots.
+  const [transcribing, setTranscribing] = useState<number | null>(() => {
+    const id = Number(new URLSearchParams(window.location.search).get("transcribe"));
+    return track.clips.some((c) => c.id === id) ? id : null;
+  });
+  const sheetClip = track.clips.find((c) => c.id === transcribing);
   const remove = (
     <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3 fill-current">
       <path d="M3 2l5 5 5-5 1 1-5 5 5 5-1 1-5-5-5 5-1-1 5-5-5-5z" />
     </svg>
   );
   return (
-    <ul aria-label={`${track.name} clips`} className="m-0 flex list-none flex-wrap gap-2 p-0">
-      {track.clips.map((clip) => (
-        <li
-          key={clip.id}
-          className="surface-lcd flex items-center gap-2 py-1 pr-1 pl-3 font-lcd text-base"
-        >
-          <span className="lcd-text">
-            {clip.name} · {clock(clip.start / sampleRate)} +{clock(clip.length / sampleRate)}
-          </span>
-          <Button
-            aria-label={`Delete ${clip.name}`}
-            onClick={() => run(clipRemove(clip.id))}
-            className="min-h-9 min-w-9 px-1"
-          >
-            {remove}
-          </Button>
-        </li>
-      ))}
-      {track.patternClips.map((clip) => {
-        const name = patterns.find((p) => p.id === clip.pattern)?.name ?? "?";
-        const bars = (clip.length / 960 / tempo.numerator).toFixed(1).replace(/\.0$/, "");
-        const at = (clip.start / 960 / tempo.numerator + 1).toFixed(1).replace(/\.0$/, "");
-        return (
+    <>
+      <ul aria-label={`${track.name} clips`} className="m-0 flex list-none flex-wrap gap-2 p-0">
+        {track.clips.map((clip) => (
           <li
             key={clip.id}
             className="surface-lcd flex items-center gap-2 py-1 pr-1 pl-3 font-lcd text-base"
           >
             <span className="lcd-text">
-              {name} · bar {at} · {bars} bar{bars === "1" ? "" : "s"}
+              {clip.name} · {clock(clip.start / sampleRate)} +{clock(clip.length / sampleRate)}
+              {clip.tab ? " · tab" : ""}
             </span>
             <Button
-              aria-label={`Delete ${name} at bar ${at}`}
-              onClick={() => run(patternClipRemove(clip.id))}
+              aria-label={`Transcribe ${clip.name} to tab`}
+              title={clip.tab ? "Transcribe again or re-quantise" : "Transcribe to tab"}
+              onClick={() => setTranscribing(clip.id)}
+              className="min-h-9 px-2"
+            >
+              Tab
+            </Button>
+            <Button
+              aria-label={`Delete ${clip.name}`}
+              onClick={() => run(clipRemove(clip.id))}
               className="min-h-9 min-w-9 px-1"
             >
               {remove}
             </Button>
           </li>
-        );
-      })}
-      {track.clips.length === 0 && !track.kit ? (
-        <li className="text-ink-dim text-sm">No clips yet: arm the track and record.</li>
+        ))}
+        {track.patternClips.map((clip) => {
+          const name = patterns.find((p) => p.id === clip.pattern)?.name ?? "?";
+          const bars = (clip.length / 960 / tempo.numerator).toFixed(1).replace(/\.0$/, "");
+          const at = (clip.start / 960 / tempo.numerator + 1).toFixed(1).replace(/\.0$/, "");
+          return (
+            <li
+              key={clip.id}
+              className="surface-lcd flex items-center gap-2 py-1 pr-1 pl-3 font-lcd text-base"
+            >
+              <span className="lcd-text">
+                {name} · bar {at} · {bars} bar{bars === "1" ? "" : "s"}
+              </span>
+              <Button
+                aria-label={`Delete ${name} at bar ${at}`}
+                onClick={() => run(patternClipRemove(clip.id))}
+                className="min-h-9 min-w-9 px-1"
+              >
+                {remove}
+              </Button>
+            </li>
+          );
+        })}
+        {track.clips.length === 0 && !track.kit ? (
+          <li className="text-ink-dim text-sm">No clips yet: arm the track and record.</li>
+        ) : null}
+        {track.kit && track.patternClips.length === 0 ? (
+          <li className="text-ink-dim text-sm">
+            No patterns placed yet: Place at playhead on the Beats tab, or drag a pattern onto the
+            timeline.
+          </li>
+        ) : null}
+      </ul>
+      {sheetClip ? (
+        <TranscribeSheet
+          clip={sheetClip}
+          onStatus={onStatus}
+          onClose={() => setTranscribing(null)}
+        />
       ) : null}
-      {track.kit && track.patternClips.length === 0 ? (
-        <li className="text-ink-dim text-sm">
-          No patterns placed yet: Place at playhead on the Beats tab, or drag a pattern onto the
-          timeline.
-        </li>
-      ) : null}
-    </ul>
+    </>
   );
 }

@@ -21,4 +21,7 @@ objc2-core-audio = "0.3"
 objc2-core-audio-types = "0.3"
 objc2-core-foundation = "0.3"
 rtrb = "0.4.1"
+# Runs the transcription model (Basic Pitch) in pure Rust; see
+# src/transcribe.rs and the transcription architecture page.
+tract-onnx = "0.23"
 

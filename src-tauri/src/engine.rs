@@ -58,6 +58,7 @@ use crate::mixdown;
 use crate::pedals::{self, PedalEntry};
 use crate::project::Projects;
 use crate::settings::{AssistantSettings, AudioSettings, MetronomeSettings, Settings};
+use crate::tabs;
 
 /// Event name for status pushes to the UI.
 pub const STATUS_EVENT: &str = "engine://status";
@@ -317,6 +318,24 @@ pub struct ClipInfo {
     pub start: u64,
     pub offset: u64,
     pub length: u64,
+    /// The clip's tab, in brief, when it has one.
+    pub tab: Option<TabSummary>,
+}
+
+/// A clip's tab as the clip list shows it. Mirrors `TabSummary` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TabSummary {
+    /// `guitar` or `bass`.
+    pub instrument: cantina_project::Instrument,
+    /// Open strings, lowest first, as MIDI notes.
+    pub tuning: Vec<u8>,
+    /// The capo's fret.
+    pub capo: u8,
+    /// Notes in the tab.
+    pub notes: usize,
+    /// True when it came from a transcription and can be re-quantised.
+    pub transcribed: bool,
 }
 
 /// A pattern clip, as the UI sees it. Positions are in ticks. Mirrors
@@ -566,6 +585,79 @@ impl EngineState {
     }
 }
 
+impl EngineState {
+    /// Transcribes a clip into a tab, off the IPC thread, as one undoable
+    /// edit. Reads the clip's audio (never writing it), runs the model
+    /// with progress on the `render-progress` event and stops on
+    /// [`cancel_render`], leaving the project as it was.
+    pub fn clip_transcribe(&self, id: u64, settings: tabs::TabSettings) -> Result<EngineStatus> {
+        let _busy = Busy::take()?;
+        let id = ClipId(id);
+        let (clip, path, tempo, rate, app) = {
+            let engine = self.lock();
+            let (_, clip) = engine
+                .project
+                .clip(id)
+                .with_context(|| format!("no clip {id}"))?;
+            let path = cantina_project::audio_dir(&engine.project_dir).join(&clip.file);
+            (
+                clip.clone(),
+                path,
+                engine.project.tempo.clone(),
+                engine.project.sample_rate,
+                engine.app.clone(),
+            )
+        };
+        let audio = tabs::clip_audio(&path, &clip)?;
+        let model = cantina_engine::transcribe::Transcriber::new()?;
+        let Some(maps) = model.run(&audio, progress_to(&app, "transcribe"))? else {
+            bail!("cancelled");
+        };
+        let heard = cantina_engine::transcribe::notes(
+            &maps,
+            cantina_engine::transcribe::Options::default(),
+        );
+        let origin = tabs::origin(&clip, &tempo, rate);
+        let lead = clip.offset.saturating_sub(origin) as f64 / rate;
+        let tab = tabs::transcribed(&clip.name, &settings, &tempo, origin, lead, &heard)?;
+
+        let mut engine = self.lock();
+        if engine.project.clip(id).is_none() {
+            bail!("{} was deleted while it was being transcribed", clip.name);
+        }
+        engine.apply(Command::SetClipTab {
+            id,
+            tab: Some(Box::new(tab)),
+        })
+    }
+
+    /// Builds a transcribed tab's notes again on another grid, from what
+    /// it heard, as one undoable edit. Nothing is transcribed again.
+    pub fn clip_tab_requantise(&self, id: u64, grid: tabs::Grid) -> Result<EngineStatus> {
+        let id = ClipId(id);
+        let mut engine = self.lock();
+        let (_, clip) = engine
+            .project
+            .clip(id)
+            .with_context(|| format!("no clip {id}"))?;
+        let mut tab = clip
+            .tab
+            .clone()
+            .with_context(|| format!("{} has no tab", clip.name))?;
+        if tab.heard.is_empty() {
+            bail!(
+                "{}'s tab was not transcribed, so there is nothing to re-quantise",
+                clip.name
+            );
+        }
+        tab.notes = tabs::notes(&tab, grid);
+        engine.apply(Command::SetClipTab {
+            id,
+            tab: Some(Box::new(tab)),
+        })
+    }
+}
+
 /// What the export sheet asks for.
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -630,7 +722,7 @@ struct Busy;
 impl Busy {
     fn take() -> Result<Self> {
         if RENDERING.swap(true, Ordering::AcqRel) {
-            bail!("an export or bounce is already running");
+            bail!("an export, bounce or transcription is already running");
         }
         CANCEL.store(false, Ordering::Relaxed);
         Ok(Busy)
@@ -2420,6 +2512,13 @@ impl Engine {
                             start: c.start,
                             offset: c.offset,
                             length: c.length,
+                            tab: c.tab.as_ref().map(|tab| TabSummary {
+                                instrument: tab.instrument,
+                                tuning: tab.tuning.clone(),
+                                capo: tab.capo,
+                                notes: tab.notes.len(),
+                                transcribed: !tab.heard.is_empty(),
+                            }),
                         })
                         .collect(),
                     pattern_clips: t
@@ -2674,6 +2773,8 @@ impl Engine {
                 self.check_audition();
                 self.refresh_scores()
             }
+            // A tab is read, not heard: nothing in the graph changes.
+            Command::SetClipTab { .. } => Ok(()),
             Command::Batch { commands } if commands.iter().all(is_light) => {
                 for c in commands {
                     self.react(c)?;
@@ -4722,6 +4823,7 @@ fn is_light(command: &Command) -> bool {
     matches!(
         command,
         Command::SetParam { .. }
+            | Command::SetClipTab { .. }
             | Command::ArmTrack { .. }
             | Command::RenameTrack { .. }
             | Command::SetTempo { .. }

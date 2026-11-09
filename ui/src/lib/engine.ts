@@ -339,6 +339,36 @@ export interface ClipInfo {
   start: number;
   offset: number;
   length: number;
+  /** The clip's tab, in brief; none until it is transcribed. */
+  tab?: TabSummary | null;
+}
+
+/** Guitar or bass. Mirrors `Instrument` in cantina-project. */
+export type Instrument = "guitar" | "bass";
+
+/** A clip's tab as the clip list shows it. Mirrors `TabSummary` in the shell. */
+export interface TabSummary {
+  instrument: Instrument;
+  /** Open strings, lowest first, as MIDI notes. */
+  tuning: number[];
+  /** The capo's fret; 0 for none. */
+  capo: number;
+  /** Notes in the tab. */
+  notes: number;
+  /** True when it came from a transcription and can be re-quantised. */
+  transcribed: boolean;
+}
+
+/** The grid a transcription quantises to: eighths, sixteenths or their triplets. */
+export type TabGrid = "1/8" | "1/16" | "1/8t" | "1/16t";
+
+/** What a transcription is asked for. Mirrors `TabSettings` in the shell. */
+export interface TabSettings {
+  instrument: Instrument;
+  /** Open strings, lowest first, as MIDI notes. */
+  tuning: number[];
+  capo: number;
+  grid: TabGrid;
 }
 
 /** A region of the timeline playback can loop over, in samples. Mirrors `LoopRegion` in cantina-project. */
@@ -449,7 +479,8 @@ export const SILENT: Level = { peak: 0, rms: 0 };
  * and skin work and is what the PR screenshots are taken from. `?running`
  * starts it with the stream open; `?armed`, `?take`, `?playing` and
  * `?recording` set up the project and transport; `?countin=<1-4>` holds a
- * count-in on that beat.
+ * count-in on that beat; `?tabbed` (with `?take`) gives the first guitar
+ * clip a transcribed tab.
  */
 const mockDevices: AudioDevice[] = [
   {
@@ -840,6 +871,7 @@ function mockClip(id: number, name: string, startSeconds: number, seconds: numbe
     start: Math.round(startSeconds * MOCK_RATE),
     offset: 0,
     length: Math.round(seconds * MOCK_RATE),
+    tab: null,
   };
 }
 
@@ -937,7 +969,21 @@ const mock: EngineStatus = {
         kit: null,
         chain: mockGuitarChain(),
         clips: mockParams?.has("take")
-          ? [mockClip(4, "Guitar 1", 0, 12.4), mockClip(5, "Guitar 2", 16, 6.1)]
+          ? [
+              {
+                ...mockClip(4, "Guitar 1", 0, 12.4),
+                tab: mockParams.has("tabbed")
+                  ? {
+                      instrument: "guitar",
+                      tuning: [40, 45, 50, 55, 59, 64],
+                      capo: 0,
+                      notes: 46,
+                      transcribed: true,
+                    }
+                  : null,
+              },
+              mockClip(5, "Guitar 2", 16, 6.1),
+            ]
           : [],
         patternClips: [],
         strip: { gainDb: -3, pan: -0.25, mute: false, solo: mockParams?.has("solo") ?? false },
@@ -1930,6 +1976,38 @@ export async function trackArm(id: number, armed: boolean): Promise<EngineStatus
   return mockEdit();
 }
 
+/**
+ * Transcribes a clip into a tab, off the audio thread, as one undoable
+ * edit. Progress arrives through `onRenderProgress` as `transcribe`;
+ * `renderCancel` stops it and leaves the project as it was.
+ */
+export async function clipTranscribe(id: number, settings: TabSettings): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("clip_transcribe", { id, settings });
+  const { clip } = mockClipAt(id);
+  await mockRender("transcribe");
+  // The stand-in hears about two notes a second.
+  const notes = Math.max(1, Math.round((clip.length / MOCK_RATE) * 2));
+  clip.tab = {
+    instrument: settings.instrument,
+    tuning: settings.tuning,
+    capo: settings.capo,
+    notes,
+    transcribed: true,
+  };
+  return mockEdit("set tab");
+}
+
+/** Builds a transcribed tab's notes again on another grid, without transcribing again. */
+export async function clipTabRequantise(id: number, grid: TabGrid): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("clip_tab_requantise", { id, grid });
+  const { clip } = mockClipAt(id);
+  if (!clip.tab) throw new Error(`${clip.name} has no tab`);
+  if (!clip.tab.transcribed) {
+    throw new Error(`${clip.name}'s tab was not transcribed, so there is nothing to re-quantise`);
+  }
+  return mockEdit("set tab");
+}
+
 export async function clipRemove(id: number): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("clip_remove", { id });
   for (const t of mock.project.tracks) t.clips = t.clips.filter((c) => c.id !== id);
@@ -2672,7 +2750,7 @@ export interface ExportResult {
 
 /** How far an export or a bounce has got. */
 export interface RenderProgress {
-  what: "export" | "bounce";
+  what: "export" | "bounce" | "transcribe";
   /** 0 to 1. */
   fraction: number;
 }
@@ -2749,7 +2827,7 @@ export async function trackBounce(id: number): Promise<EngineStatus> {
   return mockEdit(`bounce ${track.name}`);
 }
 
-/** Stops the running export or bounce; its promise fails with "cancelled". */
+/** Stops the running export, bounce or transcription; its promise fails with "cancelled". */
 export async function renderCancel(): Promise<void> {
   if (inTauri) return invoke("render_cancel");
   mockCancelled = true;

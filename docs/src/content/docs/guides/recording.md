@@ -77,7 +77,8 @@ Drum clips work the same way.
 
 Every edit can be undone with ⌘Z and redone with ⇧⌘Z (the Edit menu names the edit it will undo), or with the arrows
 beside the project name. The **Clips** tab of the track's editor lists its
-clips, for working from the keyboard.
+clips, for working from the keyboard, and its **Tab** button transcribes a
+clip into a [tab](/guides/tabs/#transcribe-a-clip).
 
 ![The Clips tab, listing the selected track's clips](../../../assets/guides/clips.png)
 
