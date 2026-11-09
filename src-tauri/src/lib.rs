@@ -146,6 +146,8 @@ pub fn run() {
             commands::clip_tab_refit,
             commands::clip_tab_edit,
             commands::practice_set,
+            commands::clip_tab_export,
+            commands::tab_pdf_write,
             commands::menu_state,
             commands::project_rename,
             commands::project_duplicate,

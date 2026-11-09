@@ -277,3 +277,16 @@ uv venv && uv pip install basic-pitch onnxruntime librosa "setuptools<81"
 crate outside the workspace, runs the model through tract on the same
 windows as ONNX Runtime, and reports the time per window and the largest
 difference between the two.
+
+## Exporting
+
+`cantina_project::tab_export` turns a `Tab` into ASCII tab, MusicXML and
+MIDI: pure functions, written to disk by the shell's `clip_tab_export`.
+MusicXML is one voice on a TAB staff, written a quarter note at a time,
+each quarter either on a thirty-second grid or as one complete triplet
+group, so notation apps never see an incomplete tuplet. Hammer-ons and
+pull-offs carry slurs as well, as MusicXML asks. An ignored test,
+`cargo test -p cantina-project musescore -- --ignored`, opens the export
+in MuseScore 4 (which refuses a file it has warnings about) and checks
+what comes back. The PDF is drawn in the UI (`ui/src/lib/tabPdf.ts`) from
+the same page layout the tab view uses, and written by `tab_pdf_write`.

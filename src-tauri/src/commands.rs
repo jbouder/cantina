@@ -641,6 +641,33 @@ pub fn pattern_import(
         .map_err(|e| format!("{e:#}"))
 }
 
+/// Writes a clip's tab as MusicXML, ASCII tab or MIDI; returns the path.
+#[tauri::command]
+pub fn clip_tab_export(
+    engine: State<'_, EngineState>,
+    id: u64,
+    format: String,
+    path: String,
+) -> Result<String, String> {
+    engine
+        .lock()
+        .clip_tab_export(id, &format, &path)
+        .map_err(|e| format!("{e:#}"))
+}
+
+/// Writes a tab's PDF, drawn by the UI from the page view; returns the path.
+#[tauri::command]
+pub fn tab_pdf_write(
+    engine: State<'_, EngineState>,
+    path: String,
+    bytes: Vec<u8>,
+) -> Result<String, String> {
+    engine
+        .lock()
+        .tab_pdf_write(&path, &bytes)
+        .map_err(|e| format!("{e:#}"))
+}
+
 /// Writes a pattern to a `*.pattern.json`.
 #[tauri::command]
 pub fn pattern_export(engine: State<'_, EngineState>, id: u64, path: String) -> Result<(), String> {

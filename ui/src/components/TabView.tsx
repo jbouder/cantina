@@ -51,6 +51,7 @@ import {
   tickAtX,
 } from "../lib/tabLayout";
 import { Button } from "./Button";
+import { TabExportSheet } from "./TabExportSheet";
 
 type Props = {
   /** The track's clips that have a tab. */
@@ -150,6 +151,10 @@ export function TabView({
   );
   const [caret, setCaret] = useState<Caret>({ string: 1, tick: 0 });
   const [grid, setGrid] = useState<TabGrid>("1/16");
+  // `?tabexport` opens the export sheet, for screenshots.
+  const [exporting, setExporting] = useState(() =>
+    new URLSearchParams(window.location.search).has("tabexport"),
+  );
   const step = GRID_TICKS[grid];
   const lastDigit = useRef<{ at: number; fret: number; caret: Caret } | null>(null);
 
@@ -470,6 +475,12 @@ export function TabView({
         >
           Edit
         </Button>
+        <Button disabled={!tab} onClick={() => setExporting(true)}>
+          Export…
+        </Button>
+        {exporting && tab ? (
+          <TabExportSheet clip={clip} tab={tab} onClose={() => setExporting(false)} />
+        ) : null}
       </div>
       <div className="grid min-w-0 gap-2">
         <div role="toolbar" aria-label="Practice" className="flex flex-wrap items-center gap-1">

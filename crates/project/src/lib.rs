@@ -14,6 +14,7 @@ mod pattern_file;
 #[cfg(any(test, feature = "schema"))]
 pub mod schema;
 mod tab;
+pub mod tab_export;
 
 pub use command::{Command, CommandError};
 pub use file::{

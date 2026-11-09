@@ -1771,6 +1771,24 @@ pub(crate) fn engine_clips(track: &Track, audio_dir: &Path) -> Vec<cantina_engin
         .collect()
 }
 
+/// Writes an export to `path`, with `extension` added when it lacks it,
+/// and returns the path written.
+fn write_export(path: &str, extension: &str, bytes: &[u8]) -> Result<String> {
+    let mut path = PathBuf::from(path);
+    if path.extension().and_then(|e| e.to_str()) != Some(extension) {
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "Tab".into());
+        path.set_file_name(format!("{name}.{extension}"));
+    }
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
+    }
+    std::fs::write(&path, bytes).with_context(|| format!("writing {}", path.display()))?;
+    Ok(path.display().to_string())
+}
+
 /// Pedal kinds by spec.
 #[derive(Default)]
 pub struct Catalog(HashMap<String, PedalKind>);
@@ -2377,6 +2395,40 @@ impl Engine {
 
     /// Writes a pattern as a `*.pattern.json` file, adding the suffix
     /// when the path lacks it.
+    /// Writes a clip's tab to `path` as `format` (`musicxml`, `ascii`
+    /// or `midi`), adding the format's extension when it is missing. A
+    /// PDF is drawn by the UI and written with [`Engine::tab_pdf_write`].
+    pub fn clip_tab_export(&self, id: u64, format: &str, path: &str) -> Result<String> {
+        let (_, clip) = self
+            .project
+            .clip(ClipId(id))
+            .with_context(|| format!("no clip {id}"))?;
+        let tab = clip
+            .tab
+            .as_ref()
+            .with_context(|| format!("{} has no tab", clip.name))?;
+        let mut tab = tab.clone();
+        if tab.name.is_empty() {
+            tab.name.clone_from(&clip.name);
+        }
+        use cantina_project::tab_export;
+        let (bytes, extension) = match format {
+            "musicxml" => (tab_export::musicxml(&tab).into_bytes(), "musicxml"),
+            "ascii" => (tab_export::ascii(&tab).into_bytes(), "txt"),
+            "midi" => (tab_export::midi(&tab), "mid"),
+            other => bail!("no tab export as {other:?}"),
+        };
+        write_export(path, extension, &bytes)
+    }
+
+    /// Writes the PDF the UI drew from a tab's page view.
+    pub fn tab_pdf_write(&self, path: &str, bytes: &[u8]) -> Result<String> {
+        if !bytes.starts_with(b"%PDF-") {
+            bail!("that is not a PDF");
+        }
+        write_export(path, "pdf", bytes)
+    }
+
     pub fn pattern_export(&self, id: u64, path: &str) -> Result<()> {
         let pattern = self
             .project

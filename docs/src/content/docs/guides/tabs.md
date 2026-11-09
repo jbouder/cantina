@@ -170,6 +170,37 @@ project: nothing is saved, and Undo does not see them.
 
 ![Practising: the tab voice on at 75%, recordings muted](../../../assets/guides/tab-practice.png)
 
+## Export a tab
+
+Press **Export…** beside the tab, choose a format and where to save it.
+The whole tab is exported, including notes the clip has trimmed away.
+
+![Exporting a tab](../../../assets/guides/tab-export.png)
+
+| Format | What it is | What survives |
+| --- | --- | --- |
+| **MusicXML** (`.musicxml`) | A score with a TAB staff, for MuseScore, Guitar Pro, TuxGuitar and other notation apps | See below |
+| **ASCII tab** (`.txt`) | Plain text, a line per string, at most 80 characters wide, for a forum post | Every note and technique, written as tab players write them: `5h7`, `7p5`, `7/9`, `8b10r8`, `7~`, `<12>`, `x`, `t15` and a `PM` line. Notes snap to sixteenths, or a finer grid when the tab needs one |
+| **MIDI** (`.mid`) | The notes for any sequencer, at the tab's tempo, a channel per string | Pitches, timing and velocity; bends as pitch bend on the note's own channel; harmonics at the pitch they sound. Other techniques are not MIDI |
+| **PDF** (`.pdf`) | For printing, on US Letter pages | The page view, four bars a row: frets, techniques, bar numbers and rhythm |
+
+### MusicXML in other apps
+
+Checked by opening the export in MuseScore 4.5:
+
+- **Kept:** the tuning, capo and number of strings; every note on its
+  string and fret; triplets; slides; natural harmonics; dead notes;
+  palm mutes and let ring (as text over the staff); hammer-ons and
+  pull-offs, as slurs.
+- **Changed:** vibrato arrives as a wavy line that MuseScore reads as a
+  trill.
+- **Lost:** bends and taps. MuseScore does not read them from MusicXML,
+  so add them again there.
+- **Rhythm:** the score is one voice. A note that keeps ringing after the
+  next one starts is written up to that note, and each quarter note is
+  written either on a grid of thirty-seconds or as one triplet, so a
+  note between the two moves to the nearest line.
+
 ## How frets are chosen
 
 The same note can be played in several places. An E above middle C is
