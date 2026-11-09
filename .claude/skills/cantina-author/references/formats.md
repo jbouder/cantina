@@ -121,6 +121,7 @@ A step sequencer pattern as a file of its own: a grid of pads against steps, wit
 
 | Field | Required | Takes | What it is |
 | --- | --- | --- | --- |
+| `groove` |  | `Groove` |  |
 | `length` | yes | integer (≥ 1, ≤ 128) | Steps in the pattern, which loops after the last. |
 | `name` | yes | string (not empty) | Shown in the pattern picker. |
 | `rows` |  | array of `PatternRow` | One row per pad that has hits. Default `[]`. |
@@ -128,6 +129,27 @@ A step sequencer pattern as a file of its own: a grid of pads against steps, wit
 | `swing` | yes | number (≥ 0, ≤ 1) | 0 is straight; 1 delays every second step by a third of a step, a triplet feel. |
 
 Where it goes: `*.pattern.json` in `~/Music/Cantina/Patterns/`. Schema: `https://cantina-docs.vibeproject.workers.dev/schemas/pattern.schema.json`.
+
+### `Groove`
+
+What a stock groove is for: its genre, the section of a song, its time signature, the tempos it suits and its feel. A project keeps the pattern without it.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `feel` | yes | `Feel` | How it feels. |
+| `genre` | yes | string | The genre it belongs to, as the browser groups it: `Rock`, `Heavy metal`, `Blues shuffle`… |
+| `section` | yes | `Section` | The part of a song it is for. |
+| `tempo` | yes | `TempoRange` | The tempos it suits, in beats per minute, 20 to 400, the slower first. |
+| `timeSignature` | yes | `Meter` | Its time signature; the pattern is a whole number of bars of it. |
+
+### `Meter`
+
+A time signature, as a groove states it.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `denominator` | yes | integer (≥ 0, ≤ 255) | The note value of a beat: 4 for quarter notes, 8 for eighths. |
+| `numerator` | yes | integer (≥ 0, ≤ 255) | Beats in a bar. |
 
 ### `PatternRow`
 
@@ -137,6 +159,15 @@ One pad's steps. `steps` holds exactly the pattern's length of velocities from 0
 | --- | --- | --- | --- |
 | `pad` | yes | string (not empty) | The pad's id in the kit format. |
 | `steps` | yes | array of number (≥ 0, ≤ 1) | Velocity per step, 0 for no hit. |
+
+### `TempoRange`
+
+The tempos a groove suits, in beats per minute.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `max` | yes | number | Fastest. |
+| `min` | yes | number | Slowest. |
 
 ## Cantina tab (`tab`)
 

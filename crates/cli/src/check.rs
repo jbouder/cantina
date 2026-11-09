@@ -11,7 +11,7 @@
 use std::path::{Path, PathBuf};
 
 use cantina_dsp::{compile, stock, KitRecipe, PedalDef, Processor};
-use cantina_project::{pattern_from_json, tab_from_json, Project, Tab};
+use cantina_project::{groove_from_json, tab_from_json, Project, Tab};
 use serde_json::Value;
 
 use crate::Format;
@@ -208,7 +208,7 @@ fn check_pattern(
     kit: Option<&Path>,
     warnings: &mut Vec<String>,
 ) -> Result<String, Vec<String>> {
-    let pattern = pattern_from_json(text).map_err(|e| vec![e])?;
+    let (pattern, groove) = groove_from_json(text).map_err(|e| vec![e])?;
     if let Some(dir) = kit {
         let (kit, _) = cantina_engine::kit::load(dir).map_err(|e| vec![format!("{e:#}")])?;
         let missing: Vec<String> = pattern
@@ -237,14 +237,31 @@ fn check_pattern(
     if hits == 0 {
         warnings.push("the pattern has no hits; it plays silence".into());
     }
-    let bars = pattern.length as f32 / (pattern.steps_per_beat as f32 * 4.0);
+    let (numerator, denominator) = groove.as_ref().map_or((4, 4), |g| {
+        (g.time_signature.numerator, g.time_signature.denominator)
+    });
+    let beats_per_bar = f32::from(numerator) * 4.0 / f32::from(denominator);
+    let bars = pattern.length as f32 / (pattern.steps_per_beat as f32 * beats_per_bar);
     let bars = if bars == 1.0 {
         "1 bar".to_string()
     } else {
         format!("{bars} bars")
     };
+    let about = groove.map_or(String::new(), |g| {
+        format!(
+            "; a {} {} groove, {:?} feel, {}-{} bpm",
+            g.genre,
+            serde_json::to_value(g.section)
+                .ok()
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_default(),
+            g.feel,
+            g.tempo.min,
+            g.tempo.max
+        )
+    });
     Ok(format!(
-        "pattern {:?}: {} steps at {} per beat ({bars} of 4/4), {} rows, {hits} hits",
+        "pattern {:?}: {} steps at {} per beat ({bars} of {numerator}/{denominator}), {} rows, {hits} hits{about}",
         pattern.name,
         pattern.length,
         pattern.steps_per_beat,

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/pattern.schema.json",
+  "name": "Jazz waltz",
+  "stepsPerBeat": 3,
+  "length": 18,
+  "swing": 0.0,
+  "groove": {
+    "genre": "Jazz",
+    "section": "bridge",
+    "timeSignature": {
+      "numerator": 3,
+      "denominator": 4
+    },
+    "tempo": {
+      "min": 100,
+      "max": 180
+    },
+    "feel": "swing"
+  },
+  "rows": [
+    {
+      "pad": "ride",
+      "steps": [
+        0.8,
+        0.0,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.8,
+        0.0,
+        0.0,
+        0.8,
+        0.0,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.8,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "pad": "hh-closed",
+      "steps": [
+        0.0,
+        0.0,
+        0.0,
+        0.55,
+        0.0,
+        0.0,
+        0.55,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.55,
+        0.0,
+        0.0,
+        0.55,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "pad": "kick",
+      "steps": [
+        0.3,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.3,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/pattern.schema.json",
+  "name": "Reggae ending",
+  "stepsPerBeat": 3,
+  "length": 12,
+  "swing": 0.0,
+  "groove": {
+    "genre": "Reggae",
+    "section": "ending",
+    "timeSignature": {
+      "numerator": 4,
+      "denominator": 4
+    },
+    "tempo": {
+      "min": 66,
+      "max": 90
+    },
+    "feel": "shuffle"
+  },
+  "rows": [
+    {
+      "pad": "crash",
+      "steps": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "pad": "kick",
+      "steps": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ]
+}

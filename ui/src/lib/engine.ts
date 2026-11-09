@@ -77,6 +77,25 @@ export interface EngineStatus {
   assistant: AssistantStatus;
   /** Hearing tabs and practice speed. Session state, not part of the project. */
   practice: Practice;
+  /** The stock grooves that ship with the app, read-only, by genre then section. */
+  grooves: StockGroove[];
+}
+
+/** The part of a song a groove is for. */
+export type GrooveSection = "intro" | "verse" | "chorus" | "bridge" | "fill" | "ending";
+
+/** A stock groove: a read-only pattern file and what it is for. Mirrors `StockGroove` in src-tauri. */
+export interface StockGroove {
+  name: string;
+  /** The file, which `patternImport` copies into the project. */
+  path: string;
+  stepsPerBeat: number;
+  length: number;
+  genre: string;
+  section: GrooveSection;
+  timeSignature: { numerator: number; denominator: number };
+  tempo: { min: number; max: number };
+  feel: "straight" | "shuffle" | "swing" | "half-time" | "double-time";
 }
 
 /** How to practise with a tab. Mirrors `Practice` in src-tauri. */
@@ -960,6 +979,41 @@ function mockKitStatus(id: string): KitStatus {
 }
 
 /** A sixteen-step rock beat with a swung hat. */
+/** The stock grooves, read from the repository's `patterns/` at build time. */
+const GROOVE_FILES = import.meta.glob<{
+  name: string;
+  stepsPerBeat: number;
+  length: number;
+  swing: number;
+  rows: PatternRow[];
+  groove: Omit<StockGroove, "name" | "path" | "stepsPerBeat" | "length">;
+}>("../../../patterns/*/*.pattern.json", { eager: true, import: "default" });
+
+const SECTION_ORDER: GrooveSection[] = ["intro", "verse", "chorus", "bridge", "fill", "ending"];
+
+const mockGrooves: StockGroove[] = Object.entries(GROOVE_FILES)
+  .map(([file, g]) => ({
+    name: g.name,
+    path: `/Applications/Cantina.app/Contents/Resources/${file.replace(/^(\.\.\/)+/, "")}`,
+    stepsPerBeat: g.stepsPerBeat,
+    length: g.length,
+    ...g.groove,
+  }))
+  .sort(
+    (a, b) =>
+      a.genre.localeCompare(b.genre) ||
+      SECTION_ORDER.indexOf(a.section) - SECTION_ORDER.indexOf(b.section) ||
+      a.name.localeCompare(b.name),
+  );
+
+/** A stock groove's pattern by its path, for the stand-in's import. */
+function mockGrooveFile(path: string) {
+  const file = Object.entries(GROOVE_FILES).find(([f]) =>
+    path.endsWith(f.replace(/^(\.\.\/)+/, "")),
+  );
+  return file?.[1];
+}
+
 function mockPattern(id: number, name: string): PatternInfo {
   const row = (pad: string, hits: Record<number, number>) => ({
     pad,
@@ -1100,6 +1154,7 @@ const mock: EngineStatus = {
   irs: MOCK_IRS,
   audition: mockParams?.has("audition") ? { track: MOCK_DRUMS, pattern: 11 } : null,
   // `?practice` turns the voice on at 75%, for screenshots.
+  grooves: [],
   practice: mockParams?.has("practice")
     ? { voice: true, muteRecordings: true, speed: 0.75 }
     : { voice: false, muteRecordings: false, speed: 1 },
@@ -1202,6 +1257,7 @@ function mockStatus(): EngineStatus {
     },
     audition: mock.audition ? { ...mock.audition } : null,
     practice: { ...mock.practice },
+    grooves: mockGrooves,
     metronome: { ...mock.metronome, sounds: [...mock.metronome.sounds] },
     countIn: mock.countIn,
     assistant: { ...mock.assistant },
@@ -1696,7 +1752,8 @@ export async function trackAddDrums(kit?: string): Promise<EngineStatus> {
     chain: [],
     clips: [],
     patternClips: [],
-    strip: { ...UNITY },
+    // A drum track starts 12 dB down for headroom, as the shell's does.
+    strip: { ...UNITY, gainDb: -12 },
     latencyFrames: 0,
   });
   return mockEdit("add track");
@@ -2609,7 +2666,19 @@ export async function patternImport(path: string, track?: number): Promise<Engin
   const taken = new Set(mock.project.patterns.map((p) => p.name));
   let name = base;
   for (let n = 2; taken.has(name); n++) name = `${base} ${n}`;
-  mock.project.patterns.push({ ...mockPattern(mockNextId++, name) });
+  const groove = mockGrooveFile(path);
+  mock.project.patterns.push(
+    groove
+      ? {
+          id: mockNextId++,
+          name,
+          stepsPerBeat: groove.stepsPerBeat,
+          length: groove.length,
+          swing: groove.swing,
+          rows: groove.rows.map((r) => ({ pad: r.pad, steps: [...r.steps] })),
+        }
+      : { ...mockPattern(mockNextId++, name) },
+  );
   return mockEdit("import pattern");
 }
 

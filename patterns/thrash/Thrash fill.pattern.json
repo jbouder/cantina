@@ -1,0 +1,74 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/pattern.schema.json",
+  "name": "Thrash fill",
+  "stepsPerBeat": 2,
+  "length": 8,
+  "swing": 0.0,
+  "groove": {
+    "genre": "Thrash",
+    "section": "fill",
+    "timeSignature": {
+      "numerator": 4,
+      "denominator": 4
+    },
+    "tempo": {
+      "min": 170,
+      "max": 240
+    },
+    "feel": "double-time"
+  },
+  "rows": [
+    {
+      "pad": "kick",
+      "steps": [
+        1.0,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        0.0
+      ]
+    },
+    {
+      "pad": "snare",
+      "steps": [
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "pad": "tom-hi",
+      "steps": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "pad": "tom-lo",
+      "steps": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        1.0
+      ]
+    }
+  ]
+}

@@ -68,6 +68,31 @@ pub fn pattern() -> Value {
     let required = s["required"].as_array_mut().unwrap();
     required.retain(|r| r != "id");
     s["$defs"].as_object_mut().unwrap().remove("PatternId");
+    // A stock groove says what it is for: optional, and only in a file.
+    let groove = schemars::schema_for!(crate::Groove).to_value();
+    let mut groove_def = groove.clone();
+    if let Some(o) = groove_def.as_object_mut() {
+        o.remove("$schema");
+        o.remove("$defs");
+        o.remove("title");
+    }
+    groove_def["description"] = json!(
+        "What a stock groove is for: its genre, the section of a song, its time signature, \
+         the tempos it suits and its feel. A project keeps the pattern without it."
+    );
+    groove_def["properties"]["tempo"]["description"] =
+        json!("The tempos it suits, in beats per minute, 20 to 400, the slower first.");
+    let defs = s["$defs"].as_object_mut().unwrap();
+    if let Some(inner) = groove["$defs"].as_object() {
+        for (k, v) in inner {
+            defs.insert(k.clone(), v.clone());
+        }
+    }
+    defs.insert("Groove".into(), groove_def);
+    s["properties"]
+        .as_object_mut()
+        .unwrap()
+        .insert("groove".into(), json!({ "$ref": "#/$defs/Groove" }));
     limit_pattern(&mut s);
     limit_row(&mut s["$defs"]);
     tidy(&mut s);

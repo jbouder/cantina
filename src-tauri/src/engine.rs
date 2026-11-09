@@ -107,6 +107,9 @@ pub struct EngineStatus {
     /// Hearing tabs, muting what was recorded under them, and the
     /// practice speed. Session state, not part of the project.
     pub practice: Practice,
+    /// The stock grooves that ship with the app, read-only; adding one
+    /// imports a copy into the project.
+    pub grooves: Vec<library::StockGroove>,
 }
 
 /// Practice with a tab: hear it played, mute the recording it came from
@@ -1896,6 +1899,8 @@ pub struct Engine {
     /// Hearing tabs and practice speed. Session state, kept across
     /// rebuilds of the stream.
     practice: Practice,
+    /// The stock grooves, found once at launch.
+    grooves: Vec<library::StockGroove>,
     recording: Vec<Recording>,
     last_error: Option<String>,
     notice: Option<String>,
@@ -2149,6 +2154,7 @@ impl Engine {
             let _ = std::fs::create_dir_all(dir);
         }
         let library_status = folders.scan();
+        let grooves = library::scan_grooves(&groove_roots(&app));
         let mut engine = Self {
             app,
             live: None,
@@ -2174,6 +2180,7 @@ impl Engine {
             audition: None,
             analysis_source: None,
             practice: Practice::default(),
+            grooves,
             recording: Vec::new(),
             last_error,
             notice: None,
@@ -2308,6 +2315,7 @@ impl Engine {
             count_in: self.settings.count_in,
             assistant: crate::assistant::AssistantStatus::of(&self.settings.assistant),
             practice: self.practice,
+            grooves: self.grooves.clone(),
         }
     }
 
@@ -5095,6 +5103,27 @@ fn kit_roots(app: &AppHandle, projects: &Projects) -> Vec<PathBuf> {
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("..")
                 .join("kits"),
+        );
+    }
+    roots
+}
+
+/// Where the stock grooves live: `patterns/` in the app's resources, or
+/// the repository's `patterns/` in a development build, and anything
+/// `CANTINA_GROOVES` names, which wins.
+fn groove_roots(app: &AppHandle) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Some(extra) = std::env::var_os("CANTINA_GROOVES") {
+        roots.extend(std::env::split_paths(&extra));
+    }
+    if let Ok(resources) = app.path().resource_dir() {
+        roots.push(resources.join("patterns"));
+    }
+    if cfg!(debug_assertions) {
+        roots.push(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("patterns"),
         );
     }
     roots

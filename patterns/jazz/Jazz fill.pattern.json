@@ -1,0 +1,73 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/pattern.schema.json",
+  "name": "Jazz fill",
+  "stepsPerBeat": 3,
+  "length": 12,
+  "swing": 0.0,
+  "groove": {
+    "genre": "Jazz",
+    "section": "fill",
+    "timeSignature": {
+      "numerator": 4,
+      "denominator": 4
+    },
+    "tempo": {
+      "min": 110,
+      "max": 220
+    },
+    "feel": "swing"
+  },
+  "rows": [
+    {
+      "pad": "ride",
+      "steps": [
+        0.8,
+        0.0,
+        0.0,
+        0.8,
+        0.0,
+        0.8,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "pad": "snare",
+      "steps": [
+        0.0,
+        0.0,
+        0.3,
+        0.0,
+        0.0,
+        0.55,
+        0.0,
+        0.55,
+        0.55,
+        0.0,
+        0.55,
+        0.0
+      ]
+    },
+    {
+      "pad": "tom-lo",
+      "steps": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.8
+      ]
+    }
+  ]
+}

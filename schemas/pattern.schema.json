@@ -1,5 +1,92 @@
 {
   "$defs": {
+    "Feel": {
+      "description": "How a groove's beat feels.",
+      "oneOf": [
+        {
+          "const": "straight",
+          "description": "Even subdivisions.",
+          "type": "string"
+        },
+        {
+          "const": "shuffle",
+          "description": "Long-short eighths: blues, swing rock.",
+          "type": "string"
+        },
+        {
+          "const": "swing",
+          "description": "Swung, lighter than a shuffle: jazz.",
+          "type": "string"
+        },
+        {
+          "const": "half-time",
+          "description": "The backbeat on 3 rather than 2 and 4: twice as heavy.",
+          "type": "string"
+        },
+        {
+          "const": "double-time",
+          "description": "The snare on every upbeat: twice as urgent.",
+          "type": "string"
+        }
+      ]
+    },
+    "Groove": {
+      "description": "What a stock groove is for: its genre, the section of a song, its time signature, the tempos it suits and its feel. A project keeps the pattern without it.",
+      "properties": {
+        "feel": {
+          "$ref": "#/$defs/Feel",
+          "description": "How it feels."
+        },
+        "genre": {
+          "description": "The genre it belongs to, as the browser groups it: `Rock`, `Heavy metal`, `Blues shuffle`…",
+          "type": "string"
+        },
+        "section": {
+          "$ref": "#/$defs/Section",
+          "description": "The part of a song it is for."
+        },
+        "tempo": {
+          "$ref": "#/$defs/TempoRange",
+          "description": "The tempos it suits, in beats per minute, 20 to 400, the slower first."
+        },
+        "timeSignature": {
+          "$ref": "#/$defs/Meter",
+          "description": "Its time signature; the pattern is a whole number of bars of it."
+        }
+      },
+      "required": [
+        "genre",
+        "section",
+        "timeSignature",
+        "tempo",
+        "feel"
+      ],
+      "type": "object"
+    },
+    "Meter": {
+      "description": "A time signature, as a groove states it.",
+      "properties": {
+        "denominator": {
+          "description": "The note value of a beat: 4 for quarter notes, 8 for eighths.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "numerator": {
+          "description": "Beats in a bar.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "type": "object"
+    },
     "PatternRow": {
       "description": "One pad's steps. `steps` holds exactly the pattern's length of velocities from 0 (no hit) to 1.",
       "properties": {
@@ -23,6 +110,61 @@
         "steps"
       ],
       "type": "object"
+    },
+    "Section": {
+      "description": "The part of a song a groove is for.",
+      "oneOf": [
+        {
+          "const": "intro",
+          "description": "Before the song gets going.",
+          "type": "string"
+        },
+        {
+          "const": "verse",
+          "description": "The main groove.",
+          "type": "string"
+        },
+        {
+          "const": "chorus",
+          "description": "Bigger: the crash or ride opens up.",
+          "type": "string"
+        },
+        {
+          "const": "bridge",
+          "description": "Somewhere else for a while.",
+          "type": "string"
+        },
+        {
+          "const": "fill",
+          "description": "A bar that leads into the next section.",
+          "type": "string"
+        },
+        {
+          "const": "ending",
+          "description": "The last hit.",
+          "type": "string"
+        }
+      ]
+    },
+    "TempoRange": {
+      "description": "The tempos a groove suits, in beats per minute.",
+      "properties": {
+        "max": {
+          "description": "Fastest.",
+          "format": "double",
+          "type": "number"
+        },
+        "min": {
+          "description": "Slowest.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "type": "object"
     }
   },
   "$id": "https://cantina-docs.vibeproject.workers.dev/schemas/pattern.schema.json",
@@ -31,6 +173,9 @@
   "properties": {
     "$schema": {
       "type": "string"
+    },
+    "groove": {
+      "$ref": "#/$defs/Groove"
     },
     "length": {
       "description": "Steps in the pattern, which loops after the last.",

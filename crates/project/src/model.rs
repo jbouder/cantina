@@ -19,6 +19,12 @@ pub const FORMAT_VERSION: u32 = 7;
 /// same as the engine's tempo map, so a tick here is a tick there.
 pub const PPQ: u32 = 960;
 
+/// Where a new drum track's fader starts, in decibels. Stock kit samples
+/// peak at full scale, so a kick and a snare together at full velocity
+/// reach twice that; twelve decibels down leaves room for the densest
+/// stock groove on any stock kit.
+pub const DRUM_GAIN_DB: f32 = -12.0;
+
 /// Most steps a pattern may have.
 pub const MAX_PATTERN_STEPS: usize = 128;
 
@@ -454,10 +460,12 @@ impl Track {
 
     /// A drum track playing `kit`.
     pub fn drums(id: TrackId, name: impl Into<String>, kit: impl Into<String>) -> Self {
-        Self {
+        let mut track = Self {
             kit: Some(kit.into()),
             ..Self::new(id, name)
-        }
+        };
+        track.strip.gain_db = DRUM_GAIN_DB;
+        track
     }
 
     /// True for a drum track, which has a kit.

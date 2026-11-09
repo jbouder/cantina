@@ -197,6 +197,59 @@ fn scan_patterns(dir: &Path, out: &mut Vec<BrokenFile>) -> Vec<LibraryPattern> {
     found
 }
 
+/// A stock groove: a pattern file that ships with the app, read-only,
+/// with what it is for. Mirrors `StockGroove` in the UI.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StockGroove {
+    pub name: String,
+    pub path: String,
+    pub steps_per_beat: u8,
+    pub length: u16,
+    #[serde(flatten)]
+    pub groove: cantina_project::Groove,
+}
+
+/// The stock grooves under `roots`, one folder per genre, by genre and
+/// then by section. The first root to have a groove of a name wins.
+/// Files that do not load are left out: they are checked in CI.
+pub fn scan_grooves(roots: &[PathBuf]) -> Vec<StockGroove> {
+    let mut found: Vec<StockGroove> = Vec::new();
+    for root in roots {
+        for genre in entries(root).into_iter().filter(|p| p.is_dir()) {
+            for path in entries(&genre) {
+                if !file_name(&path).ends_with(PATTERN_SUFFIX) {
+                    continue;
+                }
+                let Ok(text) = std::fs::read_to_string(&path) else {
+                    continue;
+                };
+                let Ok((pattern, Some(groove))) = cantina_project::groove_from_json(&text) else {
+                    continue;
+                };
+                if found.iter().any(|g| g.name == pattern.name) {
+                    continue;
+                }
+                found.push(StockGroove {
+                    name: pattern.name,
+                    path: path.display().to_string(),
+                    steps_per_beat: pattern.steps_per_beat,
+                    length: pattern.length,
+                    groove,
+                });
+            }
+        }
+    }
+    found.sort_by(|a, b| {
+        (a.groove.genre.to_lowercase(), a.groove.section, &a.name).cmp(&(
+            b.groove.genre.to_lowercase(),
+            b.groove.section,
+            &b.name,
+        ))
+    });
+    found
+}
+
 /// A fingerprint of what the folders hold: every entry's name, size and
 /// modification time, and one level into each kit folder. Equal
 /// fingerprints mean nothing worth a rescan has happened.
@@ -344,6 +397,25 @@ mod tests {
         assert_eq!(status.patterns.len(), 1);
         assert_eq!(status.patterns[0].name, "Beat");
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn the_stock_grooves_are_found_by_genre_and_section() {
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../patterns");
+        let grooves = scan_grooves(&[repo.clone(), repo]);
+        assert!(grooves.len() >= 60, "{}", grooves.len());
+        let names: std::collections::HashSet<&str> =
+            grooves.iter().map(|g| g.name.as_str()).collect();
+        assert_eq!(names.len(), grooves.len(), "a second root adds nothing new");
+        let rock: Vec<&StockGroove> = grooves
+            .iter()
+            .filter(|g| g.groove.genre == "Rock")
+            .collect();
+        assert_eq!(rock[0].groove.section, cantina_project::Section::Intro);
+        assert!(rock.iter().any(|g| g.name == "Rock verse"));
+        let json = serde_json::to_value(rock[0]).unwrap();
+        assert_eq!(json["genre"], "Rock");
+        assert_eq!(json["timeSignature"]["numerator"], 4);
     }
 
     #[test]
