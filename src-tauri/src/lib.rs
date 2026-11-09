@@ -143,6 +143,8 @@ pub fn run() {
             commands::clip_transcribe,
             commands::clip_tab,
             commands::clip_tab_requantise,
+            commands::clip_tab_refit,
+            commands::clip_tab_edit,
             commands::menu_state,
             commands::project_rename,
             commands::project_duplicate,

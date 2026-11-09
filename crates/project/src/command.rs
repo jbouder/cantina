@@ -15,7 +15,7 @@ use crate::model::{
     Clip, ClipId, LoopRegion, Pattern, PatternClip, PatternClipId, PatternId, PatternRow, Pedal,
     PedalId, Project, Strip, Tempo, Track, TrackId, MAX_PATTERN_STEPS,
 };
-use crate::tab::Tab;
+use crate::tab::{Tab, TabNote};
 
 /// Why a command was refused. The project is unchanged when one of these
 /// comes back.
@@ -140,6 +140,22 @@ pub enum Command {
         id: ClipId,
         /// The tab, checked before it is set.
         tab: Option<Box<Tab>>,
+    },
+    /// Edits a clip's tab note by note: takes away the notes at `remove`
+    /// (indices into its notes) and adds `add`. The notes are kept in
+    /// order of start, the lowest-pitched string first, as a
+    /// transcription writes them, so the inverse names the added notes
+    /// where they landed. Only the notes travel, never what
+    /// the transcription heard, so an edit is small in the journal.
+    EditTabNotes {
+        /// The clip.
+        id: ClipId,
+        /// Indices into the tab's notes, each at most once.
+        #[serde(default)]
+        remove: Vec<u32>,
+        /// Notes to add, checked against the tab.
+        #[serde(default)]
+        add: Vec<TabNote>,
     },
     /// Adds a pedal to a track's chain at `index` (clamped to the end).
     InsertPedal {
@@ -371,6 +387,15 @@ impl Command {
             Command::RemoveClip { .. } => "delete clip".into(),
             Command::SetClipTab { tab: Some(_), .. } => "set tab".into(),
             Command::SetClipTab { tab: None, .. } => "remove tab".into(),
+            Command::EditTabNotes { remove, add, .. } if remove.is_empty() => match add.len() {
+                1 => "add note".into(),
+                _ => "add notes".into(),
+            },
+            Command::EditTabNotes { remove, add, .. } if add.is_empty() => match remove.len() {
+                1 => "delete note".into(),
+                _ => "delete notes".into(),
+            },
+            Command::EditTabNotes { .. } => "edit tab".into(),
             Command::MoveClip { .. } => "move clip".into(),
             Command::TrimClip { .. } => "trim clip".into(),
             Command::SplitClip { .. } => "split clip".into(),
@@ -494,6 +519,26 @@ impl Command {
                 Ok(Command::SetClipTab {
                     id: *id,
                     tab: was.map(Box::new),
+                })
+            }
+            Command::EditTabNotes { id, remove, add } => {
+                let (track, index) = clip_index(project, *id)?;
+                let clip = &mut project.tracks[track].clips[index];
+                let name = clip.name.clone();
+                let tab = clip
+                    .tab
+                    .as_mut()
+                    .ok_or_else(|| CommandError::Invalid(format!("{name} has no tab")))?;
+                let (notes, added, removed) = edit_notes(&tab.notes, remove, add)?;
+                let was = std::mem::replace(&mut tab.notes, notes);
+                if let Err(e) = tab.validate() {
+                    tab.notes = was;
+                    return Err(CommandError::Invalid(e));
+                }
+                Ok(Command::EditTabNotes {
+                    id: *id,
+                    remove: added,
+                    add: removed,
                 })
             }
             Command::RemoveClip { id } => {
@@ -1060,6 +1105,51 @@ fn track_mut(project: &mut Project, id: TrackId) -> Result<&mut Track, CommandEr
 }
 
 /// Track index and clip index within it.
+/// The notes after an edit, in order, with where the added notes landed
+/// and the notes taken away, in the order they were.
+#[allow(clippy::type_complexity)]
+fn edit_notes(
+    notes: &[TabNote],
+    remove: &[u32],
+    add: &[TabNote],
+) -> Result<(Vec<TabNote>, Vec<u32>, Vec<TabNote>), CommandError> {
+    let mut gone = vec![false; notes.len()];
+    for &i in remove {
+        let slot = gone.get_mut(i as usize).ok_or_else(|| {
+            CommandError::Invalid(format!(
+                "the tab has {} notes; there is no note {}",
+                notes.len(),
+                i + 1
+            ))
+        })?;
+        if *slot {
+            return Err(CommandError::Invalid(format!(
+                "note {} is removed twice",
+                i + 1
+            )));
+        }
+        *slot = true;
+    }
+    let mut removed = Vec::with_capacity(remove.len());
+    let mut tagged: Vec<(TabNote, bool)> = Vec::with_capacity(notes.len() + add.len());
+    for (note, gone) in notes.iter().zip(&gone) {
+        if *gone {
+            removed.push(*note);
+        } else {
+            tagged.push((*note, false));
+        }
+    }
+    tagged.extend(add.iter().map(|n| (*n, true)));
+    tagged.sort_by_key(|(n, _)| (n.start, std::cmp::Reverse(n.string)));
+    let added = tagged
+        .iter()
+        .enumerate()
+        .filter(|(_, (_, new))| *new)
+        .map(|(i, _)| i as u32)
+        .collect();
+    Ok((tagged.into_iter().map(|(n, _)| n).collect(), added, removed))
+}
+
 fn clip_index(project: &Project, id: ClipId) -> Result<(usize, usize), CommandError> {
     project
         .tracks
@@ -1182,6 +1272,115 @@ mod tests {
         .unwrap_err();
         assert!(err.to_string().contains("3 strings"), "{err}");
         assert_eq!(q, p);
+    }
+
+    #[test]
+    fn tab_notes_are_edited_one_by_one_and_undone_exactly() {
+        let mut p = project();
+        let mut tab = crate::Tab::new("Riff", crate::Instrument::Guitar, 6).unwrap();
+        tab.notes = vec![
+            TabNote::new(6, 0, 0, 480),
+            TabNote::new(5, 2, 0, 480),
+            TabNote::new(6, 3, 480, 480),
+        ];
+        tab.heard.push(crate::HeardNote {
+            pitch: 40,
+            onset: 0.0,
+            length: 0.25,
+            velocity: 1.0,
+            bend: 0.0,
+        });
+        p.tracks[0].clips[0].tab = Some(tab);
+        let notes = |p: &Project| {
+            p.clip(ClipId(3))
+                .unwrap()
+                .1
+                .tab
+                .as_ref()
+                .unwrap()
+                .notes
+                .clone()
+        };
+
+        // Change a fret: take the note away and put it back changed.
+        let mut changed = TabNote::new(6, 5, 480, 480);
+        changed.hammer_on = true;
+        let edit = Command::EditTabNotes {
+            id: ClipId(3),
+            remove: vec![2],
+            add: vec![changed],
+        };
+        assert_eq!(edit.label(), "edit tab");
+        let after = round_trip(&p, edit);
+        assert_eq!(notes(&after)[2], changed);
+
+        // Added notes land in order, and only the notes move.
+        let add = Command::EditTabNotes {
+            id: ClipId(3),
+            remove: vec![],
+            add: vec![TabNote::new(1, 0, 240, 240)],
+        };
+        assert_eq!(add.label(), "add note");
+        let after = round_trip(&p, add);
+        assert_eq!(notes(&after)[2], TabNote::new(1, 0, 240, 240));
+        assert_eq!(
+            after
+                .clip(ClipId(3))
+                .unwrap()
+                .1
+                .tab
+                .as_ref()
+                .unwrap()
+                .heard
+                .len(),
+            1
+        );
+
+        let delete = Command::EditTabNotes {
+            id: ClipId(3),
+            remove: vec![0, 1],
+            add: vec![],
+        };
+        assert_eq!(delete.label(), "delete notes");
+        assert_eq!(notes(&round_trip(&p, delete)).len(), 1);
+
+        // Refused, and nothing changes: a note twice, a note not there, a
+        // string the tab does not have, a clip without a tab.
+        for bad in [
+            Command::EditTabNotes {
+                id: ClipId(3),
+                remove: vec![1, 1],
+                add: vec![],
+            },
+            Command::EditTabNotes {
+                id: ClipId(3),
+                remove: vec![9],
+                add: vec![],
+            },
+            Command::EditTabNotes {
+                id: ClipId(3),
+                remove: vec![],
+                add: vec![TabNote::new(7, 0, 0, 240)],
+            },
+            Command::EditTabNotes {
+                id: ClipId(99),
+                remove: vec![],
+                add: vec![],
+            },
+        ] {
+            let mut q = p.clone();
+            assert!(bad.apply(&mut q).is_err(), "{bad:?}");
+            assert_eq!(q, p);
+        }
+        let mut bare = project();
+        let err = Command::EditTabNotes {
+            id: ClipId(3),
+            remove: vec![],
+            add: vec![],
+        }
+        .apply(&mut bare)
+        .unwrap_err();
+        assert!(err.to_string().contains("no tab"), "{err}");
     }
 
     #[test]

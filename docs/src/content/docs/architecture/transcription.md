@@ -60,6 +60,15 @@ progress on the `render-progress` event and stopping between windows
 when asked. A stopped transcription changes nothing. A finished one is one
 `SetClipTab` command, so it is undone like any edit.
 
+Later edits to the notes, from the tab editor, re-fitting or
+re-quantising, are `EditTabNotes` commands: the indices of the notes
+taken away and the notes added. The notes are kept in order of start,
+the lowest-pitched string first, so the inverse names the added notes
+where they landed. Only notes travel, never what was heard, so an edit
+stays small in the journal. `tabs::refit` runs `fretboard::refit` over
+the selection; `tabs::requantise` rebuilds only the heard notes of the
+selected pitches that started within a beat of a selected note.
+
 ## From notes to a tab
 
 `src-tauri/src/tabs.rs` turns what the model heard into the clip's tab:
