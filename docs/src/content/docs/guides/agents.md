@@ -1,9 +1,9 @@
 ---
 title: "Authoring with an agent"
-description: "Ask a coding agent for a pedal, a beat or a drum kit and get a file that loads: the cantina-author skill, the write-check-render-place loop, the library folders and example prompts."
+description: "Ask a coding agent for a pedal, a rig, a beat or a drum kit and get a file that loads: the cantina-author skill, the write-check-render-place loop, the library folders and example prompts."
 ---
 
-Everything Cantina reads is JSON: pedals, drum kits, patterns and projects.
+Everything Cantina reads is JSON: pedals, rigs, drum kits, patterns and projects.
 A coding agent such as Claude Code can write any of them. Cantina gives it
 the three things it needs to get them right without you in the loop: a
 schema for every format, a command line tool that checks a file and
@@ -74,7 +74,8 @@ until the first three pass:
    passes.
 3. **Render** it: `cantina-cli render pedal <file> --di` plays a guitar DI
    through the pedal as the app would and reports peak, RMS, DC offset,
-   latency and clipping; `render pattern` plays a pattern through a kit. The
+   latency and clipping; `render rig` plays the DI of a rig's instrument
+   through its whole chain; `render pattern` plays a pattern through a kit. The
    [design rules](#what-good-looks-like) say what the numbers should be.
 4. **Place** it in a library folder. Cantina shows it within a second.
 
@@ -131,6 +132,9 @@ version, all of which `render` measures:
   a 20 Hz high-pass, so `dc` stays under 0.001.
 - Knobs are in real units (dB, Hz, ms, %), frequencies are log-mapped, and
   defaults are where the pedal sounds good on first insert.
+- Rigs play their instrument's DI at about -19 dBFS RMS with the peak
+  under -1.5 dBFS, leveled with the amp's `level`, as the [stock
+  rigs](/guides/rigs/) are.
 - Kits use the shared pad ids (`kick`, `snare`, `hh-closed`, `hh-open`,
   `tom-hi`, `tom-lo`) so patterns move between them; patterns hold exactly
   their length of velocities per row.
@@ -139,10 +143,11 @@ version, all of which `render` measures:
 
 Nothing here needs an agent. The same references serve a person:
 
-- the [pedal format](/reference/pedal-format/), [kit format](/reference/kit-format/)
-  and [pattern files](/guides/drums/#pattern-files);
+- the [pedal format](/reference/pedal-format/), [kit format](/reference/kit-format/),
+  [rig format](/reference/rig-format/) and [pattern files](/guides/drums/#pattern-files);
 - a generated page per schema: [pedal](/reference/schemas/pedal/),
   [kit](/reference/schemas/kit/), [kit recipe](/reference/schemas/kit-recipe/),
-  [pattern](/reference/schemas/pattern/) and [project](/reference/schemas/project/);
+  [pattern](/reference/schemas/pattern/), [rig](/reference/schemas/rig/) and
+  [project](/reference/schemas/project/);
 - `cantina-cli check` and `render` from a terminal, and an editor that
   validates against the `"$schema"` as you type.

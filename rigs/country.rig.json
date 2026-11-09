@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "name": "Country",
+  "genre": "Country",
+  "description": "Snappy chicken pickin': hard compression, a bright clean amp and a slapback echo.",
+  "instrument": "guitar",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "compressor",
+      "params": {
+        "threshold": -28,
+        "ratio": 5,
+        "attack": 1,
+        "release": 100,
+        "makeup": 6
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 4,
+        "bass": -1,
+        "mid": -2,
+        "treble": 5,
+        "presence": 4,
+        "level": 2.1
+      }
+    },
+    {
+      "pedal": "cab:1x12-open-back"
+    },
+    {
+      "pedal": "delay",
+      "params": {
+        "time": 110,
+        "feedback": 8,
+        "mix": 28
+      }
+    },
+    {
+      "pedal": "reverb",
+      "params": {
+        "size": 35,
+        "decay": 1.0,
+        "mix": 10
+      }
+    }
+  ]
+}

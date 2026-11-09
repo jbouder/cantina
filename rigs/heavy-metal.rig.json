@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "name": "Heavy Metal",
+  "genre": "Metal",
+  "description": "Classic heavy metal: a hot distortion into a cranked amp, mids intact, a touch of delay for leads.",
+  "instrument": "guitar",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "gate",
+      "params": {
+        "threshold": -62,
+        "release": 80
+      }
+    },
+    {
+      "pedal": "distortion",
+      "params": {
+        "drive": 22,
+        "tone": 3500,
+        "level": -6
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 26,
+        "bass": 2,
+        "mid": 2,
+        "treble": 2,
+        "presence": 2,
+        "level": -21.8
+      }
+    },
+    {
+      "pedal": "cab:4x12-modern"
+    },
+    {
+      "pedal": "delay",
+      "params": {
+        "time": 380,
+        "feedback": 20,
+        "mix": 12
+      }
+    },
+    {
+      "pedal": "reverb",
+      "params": {
+        "size": 45,
+        "decay": 1.6,
+        "mix": 12
+      }
+    }
+  ]
+}

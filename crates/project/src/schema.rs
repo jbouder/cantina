@@ -11,7 +11,7 @@
 //! UPDATE_SCHEMAS=1 cargo test -p cantina-project schemas
 //! ```
 //!
-//! regenerates them all (pedal, kit, kit recipe, pattern, tab and project), and
+//! regenerates them all (pedal, kit, kit recipe, pattern, tab, rig and project), and
 //! the same test fails when any is stale.
 
 use serde_json::{json, Value};
@@ -117,6 +117,31 @@ pub fn tab() -> Value {
     limit_tab(&mut s);
     limit_tempo(&mut s["$defs"]);
     limit_tab_defs(&mut s["$defs"]);
+    tidy(&mut s);
+    s
+}
+
+/// The schema for a `<name>.rig.json`: a chain of pedals with their
+/// settings. Which parameters a pedal has is left to `cantina-cli check`,
+/// which builds it.
+pub fn rig() -> Value {
+    let mut s = schemars::schema_for!(crate::Rig).to_value();
+    s["$id"] = json!(format!("{SITE}/rig.schema.json"));
+    s["title"] = json!("Cantina rig");
+    s["description"] = json!(
+        "A chain of pedals with their settings: a name, a genre, a line on what it sounds \
+         like, the instrument it suits, the input gain it expects and the pedals in order. \
+         Pedals are named as a project names them (a stock name, `cab:<impulse>`, \
+         `pedal:<id>`, `au:…`, `clap:…`) and their parameters by id or label."
+    );
+    let props = &mut s["properties"];
+    props["$schema"] = json!({ "type": "string" });
+    props["version"]["minimum"] = json!(1);
+    props["version"]["maximum"] = json!(crate::RIG_VERSION);
+    props["name"]["minLength"] = json!(1);
+    props["inputGainDb"]["minimum"] = json!(-crate::MAX_INPUT_GAIN_DB);
+    props["inputGainDb"]["maximum"] = json!(crate::MAX_INPUT_GAIN_DB);
+    s["$defs"]["RigPedal"]["properties"]["pedal"]["minLength"] = json!(1);
     tidy(&mut s);
     s
 }
@@ -229,7 +254,7 @@ mod tests {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
     }
 
-    fn all() -> [(&'static str, Value); 6] {
+    fn all() -> [(&'static str, Value); 7] {
         [
             ("pedal", cantina_dsp::schema::pedal()),
             ("kit", cantina_dsp::schema::kit()),
@@ -237,6 +262,7 @@ mod tests {
             ("pattern", pattern()),
             ("tab", tab()),
             ("project", project()),
+            ("rig", rig()),
         ]
     }
 
@@ -290,7 +316,8 @@ mod tests {
 
     #[test]
     fn schemas_every_stock_file_validates() {
-        let [pedal, kit, recipe, pattern_s, tab_s, project_s] = all().map(|(_, s)| validator(&s));
+        let [pedal, kit, recipe, pattern_s, tab_s, project_s, rig_s] =
+            all().map(|(_, s)| validator(&s));
         let pedals = files(&root().join("pedals"), ".pedal.json");
         assert!(!pedals.is_empty(), "no stock pedals found");
         pedals.iter().for_each(|p| assert_valid(&pedal, p));
@@ -300,6 +327,13 @@ mod tests {
         let recipes = files(&root().join("recipes"), ".recipe.json");
         assert!(!recipes.is_empty(), "no stock kit recipes found");
         recipes.iter().for_each(|r| assert_valid(&recipe, r));
+        let rigs = files(&root().join("rigs"), ".rig.json");
+        assert!(!rigs.is_empty(), "no stock rigs found");
+        for r in &rigs {
+            assert_valid(&rig_s, r);
+            crate::rig_from_json(&std::fs::read_to_string(r).unwrap())
+                .unwrap_or_else(|e| panic!("{}: {e}", r.display()));
+        }
         let v10 = root().join("crates/project/tests/fixtures/v10.json");
         assert_valid(&project_s, &v10);
         // Each pattern in a project, without its id, is a pattern file.

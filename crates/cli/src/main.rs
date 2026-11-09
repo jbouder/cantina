@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use cantina_cli::render::{self, Source, Stats};
+use cantina_cli::rig::RigRoots;
 use cantina_cli::{check, synth, CheckOptions, Format, EXIT_INVALID, EXIT_OK, EXIT_USAGE};
 use clap::{Args, Parser, Subcommand};
 
@@ -21,7 +22,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Validate a pedal, kit, kit recipe, pattern, tab or project against its
+    /// Validate a pedal, kit, kit recipe, pattern, tab, rig or project against its
     /// schema and the rules the app enforces beyond it.
     Check {
         /// A file, or a kit or project folder.
@@ -35,11 +36,13 @@ enum Command {
         /// For a project: more folders of kits to find its drum tracks' kits in.
         #[arg(long = "kits")]
         kit_roots: Vec<PathBuf>,
+        #[command(flatten)]
+        roots: RootArgs,
         /// Print the result as JSON on stdout.
         #[arg(long)]
         json: bool,
     },
-    /// Render a pedal or a pattern offline to a WAV and print its levels.
+    /// Render a pedal, a rig or a pattern offline to a WAV and print its levels.
     #[command(subcommand)]
     Render(RenderCommand),
     /// Print the pedal node catalog: every kind, its fields, ranges and rules.
@@ -86,6 +89,26 @@ enum RenderCommand {
         #[command(flatten)]
         output: OutputArgs,
     },
+    /// Run a rig's chain over the DI of its instrument, a tone or a WAV.
+    Rig {
+        /// The `*.rig.json`.
+        file: PathBuf,
+        #[command(flatten)]
+        source: SourceArgs,
+        #[command(flatten)]
+        roots: RootArgs,
+        /// Seconds of silence after the input, for tails to ring out.
+        #[arg(long, default_value_t = 0.5)]
+        tail: f32,
+        /// Seconds of tone, with --tone.
+        #[arg(long, default_value_t = 2.0)]
+        seconds: f32,
+        /// Tempo the transport rolls at, for synced modulation and delay.
+        #[arg(long, default_value_t = 120.0)]
+        bpm: f64,
+        #[command(flatten)]
+        output: OutputArgs,
+    },
     /// Play a pattern through a kit, on the app's sequencer and sampler.
     Pattern {
         /// The `*.pattern.json`.
@@ -116,9 +139,40 @@ struct SourceArgs {
     /// Feed it a sine at this frequency, at -12 dBFS.
     #[arg(long)]
     tone: Option<f32>,
-    /// Feed it the guitar DI fixture (the default).
+    /// Feed it the guitar DI fixture (the default, but for a bass rig).
     #[arg(long)]
     di: bool,
+    /// Feed it the bass DI fixture (the default for a bass rig).
+    #[arg(long)]
+    bass_di: bool,
+}
+
+impl SourceArgs {
+    /// What to feed, `default` when nothing is named.
+    fn source(self, default: Source) -> anyhow::Result<Source> {
+        Ok(if let Some(path) = self.input {
+            let (rate, channels) = render::read_wav(&path)?;
+            Source::Audio(rate, channels)
+        } else if let Some(hz) = self.tone {
+            Source::Tone(hz)
+        } else if self.di {
+            Source::Di
+        } else if self.bass_di {
+            Source::BassDi
+        } else {
+            default
+        })
+    }
+}
+
+#[derive(Args)]
+struct RootArgs {
+    /// For a rig: more folders of impulse responses for its cabinets.
+    #[arg(long = "irs")]
+    irs: Vec<PathBuf>,
+    /// For a rig: more folders of designed pedals for its `pedal:<id>`s.
+    #[arg(long = "pedals")]
+    pedals: Vec<PathBuf>,
 }
 
 #[derive(Args)]
@@ -168,6 +222,7 @@ fn run(command: Command) -> anyhow::Result<i32> {
             format,
             kit,
             kit_roots,
+            roots,
             json,
         } => {
             if !path.exists() {
@@ -178,6 +233,8 @@ fn run(command: Command) -> anyhow::Result<i32> {
                 format,
                 kit,
                 kit_roots,
+                ir_roots: roots.irs,
+                pedal_roots: roots.pedals,
             };
             let result = check(&path, &options);
             if json {
@@ -237,17 +294,53 @@ fn run(command: Command) -> anyhow::Result<i32> {
                     return Ok(EXIT_INVALID);
                 }
             };
-            let source = if let Some(path) = source.input {
-                let (rate, channels) = render::read_wav(&path)?;
-                Source::Audio(rate, channels)
-            } else if let Some(hz) = source.tone {
-                Source::Tone(hz)
-            } else {
-                Source::Di
-            };
-            let (rate, input) = source.signal(seconds);
+            let (rate, input) = source.source(Source::Di)?.signal(seconds);
             let tail = (tail.max(0.0) as f64 * rate) as usize;
             let (out, latency) = render::render_pedal(&def, &settings, rate, &input, tail, bpm)?;
+            finish(&file, &output, rate, &out, latency)
+        }
+        Command::Render(RenderCommand::Rig {
+            file,
+            source,
+            roots,
+            tail,
+            seconds,
+            bpm,
+            output,
+        }) => {
+            let text = std::fs::read_to_string(&file)?;
+            let rig = match cantina_project::rig_from_json(&text) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("invalid rig: {}", file.display());
+                    for p in e.problems() {
+                        eprintln!("  {p}");
+                    }
+                    return Ok(EXIT_INVALID);
+                }
+            };
+            let roots = RigRoots::with_defaults(&roots.irs, &roots.pedals);
+            let mut built = match cantina_cli::rig::build(&rig, &roots, 1) {
+                Ok(b) => b,
+                Err(problems) => {
+                    eprintln!("invalid rig: {}", file.display());
+                    for p in problems {
+                        eprintln!("  {p}");
+                    }
+                    return Ok(EXIT_INVALID);
+                }
+            };
+            for m in &built.missing {
+                eprintln!("warning: {m}");
+            }
+            let default = match rig.instrument {
+                cantina_project::Instrument::Guitar => Source::Di,
+                cantina_project::Instrument::Bass => Source::BassDi,
+            };
+            let (rate, input) = source.source(default)?.signal(seconds);
+            let tail = (tail.max(0.0) as f64 * rate) as usize;
+            let (out, latency) =
+                cantina_cli::rig::render(&rig, &mut built, rate, &input, tail, bpm);
             finish(&file, &output, rate, &out, latency)
         }
         Command::Render(RenderCommand::Pattern {

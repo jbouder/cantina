@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "name": "Bass Funk",
+  "genre": "Funk",
+  "description": "Slap-ready: heavy compression, deep lows, scooped mids and a bright top.",
+  "instrument": "bass",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "compressor",
+      "params": {
+        "threshold": -30,
+        "ratio": 8,
+        "attack": 2,
+        "release": 80,
+        "makeup": 8
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 4,
+        "bass": 5,
+        "mid": -5,
+        "treble": 5,
+        "presence": 3,
+        "level": -11.4
+      }
+    },
+    {
+      "pedal": "cab:4x10-bass"
+    }
+  ]
+}

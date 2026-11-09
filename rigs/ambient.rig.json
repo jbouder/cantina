@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "name": "Ambient",
+  "genre": "Ambient",
+  "description": "Clean swells into long ping-pong delays and a huge, dark reverb.",
+  "instrument": "guitar",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "compressor",
+      "params": {
+        "threshold": -28,
+        "ratio": 3,
+        "attack": 15,
+        "release": 300,
+        "makeup": 4
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 3,
+        "bass": 1,
+        "treble": -2,
+        "level": 6.3
+      }
+    },
+    {
+      "pedal": "cab:2x12-closed"
+    },
+    {
+      "pedal": "chorus",
+      "params": {
+        "rate": 0.3,
+        "depth": 40,
+        "mix": 25
+      }
+    },
+    {
+      "pedal": "delay",
+      "params": {
+        "time": 600,
+        "feedback": 55,
+        "tone": 3000,
+        "mix": 40,
+        "mode": "Ping-pong"
+      }
+    },
+    {
+      "pedal": "reverb",
+      "params": {
+        "size": 95,
+        "decay": 10,
+        "damping": 65,
+        "pre-delay": 40,
+        "mix": 50
+      }
+    }
+  ]
+}

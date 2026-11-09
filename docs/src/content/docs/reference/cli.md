@@ -1,11 +1,11 @@
 ---
 title: "Command line"
-description: "cantina-cli checks, renders and lists everything Cantina reads, without the app: pedals, kits, kit recipes, patterns, tabs and projects."
+description: "cantina-cli checks, renders and lists everything Cantina reads, without the app: pedals, kits, kit recipes, patterns, tabs, rigs and projects."
 ---
 
 `cantina-cli` proves a file works without a window, a microphone or anyone
 listening. It checks a file against its schema and the app's rules, renders
-a pedal or a pattern through the same processors the app builds, and
+a pedal, a rig or a pattern through the same processors the app builds, and
 prints the node catalog and the schemas. It is built from `crates/cli` in
 the repository:
 
@@ -28,14 +28,16 @@ has that name.
 ## check
 
 ```sh
-cantina-cli check <file or folder> [--as <format>] [--kit <dir>] [--kits <dir>]... [--json]
+cantina-cli check <file or folder> [--as <format>] [--kit <dir>] [--kits <dir>]...
+    [--irs <dir>]... [--pedals <dir>]... [--json]
 ```
 
 Validates a pedal (`*.pedal.json`), a kit (a folder with `kit.json`), a kit
 recipe (`*.recipe.json`), a pattern (`*.pattern.json`), a tab
-(`*.tab.json`) or a project (a folder with `project.json`). The format
-comes from the name, then a `$schema` field, then the keys;
-`--as pedal|kit|kit-recipe|pattern|tab|project` overrides it.
+(`*.tab.json`), a [rig](/reference/rig-format/) (`*.rig.json`) or a project
+(a folder with `project.json`). The format comes from the name, then a
+`$schema` field, then the keys;
+`--as pedal|kit|kit-recipe|pattern|tab|rig|project` overrides it.
 
 First the file is checked against its [schema](/schemas/pedal.schema.json),
 with each problem at its JSON pointer and, inside a pedal, the node's id
@@ -58,6 +60,14 @@ Then the rules beyond the schema, the ones the app enforces:
   to 6), every note is on a string the tuning has, and bends are more
   than 0 and at most 4 semitones. The summary names the tuning, the capo
   and how many bars the notes cover.
+- **Rig**: every pedal is built as the app builds it and every parameter
+  name resolves to one of its parameters, by id or label, with a value in
+  range or an option it has. Cabinets' impulses are looked for in `--irs`,
+  then `~/Music/Cantina/IRs`, then the stock ones; designed pedals in
+  `--pedals`, then `~/Music/Cantina/Pedals`. A plugin, designed pedal or
+  impulse that is not installed is a warning: the app plays the rest of
+  the rig without it. The summary names the instrument, the genre, the
+  pedal count and the chain's latency.
 - **Project**: every pedal in a chain is a stock pedal, a plugin, or a
   designed pedal whose `pedals/<id>.pedal.json` is in the project and
   compiles; each drum track's kit is found (in `--kits`, then
@@ -66,7 +76,8 @@ Then the rules beyond the schema, the ones the app enforces:
   is checked as a tab file is.
 
 Warnings (a pattern with no hits, a chain with fewer values than its pedal
-has parameters, two notes sounding at once on one string of a tab) are printed but do not fail. `--json` prints
+has parameters, two notes sounding at once on one string of a tab, a rig
+pedal that is not installed) are printed but do not fail. `--json` prints
 `{"valid", "format", "summary", "warnings"}` or `{"valid": false,
 "problems"}` on stdout.
 
@@ -102,6 +113,22 @@ that are not numbers fail the render with status 1.
 Each stock pedal rendered this way matches the golden files the dsp crate
 is tested against, so the CLI hears what the app plays.
 
+## render rig
+
+```sh
+cantina-cli render rig <file> [--di | --bass-di | --tone <hz> | --input <wav>]
+    [--irs <dir>]... [--pedals <dir>]... [--seconds 2] [--tail 0.5] [--bpm 120]
+    [-o out.wav] [--json]
+```
+
+Runs a rig's chain, after its `inputGainDb`, over the DI of its
+instrument: the guitar DI for a guitar rig, the bass DI (four seconds of a
+synthesised bass line at DI level, `crates/cli/fixtures/di-bass.wav`) for a
+bass rig, or whatever source is named. Bypassed pedals are skipped and
+pedals that are not installed are left out with a warning, as in the app.
+The numbers are the same as for a pedal; `latency` is the whole chain's.
+Only the file plays a part: a render is the same on every machine.
+
 ## render pattern
 
 ```sh
@@ -127,7 +154,7 @@ the result. The same recipe always writes the same bytes.
 
 ```sh
 cantina-cli kinds [--json]
-cantina-cli schema <pedal|kit|kit-recipe|pattern|tab|project>
+cantina-cli schema <pedal|kit|kit-recipe|pattern|tab|rig|project>
 ```
 
 `kinds` prints the pedal node catalog: every kind, its fields with ranges,

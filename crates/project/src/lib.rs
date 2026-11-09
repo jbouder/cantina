@@ -12,6 +12,7 @@ mod history;
 mod journal;
 mod model;
 mod pattern_file;
+mod rig;
 #[cfg(any(test, feature = "schema"))]
 pub mod schema;
 mod tab;
@@ -33,6 +34,10 @@ pub use model::{
 pub use pattern_file::{
     groove_from_json, imported, pattern_file_name, pattern_from_json, pattern_to_json, Feel,
     Groove, Meter, Section, TempoRange, PATTERN_SUFFIX,
+};
+pub use rig::{
+    decode_base64, encode_base64, resolve_values, rig_file_name, rig_from_json, rig_to_json,
+    ParamSlot, ParamValue, Rig, RigError, RigPedal, MAX_INPUT_GAIN_DB, RIG_SUFFIX, RIG_VERSION,
 };
 pub use tab::{
     tab_from_json, tab_to_json, Bend, HeardNote, Instrument, Tab, TabNote, MAX_BEND, MAX_FRET,

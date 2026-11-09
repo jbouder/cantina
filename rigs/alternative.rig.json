@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "name": "Alternative",
+  "genre": "Alternative",
+  "description": "A gritty distortion into a mid-gain amp with a little chorus for width.",
+  "instrument": "guitar",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "distortion",
+      "params": {
+        "drive": 18,
+        "tone": 2800,
+        "level": -8,
+        "curve": "Soft"
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 12,
+        "bass": 1,
+        "mid": 1,
+        "treble": 2,
+        "level": -18.6
+      }
+    },
+    {
+      "pedal": "cab:2x12-closed"
+    },
+    {
+      "pedal": "chorus",
+      "params": {
+        "rate": 0.6,
+        "depth": 30,
+        "mix": 20
+      }
+    },
+    {
+      "pedal": "reverb",
+      "params": {
+        "size": 45,
+        "decay": 1.5,
+        "mix": 14
+      }
+    }
+  ]
+}

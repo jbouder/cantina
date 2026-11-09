@@ -1,12 +1,12 @@
 ---
 name: cantina-author
-description: Write files for Cantina, the Mac guitar studio. Covers pedals (*.pedal.json effect graphs such as drives, fuzz, chorus, tremolo and delay), drum kit recipes (*.recipe.json, synthesised into a kit), drum patterns (*.pattern.json beats) and projects (project.json). Checks each file with cantina-cli and renders it before putting it in the ~/Music/Cantina library, where the running app picks it up. Use when asked for a Cantina pedal, effect, beat, groove, drum pattern, drum kit or project, or to fix one that will not load.
+description: Write files for Cantina, the Mac guitar studio. Covers pedals (*.pedal.json effect graphs such as drives, fuzz, chorus, tremolo and delay), drum kit recipes (*.recipe.json, synthesised into a kit), drum patterns (*.pattern.json beats), rigs (*.rig.json, a chain of pedals with settings for a style) and projects (project.json). Checks each file with cantina-cli and renders it before putting it in the ~/Music/Cantina library, where the running app picks it up. Use when asked for a Cantina pedal, effect, tone, rig, beat, groove, drum pattern, drum kit or project, or to fix one that will not load.
 ---
 
 # Authoring for Cantina
 
-Cantina reads everything as JSON: pedals, kits, kit recipes, patterns and
-projects. Every format has a JSON Schema, and `cantina-cli` checks a file
+Cantina reads everything as JSON: pedals, kits, kit recipes, patterns, rigs
+and projects. Every format has a JSON Schema, and `cantina-cli` checks a file
 the way the app does and renders it through the app's own processors. Do
 not hand a file over until `check` passes and `render` sounds sane by the
 numbers.
@@ -21,7 +21,7 @@ numbers.
    example in [examples/](examples/).
 2. **Draft** the file. Put `"$schema"` first so editors validate it:
    `https://cantina-docs.vibeproject.workers.dev/schemas/<format>.schema.json`,
-   where `<format>` is `pedal`, `kit`, `kit-recipe`, `pattern` or `project`.
+   where `<format>` is `pedal`, `kit`, `kit-recipe`, `pattern`, `rig` or `project`.
 3. **Check** it, and fix every problem it prints, then check again:
 
    ```sh
@@ -40,6 +40,7 @@ numbers.
    cantina-cli render pedal my-fuzz.pedal.json --tone 110   # a sine, -12 dBFS
    cantina-cli render pedal my-fuzz.pedal.json --set drive=40 --set level=-12
    cantina-cli render pattern half-time.pattern.json --kit <kit dir> --bpm 140
+   cantina-cli render rig crunch.rig.json                    # its instrument's DI
    ```
 
    Then judge it against the design rules:
@@ -82,6 +83,22 @@ are `kick`, `snare`, `hat`, `clap`, `tom` and `cowbell`, shaped by `pitch`,
 [examples/boom-bap.recipe.json](examples/boom-bap.recipe.json). A person
 can swap real samples in later by editing `kit.json`.
 
+## Rigs
+
+A rig is a chain of existing pedals with their settings, for a style:
+"a metalcore tone". Build it from stock pedals (`cantina-cli check` lists
+them when one is wrong), cabinets as `cab:<impulse>` (`4x12-modern`,
+`2x12-closed`, `1x12-open-back`, `4x10-bass`) and designed pedals as
+`pedal:<id>`. Name parameters by id or label (`"drive": 18`,
+`"curve": "Soft"`, `"sync": true`); anything left out is at its default.
+Start from a stock rig in `rigs/` of the repository or
+[examples/crunch.rig.json](examples/crunch.rig.json).
+
+Level it: `render rig` plays the DI of the rig's `instrument` through it.
+The stock rigs sit at about -19 dBFS RMS (cleans a little lower, peaks
+under -1.5 dBFS); set the amp's `level` so yours does too, so switching
+rigs does not jump in volume.
+
 ## Running the CLI
 
 In the Cantina repository: `cargo run -q -p cantina-cli -- <command>`.
@@ -98,6 +115,7 @@ Installed: `cantina-cli <command>` (`cargo install --path crates/cli`).
 | [dark-echo.pedal.json](examples/dark-echo.pedal.json) | A delay: `split`, a feedback `delay` darkened by a low-pass, a wet `gain`, summed in a `mix` |
 | [boom-bap.recipe.json](examples/boom-bap.recipe.json) | A kit recipe: shared pad ids, hats in a choke group, balanced with `gainDb` |
 | [half-time.pattern.json](examples/half-time.pattern.json) | A two-bar half-time beat: snare on 3, accents, ghost notes, open hat, light swing |
+| [crunch.rig.json](examples/crunch.rig.json) | A rig: a light overdrive into a mid-gain amp and a two-twelve, a choice by name, leveled with the amp |
 
 [fixtures/](fixtures/) holds one-line prompts and what was written for
 them; every example and fixture is checked and rendered in CI by

@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "name": "Bass Clean",
+  "genre": "Clean",
+  "description": "Round and even: gentle compression into a clean bass amp and a four-ten.",
+  "instrument": "bass",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "compressor",
+      "params": {
+        "threshold": -24,
+        "ratio": 3,
+        "attack": 15,
+        "release": 150,
+        "makeup": 3
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 2,
+        "bass": 3,
+        "mid": 0,
+        "treble": -2,
+        "presence": -3,
+        "level": -11.8
+      }
+    },
+    {
+      "pedal": "cab:4x10-bass"
+    }
+  ]
+}

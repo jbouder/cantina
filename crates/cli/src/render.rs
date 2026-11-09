@@ -29,6 +29,8 @@ pub const RATE: f64 = 48_000.0;
 pub enum Source {
     /// The guitar DI fixture.
     Di,
+    /// The bass DI fixture.
+    BassDi,
     /// A sine at this frequency, at -12 dBFS.
     Tone(f32),
     /// Channels and their rate, from a file.
@@ -42,6 +44,13 @@ impl Source {
             Source::Di => (
                 crate::di::DI_RATE as f64,
                 vec![crate::di::quantize(&crate::di::synthesize())
+                    .into_iter()
+                    .map(|s| s as f32 / i16::MAX as f32)
+                    .collect()],
+            ),
+            Source::BassDi => (
+                crate::di::DI_RATE as f64,
+                vec![crate::di::quantize(&crate::di::synthesize_bass())
                     .into_iter()
                     .map(|s| s as f32 / i16::MAX as f32)
                     .collect()],

@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "name": "Punk",
+  "genre": "Punk",
+  "description": "Bright, aggressive distortion with the mids left in: three chords and the truth.",
+  "instrument": "guitar",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "distortion",
+      "params": {
+        "drive": 24,
+        "tone": 4000,
+        "level": -8
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 18,
+        "bass": 1,
+        "mid": 2,
+        "treble": 3,
+        "presence": 2,
+        "level": -24
+      }
+    },
+    {
+      "pedal": "cab:2x12-closed"
+    }
+  ]
+}

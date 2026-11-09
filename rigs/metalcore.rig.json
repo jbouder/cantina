@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "name": "Metalcore",
+  "genre": "Metal",
+  "description": "Tight, gated high gain with a boosted front end and a scooped mid for chugs and breakdowns.",
+  "instrument": "guitar",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "gate",
+      "params": {
+        "threshold": -58,
+        "attack": 0.5,
+        "hold": 20,
+        "release": 40
+      }
+    },
+    {
+      "pedal": "overdrive",
+      "params": {
+        "drive": 4,
+        "tone": 4500,
+        "level": 0,
+        "curve": "Hard"
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 34,
+        "bass": 3,
+        "mid": -5,
+        "treble": 3,
+        "presence": 4,
+        "level": -20.7
+      }
+    },
+    {
+      "pedal": "cab:4x12-modern"
+    },
+    {
+      "pedal": "reverb",
+      "params": {
+        "size": 30,
+        "decay": 0.8,
+        "mix": 8
+      }
+    }
+  ]
+}

@@ -93,6 +93,7 @@ export default defineConfig({
             { label: "Recording and editing", slug: "guides/recording" },
             { label: "Exporting and bouncing", slug: "guides/mixdown" },
             { label: "Pedals", slug: "guides/pedals" },
+            { label: "Rigs", slug: "guides/rigs" },
             { label: "Designing pedals", slug: "guides/designer" },
             { label: "Drums", slug: "guides/drums" },
             { label: "Tabs", slug: "guides/tabs" },

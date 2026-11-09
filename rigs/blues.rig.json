@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "name": "Blues",
+  "genre": "Blues",
+  "description": "A light overdrive into a small combo just breaking up, with a spring-sized reverb.",
+  "instrument": "guitar",
+  "inputGainDb": 0,
+  "chain": [
+    {
+      "pedal": "compressor",
+      "params": {
+        "threshold": -24,
+        "ratio": 2.5,
+        "attack": 20,
+        "release": 150,
+        "makeup": 3
+      }
+    },
+    {
+      "pedal": "overdrive",
+      "params": {
+        "drive": 10,
+        "tone": 2500,
+        "level": -4,
+        "curve": "Soft"
+      }
+    },
+    {
+      "pedal": "amp",
+      "params": {
+        "gain": 12,
+        "bass": 1,
+        "mid": 3,
+        "treble": 0,
+        "level": -13.0
+      }
+    },
+    {
+      "pedal": "cab:1x12-open-back"
+    },
+    {
+      "pedal": "reverb",
+      "params": {
+        "size": 40,
+        "decay": 1.8,
+        "mix": 24
+      }
+    }
+  ]
+}
