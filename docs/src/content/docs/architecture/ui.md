@@ -29,6 +29,19 @@ A file's samples are reduced once, in a Web Worker (`peaks.worker.ts`), into min
 
 Edits are previewed on the canvas while dragging and become one command when the pointer is released.
 
+## The tab view
+
+`TabView.tsx` draws a clip's tab as SVG in the display material. Layout is
+`ui/src/lib/tabLayout.ts`, pure and tested: bars from the tab's own tempo
+and time signature, a note's x from its tick within its bar, rows of bars
+for the page view, the written rhythm nearest each beat's length, and the
+labels for frets and techniques. The playhead becomes a tick through the
+clip's anchor (`clip.start - clip.offset + tab.origin`), so the cursor
+stays on the notes when the clip is moved or trimmed; a click or a key
+turns the tick back into a sample for `transportLocate`. The shell sends
+the whole tab only when the view asks for it (`clip_tab`); the status
+carries a summary.
+
 ## Dragging
 
 Drags inside the window use pointer events, not HTML drag and drop. On

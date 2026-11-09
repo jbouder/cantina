@@ -631,6 +631,16 @@ impl EngineState {
         })
     }
 
+    /// A clip's whole tab; `None` when it has none.
+    pub fn clip_tab(&self, id: u64) -> Result<Option<cantina_project::Tab>> {
+        let engine = self.lock();
+        let (_, clip) = engine
+            .project
+            .clip(ClipId(id))
+            .with_context(|| format!("no clip {id}"))?;
+        Ok(clip.tab.clone())
+    }
+
     /// Builds a transcribed tab's notes again on another grid, from what
     /// it heard, as one undoable edit. Nothing is transcribed again.
     pub fn clip_tab_requantise(&self, id: u64, grid: tabs::Grid) -> Result<EngineStatus> {

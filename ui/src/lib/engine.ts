@@ -359,6 +359,42 @@ export interface TabSummary {
   transcribed: boolean;
 }
 
+/** A note in a tab. Mirrors `TabNote` in cantina-project; techniques that are off are left out. */
+export interface TabNote {
+  /** 1 for the highest-pitched string. */
+  string: number;
+  /** Counted from the capo. */
+  fret: number;
+  /** Ticks from the tab's start, 960 per quarter note. */
+  start: number;
+  length: number;
+  velocity?: number;
+  bend?: { semitones: number; release?: boolean };
+  slide?: boolean;
+  hammerOn?: boolean;
+  pullOff?: boolean;
+  palmMute?: boolean;
+  letRing?: boolean;
+  vibrato?: boolean;
+  harmonic?: boolean;
+  dead?: boolean;
+  tap?: boolean;
+}
+
+/** A clip's whole tab. Mirrors `Tab` in cantina-project. */
+export interface Tab {
+  name: string;
+  instrument: Instrument;
+  /** Open strings, lowest first, as MIDI notes. */
+  tuning: number[];
+  capo?: number;
+  /** The tempo the ticks were written against. */
+  tempo: Tempo;
+  /** The frame of the clip's file where tick 0 falls. */
+  origin?: number;
+  notes: TabNote[];
+}
+
 /** The grid a transcription quantises to: eighths, sixteenths or their triplets. */
 export type TabGrid = "1/8" | "1/16" | "1/8t" | "1/16t";
 
@@ -1994,7 +2030,77 @@ export async function clipTranscribe(id: number, settings: TabSettings): Promise
     notes,
     transcribed: true,
   };
+  mockTabs.delete(id);
   return mockEdit("set tab");
+}
+
+/** The stand-in's tabs, made up on first look and kept. */
+const mockTabs = new Map<number, Tab>();
+
+/**
+ * The stand-in's tab for a clip: a two-bar riff that uses every
+ * technique the format has, and a triplet, repeated for the clip.
+ */
+function mockTab(clip: ClipInfo): Tab {
+  const summary = clip.tab as TabSummary;
+  const strings = summary.tuning.length;
+  const riff: TabNote[] = [
+    { string: 6, fret: 0, start: 0, length: 240, palmMute: true },
+    { string: 6, fret: 0, start: 240, length: 240, palmMute: true },
+    { string: 6, fret: 0, start: 480, length: 240, palmMute: true },
+    { string: 6, fret: 3, start: 720, length: 240 },
+    { string: 5, fret: 5, start: 720, length: 240 },
+    { string: 4, fret: 5, start: 720, length: 240 },
+    { string: 6, fret: 0, start: 960, length: 240, palmMute: true },
+    { string: 6, fret: 0, start: 1200, length: 240, palmMute: true },
+    { string: 6, fret: 5, start: 1440, length: 480, letRing: true },
+    { string: 5, fret: 7, start: 1440, length: 480, letRing: true },
+    { string: 4, fret: 7, start: 1440, length: 480, letRing: true },
+    { string: 3, fret: 5, start: 1920, length: 240 },
+    { string: 3, fret: 7, start: 2160, length: 240, hammerOn: true },
+    { string: 3, fret: 5, start: 2400, length: 240, pullOff: true },
+    { string: 4, fret: 7, start: 2640, length: 240, slide: true },
+    { string: 4, fret: 9, start: 2880, length: 480 },
+    { string: 2, fret: 8, start: 3360, length: 480, bend: { semitones: 2, release: true } },
+    { string: 1, fret: 12, start: 3840, length: 960, harmonic: true },
+    { string: 3, fret: 0, start: 4800, length: 240, dead: true },
+    { string: 3, fret: 0, start: 5040, length: 240, dead: true },
+    { string: 3, fret: 7, start: 5280, length: 480, vibrato: true },
+    { string: 1, fret: 15, start: 5760, length: 320, tap: true },
+    { string: 1, fret: 12, start: 6080, length: 320, pullOff: true },
+    { string: 2, fret: 13, start: 6400, length: 320 },
+    { string: 2, fret: 12, start: 6720, length: 960, bend: { semitones: 1 }, vibrato: true },
+  ];
+  const tempo = mock.project.tempo;
+  const ticks = (clip.length / MOCK_RATE) * (tempo.bpm / 60) * 960;
+  const notes: TabNote[] = [];
+  for (let at = 0; at + 7680 <= ticks; at += 7680) {
+    for (const n of riff) {
+      notes.push({ ...n, start: n.start + at, string: Math.min(n.string, strings) });
+    }
+  }
+  return {
+    name: clip.name,
+    instrument: summary.instrument,
+    tuning: summary.tuning,
+    capo: summary.capo,
+    tempo: { ...tempo },
+    origin: clip.offset,
+    notes,
+  };
+}
+
+/** A clip's whole tab, for the tab view; null when it has none. */
+export async function clipTab(id: number): Promise<Tab | null> {
+  if (inTauri) return invoke<Tab | null>("clip_tab", { id });
+  const { clip } = mockClipAt(id);
+  if (!clip.tab) return null;
+  let tab = mockTabs.get(id);
+  if (!tab) {
+    tab = mockTab(clip);
+    mockTabs.set(id, tab);
+  }
+  return tab;
 }
 
 /** Builds a transcribed tab's notes again on another grid, without transcribing again. */

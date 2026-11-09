@@ -141,6 +141,7 @@ pub fn run() {
             commands::track_bounce,
             commands::render_cancel,
             commands::clip_transcribe,
+            commands::clip_tab,
             commands::clip_tab_requantise,
             commands::menu_state,
             commands::project_rename,

@@ -729,6 +729,15 @@ pub async fn clip_transcribe(
     .map_err(|e| e.to_string())?
 }
 
+/// A clip's whole tab, for the tab view; `None` when it has none.
+#[tauri::command]
+pub fn clip_tab(
+    state: tauri::State<'_, EngineState>,
+    id: u64,
+) -> Result<Option<cantina_project::Tab>, String> {
+    state.clip_tab(id).map_err(fail)
+}
+
 /// Re-quantises a transcribed tab to another grid from what it heard.
 #[tauri::command]
 pub fn clip_tab_requantise(
