@@ -2613,6 +2613,45 @@ export async function patternImport(path: string, track?: number): Promise<Engin
   return mockEdit("import pattern");
 }
 
+/** What a tab exports as. */
+export type TabExportFormat = "musicxml" | "ascii" | "midi" | "pdf";
+
+const TAB_FILTERS: Record<TabExportFormat, { name: string; extensions: string[] }> = {
+  musicxml: { name: "MusicXML", extensions: ["musicxml"] },
+  ascii: { name: "Text", extensions: ["txt"] },
+  midi: { name: "MIDI", extensions: ["mid"] },
+  pdf: { name: "PDF", extensions: ["pdf"] },
+};
+
+/** Asks where to write a tab export; null when the user cancels. */
+export async function chooseTabExportPath(
+  name: string,
+  format: TabExportFormat,
+): Promise<string | null> {
+  const filter = TAB_FILTERS[format];
+  const file = `${name || "Tab"}.${filter.extensions[0]}`;
+  if (!inTauri) return `/Users/you/Music/${file}`;
+  return saveDialog({ defaultPath: file, filters: [filter] });
+}
+
+/** Writes a clip's tab as MusicXML, ASCII tab or MIDI; resolves to the path written. */
+export async function clipTabExport(
+  id: number,
+  format: Exclude<TabExportFormat, "pdf">,
+  path: string,
+): Promise<string> {
+  if (inTauri) return invoke<string>("clip_tab_export", { id, format, path });
+  const { clip } = mockClipAt(id);
+  if (!clip.tab) throw new Error(`${clip.name} has no tab`);
+  return path;
+}
+
+/** Writes a tab's PDF, drawn from the page view; resolves to the path written. */
+export async function tabPdfWrite(path: string, bytes: Uint8Array): Promise<string> {
+  if (inTauri) return invoke<string>("tab_pdf_write", { path, bytes: Array.from(bytes) });
+  return path;
+}
+
 /** Writes a pattern to a `.pattern.json` file. */
 export async function patternExport(id: number, path: string): Promise<void> {
   if (inTauri) return invoke("pattern_export", { id, path });
