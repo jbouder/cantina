@@ -1,13 +1,51 @@
 ---
 title: "Tabs"
-description: "How Cantina turns a recorded part into a tab, how it chooses strings and frets, and the tunings it reads."
+description: "Turn a recorded guitar or bass part into a tab, read it, fix it, play it back to practise, and export it, with an honest account of what transcription gets right."
 ---
 
 A tab shows where to play each note: which string, which fret, and how.
-Cantina writes one from a clip you recorded, and keeps it on that clip.
-This guide grows with the tab features; for how transcription works and
-how accurate it is, see the [transcription](/architecture/transcription/)
-architecture page.
+Cantina writes one from a clip you recorded and keeps it on that clip,
+so it moves with the clip and plays along with the take.
+
+The whole round trip, in order:
+
+1. **[Transcribe](#transcribe-a-clip)** a clip: choose the instrument,
+   tuning and grid, and Cantina listens and writes the tab.
+2. **[Read](#read-a-tab)** it under the timeline, following the playhead
+   or a page at a time.
+3. **[Fix](#fix-a-tab)** what transcription got wrong: type frets, move
+   notes, add techniques.
+4. **[Play and practise](#play-and-practise)**: hear the tab through
+   your pedals, mute the take to play the part yourself, loop a passage
+   and slow it down.
+5. **[Export](#export-a-tab)** it as MusicXML, ASCII tab, MIDI or a PDF.
+
+## What to expect
+
+Transcription is a draft, not a finished tab. On Cantina's reference
+takes it gets about three notes in four right (pitch and start), and
+those takes are clean, synthesised strings, so a real recording usually
+does worse. It is best at:
+
+- **Single-note lines and bass lines**, clean or lightly driven: close to
+  nine notes in ten.
+- **Bends**: most come out as one bent note of the right size.
+
+It is weakest at:
+
+- **Distorted chords and palm-muted chugs**: about six notes in ten,
+  with extra or missing notes in the chords.
+- **Where notes end**, fast legato, and **techniques it cannot hear**:
+  slides, vibrato and harmonics are never marked for you.
+
+Strings and frets are a separate guess: Cantina places notes the way a
+player's hand would, but it cannot know which position you used. Plan
+to fix both with the [editor](#fix-a-tab), and use
+[re-fit](#re-fit-and-re-quantise-a-passage) for a passage that sits in
+the wrong place. The [transcription](/architecture/transcription/)
+architecture page has the numbers take by take.
+
+The file format is on the [tab format](/reference/tab-format/) page.
 
 ## Transcribe a clip
 
