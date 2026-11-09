@@ -59,6 +59,50 @@ recordings it finds about three notes in four. Expect to fix:
 
 Slides, vibrato and harmonics are not detected; mark them yourself.
 
+## Read a tab
+
+When a track has a clip with a tab, its editor gains a **Tab** tab below
+the timeline. If more than one clip has a tab, choose one at the top
+left.
+
+- **Strings and frets.** Each line is a string, the highest at the top,
+  named on the left in the tab's tuning. The numbers are frets, counted
+  from the capo.
+- **Bars** are numbered above the staff, at the tempo and time
+  signature the tab was written in: the project's when it was
+  transcribed, so they line up with the timeline's bars.
+- **Rhythm** is under the staff: a stem for a quarter note, flags for
+  eighths and sixteenths, a short stem for a half note, nothing for a
+  whole note, a dot for a dotted note and a 3 under a triplet.
+- **The cursor** follows the playhead. Click anywhere on the tab to move
+  the playhead there. With the tab focused, ← and → move a beat, Page Up
+  and Page Down a bar, and Home goes to the start.
+- **Trimmed notes** that the clip no longer plays are shown faded.
+
+**Follow** shows the tab as one line that scrolls with playback, for
+playing along. **Page** wraps the bars into rows across the panel, for
+reading ahead; drag the panel's top edge up to see more rows.
+
+![The tab in Follow, the cursor on the playhead](../../../assets/guides/tab-follow.png)
+
+![The tab in Page, wrapped into rows](../../../assets/guides/tab-page.png)
+
+### Technique marks
+
+| Mark | Means |
+| --- | --- |
+| `h` | Hammer-on: sound the note by hammering onto the fret |
+| `p` | Pull-off: sound the note by pulling off to it |
+| `/` and `\` | Slide up or down into the next note |
+| `↑full`, `↑½`, `↑1½` | Bend up a whole step, a half step, a step and a half |
+| `↓` after a bend | Release the bend back down |
+| `~~` | Vibrato |
+| `<12>` | Natural harmonic over the 12th fret |
+| `x` | Dead note: a muted click |
+| `T` | Tap with the picking hand |
+| `P.M. - -` | Palm mute, for as long as the dashes run |
+| `let ring - -` | Let the notes ring into each other |
+
 ## How frets are chosen
 
 The same note can be played in several places. An E above middle C is

@@ -21,13 +21,14 @@ import { Button } from "./Button";
 import { DrumGrid } from "./DrumGrid";
 import { RenderBar, useRenderProgress } from "./ExportSheet";
 import { PedalChain } from "./PedalChain";
+import { TabView } from "./TabView";
 import { TranscribeSheet } from "./TranscribeSheet";
 
 /** The editor's tabs; a drum track has Beats, an audio track does not. */
-export type EditorTab = "beats" | "pedalboard" | "clips";
+export type EditorTab = "beats" | "pedalboard" | "clips" | "tab";
 
 export function isEditorTab(value: unknown): value is EditorTab {
-  return value === "beats" || value === "pedalboard" || value === "clips";
+  return value === "beats" || value === "pedalboard" || value === "clips" || value === "tab";
 }
 
 type Props = {
@@ -93,7 +94,12 @@ export function Editor({
   const run = (action: Promise<EngineStatus>) => action.then(onStatus, (e) => onError(String(e)));
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(track.name);
-  const tabs: EditorTab[] = track.kit ? ["beats", "pedalboard", "clips"] : ["pedalboard", "clips"];
+  const tabbed = track.clips.filter((c) => c.tab);
+  const tabs: EditorTab[] = track.kit
+    ? ["beats", "pedalboard", "clips"]
+    : tabbed.length > 0
+      ? ["pedalboard", "clips", "tab"]
+      : ["pedalboard", "clips"];
   const [tab, setTab] = useState<EditorTab>(() =>
     initialTab && tabs.includes(initialTab) ? initialTab : track.kit ? "beats" : "pedalboard",
   );
@@ -155,6 +161,7 @@ export function Editor({
     beats: "Beats",
     pedalboard: "Pedalboard",
     clips: "Clips",
+    tab: "Tab",
   };
 
   return (
@@ -297,6 +304,14 @@ export function Editor({
             onAdd={onAdd}
             onDesign={onDesign}
             onStatus={onStatus}
+            onError={onError}
+          />
+        ) : shown === "tab" ? (
+          <TabView
+            clips={tabbed}
+            sampleRate={sampleRate}
+            position={position}
+            playing={playing}
             onError={onError}
           />
         ) : (
