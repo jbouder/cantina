@@ -1,4 +1,5 @@
----title: "Jam"
+---
+title: "Jam"
 description: "Jam mode is a practice room, on stage too: stock jams and your own saved ones, drums from a stock groove or your own patterns, a backing (a chord progression played by a built-in guitar or bass, an audio file or a project's track), your rig on the input, on an endless loop you steer while you play: sections at the next bar, tempo nudges, tap tempo and a count-in; and Keep that, for the riff you were not recording."
 ---
 
