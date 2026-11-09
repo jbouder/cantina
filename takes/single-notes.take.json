@@ -1,0 +1,28 @@
+{
+  "description": "Clean single notes: an E minor pentatonic line across four strings, quarters and eighths.",
+  "instrument": "guitar",
+  "tempo": 100,
+  "drive": 0.0,
+  "notes": [
+    { "pitch": "E3", "beat": 0, "length": 1 },
+    { "pitch": "G3", "beat": 1, "length": 0.5 },
+    { "pitch": "A3", "beat": 1.5, "length": 0.5 },
+    { "pitch": "B3", "beat": 2, "length": 1 },
+    { "pitch": "D4", "beat": 3, "length": 0.5 },
+    { "pitch": "E4", "beat": 3.5, "length": 0.5 },
+    { "pitch": "D4", "beat": 4, "length": 1 },
+    { "pitch": "B3", "beat": 5, "length": 0.5 },
+    { "pitch": "A3", "beat": 5.5, "length": 0.5 },
+    { "pitch": "G3", "beat": 6, "length": 1 },
+    { "pitch": "E3", "beat": 7, "length": 1 },
+    { "pitch": "A2", "beat": 8, "length": 0.5 },
+    { "pitch": "B2", "beat": 8.5, "length": 0.5 },
+    { "pitch": "D3", "beat": 9, "length": 0.5 },
+    { "pitch": "E3", "beat": 9.5, "length": 0.5 },
+    { "pitch": "G3", "beat": 10, "length": 0.5 },
+    { "pitch": "A3", "beat": 10.5, "length": 0.5 },
+    { "pitch": "G4", "beat": 11, "length": 1 },
+    { "pitch": "E4", "beat": 12, "length": 2 },
+    { "pitch": "E2", "beat": 14, "length": 2 }
+  ]
+}

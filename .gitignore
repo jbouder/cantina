@@ -22,3 +22,7 @@ dist/
 # Local
 .env
 .env.local
+
+# The transcription spike's standalone probe
+/scripts/transcribe-spike/tract-probe/target/
+__pycache__/

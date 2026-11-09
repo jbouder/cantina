@@ -1,0 +1,22 @@
+{
+  "description": "Driven power chords, root, fifth and octave, in an eighth-note rock rhythm.",
+  "instrument": "guitar",
+  "tempo": 120,
+  "drive": 0.7,
+  "strum_ms": 4,
+  "notes": [
+    { "pitch": ["E2", "B2", "E3"], "beat": 0, "length": 1.5 },
+    { "pitch": ["G2", "D3", "G3"], "beat": 1.5, "length": 0.5 },
+    { "pitch": ["A2", "E3", "A3"], "beat": 2, "length": 2 },
+    { "pitch": ["E2", "B2", "E3"], "beat": 4, "length": 1.5 },
+    { "pitch": ["G2", "D3", "G3"], "beat": 5.5, "length": 0.5 },
+    { "pitch": ["C3", "G3", "C4"], "beat": 6, "length": 1 },
+    { "pitch": ["A2", "E3", "A3"], "beat": 7, "length": 1 },
+    { "pitch": ["D3", "A3", "D4"], "beat": 8, "length": 0.5 },
+    { "pitch": ["D3", "A3", "D4"], "beat": 8.5, "length": 0.5 },
+    { "pitch": ["C3", "G3", "C4"], "beat": 9, "length": 1 },
+    { "pitch": ["A2", "E3", "A3"], "beat": 10, "length": 1 },
+    { "pitch": ["G2", "D3", "G3"], "beat": 11, "length": 1 },
+    { "pitch": ["E2", "B2", "E3"], "beat": 12, "length": 4 }
+  ]
+}

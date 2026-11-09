@@ -1,0 +1,19 @@
+{
+  "description": "A lightly driven lead: whole- and half-step bends, a bend and release, and vibrato.",
+  "instrument": "guitar",
+  "tempo": 80,
+  "drive": 0.3,
+  "notes": [
+    { "pitch": "B3", "beat": 0, "length": 1, "bend": { "semitones": 2, "at": 0.15, "ramp": 0.12 } },
+    { "pitch": "A3", "beat": 1, "length": 0.5 },
+    { "pitch": "G3", "beat": 1.5, "length": 0.5 },
+    { "pitch": "E3", "beat": 2, "length": 2, "vibrato": true },
+    { "pitch": "D4", "beat": 4, "length": 1, "bend": { "semitones": 1, "at": 0.1, "ramp": 0.08 } },
+    { "pitch": "B3", "beat": 5, "length": 0.5 },
+    { "pitch": "A3", "beat": 5.5, "length": 0.5 },
+    { "pitch": "G3", "beat": 6, "length": 2, "bend": { "semitones": 2, "at": 0.1, "ramp": 0.1, "release": 0.6 } },
+    { "pitch": "E4", "beat": 8, "length": 1 },
+    { "pitch": "D4", "beat": 9, "length": 1, "bend": { "semitones": 2, "at": 0.1, "ramp": 0.12 } },
+    { "pitch": "B3", "beat": 10, "length": 2, "vibrato": true }
+  ]
+}
