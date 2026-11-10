@@ -45,7 +45,7 @@ The app asks
 `https://github.com/jbouder/cantina/releases/latest/download/latest.json`
 for the newest release each time it opens (release builds only), and
 **Settings → Updates → Check for updates** asks on demand. When a newer
-version is out, a banner offers **Install and restart**. It waits for the
+version is out, a message in the corner of the window offers **Install and restart** and **Later**. It waits for the
 project to be saved and for recording to stop, then downloads the
 archive, checks its signature against the public key in
 `tauri.conf.json` (`plugins.updater.pubkey`), replaces the app and

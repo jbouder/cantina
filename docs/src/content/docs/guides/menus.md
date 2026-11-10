@@ -19,7 +19,7 @@ add their own items when they arrive.
 | Item | Shortcut | What it does |
 | --- | --- | --- |
 | About Cantina | | The version, the license and the credits for the drum samples and impulse responses. |
-| Check for Updates… | | Opens Settings and asks for a newer release. If there is one, a banner offers to install it. |
+| Check for Updates… | | Opens Settings and asks for a newer release. If there is one, a message in the bottom right corner offers to install it. |
 | Settings… | ⌘, | Audio device, buffer size, the latency warning, skins, motion, what launch opens, and updates. |
 | Hide, Hide Others, Show All, Quit | ⌘H, ⌥⌘H, ⌘Q | As in every Mac app. |
 
