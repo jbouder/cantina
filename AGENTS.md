@@ -112,9 +112,19 @@ decisions and the milestones; the architecture lives on the docs site, in
   enforced through `cargo doc` with `-D warnings`).
 - **Colours are skin tokens.** Components never carry a literal colour,
   radius, shadow or typeface; they use a token through a Tailwind or
-  material utility (`surface-window`, `surface-button`, `surface-lcd`).
+  material utility (`surface-window`, `button-standard`, `surface-lcd`).
   `npm run lint` fails on a literal colour outside the skin files and on
   any skin below the contrast ratios. Every skin must define every token.
+- **Type, spacing and buttons follow the scales.** Four type sizes
+  (`text-label`, `text-body`, `text-readout`, `text-display`), spacing
+  steps 0, 0.5, 1, 2, 3, 4, 6 and 8, and three button tiers (`primary`,
+  `standard`, `quiet`) with at most one primary per view. A state is an
+  ARIA attribute (`aria-pressed`, `aria-selected`, `disabled`), never a
+  class or a different tier. Capitals come only from the `caption`
+  utility; button text and names are sentence case. An input, select or
+  textarea is a `surface-field`; `surface-lcd` is for readouts.
+  `npm run lint` fails on the rest; the rules are in
+  `docs/src/content/docs/architecture/ui.md`.
 - **The docs stay true.** A change a user or contributor would notice
   updates its guide or architecture page in `docs/src/content/docs/` in the
   same PR. Pages are Markdown with a `title` and a `description`; the docs

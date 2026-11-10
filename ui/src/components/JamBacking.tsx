@@ -56,7 +56,7 @@ function Level({
   useEffect(() => setLevel(value), [value]);
   return (
     <div className="grid grid-cols-[1fr_auto] items-center gap-3">
-      <label htmlFor={id} className="text-sm">
+      <label htmlFor={id} className="text-body">
         Level
       </label>
       <span className="flex items-center gap-2">
@@ -72,7 +72,7 @@ function Level({
           onKeyUp={() => onChange(level)}
           className="fader-slim w-32"
         />
-        <span className="w-14 text-right text-sm tabular-nums">{level.toFixed(1)} dB</span>
+        <span className="w-14 text-right text-body tabular-nums">{level.toFixed(1)} dB</span>
       </span>
     </div>
   );
@@ -165,7 +165,7 @@ export function JamBacking({ backing, presets, rigs, project, missing, onChange,
               </optgroup>
             ))}
           </Select>
-          <label className="grid gap-1 text-sm md:col-span-2" htmlFor={`${ids}-chords`}>
+          <label className="grid gap-1 text-body md:col-span-2" htmlFor={`${ids}-chords`}>
             Chords
             <input
               key={backing.chords}
@@ -181,9 +181,9 @@ export function JamBacking({ backing, presets, rigs, project, missing, onChange,
                 const chords = e.currentTarget.value.trim();
                 if (chords && chords !== backing.chords) onChange({ ...backing, chords });
               }}
-              className="surface-lcd min-h-8 px-2 font-lcd text-base"
+              className="surface-field min-h-8 px-2"
             />
-            <small className="text-ink-dim text-xs">
+            <small className="text-ink-dim text-label">
               Numerals in the key (I, bVII, vi7) or names (Am, F, C/E); | between bars, - holds.
             </small>
           </label>
@@ -234,7 +234,7 @@ export function JamBacking({ backing, presets, rigs, project, missing, onChange,
       {backing.kind === "audio" ? (
         <>
           <div className="grid grid-cols-[1fr_auto] items-center gap-3">
-            <span className="min-w-0 truncate text-sm" title={backing.file}>
+            <span className="min-w-0 truncate text-body" title={backing.file}>
               {backing.file.split("/").pop()}
             </span>
             <Button
@@ -248,9 +248,9 @@ export function JamBacking({ backing, presets, rigs, project, missing, onChange,
             </Button>
           </div>
           <div className="grid grid-cols-[1fr_auto] items-center gap-3">
-            <label htmlFor={`${ids}-file-bpm`} className="text-sm">
+            <label htmlFor={`${ids}-file-bpm`} className="text-body">
               Its tempo
-              <small className="block text-ink-dim text-xs">The drums play at it</small>
+              <small className="block text-ink-dim text-label">The drums play at it</small>
             </label>
             <input
               key={backing.bpm}
@@ -267,7 +267,7 @@ export function JamBacking({ backing, presets, rigs, project, missing, onChange,
                 const bpm = Number(e.currentTarget.value);
                 if (Number.isFinite(bpm) && bpm !== backing.bpm) onChange({ ...backing, bpm });
               }}
-              className="surface-lcd min-h-8 w-20 px-2 text-center font-lcd text-base tabular-nums"
+              className="surface-field min-h-8 w-20 px-2 text-center tabular-nums"
             />
           </div>
         </>
@@ -323,7 +323,7 @@ export function JamBacking({ backing, presets, rigs, project, missing, onChange,
         />
       ) : null}
       {missing.length > 0 ? (
-        <p role="status" className="m-0 text-ink-dim text-xs">
+        <p role="status" className="m-0 text-ink-dim text-label">
           Left out: {missing.join("; ")}
         </p>
       ) : null}

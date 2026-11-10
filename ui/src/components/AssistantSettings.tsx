@@ -111,15 +111,15 @@ export function AssistantSettings({ assistant, onStatusChange, reveal = false }:
 
   return (
     <section ref={section} aria-labelledby="assistant-label" className="grid gap-2">
-      <h3 id="assistant-label" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+      <h3 id="assistant-label" className="caption m-0">
         Assistant
-        <small className="block font-normal text-ink-dim text-xs normal-case tracking-normal">
+        <small className="hint block text-ink-dim">
           A chat that can explain, build and fix things in your project, with a model you connect.
           Nothing is sent anywhere until you turn it on.{" "}
           <button
             type="button"
             onClick={() => void openLink("assistant")}
-            className="cursor-pointer border-0 bg-transparent p-0 text-xs underline"
+            className="cursor-pointer border-0 bg-transparent p-0 text-label underline"
           >
             What is sent
           </button>
@@ -129,7 +129,6 @@ export function AssistantSettings({ assistant, onStatusChange, reveal = false }:
         <Button
           aria-pressed={assistant.enabled}
           onClick={() => configure({ enabled: !assistant.enabled })}
-          variant={assistant.enabled ? "transport" : "panel"}
         >
           {assistant.enabled ? "Assistant on" : "Assistant off"}
         </Button>
@@ -222,7 +221,6 @@ export function AssistantSettings({ assistant, onStatusChange, reveal = false }:
             <Button
               aria-pressed={assistant.persona}
               onClick={() => configure({ persona: !assistant.persona })}
-              variant={assistant.persona ? "transport" : "panel"}
               title="Talks as Tapster, the house droid. Off gives plain replies."
             >
               Droid persona
@@ -230,7 +228,6 @@ export function AssistantSettings({ assistant, onStatusChange, reveal = false }:
             <Button
               aria-pressed={assistant.sounds}
               onClick={() => configure({ sounds: !assistant.sounds })}
-              variant={assistant.sounds ? "transport" : "panel"}
               title="Beeps and chirps on a reply and on an error, in the window only."
             >
               Droid sounds
@@ -240,7 +237,7 @@ export function AssistantSettings({ assistant, onStatusChange, reveal = false }:
             <Lcd
               aria-live="polite"
               error={check.state === "problem" || (check.state === "idle" && listProblem !== null)}
-              className="min-w-0 flex-1 text-base"
+              className="min-w-0 flex-1 text-readout"
             >
               {checkText(check, listProblem)}
             </Lcd>

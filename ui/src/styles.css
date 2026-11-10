@@ -57,12 +57,44 @@
   --color-tl-clip: var(--tl-clip);
   --color-tl-clip-edge: var(--tl-clip-edge);
   --color-tl-playhead: var(--tl-playhead);
+  --color-field-bg: var(--field-bg);
+  --color-field-fg: var(--field-fg);
+  --color-field-dim: var(--field-dim);
+  --color-field-edge: var(--field-edge);
+  --color-selected: var(--state-selected);
+  --color-selected-ink: var(--state-selected-ink);
+  --color-on: var(--state-on);
+  --color-on-ink: var(--state-on-ink);
+  --color-disabled: var(--state-disabled);
+  --color-disabled-ink: var(--state-disabled-ink);
   --font-lcd: var(--font-lcd);
   --font-ui: var(--font-ui);
   --radius-window: var(--window-radius);
   --radius-control: var(--control-radius);
   --radius-lcd: var(--lcd-radius);
   --spacing-window: var(--window-padding);
+
+  /*
+   * The type scale: four steps and nothing else. Tailwind's own sizes are
+   * cleared, so `text-sm` or `text-[10px]` draws nothing, and
+   * scripts/check-scale.mjs fails on one.
+   */
+  --text-*: initial;
+  --text-label: var(--type-label);
+  --text-label--line-height: var(--type-label-leading);
+  --text-body: var(--type-body);
+  --text-body--line-height: var(--type-body-leading);
+  --text-readout: var(--type-readout);
+  --text-readout--line-height: var(--type-readout-leading);
+  --text-display: var(--type-display);
+  --text-display--line-height: var(--type-display-leading);
+
+  /*
+   * The spacing scale: every gap, padding and margin is a step of the
+   * skin's unit. check-scale.mjs holds components to the steps 0, 0.5, 1,
+   * 2, 3, 4, 6 and 8.
+   */
+  --spacing: var(--space-unit);
 }
 
 /*
@@ -108,7 +140,11 @@
   opacity: var(--grip-opacity);
 }
 
-/* The display material. Text inside goes in `lcd-text`. */
+/*
+ * The display material, for things that are read and not edited: readouts,
+ * meters, lists. Text inside goes in `lcd-text`. An editable field uses
+ * `surface-field`.
+ */
 @utility surface-lcd {
   background: var(--lcd-overlay), var(--lcd-bg);
   color: var(--lcd-fg);
@@ -148,8 +184,20 @@
   transform-origin: center;
 }
 
-/* A silver transport key. Pressed state comes from aria-pressed. */
-@utility surface-button {
+/*
+ * Buttons come in three tiers, and a view has at most one primary.
+ *
+ *   button-primary   the one action the view is for, on the transport key material
+ *   button-standard  everything else that acts: a key in the panel's material
+ *   button-quiet     low-stakes and repeated actions: no key until hovered
+ *
+ * Every tier shows the same three states from the same tokens, so they
+ * read alike wherever they appear: toggled on (aria-pressed) is lit,
+ * selected (aria-selected, aria-checked, aria-current) is filled with the
+ * selection color, and disabled is flat and dim, never the brightest
+ * thing in the row.
+ */
+@utility button-primary {
   color: var(--glyph);
   background: var(--button-bg);
   box-shadow: var(--button-shadow);
@@ -158,22 +206,40 @@
     background: var(--button-hover-bg);
     box-shadow: var(--button-hover-shadow);
   }
-  &:active:not(:disabled),
-  &[aria-pressed="true"],
-  &[aria-checked="true"] {
+  &:active:not(:disabled) {
     color: var(--button-active-ink);
     background: var(--button-active-bg);
     box-shadow: var(--button-active-shadow);
     transform: var(--button-active-transform);
   }
+  &[aria-pressed="true"] {
+    color: var(--state-on-ink);
+    background: var(--state-on);
+    box-shadow: var(--state-on-shadow);
+    filter: none;
+    transform: none;
+  }
+  &[aria-selected="true"],
+  &[aria-checked="true"],
+  &[aria-current="true"],
+  &[aria-current="page"] {
+    color: var(--state-selected-ink);
+    background: var(--state-selected);
+    box-shadow: var(--state-selected-shadow);
+    filter: none;
+    transform: none;
+  }
   &:disabled {
-    opacity: 0.5;
+    color: var(--state-disabled-ink);
+    background: var(--state-disabled);
+    box-shadow: var(--state-disabled-shadow);
+    filter: none;
+    transform: none;
     cursor: not-allowed;
   }
 }
 
-/* A key in the panel's own material, for secondary controls. */
-@utility surface-pbutton {
+@utility button-standard {
   color: var(--pbtn-ink);
   background: var(--pbutton-bg);
   box-shadow: var(--pbutton-shadow);
@@ -181,18 +247,119 @@
   &:hover:not(:disabled) {
     filter: brightness(1.12);
   }
-  &:active:not(:disabled),
-  &[aria-pressed="true"],
-  &[aria-checked="true"] {
+  &:active:not(:disabled) {
     filter: brightness(0.85);
     box-shadow:
       inset 1px 1px 0 var(--pbtn-bevel-lo),
       0 0 0 1px var(--frame-edge);
   }
+  &[aria-pressed="true"] {
+    color: var(--state-on-ink);
+    background: var(--state-on);
+    box-shadow: var(--state-on-shadow);
+    filter: none;
+    transform: none;
+  }
+  &[aria-selected="true"],
+  &[aria-checked="true"],
+  &[aria-current="true"],
+  &[aria-current="page"] {
+    color: var(--state-selected-ink);
+    background: var(--state-selected);
+    box-shadow: var(--state-selected-shadow);
+    filter: none;
+    transform: none;
+  }
   &:disabled {
-    opacity: 0.45;
+    color: var(--state-disabled-ink);
+    background: var(--state-disabled);
+    box-shadow: var(--state-disabled-shadow);
+    filter: none;
+    transform: none;
     cursor: not-allowed;
   }
+}
+
+/* Takes the ink of whatever it sits on: the frame, a sheet, a display. */
+@utility button-quiet {
+  background: transparent;
+  box-shadow: none;
+  border-radius: var(--pbutton-radius);
+  &:hover:not(:disabled) {
+    background: var(--quiet-hover-bg);
+  }
+  &:active:not(:disabled) {
+    background: var(--quiet-active-bg);
+  }
+  &[aria-pressed="true"] {
+    color: var(--state-on-ink);
+    background: var(--state-on);
+    box-shadow: var(--state-on-shadow);
+    filter: none;
+    transform: none;
+  }
+  &[aria-selected="true"],
+  &[aria-checked="true"],
+  &[aria-current="true"],
+  &[aria-current="page"] {
+    color: var(--state-selected-ink);
+    background: var(--state-selected);
+    box-shadow: var(--state-selected-shadow);
+    filter: none;
+    transform: none;
+  }
+  &:disabled {
+    color: var(--state-disabled-ink);
+    background: var(--state-disabled);
+    box-shadow: var(--state-disabled-shadow);
+    filter: none;
+    transform: none;
+    cursor: not-allowed;
+  }
+  &:disabled {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+/*
+ * A field the user can type in or choose from: an input, a select, a
+ * textarea. Always the UI face at body size, in a well with an edge, so
+ * it never passes for a read-only display (`surface-lcd`).
+ */
+@utility surface-field {
+  font-family: var(--font-ui);
+  font-size: var(--type-body);
+  line-height: var(--type-body-leading);
+  color: var(--field-fg);
+  background: var(--field-bg);
+  border: var(--field-border);
+  border-radius: var(--field-radius);
+  box-shadow: var(--field-shadow);
+  &::placeholder {
+    color: var(--field-dim);
+  }
+  &:hover:not(:disabled) {
+    border-color: var(--field-edge-hover);
+  }
+  &:disabled {
+    color: var(--state-disabled-ink);
+    background: var(--state-disabled);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+}
+
+/*
+ * A caption names a group, a column or a readout. It is the one place
+ * text is set in capitals; everything else is sentence case.
+ */
+@utility caption {
+  font-size: var(--type-label);
+  line-height: var(--type-label-leading);
+  font-weight: 700;
+  letter-spacing: var(--caption-tracking);
+  text-transform: uppercase;
 }
 
 /* A horizontal fader: an <input type="range"> drawn in the skin's materials. */

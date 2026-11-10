@@ -27,7 +27,7 @@ export function ProjectBar({ project, onOpenProjects, onOpenExport, onStatus, on
       <Lcd
         aria-live="polite"
         title={`${project.name} · ${project.sampleRate / 1000} kHz`}
-        className="min-w-64 max-w-96 truncate text-base"
+        className="min-w-64 max-w-96 truncate text-readout"
       >
         {project.name}
         {project.dirty ? (
@@ -59,7 +59,7 @@ export function ProjectBar({ project, onOpenProjects, onOpenExport, onStatus, on
           <path d="M10 3l5 4.5L10 12V9H6a3 3 0 0 0 0 6h3v2H6A5 5 0 0 1 6 7h4z" />
         </svg>
       </Button>
-      <Button variant="transport" disabled={!project.dirty} onClick={() => run(projectSave())}>
+      <Button tier="primary" disabled={!project.dirty} onClick={() => run(projectSave())}>
         Save
       </Button>
       <Button aria-haspopup="dialog" onClick={onOpenProjects}>

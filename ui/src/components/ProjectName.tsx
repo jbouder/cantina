@@ -61,7 +61,7 @@ export function ProjectName({ mode, current, onClose, onStatus }: Props) {
   return (
     <Sheet title={copy.title} onClose={onClose}>
       {error ? (
-        <Lcd role="alert" error className="text-base">
+        <Lcd role="alert" error className="text-readout">
           {error}
         </Lcd>
       ) : null}
@@ -79,7 +79,7 @@ export function ProjectName({ mode, current, onClose, onStatus }: Props) {
           <Button type="button" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" variant="transport" disabled={unchanged || busy}>
+          <Button type="submit" tier="primary" disabled={unchanged || busy}>
             {copy.action}
           </Button>
         </div>

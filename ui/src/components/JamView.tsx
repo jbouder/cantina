@@ -151,7 +151,7 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
     >
       <div className="surface-panel grid content-start gap-3 p-3">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="m-0 min-w-0 truncate font-bold text-[11px] uppercase tracking-[0.1em]">
+          <h2 className="caption m-0 min-w-0 truncate">
             {setup.name === "Jam" ? "Jam" : `Jam · ${setup.name}`}
           </h2>
           <span className="flex gap-1">
@@ -254,14 +254,14 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
           ))}
         </Select>
         <fieldset className="m-0 grid grid-cols-[1fr_auto] items-center gap-3 border-0 p-0">
-          <legend className="float-left p-0 text-sm">
+          <legend className="float-left p-0 text-body">
             Key
-            <small className="block text-ink-dim text-xs">What the backing plays in</small>
+            <small className="block text-ink-dim text-label">What the backing plays in</small>
           </legend>
           <span className="flex gap-1">
             <select
               aria-label="Tonic"
-              className="surface-lcd min-h-8 w-16 appearance-none py-0 pl-2 font-lcd text-base"
+              className="surface-field min-h-8 w-16 appearance-none py-0 pl-2"
               value={setup.key.tonic}
               onChange={(e) => change({ key: { ...setup.key, tonic: e.target.value } })}
             >
@@ -273,7 +273,7 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
             </select>
             <select
               aria-label="Mode"
-              className="surface-lcd min-h-8 w-24 appearance-none py-0 pl-2 font-lcd text-base"
+              className="surface-field min-h-8 w-24 appearance-none py-0 pl-2"
               value={setup.key.mode}
               onChange={(e) =>
                 change({ key: { ...setup.key, mode: e.target.value as "major" | "minor" } })
@@ -306,12 +306,12 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
           ))}
         </Select>
         {rig ? (
-          <p className="m-0 text-ink-dim text-xs">
+          <p className="m-0 text-ink-dim text-label">
             {rig.chain.map((spec) => spec.replace(/^cab:.*/, "cab")).join(" → ")}
           </p>
         ) : null}
         {jam.missing.length > 0 ? (
-          <p role="status" className="m-0 text-ink-dim text-xs">
+          <p role="status" className="m-0 text-ink-dim text-label">
             Left out: {jam.missing.join("; ")}
           </p>
         ) : null}
@@ -336,12 +336,12 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
 
       <div className="surface-panel grid content-start gap-3 p-3">
         <Lcd aria-live="polite" className="grid gap-0.5 py-2 text-center">
-          <span className="block text-3xl">
+          <span className="block text-display">
             {playingSection
               ? SECTION_LABELS[playingSection]
               : SECTION_LABELS[jam.marks[0]?.section ?? "verse"]}
           </span>
-          <span className="block text-xl tabular-nums">
+          <span className="block text-display tabular-nums">
             {frame.countIn > 0
               ? `Count ${frame.countIn}`
               : rolling && place
@@ -350,7 +350,7 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
             {" · "}
             {Math.round((rolling && place ? place.bpm : tempo) * 10) / 10} bpm
           </span>
-          <span className="block min-h-6 text-base">
+          <span className="block min-h-6 text-readout">
             {rolling && place?.next
               ? `${SECTION_LABELS[place.next.section]} at bar ${place.next.bar}`
               : null}
@@ -364,11 +364,11 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
 
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Button
-            variant="transport"
+            tier="primary"
             aria-pressed={rolling}
             onClick={onPlay}
             title="Play or stop (Space)"
-            className="min-h-12 min-w-32 text-sm"
+            className="min-h-12 min-w-32 text-body"
           >
             {rolling ? (
               <svg aria-hidden="true" viewBox="0 0 16 16" className="size-5 fill-current">
@@ -382,7 +382,7 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
             {rolling ? "Stop" : "Play"}
           </Button>
           <Button
-            variant="transport"
+            tier="primary"
             aria-pressed={status.countIn}
             onClick={() => report(countInSet(!status.countIn))}
             title="Count in a bar before the jam starts"
@@ -392,7 +392,7 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
           </Button>
           <Metronome metronome={status.metronome} onStatus={onStatus} onError={onError} />
           <Button
-            variant="transport"
+            tier="primary"
             onClick={() => report(jamKeep())}
             disabled={!status.running}
             title={`Keep the last ${jam.captureMinutes} minutes you played (Return)`}
@@ -414,10 +414,7 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
           >
             −
           </Button>
-          <label
-            htmlFor={`${ids}-bpm`}
-            className="font-bold text-[11px] uppercase tracking-[0.08em]"
-          >
+          <label htmlFor={`${ids}-bpm`} className="caption">
             Tempo
           </label>
           <input
@@ -436,7 +433,7 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
               const bpm = Number(e.currentTarget.value);
               if (Number.isFinite(bpm) && bpm !== tempo) report(jamTempo(clampTempo(bpm)));
             }}
-            className="surface-lcd min-h-8 w-20 px-2 text-center font-lcd text-base tabular-nums"
+            className="surface-field min-h-8 w-20 px-2 text-center tabular-nums"
           />
           <Button
             aria-label="Faster"
@@ -452,7 +449,7 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
         </div>
 
         {jam.tempoLocked ? (
-          <p className="m-0 text-center text-ink-dim text-xs">
+          <p className="m-0 text-center text-ink-dim text-label">
             The backing is audio at its own tempo: the drums follow it.
           </p>
         ) : null}
@@ -473,13 +470,11 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
                   aria-pressed={playing}
                   aria-label={`${SECTION_LABELS[section]}, key ${i + 1}`}
                   onClick={() => report(jamSection(section as GrooveSection))}
-                  className="surface-pbutton grid min-h-16 w-full place-items-center gap-1 border-0 px-2 py-1.5 disabled:opacity-40"
+                  className="button-standard grid min-h-16 w-full place-items-center gap-1 border-0 px-2 py-2"
                 >
                   <Led on={playing} label={SECTION_LABELS[section]} />
-                  <span className="font-bold text-[11px] uppercase tracking-[0.06em]">
-                    {SECTION_LABELS[section]}
-                  </span>
-                  <span className="text-ink-dim text-xs">
+                  <span className="font-bold text-label">{SECTION_LABELS[section]}</span>
+                  <span className="text-ink-dim text-label">
                     {coming ? "next" : has && bars ? `${bars} bar${bars === 1 ? "" : "s"}` : "—"}
                     {" · "}
                     {i + 1}
@@ -489,7 +484,7 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
             );
           })}
         </ul>
-        <p className="m-0 text-center text-ink-dim text-xs">
+        <p className="m-0 text-center text-ink-dim text-label">
           Space plays · 1–6 sections at the next bar · ↑ ↓ tempo · T tap · Return keeps. Jamming
           never edits {status.project.name}.
         </p>

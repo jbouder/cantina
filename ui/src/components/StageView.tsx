@@ -69,8 +69,8 @@ export function StageView({ status, onClose, onPerform, onStatus }: Props) {
         ))}
       </Select>
       <div className="flex items-center justify-between gap-3">
-        <small className="text-ink-dim text-xs">P plays full screen from anywhere.</small>
-        <Button variant="transport" onClick={onPerform}>
+        <small className="text-ink-dim text-label">P plays full screen from anywhere.</small>
+        <Button tier="primary" onClick={onPerform}>
           Perform
         </Button>
       </div>

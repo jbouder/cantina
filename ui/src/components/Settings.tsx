@@ -45,7 +45,7 @@ function SkinSwatch({ preview }: { preview: SkinPreview }) {
   return (
     <span
       aria-hidden="true"
-      className="relative inline-grid h-4 w-7 shrink-0 grid-cols-[1fr_6px] gap-px overflow-hidden rounded-[2px] p-[2px] pt-[4px]"
+      className="relative inline-grid h-4 w-7 shrink-0 grid-cols-[1fr_6px] gap-px overflow-hidden rounded-[2px] p-0.5 pt-1"
       style={{ background: preview.frame }}
     >
       <span className="absolute inset-x-0 top-0 h-[2px]" style={{ background: preview.title }} />
@@ -98,14 +98,14 @@ function Updates({
   });
   return (
     <section aria-labelledby="updates-label" className="grid gap-2">
-      <h3 id="updates-label" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+      <h3 id="updates-label" className="caption m-0">
         Updates
-        <small className="block font-normal text-ink-dim text-xs normal-case tracking-normal">
+        <small className="hint block text-ink-dim">
           Cantina looks for a new release each time it opens.
         </small>
       </h3>
       <div className="flex items-center gap-2">
-        <Lcd aria-live="polite" className="min-w-0 flex-1 text-base">
+        <Lcd aria-live="polite" className="min-w-0 flex-1 text-readout">
           {result ?? (version ? `Version ${version}` : "Version unknown")}
         </Lcd>
         <Button disabled={checking} onClick={checkNow} className="shrink-0">
@@ -140,15 +140,15 @@ export function Settings({
   return (
     <Sheet title="Settings" onClose={onClose}>
       <section aria-labelledby="audio-heading" className="grid gap-2">
-        <h3 id="audio-heading" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+        <h3 id="audio-heading" className="caption m-0">
           Audio
         </h3>
         <div className="flex items-center gap-2">
-          <Lcd aria-live="polite" className="min-w-0 flex-1 text-base">
+          <Lcd aria-live="polite" className="min-w-0 flex-1 text-readout">
             {routeLabel(status)}
           </Lcd>
           <Button
-            variant="transport"
+            tier="primary"
             aria-pressed={status.running}
             disabled={busy}
             onClick={onToggleEngine}
@@ -182,9 +182,9 @@ export function Settings({
         reveal={section === "instrument"}
       />
       <section aria-labelledby="skin-label" className="grid gap-2">
-        <h3 id="skin-label" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+        <h3 id="skin-label" className="caption m-0">
           Skin
-          <small className="block font-normal text-ink-dim text-xs normal-case tracking-normal">
+          <small className="hint block text-ink-dim">
             Changes the whole studio's look. Remembered for next time.
           </small>
         </h3>
@@ -195,7 +195,6 @@ export function Settings({
               role="radio"
               aria-checked={skin === s.id}
               onClick={() => setSkin(s.id)}
-              variant={skin === s.id ? "transport" : "panel"}
             >
               <SkinSwatch preview={s.preview} />
               {s.name}
@@ -204,27 +203,23 @@ export function Settings({
         </div>
       </section>
       <section aria-labelledby="motion-label" className="grid gap-2">
-        <h3 id="motion-label" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+        <h3 id="motion-label" className="caption m-0">
           Motion
-          <small className="block font-normal text-ink-dim text-xs normal-case tracking-normal">
+          <small className="hint block text-ink-dim">
             Stills the stage's flashes and the skin's beat pulse. Your system's reduce motion
             setting stills the pulse too.
           </small>
         </h3>
         <div className="flex">
-          <Button
-            aria-pressed={reduceFlashing}
-            onClick={() => setReduceFlashing(!reduceFlashing)}
-            variant={reduceFlashing ? "transport" : "panel"}
-          >
+          <Button aria-pressed={reduceFlashing} onClick={() => setReduceFlashing(!reduceFlashing)}>
             Reduce flashing
           </Button>
         </div>
       </section>
       <section aria-labelledby="launch-label" className="grid gap-2">
-        <h3 id="launch-label" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+        <h3 id="launch-label" className="caption m-0">
           Launch
-          <small className="block font-normal text-ink-dim text-xs normal-case tracking-normal">
+          <small className="hint block text-ink-dim">
             Off, Cantina opens with the start dialog: a new project, a recent one, or a jam.
           </small>
         </h3>
@@ -232,7 +227,6 @@ export function Settings({
           <Button
             aria-pressed={status.openLastAtLaunch}
             onClick={() => openLastAtLaunchSet(!status.openLastAtLaunch).then(onStatusChange)}
-            variant={status.openLastAtLaunch ? "transport" : "panel"}
           >
             Open the last project at launch
           </Button>

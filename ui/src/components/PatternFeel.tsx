@@ -11,7 +11,7 @@ type Props = {
   onReplace: (next: PatternInfo) => void;
 };
 
-const LABEL = "font-bold text-[11px] uppercase tracking-[0.08em]";
+const LABEL = "caption";
 
 /**
  * A 0-to-1 amount as a percentage fader. It moves freely while dragged
@@ -40,7 +40,7 @@ function Amount({
         </label>
         <output
           htmlFor={id}
-          className="surface-lcd px-1.5 py-0.5 font-lcd text-sm leading-none tabular-nums"
+          className="surface-lcd px-2 py-0.5 font-lcd text-body leading-none tabular-nums"
         >
           <span className="lcd-text">{Math.round(shown * 100)}%</span>
         </output>
@@ -102,7 +102,6 @@ export function PatternFeel({ pattern, pad, onReplace }: Props) {
           <span className={`${LABEL} self-center`}>{pad.name}</span>
           <Button
             aria-pressed={row?.swing !== undefined}
-            variant={row?.swing !== undefined ? "transport" : "panel"}
             onClick={() =>
               onReplace(
                 withRowFeel(pattern, pad.id, {
@@ -123,7 +122,6 @@ export function PatternFeel({ pattern, pad, onReplace }: Props) {
           ) : null}
           <Button
             aria-pressed={row?.humanize !== undefined}
-            variant={row?.humanize !== undefined ? "transport" : "panel"}
             onClick={() =>
               onReplace(
                 withRowFeel(pattern, pad.id, {

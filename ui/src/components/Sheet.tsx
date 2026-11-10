@@ -36,7 +36,7 @@ export function Sheet({ title, onClose, wide = false, children }: Props) {
   }, [onClose]);
 
   return (
-    <div className="absolute inset-0 z-10 flex items-start justify-center bg-scrim p-6 pt-12">
+    <div className="absolute inset-0 z-10 flex items-start justify-center bg-scrim p-6 pt-8">
       <button
         type="button"
         aria-label="Close"
@@ -52,7 +52,7 @@ export function Sheet({ title, onClose, wide = false, children }: Props) {
         className={`surface-panel relative flex max-h-full w-full flex-col overflow-hidden ${wide ? "max-w-2xl" : "max-w-md"}`}
       >
         <header className="surface-titlebar flex min-h-[30px] items-center gap-2 py-1 pr-1 pl-3">
-          <h2 id={titleId} className="title-text m-0 flex-1 font-normal text-[1.05rem]">
+          <h2 id={titleId} className="title-text m-0 flex-1 font-normal text-readout">
             {title}
           </h2>
           <Button onClick={onClose} aria-label={`Close ${title}`} className="px-2">

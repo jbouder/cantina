@@ -161,7 +161,7 @@ export function GrooveBrowser({ track, grooves, audition, onStatus, onError, onA
             setQuery(e.target.value);
             setActive(0);
           }}
-          className="surface-lcd min-h-8 w-48 px-3 font-lcd text-base placeholder:text-lcd-dim"
+          className="surface-field min-h-8 w-48 px-3 "
         />
         <Select
           id={`${id}-genre`}
@@ -231,7 +231,7 @@ export function GrooveBrowser({ track, grooves, audition, onStatus, onError, onA
         className="surface-lcd max-h-56 overflow-y-auto p-1"
       >
         {shown.length === 0 ? (
-          <p className="m-0 px-2 py-1 font-lcd text-base text-lcd-dim">
+          <p className="m-0 px-2 py-1 font-lcd text-readout text-lcd-dim">
             <span className="lcd-text">No grooves match.</span>
           </p>
         ) : null}
@@ -253,11 +253,11 @@ export function GrooveBrowser({ track, grooves, audition, onStatus, onError, onA
               onPointerCancel={cancel}
               onClick={() => setActive(i)}
               onDoubleClick={() => add(g).catch(fail)}
-              className={`grid cursor-grab grid-cols-[auto_1fr_auto_auto] items-center gap-2 rounded px-2 py-0.5 font-lcd text-base ${isActive ? "outline-2 outline-focus outline-solid -outline-offset-2" : ""}`}
+              className={`grid cursor-grab grid-cols-[auto_1fr_auto_auto] items-center gap-2 rounded px-2 py-0.5 font-lcd text-readout ${isActive ? "outline-2 outline-focus outline-solid -outline-offset-2" : ""}`}
             >
               <Led on={isLooping} label={isLooping ? "Looping" : "Not looping"} />
               <span className="lcd-text truncate">{g.name}</span>
-              <span className="lcd-text text-sm">
+              <span className="lcd-text text-body">
                 {g.tempo.min}–{g.tempo.max} bpm · {FEELS[g.feel]} · {meterOf(g)}
               </span>
               <span className="flex gap-1">

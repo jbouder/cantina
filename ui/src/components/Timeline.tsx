@@ -74,8 +74,7 @@ import { MasterHeader, TrackHeader } from "./TrackHeader";
  * A small key in the ruler corner above the track headers, the height of
  * the header keys so it reads as part of the sidebar rather than the strip.
  */
-const ADD_KEY =
-  "surface-pbutton min-h-6 shrink-0 border-0 px-2 font-bold text-[11px] uppercase leading-none tracking-[0.06em]";
+const ADD_KEY = "button-standard min-h-6 shrink-0 border-0 px-2 font-bold text-label leading-none";
 
 /** What the transport strip above the lanes can do to the view. */
 export interface TimelineControls {
@@ -326,7 +325,10 @@ export function Timeline({
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const tk = readTokens(el);
-    const font = getComputedStyle(el).getPropertyValue("--font-ui").trim() || "sans-serif";
+    const style = getComputedStyle(el);
+    const font = style.getPropertyValue("--font-ui").trim() || "sans-serif";
+    // The label step of the type scale: the canvas draws no size of its own.
+    const labelSize = style.getPropertyValue("--type-label").trim() || "11px";
 
     ctx.fillStyle = tk.bg;
     ctx.fillRect(0, 0, width, height);
@@ -344,7 +346,7 @@ export function Timeline({
     const first = Math.floor(view.scroll / grid.division) * grid.division;
     const last = view.scroll + width * view.spp;
     const barLabelEvery = Math.max(1, Math.ceil(48 / (grid.bar / view.spp)));
-    ctx.font = `11px ${font}`;
+    ctx.font = `${labelSize} ${font}`;
     ctx.textBaseline = "middle";
     for (let s = first; s <= last; s += grid.division) {
       const x = Math.round(xOf(s, view)) + 0.5;
@@ -446,8 +448,8 @@ export function Timeline({
       ctx.rect(left, y, right - left, h);
       ctx.clip();
       ctx.fillStyle = tk["clip-edge"];
-      ctx.font = `bold 10px ${font}`;
-      ctx.fillText(clip.name.toUpperCase(), Math.max(left, x0) + 4, y + 9);
+      ctx.font = `bold ${labelSize} ${font}`;
+      ctx.fillText(clip.name, Math.max(left, x0) + 4, y + 9);
       ctx.restore();
     };
     lanes.forEach((clips, i) => {

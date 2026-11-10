@@ -27,7 +27,7 @@ export function Metronome({ metronome, onStatus, onError }: Props) {
   return (
     <span className="flex items-center gap-1">
       <Button
-        variant="transport"
+        tier="primary"
         aria-pressed={on}
         onClick={() => set({ on: !on })}
         title="Metronome (K)"
@@ -39,7 +39,7 @@ export function Metronome({ metronome, onStatus, onError }: Props) {
         <select
           aria-label="Metronome sound"
           title="Metronome sound"
-          className="surface-lcd min-h-8 w-28 appearance-none truncate py-0 pr-7 pl-2 font-lcd text-base"
+          className="surface-field min-h-8 w-28 appearance-none truncate py-0 pr-6 pl-2"
           value={sound}
           onChange={(e) => set({ sound: e.target.value })}
         >
@@ -52,7 +52,7 @@ export function Metronome({ metronome, onStatus, onError }: Props) {
         <svg
           aria-hidden="true"
           viewBox="0 0 16 16"
-          className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 fill-lcd-fg"
+          className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 fill-field-fg"
         >
           <path d="M2 5l6 6 6-6z" />
         </svg>

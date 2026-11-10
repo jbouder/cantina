@@ -213,7 +213,7 @@ export function Editor({
               id={`${headingId}-input`}
               // biome-ignore lint/a11y/noAutofocus: the field appears on request, under the pointer
               autoFocus
-              className="surface-lcd min-h-8 min-w-0 flex-1 px-2 font-lcd text-base"
+              className="surface-field min-h-8 min-w-0 flex-1 px-2"
               value={name}
               onChange={(e) => setName(e.target.value)}
               onBlur={rename}
@@ -228,7 +228,7 @@ export function Editor({
         ) : (
           <h3
             id={headingId}
-            className="m-0 flex min-w-0 flex-1 items-center gap-2 truncate font-bold text-sm uppercase tracking-[0.1em]"
+            className="m-0 flex min-w-0 flex-1 items-center gap-2 truncate font-bold text-body"
           >
             {track.kit ? (
               <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 shrink-0 fill-current">
@@ -239,11 +239,11 @@ export function Editor({
               type="button"
               onClick={() => setEditing(true)}
               title="Rename"
-              className="min-h-8 truncate border-0 bg-transparent p-0 text-left font-bold text-inherit text-sm uppercase tracking-[0.1em]"
+              className="min-h-8 truncate border-0 bg-transparent p-0 text-left font-bold text-body text-inherit"
             >
               {track.name}
             </button>
-            {track.recording ? <span className="text-led-rec normal-case">recording</span> : null}
+            {track.recording ? <span className="text-led-rec">recording</span> : null}
           </h3>
         )}
         <div role="tablist" aria-label={`${track.name} editor`} className="flex gap-1">
@@ -255,7 +255,6 @@ export function Editor({
               aria-selected={shown === t}
               aria-controls={`panel-${t}`}
               tabIndex={shown === t ? 0 : -1}
-              variant={shown === t ? "transport" : "panel"}
               onClick={() => setTab(t)}
               onKeyDown={onTabKey}
             >
@@ -412,7 +411,7 @@ function ClipList({ track, profile, patterns, sampleRate, tempo, onStatus, onErr
         {track.clips.map((clip) => (
           <li
             key={clip.id}
-            className="surface-lcd flex items-center gap-2 py-1 pr-1 pl-3 font-lcd text-base"
+            className="surface-lcd flex items-center gap-2 py-1 pr-1 pl-3 font-lcd text-readout"
           >
             <span className="lcd-text">
               {clip.name} · {clock(clip.start / sampleRate)} +{clock(clip.length / sampleRate)}
@@ -442,7 +441,7 @@ function ClipList({ track, profile, patterns, sampleRate, tempo, onStatus, onErr
           return (
             <li
               key={clip.id}
-              className="surface-lcd flex items-center gap-2 py-1 pr-1 pl-3 font-lcd text-base"
+              className="surface-lcd flex items-center gap-2 py-1 pr-1 pl-3 font-lcd text-readout"
             >
               <span className="lcd-text min-w-0 flex-1 truncate">
                 {name} · bar {at} · {bars} bar{bars === "1" ? "" : "s"}
@@ -464,10 +463,10 @@ function ClipList({ track, profile, patterns, sampleRate, tempo, onStatus, onErr
           );
         })}
         {track.clips.length === 0 && !track.kit ? (
-          <li className="text-ink-dim text-sm">No clips yet: arm the track and record.</li>
+          <li className="text-ink-dim text-body">No clips yet: arm the track and record.</li>
         ) : null}
         {track.kit && track.patternClips.length === 0 ? (
-          <li className="text-ink-dim text-sm">
+          <li className="text-ink-dim text-body">
             No patterns placed yet: Place at playhead on the Beats tab, or drag a pattern onto the
             timeline.
           </li>
@@ -530,7 +529,7 @@ function FillControls({
         id={`${id}-fill`}
         value={fill?.pattern ?? ""}
         onChange={(e) => set({ pattern: e.target.value === "" ? null : Number(e.target.value) })}
-        className="surface-lcd min-h-8 max-w-40 appearance-none truncate px-2 font-lcd text-sm"
+        className="surface-field min-h-8 max-w-40 appearance-none truncate px-2"
       >
         <option value="">No fill</option>
         {others.map((p) => (
@@ -548,7 +547,7 @@ function FillControls({
             id={`${id}-every`}
             value={fill.every}
             onChange={(e) => set({ every: Number(e.target.value) })}
-            className="surface-lcd min-h-8 appearance-none px-2 font-lcd text-sm"
+            className="surface-field min-h-8 appearance-none px-2"
           >
             {FILL_EVERY.map((n) => (
               <option key={n} value={n}>
@@ -558,7 +557,6 @@ function FillControls({
           </select>
           <Button
             aria-pressed={fill.atEnd}
-            variant={fill.atEnd ? "transport" : "panel"}
             onClick={() => set({ atEnd: !fill.atEnd })}
             title="Play the fill on the clip's last bar, into what comes next"
             className="min-h-8 px-2"

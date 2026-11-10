@@ -68,7 +68,7 @@ type Props = {
 const CARD_W = 160;
 const PORT_Y = 22;
 const BIND_Y = 44;
-const LABEL = "font-bold text-[11px] uppercase tracking-[0.08em]";
+const LABEL = "caption";
 const params = inTauri ? null : new URLSearchParams(window.location.search);
 
 type Selection = { type: "node"; id: string } | { type: "edge"; from: string; to: string } | null;
@@ -142,7 +142,7 @@ export function Designer({ pedal, kinds, onClose, onStatus, onError }: Props) {
   if (!def) {
     return (
       <div className="absolute inset-0 z-10 flex items-center justify-center bg-scrim">
-        <Lcd className="text-base">Loading the design…</Lcd>
+        <Lcd className="text-readout">Loading the design…</Lcd>
       </div>
     );
   }
@@ -210,10 +210,10 @@ export function Designer({ pedal, kinds, onClose, onStatus, onError }: Props) {
         className="surface-panel relative flex min-h-0 w-full flex-col overflow-hidden"
       >
         <header className="surface-titlebar flex min-h-[30px] flex-wrap items-center gap-2 py-1 pr-1 pl-3">
-          <h2 id={titleId} className="title-text m-0 font-normal text-[1.05rem]">
+          <h2 id={titleId} className="title-text m-0 font-normal text-readout">
             Pedal designer
           </h2>
-          <span className="title-text text-sm">· {def.name} · running in the chain</span>
+          <span className="title-text text-body">· {def.name} · running in the chain</span>
           <span className="flex-1" />
           <Button
             onClick={save}
@@ -257,7 +257,7 @@ export function Designer({ pedal, kinds, onClose, onStatus, onError }: Props) {
               >
                 Remove
               </Button>
-              <p className="m-0 text-ink-dim text-xs">
+              <p className="m-0 text-ink-dim text-label">
                 {pending
                   ? `Wiring from ${pending}: click a node's input, or its output again to stop.`
                   : "Drag nodes to arrange them; click an output then an input to wire them."}
@@ -310,7 +310,7 @@ export function Designer({ pedal, kinds, onClose, onStatus, onError }: Props) {
               </Button>
             </div>
             {problems.length > 0 ? (
-              <Lcd role="alert" error className="text-sm">
+              <Lcd role="alert" error className="text-body">
                 <span className="lcd-text block">The last valid pedal keeps playing. To fix:</span>
                 {problems.map((p) => (
                   <span
@@ -342,7 +342,7 @@ export function Designer({ pedal, kinds, onClose, onStatus, onError }: Props) {
                 <Button onClick={remove}>Remove wire</Button>
               </section>
             ) : (
-              <p className="m-0 text-ink-dim text-xs">
+              <p className="m-0 text-ink-dim text-label">
                 Select a node to edit its fields. A field can be a constant, follow a parameter
                 (with a range mapped onto it), or follow another node's signal.
               </p>
@@ -527,7 +527,7 @@ function Canvas({
                       x={end[0] - 6}
                       y={end[1] + BIND_Y + 4}
                       textAnchor="end"
-                      className="fill-lcd-fg font-lcd text-[12px]"
+                      className="fill-lcd-fg font-lcd text-body"
                     >
                       {field}
                     </text>
@@ -557,13 +557,10 @@ function Canvas({
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
                 onKeyDown={(e) => onKey(e, node)}
-                className="surface-pbutton min-h-9 cursor-grab touch-none truncate border-0 px-2 text-left font-bold text-[11px] uppercase tracking-[0.08em]"
+                className="button-standard min-h-9 cursor-grab touch-none truncate border-0 px-2 text-left font-bold text-label"
               >
                 {kind?.label ?? node.kind}
-                <span className="font-normal text-ink-dim normal-case tracking-normal">
-                  {" "}
-                  {node.id}
-                </span>
+                <span className="hint text-ink-dim"> {node.id}</span>
               </button>
               {kind && !kind.source ? (
                 <button
@@ -595,10 +592,7 @@ function Canvas({
               {summary.length > 0 ? (
                 <ul className="surface-lcd m-0 list-none px-1 py-0.5">
                   {summary.map(([field, value]) => (
-                    <li
-                      key={field}
-                      className="lcd-text truncate font-lcd text-[13px] leading-tight"
-                    >
+                    <li key={field} className="lcd-text truncate font-lcd text-body leading-tight">
                       {field} {describe(value)}
                     </li>
                   ))}
@@ -643,7 +637,7 @@ function NodePanel({ def, node, problems, onRename, onField }: NodePanelProps) {
       <h3 id={`${id}-title`} className={`m-0 ${LABEL}`}>
         {kind?.label ?? node.kind}
       </h3>
-      <p className="m-0 text-ink-dim text-xs">{kind?.summary}</p>
+      <p className="m-0 text-ink-dim text-label">{kind?.summary}</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -676,7 +670,7 @@ function NodePanel({ def, node, problems, onRename, onField }: NodePanelProps) {
         .filter((name) => !kind?.fields.some((f) => f.name === name))
         .map((name) => (
           <div key={name} className="flex items-center justify-between gap-2">
-            <span className="lcd-text font-lcd text-base text-lcd-error">
+            <span className="lcd-text font-lcd text-readout text-lcd-error">
               {name}: no such field on a {node.kind}
             </span>
             <Button onClick={() => onField(name, undefined)} className="min-h-9 px-2">
@@ -754,12 +748,7 @@ function FieldEditor({ def, node, field, value, problems, onChange }: FieldEdito
       <div className="flex items-baseline justify-between gap-2">
         <legend className={`${LABEL} float-left p-0`} title={field.summary}>
           {field.label}
-          {field.modulatable ? (
-            <span className="font-normal text-ink-dim normal-case tracking-normal">
-              {" "}
-              · modulatable
-            </span>
-          ) : null}
+          {field.modulatable ? <span className="hint text-ink-dim"> · modulatable</span> : null}
         </legend>
         <span className="relative">
           <select
@@ -767,7 +756,7 @@ function FieldEditor({ def, node, field, value, problems, onChange }: FieldEdito
             aria-label={`${field.label} source`}
             value={source}
             onChange={(e) => setSource(e.target.value as Source)}
-            className="surface-lcd min-h-9 appearance-none py-0 pr-7 pl-2 font-lcd text-base"
+            className="surface-field min-h-9 appearance-none py-0 pr-6 pl-2"
           >
             <option value="default">Default</option>
             <option value="constant">Constant</option>
@@ -777,7 +766,7 @@ function FieldEditor({ def, node, field, value, problems, onChange }: FieldEdito
           <svg
             aria-hidden="true"
             viewBox="0 0 16 16"
-            className="pointer-events-none absolute top-1/2 right-2 size-3 -translate-y-1/2 fill-lcd-fg"
+            className="pointer-events-none absolute top-1/2 right-2 size-3 -translate-y-1/2 fill-field-fg"
           >
             <path d="M2 5l6 6 6-6z" />
           </svg>
@@ -855,7 +844,7 @@ function FieldEditor({ def, node, field, value, problems, onChange }: FieldEdito
         </div>
       ) : null}
       {problems.map((p) => (
-        <Lcd key={p.message} error className="text-sm">
+        <Lcd key={p.message} error className="text-body">
           {p.message}
         </Lcd>
       ))}
@@ -916,7 +905,7 @@ function MapEditor({ id, binding, field, onChange }: MapEditorProps) {
   const mapped = binding.map !== undefined;
   return (
     <div className="grid gap-1">
-      <label className="flex items-center justify-between gap-2 text-sm">
+      <label className="flex items-center justify-between gap-2 text-body">
         <span>Map the range</span>
         <input
           type="checkbox"
@@ -947,7 +936,7 @@ function MapEditor({ id, binding, field, onChange }: MapEditorProps) {
             value={hi}
             onChange={(v) => onChange({ ...binding, map: [lo, v] })}
           />
-          <label className="grid justify-items-center gap-1 text-xs">
+          <label className="grid justify-items-center gap-1 text-label">
             Log
             <input
               type="checkbox"
@@ -980,7 +969,7 @@ function TableEditor({ id, binding, field, param, onChange }: TableEditorProps) 
   const entries = param?.choices?.length ? param.choices : param?.toggle ? ["Off", "On"] : null;
   if (!entries) {
     return (
-      <p className="m-0 text-ink-dim text-xs">
+      <p className="m-0 text-ink-dim text-label">
         A continuous parameter is used as an index; a choice or toggle lets each value be picked.
       </p>
     );
@@ -1031,7 +1020,7 @@ type NumberFieldProps = {
 
 function NumberField({ id, label, value, onChange }: NumberFieldProps) {
   return (
-    <label htmlFor={id} className="grid gap-1 text-xs">
+    <label htmlFor={id} className="grid gap-1 text-label">
       {label}
       <input
         id={id}
@@ -1042,7 +1031,7 @@ function NumberField({ id, label, value, onChange }: NumberFieldProps) {
           const v = Number(e.target.value);
           if (Number.isFinite(v)) onChange(v);
         }}
-        className="surface-lcd min-h-9 w-full min-w-0 px-1 font-lcd text-base"
+        className="surface-field min-h-9 w-full min-w-0 px-1"
       />
     </label>
   );
@@ -1093,7 +1082,7 @@ function ParamsPanel({ def, live, onChange, onValue }: ParamsPanelProps) {
         </Button>
       </div>
       {def.params.length === 0 ? (
-        <p className="m-0 text-ink-dim text-xs">
+        <p className="m-0 text-ink-dim text-label">
           No knobs yet. A parameter becomes a knob on the pedal; bind a node's field to it.
         </p>
       ) : null}
@@ -1147,23 +1136,23 @@ function ParamRow({ id, param, live, knob, onPatch, onRename, onRemove, onKnob }
             else setPid(param.id);
           }}
         >
-          <label htmlFor={`${id}-id`} className="grid gap-1 text-xs">
+          <label htmlFor={`${id}-id`} className="grid gap-1 text-label">
             Id
             <input
               id={`${id}-id`}
               value={pid}
               onChange={(e) => setPid(e.target.value)}
-              className="surface-lcd min-h-9 w-full min-w-0 px-1 font-lcd text-base"
+              className="surface-field min-h-9 w-full min-w-0 px-1"
             />
           </label>
         </form>
-        <label htmlFor={`${id}-label`} className="grid gap-1 text-xs">
+        <label htmlFor={`${id}-label`} className="grid gap-1 text-label">
           Label
           <input
             id={`${id}-label`}
             value={param.label}
             onChange={(e) => onPatch({ label: e.target.value })}
-            className="surface-lcd min-h-9 w-full min-w-0 px-1 font-lcd text-base"
+            className="surface-field min-h-9 w-full min-w-0 px-1"
           />
         </label>
       </div>
@@ -1187,13 +1176,13 @@ function ParamRow({ id, param, live, knob, onPatch, onRename, onRemove, onKnob }
             value={param.default}
             onChange={(v) => onPatch({ default: v })}
           />
-          <label htmlFor={`${id}-unit`} className="grid gap-1 text-xs">
+          <label htmlFor={`${id}-unit`} className="grid gap-1 text-label">
             Unit
             <select
               id={`${id}-unit`}
               value={param.unit ?? ""}
               onChange={(e) => onPatch({ unit: e.target.value })}
-              className="surface-lcd min-h-9 w-16 px-1 font-lcd text-base"
+              className="surface-field min-h-9 w-16 px-1"
             >
               {UNITS.map((u) => (
                 <option key={u} value={u}>
@@ -1212,7 +1201,7 @@ function ParamRow({ id, param, live, knob, onPatch, onRename, onRemove, onKnob }
         />
       )}
       <div className="grid grid-cols-[1fr_auto_auto] items-end gap-2">
-        <label htmlFor={`${id}-choices`} className="grid gap-1 text-xs">
+        <label htmlFor={`${id}-choices`} className="grid gap-1 text-label">
           Choices, comma separated
           <input
             id={`${id}-choices`}
@@ -1227,7 +1216,7 @@ function ParamRow({ id, param, live, knob, onPatch, onRename, onRemove, onKnob }
               if (list.length > 0) patch.toggle = false;
               onPatch(patch);
             }}
-            className="surface-lcd min-h-9 w-full min-w-0 px-1 font-lcd text-base"
+            className="surface-field min-h-9 w-full min-w-0 px-1"
           />
         </label>
         <Button

@@ -102,7 +102,7 @@ export function Meter({ label, level, vertical = false, bare = false }: Props) {
           </span>
         </span>
         <span
-          className={`surface-lcd w-full px-1 text-center font-lcd text-sm leading-tight tabular-nums ${clipping ? "text-lcd-error" : ""}`}
+          className={`surface-lcd w-full px-1 text-center font-lcd text-body leading-tight tabular-nums ${clipping ? "text-lcd-error" : ""}`}
         >
           <span className="lcd-text">{readout}</span>
         </span>
@@ -112,7 +112,7 @@ export function Meter({ label, level, vertical = false, bare = false }: Props) {
 
   return (
     <div className="grid grid-cols-[2.5rem_1fr_3.5rem] items-center gap-2">
-      <span className="font-bold text-[11px] uppercase tracking-[0.1em]">{label}</span>
+      <span className="caption">{label}</span>
       <span className="relative block h-4">
         {bar}
         <span aria-hidden="true" className="surface-lcd absolute inset-0 block overflow-hidden">
@@ -127,7 +127,7 @@ export function Meter({ label, level, vertical = false, bare = false }: Props) {
         </span>
       </span>
       <span
-        className={`surface-lcd px-1 text-right font-lcd text-base leading-tight tabular-nums ${clipping ? "text-lcd-error" : ""}`}
+        className={`surface-lcd px-1 text-right font-lcd text-readout leading-tight tabular-nums ${clipping ? "text-lcd-error" : ""}`}
       >
         <span className="lcd-text">{readout}</span>
       </span>

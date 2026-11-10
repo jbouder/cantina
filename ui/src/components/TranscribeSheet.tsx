@@ -136,7 +136,7 @@ export function TranscribeSheet({ clip, profile, onStatus, onClose }: Props) {
   return (
     <Sheet title={`Transcribe ${clip.name} to tab`} onClose={running ? () => {} : onClose}>
       <section aria-labelledby="tab-instrument" className="grid gap-2">
-        <h3 id="tab-instrument" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+        <h3 id="tab-instrument" className="caption m-0">
           Instrument
         </h3>
         <div role="radiogroup" aria-labelledby="tab-instrument" className="flex gap-1">
@@ -145,7 +145,6 @@ export function TranscribeSheet({ clip, profile, onStatus, onClose }: Props) {
               key={i}
               role="radio"
               aria-checked={instrument === i}
-              variant={instrument === i ? "transport" : "panel"}
               disabled={running}
               onClick={() => chooseInstrument(i)}
             >
@@ -199,7 +198,7 @@ export function TranscribeSheet({ clip, profile, onStatus, onClose }: Props) {
         </Select>
       </section>
       <section aria-labelledby="tab-timing" className="grid gap-2">
-        <h3 id="tab-timing" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+        <h3 id="tab-timing" className="caption m-0">
           Timing
         </h3>
         <Select
@@ -231,14 +230,14 @@ export function TranscribeSheet({ clip, profile, onStatus, onClose }: Props) {
                 Re-quantise
               </Button>
             ) : null}
-            <Button variant="transport" onClick={transcribe}>
+            <Button tier="primary" onClick={transcribe}>
               {clip.tab ? "Transcribe again" : "Transcribe"}
             </Button>
           </>
         )}
       </div>
       {clip.tab ? (
-        <Lcd role="status" className="text-base">
+        <Lcd role="status" className="text-readout">
           Has a {clip.tab.instrument} tab · {clip.tab.notes} notes
           {clip.tab.transcribed ? " · re-quantising keeps what it heard" : ""}
         </Lcd>

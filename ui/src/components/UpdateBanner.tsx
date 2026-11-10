@@ -38,7 +38,7 @@ export function UpdateBanner({ update, dirty, recording, onDismiss }: Props) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Lcd role="status" error={error !== null} className="min-w-0 flex-1 text-base">
+      <Lcd role="status" error={error !== null} className="min-w-0 flex-1 text-readout">
         {error
           ? `The update did not install: ${error}`
           : installing
@@ -50,7 +50,7 @@ export function UpdateBanner({ update, dirty, recording, onDismiss }: Props) {
       {installing ? null : (
         <>
           <Button
-            variant="transport"
+            tier="primary"
             disabled={blocked !== null}
             title={blocked ?? "Download, install and restart into the new version"}
             onClick={install}

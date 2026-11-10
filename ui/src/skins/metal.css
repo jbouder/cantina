@@ -96,4 +96,17 @@
   --lcd-shadow: inset 0 2px 6px rgb(0 0 0 / 0.9), 0 1px 0 #fff, 0 -1px 0 rgb(0 0 0 / 0.25);
   --lcd-mask: radial-gradient(circle, #000 52%, transparent 58%);
   --lcd-text-shadow: none;
+
+  /* Fields and the selected, on and disabled states. */
+  --field-bg: #f4f6f8;
+  --field-fg: #1c2026;
+  --field-dim: #5e646c;
+  --field-edge: #6c727a;
+  --state-on: #10243c;
+  --state-on-ink: #8cc8ff;
+  --state-selected: #2a5fa8;
+  --state-selected-ink: #ffffff;
+  --state-disabled: #b4b9c0;
+  --state-disabled-ink: #555b63;
+  --state-disabled-shadow: inset 0 0 0 1px #8a9099;
 }

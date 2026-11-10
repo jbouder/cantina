@@ -154,7 +154,7 @@ export function RigPicker({
     <fieldset className="surface-lcd m-0 flex flex-wrap items-center gap-x-3 gap-y-1 border-0 px-2 py-1">
       <legend className="sr-only">Audition</legend>
       <Led on label="Auditioning" />
-      <span className="lcd-text font-lcd text-base">
+      <span className="lcd-text font-lcd text-readout">
         Auditioning <strong className="font-normal">{heard?.name ?? "a rig"}</strong>
       </span>
       <fieldset className="m-0 flex gap-1 border-0 p-0">
@@ -185,7 +185,9 @@ export function RigPicker({
         Stop
       </Button>
       {here.missing.length > 0 ? (
-        <p className="lcd-text m-0 w-full font-lcd text-sm">Left out: {here.missing.join("; ")}</p>
+        <p className="lcd-text m-0 w-full font-lcd text-body">
+          Left out: {here.missing.join("; ")}
+        </p>
       ) : null}
     </fieldset>
   ) : null;
@@ -209,7 +211,7 @@ export function RigPicker({
           Rigs
         </Button>
         {open ? null : (
-          <span className="text-ink-dim text-sm">
+          <span className="text-ink-dim text-body">
             Pick a ready-made chain for a style, hear it, and apply it.
           </span>
         )}
@@ -262,7 +264,7 @@ export function RigPicker({
                 setQuery(e.target.value);
                 setActive(0);
               }}
-              className="surface-lcd min-h-8 w-44 px-3 font-lcd text-base placeholder:text-lcd-dim"
+              className="surface-field min-h-8 w-44 px-3 "
             />
             <span className="ml-auto flex gap-2">
               <Button
@@ -286,7 +288,7 @@ export function RigPicker({
             className="surface-lcd max-h-56 overflow-y-auto p-1"
           >
             {shown.length === 0 ? (
-              <p className="m-0 px-2 py-1 font-lcd text-base text-lcd-dim">
+              <p className="m-0 px-2 py-1 font-lcd text-readout text-lcd-dim">
                 <span className="lcd-text">No rigs match.</span>
               </p>
             ) : null}
@@ -305,17 +307,17 @@ export function RigPicker({
                   tabIndex={-1}
                   onClick={() => setActive(i)}
                   onDoubleClick={() => apply(r)}
-                  className={`grid grid-cols-[auto_minmax(8rem,12rem)_1fr_auto] items-center gap-2 rounded px-2 py-0.5 font-lcd text-base ${isActive ? "outline-2 outline-focus outline-solid -outline-offset-2" : ""}`}
+                  className={`grid grid-cols-[auto_minmax(8rem,12rem)_1fr_auto] items-center gap-2 rounded px-2 py-0.5 font-lcd text-readout ${isActive ? "outline-2 outline-focus outline-solid -outline-offset-2" : ""}`}
                 >
                   <Led on={isHeard} label={isHeard ? "Auditioning" : "Not auditioning"} />
                   <span className="lcd-text truncate">
                     {r.name}
-                    <span className="block text-sm">
+                    <span className="block text-body">
                       {r.genre}
                       {r.stock ? "" : " · yours"}
                     </span>
                   </span>
-                  <span className="lcd-text min-w-0 text-sm">
+                  <span className="lcd-text min-w-0 text-body">
                     <span className="line-clamp-2">{r.description}</span>
                     <span className="block truncate opacity-80">{chainSummary(r)}</span>
                   </span>
@@ -389,7 +391,7 @@ export function RigPicker({
           {broken.length > 0 ? (
             <ul aria-label="Rig files that will not load" className="surface-lcd m-0 list-none p-1">
               {broken.map((b) => (
-                <li key={b.path} className="px-2 py-0.5 font-lcd text-base">
+                <li key={b.path} className="px-2 py-0.5 font-lcd text-readout">
                   <span className="lcd-text text-lcd-error">{b.name}</span>
                   <span className="lcd-text text-lcd-dim"> · will not load: {b.reason}</span>
                 </li>
@@ -415,11 +417,11 @@ export function RigPicker({
               className="surface-lcd flex flex-wrap items-end gap-x-3 gap-y-2 p-2"
             >
               {form.kind === "delete" ? (
-                <p className="lcd-text m-0 font-lcd text-base">
+                <p className="lcd-text m-0 font-lcd text-readout">
                   Delete the rig {form.rig.name}? Its file goes from your Rigs folder.
                 </p>
               ) : (
-                <label className="lcd-text grid gap-1 font-lcd text-sm">
+                <label className="lcd-text grid gap-1 font-lcd text-body">
                   Name
                   <input
                     // biome-ignore lint/a11y/noAutofocus: the form opens to be typed in
@@ -427,19 +429,19 @@ export function RigPicker({
                     required
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="surface-lcd min-h-8 w-48 px-2 font-lcd text-base"
+                    className="surface-field min-h-8 w-48 px-2"
                   />
                 </label>
               )}
               {form.kind === "save" ? (
                 <>
-                  <label className="lcd-text grid gap-1 font-lcd text-sm">
+                  <label className="lcd-text grid gap-1 font-lcd text-body">
                     Genre
                     <input
                       value={form.genre}
                       list={`${id}-genres`}
                       onChange={(e) => setForm({ ...form, genre: e.target.value })}
-                      className="surface-lcd min-h-8 w-36 px-2 font-lcd text-base"
+                      className="surface-field min-h-8 w-36 px-2"
                     />
                     <datalist id={`${id}-genres`}>
                       {rigGenres(rigs, form.instrument).map((g) => (
@@ -447,25 +449,25 @@ export function RigPicker({
                       ))}
                     </datalist>
                   </label>
-                  <label className="lcd-text grid gap-1 font-lcd text-sm">
+                  <label className="lcd-text grid gap-1 font-lcd text-body">
                     Instrument
                     <select
                       value={form.instrument}
                       onChange={(e) =>
                         setForm({ ...form, instrument: e.target.value as Instrument })
                       }
-                      className="surface-lcd min-h-8 px-2 font-lcd text-base"
+                      className="surface-field min-h-8 px-2"
                     >
                       <option value="guitar">Guitar</option>
                       <option value="bass">Bass</option>
                     </select>
                   </label>
-                  <label className="lcd-text grid min-w-64 flex-1 gap-1 font-lcd text-sm">
+                  <label className="lcd-text grid min-w-64 flex-1 gap-1 font-lcd text-body">
                     What it sounds like
                     <input
                       value={form.description}
                       onChange={(e) => setForm({ ...form, description: e.target.value })}
-                      className="surface-lcd min-h-8 px-2 font-lcd text-base"
+                      className="surface-field min-h-8 px-2"
                     />
                   </label>
                 </>

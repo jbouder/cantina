@@ -79,7 +79,7 @@ function PadFader({
     if (shown !== value) onCommit(shown);
   };
   return (
-    <span className="flex items-center gap-1.5">
+    <span className="flex items-center gap-2">
       <input
         type="range"
         className="fader w-24"
@@ -95,7 +95,7 @@ function PadFader({
         onBlur={commit}
         onDoubleClick={() => onCommit(PAD_MIX_DEFAULT[control.field])}
       />
-      <output className="surface-lcd w-16 px-1 py-0.5 text-right font-lcd text-sm leading-none tabular-nums">
+      <output className="surface-lcd w-16 px-1 py-0.5 text-right font-lcd text-body leading-none tabular-nums">
         <span className="lcd-text">{control.show(shown)}</span>
       </output>
     </span>
@@ -114,7 +114,7 @@ export function PadMixer({ track, run }: Props) {
     <section aria-label={`${track.name} pad mixer`} className="surface-lcd overflow-x-auto p-2">
       <table className="border-separate border-spacing-x-2 border-spacing-y-0.5">
         <thead>
-          <tr className="font-bold text-[11px] text-lcd-fg uppercase tracking-[0.08em]">
+          <tr className="caption text-lcd-fg">
             <th scope="col" className="text-left">
               <span className="lcd-text">Pad</span>
             </th>
@@ -135,7 +135,7 @@ export function PadMixer({ track, run }: Props) {
               <tr key={pad.id}>
                 <th
                   scope="row"
-                  className={`lcd-text w-24 max-w-24 truncate text-left font-lcd font-normal text-base ${mix.mute ? "opacity-40" : ""}`}
+                  className={`lcd-text w-24 max-w-24 truncate text-left font-lcd font-normal text-readout ${mix.mute ? "opacity-40" : ""}`}
                 >
                   {pad.name}
                 </th>
@@ -145,7 +145,7 @@ export function PadMixer({ track, run }: Props) {
                     aria-pressed={mix.mute}
                     aria-label={`Mute ${pad.name}`}
                     onClick={() => set(pad.id, { ...mix, mute: !mix.mute })}
-                    className={`h-7 w-7 border-0 p-0 font-bold font-lcd text-xs ${mix.mute ? "bg-lcd-fg text-lcd-bg" : "bg-tl-lane text-lcd-fg"}`}
+                    className={`h-7 w-7 border-0 p-0 font-bold font-lcd text-label ${mix.mute ? "bg-lcd-fg text-lcd-bg" : "bg-tl-lane text-lcd-fg"}`}
                   >
                     M
                   </button>

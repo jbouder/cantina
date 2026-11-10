@@ -70,7 +70,7 @@ function matches(filter: string, ...texts: string[]) {
   return f === "" || texts.some((t) => t.toLowerCase().includes(f));
 }
 
-const HEADING = "m-0 px-2 pt-1 font-bold text-[11px] uppercase tracking-[0.1em]";
+const HEADING = "caption m-0 px-2 pt-1";
 const ROW =
   "flex min-h-9 w-full items-center gap-2 border-0 bg-transparent px-2 text-left text-lcd-fg hover:bg-select focus-visible:bg-select";
 /** Stock and library names are short, so they go two to a row. */
@@ -149,10 +149,10 @@ export function PedalPicker({
   const kindRow = (k: PedalKindInfo) => (
     <li key={k.spec}>
       <button type="button" onClick={() => add(k.spec)} className={ROW}>
-        <span className="lcd-text min-w-0 flex-1 truncate font-lcd text-lg">{k.name}</span>
+        <span className="lcd-text min-w-0 flex-1 truncate font-lcd text-readout">{k.name}</span>
         {k.designable ? (
           <span
-            className="lcd-text shrink-0 font-lcd text-base text-lcd-dim"
+            className="lcd-text shrink-0 font-lcd text-readout text-lcd-dim"
             title="In the pedal format: the designer can open it"
           >
             json
@@ -174,10 +174,10 @@ export function PedalPicker({
         autoComplete="off"
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
-        className="surface-lcd min-h-8 w-full px-3 font-lcd text-base placeholder:text-lcd-dim"
+        className="surface-field min-h-8 w-full px-3 "
       />
       {error ? (
-        <Lcd role="alert" error className="text-base">
+        <Lcd role="alert" error className="text-readout">
           {error}
         </Lcd>
       ) : null}
@@ -199,7 +199,7 @@ export function PedalPicker({
             {brokenShown.length > 0 ? (
               <ul aria-label="Pedal files that will not load" className="m-0 list-none p-0">
                 {brokenShown.map((b) => (
-                  <li key={b.path} className="px-2 py-0.5 font-lcd text-base">
+                  <li key={b.path} className="px-2 py-0.5 font-lcd text-readout">
                     <span className="lcd-text text-lcd-error">{b.name}</span>
                     <span className="lcd-text text-lcd-dim"> · will not load: {b.reason}</span>
                   </li>
@@ -210,13 +210,10 @@ export function PedalPicker({
         ) : null}
         <section aria-labelledby={`${id}-plugins`} className="mb-1">
           <div className="flex flex-wrap items-center gap-2 px-2 pt-1">
-            <h3
-              id={`${id}-plugins`}
-              className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]"
-            >
+            <h3 id={`${id}-plugins`} className="caption m-0">
               Plugins
             </h3>
-            <span className="lcd-text min-w-0 flex-1 truncate font-lcd text-base text-lcd-dim">
+            <span className="lcd-text min-w-0 flex-1 truncate font-lcd text-readout text-lcd-dim">
               {summary}
             </span>
             <Button
@@ -236,7 +233,7 @@ export function PedalPicker({
             </Button>
           </div>
           {groups.length === 0 ? (
-            <p className="m-0 px-2 py-1 font-lcd text-base text-lcd-dim">
+            <p className="m-0 px-2 py-1 font-lcd text-readout text-lcd-dim">
               {plugins.scanning
                 ? "Looking for plugins…"
                 : filter
@@ -246,7 +243,7 @@ export function PedalPicker({
           ) : (
             groups.map(({ format, vendors }) => (
               <div key={format}>
-                <h4 className="m-0 px-2 pt-1 font-lcd text-base text-lcd-dim">
+                <h4 className="m-0 px-2 pt-1 font-lcd text-readout text-lcd-dim">
                   {FORMAT_NAMES[format]}
                 </h4>
                 {vendors.map(({ vendor, plugins: entries }) => (
@@ -263,10 +260,10 @@ export function PedalPicker({
                           onClick={() => add(p.spec)}
                           className={ROW}
                         >
-                          <span className="lcd-text min-w-0 flex-1 truncate font-lcd text-lg">
+                          <span className="lcd-text min-w-0 flex-1 truncate font-lcd text-readout">
                             {p.name}
                           </span>
-                          <span className="lcd-text shrink-0 truncate font-lcd text-base text-lcd-dim">
+                          <span className="lcd-text shrink-0 truncate font-lcd text-readout text-lcd-dim">
                             {vendor} · {p.inputs}→{p.outputs}
                             {p.hasEditor ? " · editor" : ""}
                             {p.version ? ` · v${p.version}` : ""}
@@ -281,12 +278,12 @@ export function PedalPicker({
           )}
           {list && list.failed.length > 0 && !filter ? (
             <details className="px-2 py-1">
-              <summary className="cursor-pointer font-lcd text-base text-lcd-error">
+              <summary className="cursor-pointer font-lcd text-readout text-lcd-error">
                 {list.failed.length} failed to load
               </summary>
               <ul className="m-0 list-none p-0">
                 {list.failed.map((f) => (
-                  <li key={`${f.source}:${f.name}`} className="py-0.5 font-lcd text-base">
+                  <li key={`${f.source}:${f.name}`} className="py-0.5 font-lcd text-readout">
                     <span className="lcd-text text-lcd-error">{f.name}</span>
                     <span className="lcd-text text-lcd-dim"> · {f.why}</span>
                   </li>
@@ -312,7 +309,7 @@ export function PedalPicker({
         >
           Import a file…
         </Button>
-        <span className="text-ink-dim text-xs">
+        <span className="text-ink-dim text-label">
           Plugins are scanned in a separate process, so one that crashes on load is listed as failed
           instead of taking Cantina down.
         </span>

@@ -10,7 +10,7 @@ properties defined per skin under `:root[data-skin='…']` in
 `ui/src/skins/`. Components never carry a literal color, radius, shadow or
 typeface; they name a token through a Tailwind utility (`bg-lcd-bg`,
 `text-ink-dim`, `rounded-control`) or one of the material utilities
-(`surface-window`, `surface-button`, `surface-lcd`, …) declared in
+(`surface-window`, `button-standard`, `surface-lcd`, …) declared in
 `ui/src/styles.css`. Switching `data-skin` on `<html>` reskins everything
 live.
 
@@ -44,6 +44,12 @@ Tailwind's default palette is cleared in `styles.css`, so `bg-red-500`
 produces no CSS. `scripts/check-colors.mjs` runs as part of `npm run lint`
 and fails on any hex value, `rgb()`-style function or CSS named color
 outside `ui/src/skins/`. Together they are the "no literal colors" rule.
+
+Type and spacing work the same way. Tailwind's font sizes are cleared and
+replaced by the four `--type-*` steps, and its spacing unit is
+`--space-unit`. `scripts/check-scale.mjs` fails on a size or a gap off the
+scale; [the UI page](/architecture/ui/#type-spacing-and-labels) has the
+rules.
 
 ## The shared palette
 
@@ -80,7 +86,23 @@ defaults, so set only what differs):
   `--button-hover-*` and `--button-active-*` variants (including
   `--button-active-ink` and `--button-active-transform` for keys that
   travel), and `--pbutton-radius`, `--pbutton-bg`, `--pbutton-shadow` for
-  the panel keys. Faders draw their thumb from the button material.
+  the panel keys. Faders draw their thumb from the button material. These
+  feed the three tiers: `button-primary` draws with `--button-*`,
+  `button-standard` with `--pbutton-*`, and `button-quiet` with
+  `--quiet-hover-bg` and `--quiet-active-bg`.
+- **States**: `--state-on`, `--state-selected` and `--state-disabled`,
+  each a flat color with an `-ink` for its label and a `-shadow`. On is a
+  toggle that is lit, selected is the chosen one of several, disabled
+  cannot be used. Every tier draws its states from these, so a skin sets
+  them once.
+- **Fields**: `--field-bg`, `--field-fg`, `--field-dim` (placeholders),
+  `--field-edge`, `--field-edge-hover`, `--field-border`, `--field-radius`
+  and `--field-shadow`, for inputs, selects and textareas. They must not
+  look like a display.
+- **Type**: `--type-label`, `--type-body`, `--type-readout` and
+  `--type-display`, each with a `-leading`, and `--caption-tracking`. A
+  skin may change them, but `--type-label` stays at 11 px or more.
+- **Spacing**: `--space-unit`, the step every gap and padding multiplies.
 - **Displays**: `--lcd-radius`, `--lcd-border`, `--lcd-shadow`,
   `--lcd-overlay` (a grid over the display), `--lcd-mask` (turns display
   text into a dot matrix), `--lcd-text-shadow`, `--meter-bg`.

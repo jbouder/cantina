@@ -14,7 +14,7 @@ function format(value: number, unit: string) {
   return `${value.toFixed(digits)}${unit ? ` ${unit}` : ""}`;
 }
 
-const LABEL = "font-bold text-[11px] uppercase tracking-[0.08em]";
+const LABEL = "caption";
 /** Positions on a log-mapped slider. */
 const LOG_STEPS = 1000;
 
@@ -32,12 +32,7 @@ export function Fader({ param, value, onChange }: Props) {
         <span id={id} className={LABEL}>
           {param.name}
         </span>
-        <Button
-          aria-pressed={on}
-          aria-labelledby={id}
-          onClick={() => onChange(on ? 0 : 1)}
-          variant={on ? "transport" : "panel"}
-        >
+        <Button aria-pressed={on} aria-labelledby={id} onClick={() => onChange(on ? 0 : 1)}>
           <Led on={on} label={param.name} />
           {on ? "On" : "Off"}
         </Button>
@@ -53,7 +48,7 @@ export function Fader({ param, value, onChange }: Props) {
         <span className="relative">
           <select
             id={id}
-            className="surface-lcd min-h-8 w-full appearance-none truncate py-0 pr-8 pl-2 font-lcd text-base"
+            className="surface-field min-h-8 w-full appearance-none truncate py-0 pr-8 pl-2"
             value={Math.round(value)}
             onChange={(e) => onChange(Number(e.target.value))}
           >
@@ -66,7 +61,7 @@ export function Fader({ param, value, onChange }: Props) {
           <svg
             aria-hidden="true"
             viewBox="0 0 16 16"
-            className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 fill-lcd-fg"
+            className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 fill-field-fg"
           >
             <path d="M2 5l6 6 6-6z" />
           </svg>
@@ -91,7 +86,7 @@ export function Fader({ param, value, onChange }: Props) {
         </label>
         <output
           htmlFor={id}
-          className="surface-lcd px-1.5 py-0.5 font-lcd text-sm leading-none tabular-nums"
+          className="surface-lcd px-2 py-0.5 font-lcd text-body leading-none tabular-nums"
         >
           <span className="lcd-text">{format(value, param.unit)}</span>
         </output>

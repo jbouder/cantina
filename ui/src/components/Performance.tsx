@@ -177,10 +177,10 @@ export function Performance({
           </Button>
           <span
             aria-live="polite"
-            className="min-w-40 px-2 text-center font-lcd text-base text-lcd-fg"
+            className="min-w-40 px-2 text-center font-lcd text-readout text-lcd-fg"
           >
             {sceneName}
-            <span className="ml-2 text-ink-dim text-xs">
+            <span className="ml-2 text-ink-dim text-label">
               {sceneAt + 1}/{LISTED_SCENES.length}
             </span>
           </span>
@@ -204,7 +204,7 @@ export function Performance({
       {hint || problem ? (
         <div
           role="status"
-          className="pointer-events-none absolute inset-x-0 top-20 mx-auto w-fit rounded-control bg-scrim px-4 py-2 font-lcd text-lg text-lcd-fg"
+          className="pointer-events-none absolute inset-x-0 top-20 mx-auto w-fit rounded-control bg-scrim px-4 py-2 font-lcd text-readout text-lcd-fg"
         >
           {problem ?? hint}
         </div>
@@ -225,22 +225,17 @@ export function Performance({
           className="surface-panel absolute inset-x-4 bottom-4 grid gap-3 p-3 opacity-90"
         >
           <div className="flex flex-wrap items-center gap-1">
-            <span className="mr-2 font-bold text-[11px] uppercase tracking-[0.1em]">Chain</span>
+            <span className="caption mr-2">Chain</span>
             {chains.length === 0 ? (
-              <span className="text-ink-dim text-sm">Add a guitar track to play through.</span>
+              <span className="text-ink-dim text-body">Add a guitar track to play through.</span>
             ) : (
               chains.map((t) => (
-                <Button
-                  key={t.id}
-                  variant={t.armed ? "transport" : "panel"}
-                  aria-pressed={t.armed}
-                  onClick={() => report(chainSelect(t.id))}
-                >
+                <Button key={t.id} aria-pressed={t.armed} onClick={() => report(chainSelect(t.id))}>
                   {t.name}
                 </Button>
               ))
             )}
-            <span className="ml-auto text-ink-dim text-xs">
+            <span className="ml-auto text-ink-dim text-label">
               ↑ ↓ chains · 1–9 stomp · ← → scenes
             </span>
           </div>
@@ -256,22 +251,20 @@ export function Performance({
                     aria-pressed={!pedal.bypassed}
                     aria-label={`${pedal.name}${i < STOMPS ? `, key ${i + 1}` : ""}`}
                     onClick={() => report(pedalSetBypass(pedal.id, !pedal.bypassed))}
-                    className="surface-pbutton grid min-h-20 min-w-28 place-items-center gap-2 border-0 px-3 py-2"
+                    className="button-standard grid min-h-20 min-w-28 place-items-center gap-2 border-0 px-3 py-2"
                   >
                     <Led on={!pedal.bypassed} label={pedal.name} />
-                    <span className="font-bold text-[11px] uppercase tracking-[0.06em]">
-                      {pedal.name}
-                    </span>
-                    {i < STOMPS ? <span className="text-ink-dim text-xs">{i + 1}</span> : null}
+                    <span className="font-bold text-label">{pedal.name}</span>
+                    {i < STOMPS ? <span className="text-ink-dim text-label">{i + 1}</span> : null}
                   </button>
                 </li>
               ))}
               {live.chain.length === 0 ? (
-                <li className="text-ink-dim text-sm">{live.name} has no pedals.</li>
+                <li className="text-ink-dim text-body">{live.name} has no pedals.</li>
               ) : null}
             </ul>
           ) : chains.length > 0 ? (
-            <p className="m-0 text-ink-dim text-sm">Pick a chain to play through.</p>
+            <p className="m-0 text-ink-dim text-body">Pick a chain to play through.</p>
           ) : null}
         </section>
       ) : null}

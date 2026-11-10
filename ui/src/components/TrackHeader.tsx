@@ -14,9 +14,9 @@ import { TRACK_HEIGHT } from "../lib/timeline";
 import { Led } from "./Led";
 import { Meter } from "./Meter";
 
-/** A small square key; pressed, it takes the transport material so it reads from across the room. */
-const key = (on: boolean) =>
-  `${on ? "surface-button" : "surface-pbutton"} grid size-7 shrink-0 place-items-center border-0 p-0 font-bold text-[11px] uppercase leading-none`;
+/** A small square key. On, it lights up through `aria-pressed`. */
+const KEY =
+  "button-standard grid size-7 shrink-0 place-items-center border-0 p-0 font-bold text-label leading-none";
 
 /** A speaker with a cross: the mute key's glyph. */
 function MuteGlyph() {
@@ -80,7 +80,7 @@ export function TrackHeader({
           type="button"
           aria-pressed={selected}
           onClick={onSelect}
-          className="min-h-7 min-w-0 flex-1 truncate border-0 bg-transparent px-1 text-left font-bold text-[11px] text-lcd-fg uppercase tracking-[0.08em]"
+          className="min-h-7 min-w-0 flex-1 truncate border-0 bg-transparent px-1 text-left font-bold text-label text-lcd-fg"
         >
           {track.name}
         </button>
@@ -113,7 +113,7 @@ export function TrackHeader({
           aria-label={`${track.strip.mute ? "Unmute" : "Mute"} ${track.name}`}
           title={`${track.strip.mute ? "Unmute" : "Mute"} ${track.name}`}
           onClick={() => run(stripMute(track.id, !track.strip.mute))}
-          className={key(track.strip.mute)}
+          className={KEY}
         >
           <MuteGlyph />
         </button>
@@ -127,7 +127,7 @@ export function TrackHeader({
               : `Solo ${track.name}: hear only the soloed tracks`
           }
           onClick={() => run(stripSolo(track.id, !track.strip.solo))}
-          className={key(track.strip.solo)}
+          className={KEY}
         >
           <SoloGlyph />
         </button>
@@ -160,7 +160,7 @@ export function MasterHeader({ master, level, onStatus, onError }: MasterProps) 
       className={`grid content-center gap-1 border-tl-bar border-t border-b px-1 ${master.mute ? "opacity-70" : ""}`}
     >
       <div className="flex items-center gap-1">
-        <span className="min-w-0 flex-1 truncate px-1 font-bold text-[11px] text-lcd-fg uppercase tracking-[0.08em]">
+        <span className="min-w-0 flex-1 truncate px-1 font-bold text-label text-lcd-fg">
           Master
         </span>
         <button
@@ -169,7 +169,7 @@ export function MasterHeader({ master, level, onStatus, onError }: MasterProps) 
           aria-label={master.mute ? "Unmute master" : "Mute master"}
           title={master.mute ? "Unmute master" : "Mute master"}
           onClick={() => run(stripMute(null, !master.mute))}
-          className={key(master.mute)}
+          className={KEY}
         >
           <MuteGlyph />
         </button>
@@ -250,7 +250,7 @@ function StripControls({ name, strip, level, onGain, onPan, onError }: StripProp
         />
         <output
           htmlFor={`${id}-gain`}
-          className="surface-lcd px-1 text-right font-lcd text-xs leading-tight tabular-nums"
+          className="surface-lcd px-1 text-right font-lcd text-label leading-tight tabular-nums"
         >
           <span className="lcd-text">{gain.toFixed(1)} dB</span>
         </output>
@@ -279,7 +279,7 @@ function StripControls({ name, strip, level, onGain, onPan, onError }: StripProp
             />
             <output
               htmlFor={`${id}-pan`}
-              className="surface-lcd px-1 text-center font-lcd text-xs leading-tight tabular-nums"
+              className="surface-lcd px-1 text-center font-lcd text-label leading-tight tabular-nums"
             >
               <span className="lcd-text">{panLabel(pan)}</span>
             </output>

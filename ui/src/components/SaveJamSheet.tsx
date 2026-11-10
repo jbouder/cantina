@@ -61,14 +61,14 @@ export function SaveJamSheet({ setup, mine, onClose, onStatus, onError }: Props)
           placeholder="A line on what it is for"
           onChange={(e) => setDescription(e.target.value)}
         />
-        <p className="m-0 text-ink-dim text-xs">
+        <p className="m-0 text-ink-dim text-label">
           {clash
             ? `Replaces your jam called ${name.trim()}.`
             : "Saved in Jams in your Cantina folder; stock jams stay as they are."}
         </p>
         <div className="flex justify-end gap-2">
           <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="transport" disabled={!name.trim()}>
+          <Button type="submit" tier="primary" disabled={!name.trim()}>
             {clash ? "Replace" : "Save"}
           </Button>
         </div>

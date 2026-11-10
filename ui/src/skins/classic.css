@@ -108,6 +108,51 @@
   --lcd-mask: none;
   --lcd-text-shadow: 0 0 6px var(--lcd-glow);
 
+  /* Fields: inputs, selects and textareas, which the user edits. A well
+   * in the UI face with a visible edge, unlike a display. */
+  --field-bg: #1e1e2a;
+  --field-fg: #f0f0f5;
+  --field-dim: #9c9cb0;
+  --field-edge: #6e6e88;
+  --field-edge-hover: var(--focus);
+  --field-border: 1px solid var(--field-edge);
+  --field-radius: var(--control-radius);
+  --field-shadow: inset 0 1px 2px rgb(0 0 0 / 0.5);
+
+  /* States, the same on every button tier. On is a toggle that is lit,
+   * selected is the chosen one of several, disabled cannot be used. The
+   * contrast check holds the three apart and keeps disabled dimmer than
+   * a live key. */
+  --state-on: #143c14;
+  --state-on-ink: #8cff8c;
+  --state-on-shadow:
+    inset 1px 1px 0 var(--pbtn-bevel-lo), inset 0 -2px 0 var(--led-on), 0 0 0 1px var(--frame-edge);
+  --state-selected: #0000c6;
+  --state-selected-ink: #ffffff;
+  --state-selected-shadow: 0 0 0 1px var(--frame-edge);
+  --state-disabled: #2a2a38;
+  --state-disabled-ink: #8a8a9c;
+  --state-disabled-shadow: inset 0 0 0 1px var(--frame-lo);
+
+  /* The quiet button tier: a wash of the ink it sits on. */
+  --quiet-hover-bg: color-mix(in srgb, currentColor 14%, transparent);
+  --quiet-active-bg: color-mix(in srgb, currentColor 24%, transparent);
+
+  /* The type scale: four steps, 11 px at the smallest. Labels and
+   * captions, body text, display readouts, and large display figures. */
+  --type-label: 11px;
+  --type-label-leading: 1.3;
+  --type-body: 13px;
+  --type-body-leading: 1.4;
+  --type-readout: 16px;
+  --type-readout-leading: 1.25;
+  --type-display: 24px;
+  --type-display-leading: 1.1;
+  --caption-tracking: 0.08em;
+
+  /* The spacing unit. Gaps, padding and margins are steps of it. */
+  --space-unit: 4px;
+
   /* Text inside sheets, for skins whose frame ink does not suit them. */
   --sheet-ink: var(--ink);
 
