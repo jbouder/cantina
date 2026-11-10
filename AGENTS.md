@@ -40,12 +40,18 @@ decisions and the milestones; the architecture lives on the docs site, in
 - `src-tauri/` — the shell. `engine.rs` owns the engine and the open
   project and applies every edit through `Engine::apply`; `commands.rs` is
   the Tauri commands; `library.rs` the watched folders under
-  `~/Music/Cantina`; `frame.rs` the binary analysis channel.
+  `~/Music/Cantina`; `frame.rs` the binary analysis channel;
+  `window_state.rs` the main window's remembered size and state (full
+  screen on a first launch).
 - `ui/` — React 19 + TypeScript + Tailwind v4. `ui/src/lib/engine.ts` is
   the client for the shell's commands and the stand-in engine `npm run dev`
   runs against. `ui/src/lib/pedal-kinds.json` is the node catalog the
   designer reads, equal to `cantina-cli kinds --json` (a test holds them
-  equal). `ui/src/skins/` holds Cantina's skin tokens and materials.
+  equal). `ui/src/skins/` holds Cantina's skin tokens and materials, and
+  `ui/src/styles.css` the utilities built on them. The shared pieces in
+  `ui/src/components/`: `Button` (tiers), `Field` and `Toggle` (form
+  rows), `Sheet` (dialogs with a footer), `Toast` (messages),
+  `ContextMenu` (menus), `Fader` (a parameter row).
 - `packages/scenes` — `@cantina/scenes`, the visualizer scenes, shared
   with music-visualizer. `packages/skins` — `@cantina/skins`, the six
   skins' shared palette.
@@ -62,10 +68,13 @@ decisions and the milestones; the architecture lives on the docs site, in
   `references/formats.md` and `references/node-catalog.md` are generated
   by `scripts/skill-references.mjs`; do not hand-edit them.
 - `docs/` — the docs site (Astro + Starlight), its own npm project.
-  Guides, architecture, reference. `docs/screenshots/` holds the PR
-  screenshots `scripts/screenshot.sh` captures.
-- `scripts/` — colour and contrast checks, the scene harness, the
-  screenshot script, the skill's reference generator and fixture runner.
+  Guides, architecture, reference. `docs/src/assets/` holds the images
+  the site and the README embed, retaken by `scripts/docs-screenshots.sh`.
+  `docs/screenshots/` holds the PR screenshots `scripts/screenshot.sh`
+  captures.
+- `scripts/` — colour, scale and contrast checks, the scene harness, the
+  two screenshot scripts, the skill's reference generator and fixture
+  runner.
 
 ## Rules
 
@@ -123,7 +132,11 @@ decisions and the milestones; the architecture lives on the docs site, in
   class or a different tier. Capitals come only from the `caption`
   utility; button text and names are sentence case. An input, select or
   textarea is a `surface-field`; `surface-lcd` is for readouts.
-  `npm run lint` fails on the rest; the rules are in
+  A dialog is a `Sheet` with its one primary button in the footer, a form
+  row is a `Field`, a setting that is on or off is a `Toggle`, a message
+  is a `Toast`, and a region that scrolls is a `scroll-area`. A toolbar
+  never wraps: captions drop out by container width. `npm run lint` fails
+  on what it can check; the rules are in
   `docs/src/content/docs/architecture/ui.md`.
 - **The docs stay true.** A change a user or contributor would notice
   updates its guide or architecture page in `docs/src/content/docs/` in the
@@ -134,7 +147,10 @@ decisions and the milestones; the architecture lives on the docs site, in
 - **UI changes include screenshots**, taken with
   `scripts/screenshot.sh <name> "<query>"` against the stand-in engine
   (name them `m<milestone>-<topic>`, as the existing ones are), across
-  more than one skin when the look changes.
+  more than one skin when the look changes. `SHOT_SIZE=800,520` sets the
+  window size and `SHOT_SCROLLBARS=1` keeps scroll bars in the picture. A
+  change the docs' own images would show reruns
+  `scripts/docs-screenshots.sh`.
 
 ## Commands
 
@@ -144,7 +160,7 @@ npm run tauri dev        # the app, rebuilding as the code changes
 npm run dev              # the UI alone in a browser, against the stand-in engine
 npm run tauri build      # target/release/bundle/macos/Cantina.app
 
-npm run check            # Biome, colour and contrast checks, TypeScript, Vitest
+npm run check            # Biome, colour, scale and contrast checks, TypeScript, Vitest
 npm run test:scenes      # draws every scene in headless Chrome
 npm run format           # biome check --write
 
@@ -166,6 +182,7 @@ UPDATE_SCHEMAS=1 cargo test -p cantina-project schemas    # a file format change
 node scripts/skill-references.mjs                         # after the schemas or the node catalog
 UPDATE_SHORTCUTS=1 npx vitest run shortcuts               # after a shortcut or menu item changed
 scripts/skill-fixtures.sh                                 # every skill example checks and renders
+scripts/docs-screenshots.sh                               # every image the README and the docs embed
 ```
 
 The docs site: `cd docs && npm install && npm run dev`; `npm run build`

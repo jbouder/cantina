@@ -104,9 +104,11 @@ Then import it at the end of `packages/skins/tokens.css`:
 ### 2. Cantina's own tokens
 
 Create `ui/src/skins/ember.css` for the tokens only Cantina has: `--face`,
-the flat colour text sits on, and the timeline's colours. Materials such as
-the window's shape and the buttons' finish go here too; this skin keeps
-Classic's.
+the flat colour text sits on, the timeline's colours, and the colors that
+follow the display and the lights. Classic's are green, so a skin with
+another display color sets `--lcd-muted` (secondary text on a display) and
+the on and selected states to match. Materials such as the window's shape
+and the buttons' finish go here too; this skin keeps Classic's.
 
 ```css
 /*
@@ -121,6 +123,15 @@ Classic's.
   --tl-clip-edge: #ff8a3d;
   --tl-clip-selected: #6b3a18;
   --tl-wave: #ffc27a;
+
+  /* Secondary text on the amber display. */
+  --lcd-muted: #c98a2e;
+
+  /* A key that is on, and the chosen one of several. */
+  --state-on: #4a2408;
+  --state-on-ink: #ffc27a;
+  --state-selected: #a84a12;
+  --state-selected-ink: #ffffff;
 }
 ```
 

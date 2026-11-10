@@ -40,16 +40,17 @@ file, so you or a coding agent can write one and the app picks it up.
   delay, reverb, and an amp and cabinet with a starter set of impulse
   responses.
 - **Multitrack recording.** Tracks and clips on a timeline: record, move,
-  trim and split, with a mixer (gain, pan, mute, solo, master), a tempo map
+  trim and split, with a mixer in the track headers (gain, pan, mute, solo,
+  and a master strip pinned under the tracks), a tempo map
   and metronome, undo and redo over the whole session, and autosave with
   crash recovery. Audio files are never modified.
 - **Plugins.** Audio Units and CLAP plugins in any chain, with their own
   editor windows, saved state and latency compensation across tracks.
   Scanning runs in a child process, so a broken plugin cannot take the app
   down.
-- **Drums.** A step sequencer with velocity, swing and pattern length,
-  stock acoustic, rock, electronic and metal kits, and patterns as clips that
-  follow the tempo map.
+- **Drums.** A step sequencer with velocity, swing, humanize and pattern
+  length, stock grooves by genre, stock acoustic, rock, electronic and metal
+  kits, and patterns as clips that follow the tempo map.
 - **Pedal designer.** Build a pedal as a graph of filters, gains, shapers,
   delays and modulators, hear it live on your input as you wire it, and
   save it as a file you can share. Real-time safe by construction, with no
@@ -64,6 +65,17 @@ file, so you or a coding agent can write one and the app picks it up.
   Claude Code, and library folders under `~/Music/Cantina` that the app
   watches. Ask for *"a fuzz with an octave-up blend"* and get a pedal that
   loads.
+
+## First run
+
+Cantina opens full screen the first time. Leave full screen with ⌃⌘F and
+it remembers the window's size and place from then on. The start dialog
+offers a new project, a recent one, or a jam. In the studio the header is
+two rows: the project, the in and out meters and the engine on top, the
+transport under it. Arm a track with the light beside its name, play, and
+you hear your instrument through that track's pedalboard. The
+[getting started](https://cantina-docs.vibeproject.workers.dev/guides/getting-started/)
+guide goes on from there.
 
 ## Status
 
@@ -86,7 +98,8 @@ npm run tauri build    # target/release/bundle/macos/Cantina.app
 ```
 
 `npm run dev` serves the UI alone in a browser against a stand-in engine,
-which is enough for layout and skin work.
+which is enough for layout and skin work. `scripts/docs-screenshots.sh`
+retakes every screenshot in this README and on the docs site from it.
 
 ## Test
 

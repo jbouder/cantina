@@ -127,7 +127,7 @@ export function JamBacking({ backing, presets, rigs, project, missing, onChange,
   const genres = [...new Set(presets.map((p) => p.genre))];
 
   return (
-    <fieldset className="m-0 grid gap-x-6 gap-y-3 border-0 p-0 md:grid-cols-2">
+    <fieldset className="m-0 grid gap-2 border-0 p-0">
       <legend className="sr-only">Backing</legend>
       <Select
         id={`${ids}-kind`}
@@ -165,7 +165,7 @@ export function JamBacking({ backing, presets, rigs, project, missing, onChange,
               </optgroup>
             ))}
           </Select>
-          <label className="grid gap-1 text-body md:col-span-2" htmlFor={`${ids}-chords`}>
+          <label className="grid gap-1 text-body" htmlFor={`${ids}-chords`}>
             Chords
             <input
               key={backing.chords}
