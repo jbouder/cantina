@@ -841,12 +841,14 @@ export function App() {
         </>
       }
       status={
-        status && transport && !jamming
-          ? transportNote(transport, status.project.tracks, frame.countIn)
-          : null
+        status && jamming
+          ? `Space plays · 1 to 6 change section at the next bar · ↑ ↓ tempo · T taps it · Return keeps your playing. Jamming never edits ${status.project.name}.`
+          : status && transport
+            ? transportNote(transport, status.project.tracks, frame.countIn)
+            : null
       }
       meters={
-        metersShown && !jamming ? (
+        metersShown ? (
           <>
             <Meter compact label="In" level={frame.input} />
             <Meter compact label="Out" level={frame.output} />

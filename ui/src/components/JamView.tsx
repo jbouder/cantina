@@ -23,11 +23,11 @@ import {
   tapTempo,
 } from "../lib/jam";
 import { Button } from "./Button";
+import { Field } from "./Field";
 import { JamBacking, rigId } from "./JamBacking";
 import { KeepSheet } from "./KeepSheet";
 import { Lcd } from "./Lcd";
 import { Led } from "./Led";
-import { Meter } from "./Meter";
 import { Metronome } from "./Metronome";
 import { SaveJamSheet } from "./SaveJamSheet";
 import { Select } from "./Select";
@@ -147,9 +147,9 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
   return (
     <section
       aria-label="Jam"
-      className="grid min-h-0 flex-1 gap-3 overflow-y-auto lg:grid-cols-[minmax(0,22rem)_1fr]"
+      className="scroll-area grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]"
     >
-      <div className="surface-panel grid content-start gap-3 p-3">
+      <div className="surface-panel grid content-start gap-2 p-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="caption m-0 min-w-0 truncate">
             {setup.name === "Jam" ? "Jam" : `Jam · ${setup.name}`}
@@ -253,15 +253,11 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
             </option>
           ))}
         </Select>
-        <fieldset className="m-0 grid grid-cols-[1fr_auto] items-center gap-3 border-0 p-0">
-          <legend className="float-left p-0 text-body">
-            Key
-            <small className="block text-ink-dim text-label">What the backing plays in</small>
-          </legend>
-          <span className="flex gap-1">
+        <Field label="Key" hint="What the backing plays in">
+          <span className="grid w-full grid-cols-2 gap-1">
             <select
               aria-label="Tonic"
-              className="surface-field min-h-8 w-16 appearance-none py-0 pl-2"
+              className="surface-field min-h-8 w-full min-w-0 py-0 pl-2"
               value={setup.key.tonic}
               onChange={(e) => change({ key: { ...setup.key, tonic: e.target.value } })}
             >
@@ -273,7 +269,7 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
             </select>
             <select
               aria-label="Mode"
-              className="surface-field min-h-8 w-24 appearance-none py-0 pl-2"
+              className="surface-field min-h-8 w-full min-w-0 py-0 pl-2"
               value={setup.key.mode}
               onChange={(e) =>
                 change({ key: { ...setup.key, mode: e.target.value as "major" | "minor" } })
@@ -283,7 +279,7 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
               <option value="minor">minor</option>
             </select>
           </span>
-        </fieldset>
+        </Field>
         <Select
           id={`${ids}-rig`}
           label="Rig"
@@ -328,14 +324,27 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
             </option>
           ))}
         </Select>
-        <div className="grid gap-1">
-          <Meter label="In" level={frame.input} />
-          <Meter label="Out" level={frame.output} />
-        </div>
+        <section
+          aria-label="Backing"
+          className="grid gap-3 border-0 border-ink-dim border-t border-solid pt-3"
+        >
+          <JamBacking
+            backing={setup.backing ?? { kind: "none" }}
+            presets={jam.presets}
+            rigs={rigs}
+            project={status.project.name}
+            missing={jam.backingMissing}
+            onChange={(backing) => change({ backing })}
+            onError={onError}
+          />
+        </section>
       </div>
 
-      <div className="surface-panel grid content-start gap-3 p-3">
-        <Lcd aria-live="polite" className="grid gap-0.5 py-2 text-center">
+      <div className="surface-panel flex min-h-0 flex-col gap-3 p-3">
+        <Lcd
+          aria-live="polite"
+          className="grid min-h-24 flex-1 content-center gap-1 py-2 text-center"
+        >
           <span className="block text-display">
             {playingSection
               ? SECTION_LABELS[playingSection]
@@ -382,7 +391,6 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
             {rolling ? "Stop" : "Play"}
           </Button>
           <Button
-            tier="primary"
             aria-pressed={status.countIn}
             onClick={() => report(countInSet(!status.countIn))}
             title="Count in a bar before the jam starts"
@@ -392,7 +400,6 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
           </Button>
           <Metronome metronome={status.metronome} onStatus={onStatus} onError={onError} />
           <Button
-            tier="primary"
             onClick={() => report(jamKeep())}
             disabled={!status.running}
             title={`Keep the last ${jam.captureMinutes} minutes you played (Return)`}
@@ -455,7 +462,7 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
         ) : null}
         <ul
           aria-label="Sections"
-          className="m-0 grid list-none grid-cols-3 gap-2 p-0 sm:grid-cols-6"
+          className="m-0 grid min-h-16 flex-1 list-none grid-cols-3 gap-2 p-0 sm:grid-cols-6"
         >
           {JAM_SECTIONS.map((section, i) => {
             const has = jam.sections.includes(section);
@@ -470,7 +477,7 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
                   aria-pressed={playing}
                   aria-label={`${SECTION_LABELS[section]}, key ${i + 1}`}
                   onClick={() => report(jamSection(section as GrooveSection))}
-                  className="button-standard grid min-h-16 w-full place-items-center gap-1 border-0 px-2 py-2"
+                  className="button-standard grid h-full min-h-16 w-full place-items-center content-center gap-1 border-0 px-2 py-2"
                 >
                   <Led on={playing} label={SECTION_LABELS[section]} />
                   <span className="font-bold text-label">{SECTION_LABELS[section]}</span>
@@ -484,24 +491,6 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
             );
           })}
         </ul>
-        <p className="m-0 text-center text-ink-dim text-label">
-          Space plays · 1–6 sections at the next bar · ↑ ↓ tempo · T tap · Return keeps. Jamming
-          never edits {status.project.name}.
-        </p>
-        <section
-          aria-label="Backing"
-          className="grid gap-3 border-0 border-ink-dim border-t border-solid pt-3"
-        >
-          <JamBacking
-            backing={setup.backing ?? { kind: "none" }}
-            presets={jam.presets}
-            rigs={rigs}
-            project={status.project.name}
-            missing={jam.backingMissing}
-            onChange={(backing) => change({ backing })}
-            onError={onError}
-          />
-        </section>
       </div>
       {saving ? (
         <SaveJamSheet

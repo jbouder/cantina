@@ -12,6 +12,11 @@ type Props = ComponentProps<"button"> & {
   tier?: ButtonTier;
   /** For a key that holds only a glyph: 32 px wide as well as high. */
   square?: boolean;
+  /**
+   * For a key whose caption drops out in a narrow strip: less padding
+   * until the strip is wide, so the glyph alone makes a 32 px key.
+   */
+  tight?: boolean;
 };
 
 const SURFACE: Record<ButtonTier, string> = {
@@ -29,6 +34,7 @@ const SURFACE: Record<ButtonTier, string> = {
 export function Button({
   tier = "standard",
   square = false,
+  tight = false,
   className = "",
   type = "button",
   ...rest
@@ -36,7 +42,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={`${SURFACE[tier]} inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center gap-2 whitespace-nowrap border-0 ${square ? "w-8 px-0" : "px-3"} font-bold text-label leading-none ${className}`}
+      className={`${SURFACE[tier]} inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center gap-2 whitespace-nowrap border-0 ${square ? "w-8 px-0" : tight ? "@5xl:px-3 px-2" : "px-3"} font-bold text-label leading-none ${className}`}
       {...rest}
     />
   );

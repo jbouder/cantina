@@ -141,6 +141,10 @@ closes it.
 
 ![The chat panel beside the studio, with a reply, a change it made and its Undo](../../../assets/guides/assistant-chat.png)
 
+With the panel open the studio is narrower, so the transport's keys drop
+their captions and keep their glyphs, as they do in a narrow window. Hover
+one for its name.
+
 - Type a message and press **Return** to send it (**Shift-Return** for a
   new line). The reply appears as it is written; **Stop** ends it there,
   keeping what was written so far.

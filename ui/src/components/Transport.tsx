@@ -110,7 +110,7 @@ export function Transport({
             disabled={!running || armed.length === 0 || rolling}
             onClick={() => run(transportRecord())}
             title="Record after a four-beat count-in (R)"
-            className="px-2"
+            tight
           >
             <Led on={recording} tone="record" label="Recording" />
             <span className={WIDE}>Record</span>
@@ -121,7 +121,7 @@ export function Transport({
             disabled={!running || !hasClips || rolling}
             onClick={() => run(transportPlay())}
             title="Play (Space)"
-            className="px-2"
+            tight
           >
             <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-current">
               <path d="M3 2l11 6-11 6z" />
@@ -133,7 +133,7 @@ export function Transport({
             disabled={!running || !rolling}
             onClick={() => run(transportStop())}
             title="Stop (Space)"
-            className="px-2"
+            tight
           >
             <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-current">
               <path d="M3 3h10v10H3z" />
@@ -148,7 +148,7 @@ export function Transport({
           {countIn > 0 ? `Count-in ${countIn}` : `${timeline.bars} · ${clock(position)}`}
         </Lcd>
         <span className="flex shrink-0 items-center gap-1 text-body">
-          <label htmlFor="tempo-bpm" className="caption">
+          <label htmlFor="tempo-bpm" className="caption @3xl:not-sr-only sr-only">
             Tempo
           </label>
           <input
@@ -178,10 +178,10 @@ export function Transport({
           >
             Snap
           </Button>
-          <Button aria-label="Zoom out" title="Zoom out (⌘−)" onClick={timeline.zoomOut}>
+          <Button square aria-label="Zoom out" title="Zoom out (⌘−)" onClick={timeline.zoomOut}>
             −
           </Button>
-          <Button aria-label="Zoom in" title="Zoom in (⌘=)" onClick={timeline.zoomIn}>
+          <Button square aria-label="Zoom in" title="Zoom in (⌘=)" onClick={timeline.zoomIn}>
             +
           </Button>
           <Button onClick={timeline.fit} title="Zoom to show every clip">
