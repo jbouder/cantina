@@ -138,6 +138,11 @@
   --quiet-hover-bg: color-mix(in srgb, currentColor 14%, transparent);
   --quiet-active-bg: color-mix(in srgb, currentColor 24%, transparent);
 
+  /* Scroll bars in a `scroll-area`: a wash of the ink they sit on. */
+  --scroll-track: color-mix(in srgb, currentColor 10%, transparent);
+  --scroll-thumb: color-mix(in srgb, currentColor 45%, transparent);
+  --scroll-thumb-hover: color-mix(in srgb, currentColor 70%, transparent);
+
   /* The type scale: four steps, 11 px at the smallest. Labels and
    * captions, body text, display readouts, and large display figures. */
   --type-label: 11px;

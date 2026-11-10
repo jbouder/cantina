@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from "react";
+import type { ComponentProps } from "react";
 
 /**
  * How much a button asks for attention. A view has at most one `primary`:
@@ -8,7 +8,7 @@ import type { ButtonHTMLAttributes } from "react";
  */
 export type ButtonTier = "primary" | "standard" | "quiet";
 
-type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
+type Props = ComponentProps<"button"> & {
   tier?: ButtonTier;
   /** For a key that holds only a glyph: 32 px wide as well as high. */
   square?: boolean;

@@ -1,4 +1,12 @@
-import { type FormEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import {
   type AuditionStatus,
   brokenOf,
@@ -8,6 +16,7 @@ import {
   type EngineStatus,
   type InstrumentProfile,
   type IrInfo,
+  inTauri,
   type KitInfo,
   type LibraryStatus,
   type PatternClipInfo,
@@ -28,6 +37,7 @@ import {
   trackRename,
 } from "../lib/engine";
 import { Button } from "./Button";
+import { ContextMenu } from "./ContextMenu";
 import { DrumGrid } from "./DrumGrid";
 import { RenderBar, useRenderProgress } from "./ExportSheet";
 import { PedalChain } from "./PedalChain";
@@ -177,6 +187,18 @@ export function Editor({
     else setName(track.name);
   };
 
+  // The overflow menu, opened under its key.
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const menuKey = useRef<HTMLButtonElement>(null);
+  const openMenu = useCallback(() => {
+    const r = menuKey.current?.getBoundingClientRect();
+    if (r) setMenu({ x: r.right, y: r.bottom + 2 });
+  }, []);
+  // In a browser `?trackmenu` opens it, for screenshots.
+  useEffect(() => {
+    if (!inTauri && new URLSearchParams(window.location.search).has("trackmenu")) openMenu();
+  }, [openMenu]);
+
   const onTabKey = (e: KeyboardEvent<HTMLButtonElement>) => {
     const at = tabs.indexOf(shown);
     const next =
@@ -203,9 +225,9 @@ export function Editor({
       aria-labelledby={headingId}
       className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]"
     >
-      <header className="flex flex-wrap items-center gap-2 pb-2">
+      <header className="flex items-center gap-3 pb-2">
         {editing ? (
-          <form onSubmit={rename} className="flex min-w-48 flex-1 items-center gap-2">
+          <form onSubmit={rename} className="flex w-56 shrink-0 items-center gap-2">
             <label htmlFor={`${headingId}-input`} className="sr-only">
               Track name
             </label>
@@ -228,7 +250,7 @@ export function Editor({
         ) : (
           <h3
             id={headingId}
-            className="m-0 flex min-w-0 flex-1 items-center gap-2 truncate font-bold text-body"
+            className="m-0 flex min-w-0 max-w-64 shrink-0 items-center gap-2 truncate font-bold text-body"
           >
             {track.kit ? (
               <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 shrink-0 fill-current">
@@ -246,10 +268,15 @@ export function Editor({
             {track.recording ? <span className="text-led-rec">recording</span> : null}
           </h3>
         )}
-        <div role="tablist" aria-label={`${track.name} editor`} className="flex gap-1">
+        <div
+          role="tablist"
+          aria-label={`${track.name} editor`}
+          className="tab-rule flex min-w-0 flex-1 items-end gap-0.5 self-stretch"
+        >
           {tabs.map((t) => (
-            <Button
+            <button
               key={t}
+              type="button"
               id={`tab-${t}`}
               role="tab"
               aria-selected={shown === t}
@@ -257,62 +284,71 @@ export function Editor({
               tabIndex={shown === t ? 0 : -1}
               onClick={() => setTab(t)}
               onKeyDown={onTabKey}
+              className="tab min-h-7 px-3 font-bold text-label"
             >
               {labels[t]}
-            </Button>
+            </button>
           ))}
         </div>
         {bouncing ? (
           <RenderBar label={`Bouncing ${track.name}`} fraction={bounceProgress ?? 0} />
-        ) : (
-          <Button
-            disabled={!hasContent || track.recording}
-            title={
-              hasContent
-                ? `Render ${track.name} through its ${track.kit ? "kit and " : ""}pedals to one clip in its place. Undo brings them back.`
-                : `${track.name} has nothing on it to bounce`
-            }
-            onClick={bounce}
-          >
-            Bounce
-          </Button>
-        )}
+        ) : null}
         <Button
-          aria-label={`Move ${track.name} up`}
-          disabled={index === 0}
-          onClick={() => run(trackMove(track.id, index - 1))}
-          className="px-2"
+          tier="quiet"
+          square
+          aria-label={`${track.name} actions`}
+          aria-haspopup="menu"
+          aria-expanded={menu !== null}
+          title="Track actions: rename, bounce, move, remove"
+          ref={menuKey}
+          onClick={openMenu}
         >
-          <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-current">
-            <path d="M8 3l6 7H2z" />
+          <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
+            <circle cx="3" cy="8" r="1.6" />
+            <circle cx="8" cy="8" r="1.6" />
+            <circle cx="13" cy="8" r="1.6" />
           </svg>
         </Button>
-        <Button
-          aria-label={`Move ${track.name} down`}
-          disabled={index === count - 1}
-          onClick={() => run(trackMove(track.id, index + 1))}
-          className="px-2"
-        >
-          <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-current">
-            <path d="M8 13l6-7H2z" />
-          </svg>
-        </Button>
-        <Button
-          aria-label={`Remove ${track.name}`}
-          disabled={track.recording}
-          onClick={() => run(trackRemove(track.id))}
-          className="px-2"
-        >
-          <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-current">
-            <path d="M3 2l5 5 5-5 1 1-5 5 5 5-1 1-5-5-5 5-1-1 5-5-5-5z" />
-          </svg>
-        </Button>
+        {menu ? (
+          <ContextMenu
+            label={`${track.name} actions`}
+            x={menu.x}
+            y={menu.y}
+            alignEnd
+            onClose={() => setMenu(null)}
+            items={[
+              { label: "Rename…", onSelect: () => setEditing(true) },
+              {
+                label: hasContent ? "Bounce to one clip" : "Bounce (nothing to bounce)",
+                disabled: !hasContent || track.recording || bouncing,
+                onSelect: bounce,
+              },
+              {
+                label: "Move up",
+                separated: true,
+                disabled: index === 0,
+                onSelect: () => run(trackMove(track.id, index - 1)),
+              },
+              {
+                label: "Move down",
+                disabled: index === count - 1,
+                onSelect: () => run(trackMove(track.id, index + 1)),
+              },
+              {
+                label: "Remove track",
+                separated: true,
+                disabled: track.recording,
+                onSelect: () => run(trackRemove(track.id)),
+              },
+            ]}
+          />
+        ) : null}
       </header>
       <div
         role="tabpanel"
         id={`panel-${shown}`}
         aria-labelledby={`tab-${shown}`}
-        className="min-h-0 overflow-auto"
+        className="scroll-area min-h-0"
       >
         {shown === "beats" && track.kit ? (
           <DrumGrid
