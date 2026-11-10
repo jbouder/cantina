@@ -19,7 +19,7 @@ The UI is React and TypeScript in `ui/`, styled with Tailwind v4 over the skin t
 
 ## Skins
 
-Every component is drawn through semantic tokens: CSS custom properties defined per skin under `:root[data-skin='…']`. Components never carry a literal colour, radius, shadow or typeface; they name a token through a Tailwind utility or a material utility (`surface-window`, `surface-button`, `surface-lcd`). `npm run lint` fails on a literal colour outside the skin files and on any skin that falls below the contrast ratios. See [skins](/guides/skins/) for writing one and the [skin tokens](/reference/skin-tokens/) for every token.
+Every component is drawn through semantic tokens: CSS custom properties defined per skin under `:root[data-skin='…']`. Components never carry a literal colour, radius, shadow or typeface; they name a token through a Tailwind utility or a material utility (`surface-window`, `button-standard`, `surface-lcd`). `npm run lint` fails on a literal colour outside the skin files, on a size or gap off the scales below, and on any skin that falls below the contrast ratios. See [skins](/guides/skins/) for writing one and the [skin tokens](/reference/skin-tokens/) for every token.
 
 ## The timeline
 
@@ -55,6 +55,45 @@ components, so `ui/src/lib/pattern-drag.ts` holds the drag: the grid
 publishes it, a chip follows the pointer, and the timeline registers its
 canvas as the drop target.
 
+## Type, spacing and labels
+
+These are the rules every component follows. `scripts/check-scale.mjs` runs in `npm run lint` and fails on a component that breaks the first three.
+
+**Type.** Four sizes, set by the skin and named by use. Tailwind's own sizes are cleared, so `text-sm` or `text-[10px]` draws nothing.
+
+| Utility | Token | Classic | Use |
+| --- | --- | --- | --- |
+| `text-label` | `--type-label` | 11 px | Captions, button text, hints, badges. The floor: nothing is smaller. |
+| `text-body` | `--type-body` | 13 px | Sentences, form labels, field text, names. |
+| `text-readout` | `--type-readout` | 16 px | Text on a display, in the LCD face. |
+| `text-display` | `--type-display` | 24 px | A figure read from across the room: the tuner note, a count-in. |
+
+A canvas reads `--type-label` from the computed style instead of writing a size.
+
+**Spacing.** Gaps, padding and margins are steps of `--space-unit` (4 px): `0`, `0.5`, `1`, `2`, `3`, `4`, `6` and `8`, which is 0 to 32 px. `gap-2` is fine; `gap-1.5`, `px-5` and `p-[6px]` fail the check. Widths and heights are not held to the steps.
+
+**Case.** Captions are capitals. Nothing else is. A caption is a legend printed on the panel: the name of a section, a column, a meter, a knob or a fader. It uses the `caption` utility, which sets the size, weight, tracking and capitals together. Button text, form labels, messages, field text and anything the user typed (a track, a clip, a pedal) are sentence case. A component never writes `uppercase` or `tracking-*` itself. Inside a caption, `hint` turns a note back into plain text.
+
+**Placement.** A label comes before its control, on the same row and to its left. It goes above only when the control is as wide as its container: a list, a grid, a textarea. A label is never below its control and never only a placeholder.
+
+**Buttons.** Three tiers, chosen with the `tier` prop on `Button` or the matching utility:
+
+| Tier | Utility | Use |
+| --- | --- | --- |
+| `primary` | `button-primary` | The one action the view is for. At most one per view. |
+| `standard` | `button-standard` | Every other action. The default. |
+| `quiet` | `button-quiet` | Low-stakes and repeated actions, such as Rename or a row's Remove. No key shows until hover. |
+
+**States.** A state comes from ARIA, never from a class or a different tier, and looks the same on every tier:
+
+| State | Attribute | Look |
+| --- | --- | --- |
+| On | `aria-pressed="true"` | Lit, from `--state-on`. A toggle such as Snap or Mute. |
+| Selected | `aria-selected`, `aria-checked`, `aria-current` | Filled, from `--state-selected`. The chosen one of several: a tab, a radio key, the open project. |
+| Disabled | `disabled` | Flat and dim, from `--state-disabled`. Never brighter than a live key. |
+
+**Fields and readouts.** An `<input>`, `<select>` or `<textarea>` is a `surface-field`: the UI face in a well with an edge. A value that can only be read is a `surface-lcd`. The check fails on a field in the display material.
+
 ## Frames
 
 `ui/src/lib/frame.ts` decodes the binary [frame](/architecture/frames/) the shell sends each display frame. Components that show levels or the stage read the latest one in an animation frame and acknowledge it, so a busy page never builds a backlog.
@@ -62,6 +101,6 @@ canvas as the drop target.
 ## Checks
 
 ```sh
-npm run check        # Biome, the colour and contrast checks, TypeScript and the tests
+npm run check        # Biome, the colour, scale and contrast checks, TypeScript and the tests
 npm run test:scenes  # every scene drawn in headless Chrome from recorded frames
 ```

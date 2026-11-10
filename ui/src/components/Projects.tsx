@@ -64,15 +64,15 @@ export function Projects({ current, dirty, onClose, onStatus, startNew, opening 
   return (
     <Sheet title="Projects" onClose={onClose}>
       {error ? (
-        <Lcd role="alert" error className="text-base">
+        <Lcd role="alert" error className="text-readout">
           {error}
         </Lcd>
       ) : null}
       <ul className="surface-lcd m-0 grid max-h-64 list-none gap-0.5 overflow-y-auto p-1">
         {names === null ? (
-          <li className="px-2 py-1 font-lcd text-lg">...</li>
+          <li className="px-2 py-1 font-lcd text-readout">...</li>
         ) : names.length === 0 ? (
-          <li className="px-2 py-1 font-lcd text-lg">No projects yet</li>
+          <li className="px-2 py-1 font-lcd text-readout">No projects yet</li>
         ) : (
           names.map((n) => (
             <li key={n}>
@@ -80,11 +80,11 @@ export function Projects({ current, dirty, onClose, onStatus, startNew, opening 
                 type="button"
                 aria-current={n === current ? "true" : undefined}
                 onClick={() => open(n)}
-                className={`flex min-h-9 w-full items-center border-0 bg-transparent px-2 text-left font-lcd text-lg text-lcd-fg ${n === current ? "bg-select" : ""}`}
+                className={`flex min-h-9 w-full items-center border-0 bg-transparent px-2 text-left font-lcd text-readout ${n === current ? "bg-selected text-selected-ink" : "text-lcd-fg"}`}
               >
                 <span className="lcd-text flex-1 truncate">{n}</span>
                 {confirm === n ? (
-                  <span className="lcd-text text-base text-lcd-error">
+                  <span className="lcd-text text-readout text-lcd-error">
                     Click again to drop unsaved edits
                   </span>
                 ) : null}
@@ -103,7 +103,7 @@ export function Projects({ current, dirty, onClose, onStatus, startNew, opening 
           autoComplete="off"
         />
         <div className="flex justify-end">
-          <Button type="submit" variant="transport" disabled={!name.trim()}>
+          <Button type="submit" tier="primary" disabled={!name.trim()}>
             Create
           </Button>
         </div>

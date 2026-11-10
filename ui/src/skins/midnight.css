@@ -52,4 +52,16 @@
     rgb(255 255 255 / 0.03) 45%,
     transparent 46%
   );
+
+  /* Fields and the selected, on and disabled states. */
+  --field-bg: #0e1630;
+  --field-fg: #e6eeff;
+  --field-dim: #8fa3d6;
+  --field-edge: #4a5f9a;
+  --state-on: #0a4a60;
+  --state-on-ink: #7fe8ff;
+  --state-selected: #2b5fd0;
+  --state-selected-ink: #ffffff;
+  --state-disabled: #161d38;
+  --state-disabled-ink: #7484b0;
 }

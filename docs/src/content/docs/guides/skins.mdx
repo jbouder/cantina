@@ -165,7 +165,8 @@ npm run check
 ```
 
 This lints, checks that no colour appears outside the skin files, checks
-every skin's contrast, and runs the tests, including the preview check.
+every skin's contrast and that its button states can be told apart, and
+runs the tests, including the preview check.
 Then look at it:
 
 ```sh
@@ -189,6 +190,16 @@ Ember appears in Settings with the others:
   `--lcd-bg` and `--sheet-ink` on `--sheet-bg`, and below 3:1 for the focus
   ring. Gradients cannot be measured, so `--face`, `--silver` and `--pbtn`
   must be the flat colours the surfaces average to.
+- **States that differ.** A key that is on (`--state-on`), selected
+  (`--state-selected`) or disabled (`--state-disabled`) must not pass for
+  one of the others, so the check fails when two of the three fills are
+  close in color. It also fails when the disabled fill is brighter than
+  `--silver` or `--pbtn`: a key that cannot be used is never the brightest
+  in its row. Each state's `-ink` needs 4.5:1 on its fill, 3:1 for
+  disabled.
+- **Fields that read as fields.** `--field-fg` and `--field-dim` need
+  4.5:1 on `--field-bg`, and the field should not share the display's
+  colors: a user must see at a glance what can be typed in.
 - **Reduced motion.** Anything that moves on `--beat` must look still when
   it is 0, which it is under *Reduce motion* and Reduce flashing.
 - **No colours outside skin files.** If a component needs a new colour, add

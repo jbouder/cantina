@@ -152,7 +152,7 @@ export function Assistant({ assistant, onClose, onStatus }: Props) {
       className="surface-panel mr-window mb-window flex w-[22rem] shrink-0 flex-col overflow-hidden"
     >
       <header className="surface-titlebar flex min-h-[30px] items-center gap-1 py-1 pr-1 pl-3">
-        <h2 className="title-text m-0 flex-1 font-normal text-[1.05rem]">{name}</h2>
+        <h2 className="title-text m-0 flex-1 font-normal text-readout">{name}</h2>
         <Button onClick={clear} disabled={busy || items.length === 0}>
           Clear
         </Button>
@@ -164,7 +164,7 @@ export function Assistant({ assistant, onClose, onStatus }: Props) {
       </header>
       <div className="flex items-center gap-2 bg-sheet-bg px-3 pt-3">
         <Droid state={state} size={44} className="text-sheet-ink" />
-        <Lcd aria-live="polite" error={state === "error"} className="min-w-0 flex-1 text-base">
+        <Lcd aria-live="polite" error={state === "error"} className="min-w-0 flex-1 text-readout">
           {name.toUpperCase()} · {readout[state]}
         </Lcd>
         <fieldset className="m-0 grid gap-1 border-0 p-0" aria-label="Status lights">
@@ -183,12 +183,12 @@ export function Assistant({ assistant, onClose, onStatus }: Props) {
         {items.length === 0 && !busy ? (
           <div className="grid justify-items-center gap-2 py-4 text-center">
             <Droid size={96} className="text-sheet-ink" />
-            <p className="m-0 text-sm">
+            <p className="m-0 text-body">
               {persona
                 ? "Tapster, house droid, on duty. What can I pour you?"
                 : "What can I help with?"}
             </p>
-            <p className="m-0 text-ink-dim text-sm">
+            <p className="m-0 text-ink-dim text-body">
               Ask about a setting, a sound or a problem, or ask for a change: "add a gate before the
               drive", "set the tempo to 96", "write a 6/8 blues shuffle".
             </p>
@@ -209,23 +209,23 @@ export function Assistant({ assistant, onClose, onStatus }: Props) {
           </div>
         ) : null}
         {busy && !writing && !pending ? (
-          <p className="m-0 text-ink-dim text-sm" role="status" aria-label="Thinking">
+          <p className="m-0 text-ink-dim text-body" role="status" aria-label="Thinking">
             …
           </p>
         ) : null}
         {pending ? (
           <div role="alertdialog" aria-label="Confirm" className="surface-lcd grid gap-2 p-2">
-            <span className="lcd-text font-lcd text-base">{pending.question}</span>
+            <span className="lcd-text font-lcd text-readout">{pending.question}</span>
             <div className="flex justify-end gap-1">
               <Button onClick={() => answer(false)}>No</Button>
-              <Button variant="transport" onClick={() => answer(true)}>
+              <Button tier="primary" onClick={() => answer(true)}>
                 Yes
               </Button>
             </div>
           </div>
         ) : null}
         {note ? (
-          <Lcd role="status" error className="text-base">
+          <Lcd role="status" error className="text-readout">
             {note}
           </Lcd>
         ) : null}
@@ -253,14 +253,14 @@ export function Assistant({ assistant, onClose, onStatus }: Props) {
               send();
             }
           }}
-          className="surface-lcd min-h-8 min-w-0 flex-1 resize-none px-2 py-1 font-ui text-sm"
+          className="surface-field min-h-8 min-w-0 flex-1 resize-none px-2 py-1 font-ui"
         />
         {busy ? (
-          <Button variant="transport" onClick={() => void assistantStop()}>
+          <Button tier="primary" onClick={() => void assistantStop()}>
             Stop
           </Button>
         ) : (
-          <Button type="submit" variant="transport" disabled={!draft.trim()}>
+          <Button type="submit" tier="primary" disabled={!draft.trim()}>
             Send
           </Button>
         )}
@@ -281,7 +281,7 @@ function Entry({
   switch (item.type) {
     case "user":
       return (
-        <p className="m-0 ml-8 whitespace-pre-wrap rounded-control bg-list-bg px-3 py-2 text-list-fg text-sm">
+        <p className="m-0 ml-8 whitespace-pre-wrap rounded-control bg-list-bg px-3 py-2 text-list-fg text-body">
           {item.text}
         </p>
       );
@@ -289,7 +289,7 @@ function Entry({
       return (
         <div className="grid gap-1">
           <Markdown text={item.text} />
-          {item.stopped ? <small className="text-ink-dim text-xs">Stopped</small> : null}
+          {item.stopped ? <small className="text-ink-dim text-label">Stopped</small> : null}
         </div>
       );
     case "call":
@@ -297,18 +297,18 @@ function Entry({
         <div className="surface-lcd flex items-center gap-2 px-2 py-1">
           <Led on={item.ok && !item.undone} label={item.ok ? "Done" : "Not done"} />
           <span
-            className={`lcd-text min-w-0 flex-1 font-lcd text-base ${item.undone ? "line-through" : ""}`}
+            className={`lcd-text min-w-0 flex-1 font-lcd text-readout ${item.undone ? "line-through" : ""}`}
           >
             {item.summary}
           </span>
           {item.undo !== null && item.ok ? (
             item.undone ? (
-              <span className="lcd-text font-lcd text-sm">Undone</span>
+              <span className="lcd-text font-lcd text-body">Undone</span>
             ) : (
               <button
                 type="button"
                 onClick={() => onUndo(item.id)}
-                className="lcd-text cursor-pointer border-0 bg-transparent p-0 font-lcd text-sm underline"
+                className="lcd-text cursor-pointer border-0 bg-transparent p-0 font-lcd text-body underline"
               >
                 Undo
               </button>
@@ -319,7 +319,7 @@ function Entry({
     case "error":
       return (
         <div className="grid gap-1">
-          <Lcd role="alert" error className="text-base">
+          <Lcd role="alert" error className="text-readout">
             {item.problem.message}
           </Lcd>
           {onRetry ? (

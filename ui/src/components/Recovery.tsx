@@ -20,13 +20,13 @@ export function Recovery({ recovery, onStatus, onError }: Props) {
     <div
       role="alertdialog"
       aria-labelledby="recovery-text"
-      className="surface-lcd flex flex-wrap items-center gap-3 px-3 py-2 font-lcd text-lg leading-tight"
+      className="surface-lcd flex flex-wrap items-center gap-3 px-3 py-2 font-lcd text-readout leading-tight"
     >
       <span id="recovery-text" className="lcd-text flex-1">
         {n} unsaved edit{n === 1 ? "" : "s"} from the last session, up to "{recovery.last}". Recover
         them?
       </span>
-      <Button variant="transport" onClick={() => run(projectRecover())}>
+      <Button tier="primary" onClick={() => run(projectRecover())}>
         Recover
       </Button>
       <Button onClick={() => run(projectDiscardRecovery())}>Discard</Button>

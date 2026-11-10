@@ -52,17 +52,17 @@ export function JamStageBar({ jam, frame, sampleRate, onPlay, onStatus, onError 
       className="surface-panel absolute inset-x-4 bottom-4 grid gap-3 p-3 opacity-90"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="transport" aria-pressed={rolling} onClick={onPlay} className="min-w-24">
+        <Button tier="primary" aria-pressed={rolling} onClick={onPlay} className="min-w-24">
           {rolling ? "Stop" : "Play"}
         </Button>
-        <span aria-live="polite" className="min-w-0 flex-1 font-lcd text-lcd-fg text-lg">
+        <span aria-live="polite" className="min-w-0 flex-1 font-lcd text-lcd-fg text-readout">
           {frame.countIn > 0
             ? `Count ${frame.countIn}`
             : rolling && place
               ? `${SECTION_LABELS[place.section]} · bar ${place.bar}.${place.beat} · ${place.bpm} bpm`
               : `${jam.setup.name} · ${tempo} bpm`}
           {rolling && place?.next ? (
-            <span className="ml-3 text-ink-dim text-sm">
+            <span className="ml-3 text-ink-dim text-body">
               {SECTION_LABELS[place.next.section]} at bar {place.next.bar}
             </span>
           ) : null}
@@ -99,10 +99,10 @@ export function JamStageBar({ jam, frame, sampleRate, onPlay, onStatus, onError 
                 aria-pressed={playing === section}
                 aria-label={`${SECTION_LABELS[section]}, key ${i + 1}`}
                 onClick={() => report(jamSection(section as GrooveSection))}
-                className="surface-pbutton grid min-h-14 w-full place-items-center gap-1 border-0 px-2 py-1 disabled:opacity-40"
+                className="button-standard grid min-h-14 w-full place-items-center gap-1 border-0 px-2 py-1"
               >
                 <Led on={playing === section} label={SECTION_LABELS[section]} />
-                <span className="font-bold text-[11px] uppercase tracking-[0.06em]">
+                <span className="font-bold text-label">
                   {SECTION_LABELS[section]}
                   <span className="ml-1 text-ink-dim">{i + 1}</span>
                 </span>
@@ -111,7 +111,7 @@ export function JamStageBar({ jam, frame, sampleRate, onPlay, onStatus, onError 
           );
         })}
       </ul>
-      <span className="text-ink-dim text-xs">
+      <span className="text-ink-dim text-label">
         Space plays · 1–6 sections · ↑ ↓ tempo · T tap · Return keeps · ← → scenes · B hides this
       </span>
     </section>

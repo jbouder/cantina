@@ -430,7 +430,7 @@ export function TabView({
               aria-label="Clip"
               value={clip.id}
               onChange={(e) => setClipId(Number(e.target.value))}
-              className="surface-lcd min-h-8 w-full appearance-none truncate py-0 pr-6 pl-2 font-lcd text-sm"
+              className="surface-field min-h-8 w-full appearance-none truncate py-0 pr-6 pl-2"
             >
               {clips.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -440,39 +440,25 @@ export function TabView({
             </select>
           </span>
         ) : (
-          <span className="truncate text-sm" title={clip.name}>
+          <span className="truncate text-body" title={clip.name}>
             {clip.name}
           </span>
         )}
         {tab ? (
-          <span className="text-ink-dim text-xs">
+          <span className="text-ink-dim text-label">
             {stringNames(tab).reverse().join(" ")}
             {tab.capo ? ` · capo ${tab.capo}` : ""}
           </span>
         ) : null}
         <div role="radiogroup" aria-label="Tab view" className="grid gap-1">
-          <Button
-            role="radio"
-            aria-checked={!page}
-            variant={page ? "panel" : "transport"}
-            onClick={() => setPage(false)}
-          >
+          <Button role="radio" aria-checked={!page} onClick={() => setPage(false)}>
             Follow
           </Button>
-          <Button
-            role="radio"
-            aria-checked={page}
-            variant={page ? "transport" : "panel"}
-            onClick={() => setPage(true)}
-          >
+          <Button role="radio" aria-checked={page} onClick={() => setPage(true)}>
             Page
           </Button>
         </div>
-        <Button
-          aria-pressed={editing}
-          variant={editing ? "transport" : "panel"}
-          onClick={() => setEditing(!editing)}
-        >
+        <Button aria-pressed={editing} onClick={() => setEditing(!editing)}>
           Edit
         </Button>
         <Button disabled={!tab} onClick={() => setExporting(true)}>
@@ -486,7 +472,6 @@ export function TabView({
         <div role="toolbar" aria-label="Practice" className="flex flex-wrap items-center gap-1">
           <Button
             aria-pressed={practice.voice}
-            variant={practice.voice ? "transport" : "panel"}
             title="Play the tabs through a plucked-string voice, into the track's pedals"
             onClick={() => practise({ ...practice, voice: !practice.voice })}
           >
@@ -494,13 +479,12 @@ export function TabView({
           </Button>
           <Button
             aria-pressed={practice.muteRecordings}
-            variant={practice.muteRecordings ? "transport" : "panel"}
             title="Silence the recordings under the tabs, to play the part yourself"
             onClick={() => practise({ ...practice, muteRecordings: !practice.muteRecordings })}
           >
             Mute recording
           </Button>
-          <label className="flex items-center gap-1 font-bold text-[11px] uppercase tracking-[0.08em]">
+          <label className="caption flex items-center gap-1">
             Speed
             <input
               type="range"
@@ -514,7 +498,7 @@ export function TabView({
               onChange={(e) => practise({ ...practice, speed: Number(e.target.value) / 100 })}
               onDoubleClick={() => practise({ ...practice, speed: 1 })}
             />
-            <output className="surface-lcd px-1.5 py-0.5 font-lcd text-sm leading-none tabular-nums">
+            <output className="surface-lcd px-2 py-0.5 font-lcd text-body leading-none tabular-nums">
               <span className="lcd-text">{Math.round(practice.speed * 100)}%</span>
             </output>
           </label>
@@ -526,7 +510,7 @@ export function TabView({
             Loop selection
           </Button>
           {practice.speed < 1 ? (
-            <span className="text-ink-dim text-xs">Recordings are silent below 100%</span>
+            <span className="text-ink-dim text-label">Recordings are silent below 100%</span>
           ) : null}
         </div>
         {editing && tab ? (
@@ -535,13 +519,13 @@ export function TabView({
             aria-label="Edit the tab"
             className="flex flex-wrap items-center gap-1"
           >
-            <label className="flex items-center gap-1 text-xs">
+            <label className="flex items-center gap-1 text-label">
               Grid
               <select
                 aria-label="Grid"
                 value={grid}
                 onChange={(e) => setGrid(e.target.value as TabGrid)}
-                className="surface-lcd min-h-8 appearance-none py-0 pr-2 pl-2 font-lcd text-sm"
+                className="surface-field min-h-8 appearance-none py-0 pr-2 pl-2"
               >
                 <option value="1/8">1/8</option>
                 <option value="1/16">1/16</option>
@@ -556,9 +540,7 @@ export function TabView({
                 aria-label={t.name}
                 title={`${t.name} (${t.key})`}
                 disabled={chosen.length === 0}
-                variant={has(t.technique) ? "transport" : "panel"}
                 onClick={() => send(toggleTechnique(tab, chosen, t.technique))}
-                className="normal-case!"
               >
                 {t.label}
               </Button>
@@ -591,7 +573,7 @@ export function TabView({
                 Re-quantise
               </Button>
             ) : null}
-            <span className="text-ink-dim text-xs">
+            <span className="text-ink-dim text-label">
               {selection.length > 0 ? `${selection.length} selected` : "Type frets at the caret"}
             </span>
           </div>
@@ -635,7 +617,7 @@ export function TabView({
               </svg>
             </div>
           ) : (
-            <p className="m-0 p-3 text-sm">Reading the tab…</p>
+            <p className="m-0 p-3 text-body">Reading the tab…</p>
           )}
         </div>
       </div>
@@ -693,7 +675,7 @@ function Row({
           key={i}
           x={-GUTTER + 6}
           y={top + i * LINE + 4}
-          className="fill-lcd-fg text-[11px]"
+          className="fill-lcd-fg text-label"
           opacity={0.7}
         >
           {name}
@@ -733,7 +715,7 @@ function Row({
       {bars.map((b) => (
         <g key={b.number}>
           <line x1={b.x} x2={b.x} y1={top} y2={bottom} className="stroke-lcd-fg" opacity={0.5} />
-          <text x={b.x + 3} y={top - 19} className="fill-lcd-fg text-[10px]" opacity={0.6}>
+          <text x={b.x + 3} y={top - 19} className="fill-lcd-fg text-label" opacity={0.6}>
             {b.number}
           </text>
         </g>
@@ -747,7 +729,7 @@ function Row({
             x={r.x}
             y={top - 12}
             textAnchor="middle"
-            className="fill-lcd-fg text-[10px]"
+            className="fill-lcd-fg text-label"
           >
             {r.first ? "P.M." : "-"}
           </text>
@@ -760,7 +742,7 @@ function Row({
             x={r.x}
             y={top - 12}
             textAnchor="middle"
-            className="fill-lcd-fg text-[10px]"
+            className="fill-lcd-fg text-label"
           >
             {r.first ? "let ring" : "-"}
           </text>
@@ -796,16 +778,16 @@ function Row({
                 x={(n.x + n.joinTo) / 2}
                 y={y - 4}
                 textAnchor="middle"
-                className="fill-lcd-fg text-[10px]"
+                className="fill-lcd-fg text-label"
               >
                 {n.join}
               </text>
             ) : null}
-            <text x={n.x} y={y + 4} textAnchor="middle" className="fill-lcd-fg text-[12px]">
+            <text x={n.x} y={y + 4} textAnchor="middle" className="fill-lcd-fg text-body">
               {n.label}
             </text>
             {above ? (
-              <text x={n.x + 6} y={y - 8} className="fill-lcd-fg text-[9px]">
+              <text x={n.x + 6} y={y - 8} className="fill-lcd-fg text-label">
                 {above}
               </text>
             ) : null}
@@ -839,7 +821,7 @@ function Row({
                 y={y0 + length + 8}
                 textAnchor="middle"
                 strokeWidth={0}
-                className="fill-lcd-fg text-[9px]"
+                className="fill-lcd-fg text-label"
               >
                 3
               </text>

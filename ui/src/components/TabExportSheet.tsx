@@ -80,15 +80,15 @@ export function TabExportSheet({ clip, tab, onClose }: Props) {
             <Button disabled={busy} onClick={() => save(f.format)}>
               {f.label}…
             </Button>
-            <span className="text-sm">{f.detail}</span>
+            <span className="text-body">{f.detail}</span>
           </li>
         ))}
       </ul>
-      <p role="status" className="m-0 min-h-5 text-sm">
+      <p role="status" className="m-0 min-h-5 text-body">
         {saved ? `Saved ${saved.split("/").pop()}` : ""}
       </p>
       {error ? (
-        <Lcd role="alert" error className="text-base">
+        <Lcd role="alert" error className="text-readout">
           {error}
         </Lcd>
       ) : null}

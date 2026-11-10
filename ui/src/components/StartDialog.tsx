@@ -30,7 +30,7 @@ type Props = {
   onJam: () => void;
 };
 
-const heading = "m-0 font-bold text-[11px] uppercase tracking-[0.1em]";
+const heading = "caption m-0";
 
 /**
  * What the app shows at launch: start a new project with its rate, tempo,
@@ -117,7 +117,7 @@ export function StartDialog({
   return (
     <Sheet title="Welcome to Cantina" onClose={pickDefault} wide>
       {error ? (
-        <Lcd role="alert" error className="text-base">
+        <Lcd role="alert" error className="text-readout">
           {error}
         </Lcd>
       ) : null}
@@ -131,9 +131,9 @@ export function StartDialog({
             className="surface-lcd m-0 grid max-h-64 list-none content-start gap-0.5 overflow-y-auto p-1"
           >
             {recent === null ? (
-              <li className="px-2 py-1 font-lcd text-lg">...</li>
+              <li className="px-2 py-1 font-lcd text-readout">...</li>
             ) : recent.length === 0 ? (
-              <li className="lcd-text px-2 py-1 font-lcd text-lg">No projects yet</li>
+              <li className="lcd-text px-2 py-1 font-lcd text-readout">No projects yet</li>
             ) : (
               recent.map((r) => {
                 const when = savedLabel(r, now);
@@ -150,9 +150,9 @@ export function StartDialog({
                       }}
                       className={`grid min-h-11 w-full border-0 bg-transparent px-2 py-1 text-left font-lcd text-lcd-fg focus-visible:bg-select`}
                     >
-                      <span className="lcd-text truncate text-lg leading-tight">{r.name}</span>
+                      <span className="lcd-text truncate text-readout leading-tight">{r.name}</span>
                       <span
-                        className={`lcd-text text-sm leading-tight ${r.missing ? "text-lcd-error" : ""}`}
+                        className={`lcd-text text-body leading-tight ${r.missing ? "text-lcd-error" : ""}`}
                       >
                         {when}
                       </span>
@@ -231,7 +231,7 @@ export function StartDialog({
               ))}
             </Select>
             <div className="flex justify-end">
-              <Button type="submit" variant="transport" disabled={!name.trim() || !tempoOk}>
+              <Button type="submit" tier="primary" disabled={!name.trim() || !tempoOk}>
                 Create
               </Button>
             </div>
@@ -246,11 +246,11 @@ export function StartDialog({
           <h3 id="start-jam-label" className={heading}>
             Jam session
           </h3>
-          <p className="m-0 text-ink-dim text-sm">
+          <p className="m-0 text-ink-dim text-body">
             Play over a drum loop and a backing track, nothing to set up first.
           </p>
         </div>
-        <Button variant="transport" onClick={onJam}>
+        <Button tier="primary" onClick={onJam}>
           Jam
         </Button>
       </section>

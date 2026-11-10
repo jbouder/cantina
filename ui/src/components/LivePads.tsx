@@ -143,7 +143,6 @@ export function LivePads({
       <div className="flex flex-wrap items-center gap-2">
         <Button
           aria-pressed={mode === "record"}
-          variant={mode === "record" ? "transport" : "panel"}
           onClick={record}
           title="Loop the pattern and record what you play into it, quantized to the step, one edit a pass"
         >
@@ -152,13 +151,12 @@ export function LivePads({
         </Button>
         <Button
           aria-pressed={mode === "step"}
-          variant={mode === "step" ? "transport" : "panel"}
           onClick={() => setMode(mode === "step" ? "off" : "step")}
           title="Write each hit at the cursor and move it on a step; ← and → move the cursor"
         >
           Step
         </Button>
-        <span role="status" className="text-sm">
+        <span role="status" className="text-body">
           {mode === "record"
             ? looping
               ? `Recording pass ${here.pass + 1}, step ${here.step + 1}`
@@ -182,12 +180,12 @@ export function LivePads({
             tabIndex={i === 0 ? 0 : -1}
             aria-label={`${pad.name}${PAD_KEYS[i] ? ` (${PAD_KEYS[i].toUpperCase()})` : ""}`}
             onPointerDown={(e) => press(e, i)}
-            className={`grid h-16 w-20 content-between border-0 p-1.5 text-left font-lcd ${
+            className={`grid h-16 w-20 content-between border-0 p-2 text-left font-lcd ${
               lit === pad.id ? "bg-lcd-fg text-lcd-bg" : "bg-tl-lane text-lcd-fg"
             }`}
           >
-            <span className="truncate text-sm">{pad.name}</span>
-            <span className="text-right text-xs opacity-70">
+            <span className="truncate text-body">{pad.name}</span>
+            <span className="text-right text-label opacity-70">
               {PAD_KEYS[i]?.toUpperCase() ?? ""}
             </span>
           </button>

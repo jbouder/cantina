@@ -603,7 +603,7 @@ export function DrumGrid({
             <div
               aria-hidden="true"
               style={{ left: patternDrag.x + 12, top: patternDrag.y + 12 }}
-              className="surface-lcd pointer-events-none fixed z-50 px-2 py-1 font-lcd text-base"
+              className="surface-lcd pointer-events-none fixed z-50 px-2 py-1 font-lcd text-readout"
             >
               <span className="lcd-text">{patternDrag.name}</span>
             </div>,
@@ -709,7 +709,6 @@ export function DrumGrid({
         <Button
           aria-pressed={browsing}
           aria-expanded={browsing}
-          variant={browsing ? "transport" : "panel"}
           onClick={() => setBrowsing(!browsing)}
           title="Browse the stock grooves: filter, hear and add them"
         >
@@ -718,7 +717,6 @@ export function DrumGrid({
         <Button
           aria-pressed={mixing}
           aria-expanded={mixing}
-          variant={mixing ? "transport" : "panel"}
           onClick={() => setMixing(!mixing)}
           title="The pad mixer: each pad's level, pan, tune, decay and mute"
         >
@@ -727,7 +725,6 @@ export function DrumGrid({
         <Button
           aria-pressed={playingPads}
           aria-expanded={playingPads}
-          variant={playingPads ? "transport" : "panel"}
           onClick={() => setPlayingPads(!playingPads)}
           title="Play the kit from pads or the keyboard, and record into the pattern"
         >
@@ -747,7 +744,7 @@ export function DrumGrid({
                   id={`${id}-name`}
                   // biome-ignore lint/a11y/noAutofocus: the field appears on request, under the pointer
                   autoFocus
-                  className="surface-lcd min-h-8 w-40 px-2 font-lcd text-base"
+                  className="surface-field min-h-8 w-40 px-2"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   onBlur={rename}
@@ -771,7 +768,6 @@ export function DrumGrid({
             <Button
               aria-pressed={auditioning === pattern.id}
               onClick={toggleLoop}
-              variant={auditioning === pattern.id ? "transport" : "panel"}
               title="Loop this pattern on the track while the transport plays"
             >
               <Led on={auditioning === pattern.id} label="Looping" />
@@ -856,11 +852,8 @@ export function DrumGrid({
               </option>
             ))}
           </Select>
-          <span className="flex items-center gap-1 text-sm">
-            <label
-              htmlFor={`${id}-length`}
-              className="font-bold text-[11px] uppercase tracking-[0.08em]"
-            >
+          <span className="flex items-center gap-1 text-body">
+            <label htmlFor={`${id}-length`} className="caption">
               Length
             </label>
             <input
@@ -876,7 +869,7 @@ export function DrumGrid({
                   run(patternSetLength(pattern.id, v));
                 }
               }}
-              className="surface-lcd min-h-8 w-20 px-2 text-center font-lcd text-base tabular-nums"
+              className="surface-field min-h-8 w-20 px-2 text-center tabular-nums"
             />
             <span className="text-ink-dim">{lengthLabel(pattern, tempo)}</span>
             <Button
@@ -884,7 +877,6 @@ export function DrumGrid({
               onClick={() => replace(doublePattern(pattern))}
               title="Double the pattern: play it twice in a row, twice as long (D with no selection)"
               aria-label="Double the pattern"
-              className="normal-case!"
             >
               ×2
             </Button>
@@ -893,22 +885,18 @@ export function DrumGrid({
               onClick={() => replace(halvePattern(pattern))}
               title="Halve the pattern: keep the first half (H)"
               aria-label="Halve the pattern"
-              className="normal-case!"
             >
               ½
             </Button>
           </span>
           <span className="grid w-48 gap-0.5">
             <span className="flex items-baseline justify-between">
-              <label
-                htmlFor={`${id}-swing`}
-                className="font-bold text-[11px] uppercase tracking-[0.08em]"
-              >
+              <label htmlFor={`${id}-swing`} className="caption">
                 Swing
               </label>
               <output
                 htmlFor={`${id}-swing`}
-                className="surface-lcd px-1.5 py-0.5 font-lcd text-sm leading-none tabular-nums"
+                className="surface-lcd px-2 py-0.5 font-lcd text-body leading-none tabular-nums"
               >
                 <span className="lcd-text">{Math.round(swing * 100)}%</span>
               </output>
@@ -954,7 +942,7 @@ export function DrumGrid({
                 <tr key={pad.id}>
                   <th
                     scope="row"
-                    className={`lcd-text w-24 max-w-24 truncate pr-2 text-left font-lcd font-normal text-base ${silent(pad.id) ? "opacity-40" : ""}`}
+                    className={`lcd-text w-24 max-w-24 truncate pr-2 text-left font-lcd font-normal text-readout ${silent(pad.id) ? "opacity-40" : ""}`}
                     title={pad.name}
                   >
                     {pad.name}
@@ -968,7 +956,7 @@ export function DrumGrid({
                         aria-label={`Mute ${pad.name} (M)`}
                         title={`Mute ${pad.name} while you listen (M)`}
                         onClick={() => toggleRow(pad.id, "muted")}
-                        className={`h-6 w-5 border-0 p-0 font-bold font-lcd text-xs ${rows.muted.includes(pad.id) ? "bg-lcd-fg text-lcd-bg" : "bg-tl-lane text-lcd-fg"}`}
+                        className={`h-6 w-5 border-0 p-0 font-bold font-lcd text-label ${rows.muted.includes(pad.id) ? "bg-lcd-fg text-lcd-bg" : "bg-tl-lane text-lcd-fg"}`}
                       >
                         M
                       </button>
@@ -979,7 +967,7 @@ export function DrumGrid({
                         aria-label={`Solo ${pad.name} (S)`}
                         title={`Hear ${pad.name} alone while you listen (S)`}
                         onClick={() => toggleRow(pad.id, "soloed")}
-                        className={`h-6 w-5 border-0 p-0 font-bold font-lcd text-xs ${rows.soloed.includes(pad.id) ? "bg-lcd-fg text-lcd-bg" : "bg-tl-lane text-lcd-fg"}`}
+                        className={`h-6 w-5 border-0 p-0 font-bold font-lcd text-label ${rows.soloed.includes(pad.id) ? "bg-lcd-fg text-lcd-bg" : "bg-tl-lane text-lcd-fg"}`}
                       >
                         S
                       </button>
@@ -989,7 +977,7 @@ export function DrumGrid({
                         aria-label={`Clear ${pad.name} (⌥⌫)`}
                         title={`Clear every step of ${pad.name} (⌥⌫)`}
                         onClick={() => replace(clearRow(pattern, pad.id))}
-                        className="h-6 w-5 border-0 bg-tl-lane p-0 font-lcd text-lcd-fg text-xs"
+                        className="h-6 w-5 border-0 bg-tl-lane p-0 font-lcd text-lcd-fg text-label"
                       >
                         ×
                       </button>
@@ -1001,7 +989,7 @@ export function DrumGrid({
                     const now = step === s;
                     const picked = inRegion(selection, padIndex, s);
                     return (
-                      <td key={key} className={`p-0 ${beat ? "pl-1.5" : "pl-0.5"}`}>
+                      <td key={key} className={`p-0 ${beat ? "pl-2" : "pl-0.5"}`}>
                         <button
                           type="button"
                           data-pad={pad.id}
@@ -1037,7 +1025,7 @@ export function DrumGrid({
                           {v > 0 && markLabel(markAt(pad.id, s)) ? (
                             <span
                               aria-hidden="true"
-                              className="absolute top-0 left-0.5 font-bold font-lcd text-[9px] text-lcd-fg leading-none mix-blend-difference"
+                              className="absolute top-0 left-0.5 font-bold font-lcd text-label text-lcd-fg leading-none mix-blend-difference"
                             >
                               {markLabel(markAt(pad.id, s))}
                             </span>
@@ -1052,13 +1040,13 @@ export function DrumGrid({
           </table>
         </div>
       ) : pattern ? (
-        <p className="m-0 text-ink-dim text-sm">
+        <p className="m-0 text-ink-dim text-body">
           {track.kit?.missing
             ? `The kit "${track.kit.name}" is not installed, so this track plays silence; pick another.`
             : "This kit has no pads."}
         </p>
       ) : (
-        <p className="m-0 text-ink-dim text-sm">No patterns yet: make one with New.</p>
+        <p className="m-0 text-ink-dim text-body">No patterns yet: make one with New.</p>
       )}
     </section>
   );

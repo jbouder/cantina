@@ -22,7 +22,6 @@ export function EngineControl({ status, busy, onToggle }: Props) {
       disabled={status === null || busy}
       onClick={onToggle}
       title={status ? routeLabel(status) : undefined}
-      variant={running ? "transport" : "panel"}
     >
       <Led on={running} label="Engine" />
       {busy ? "…" : "Engine"}

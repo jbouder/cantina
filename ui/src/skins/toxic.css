@@ -71,4 +71,19 @@
   --lcd-radius: 14px;
   --lcd-border: 2px solid #2e4a00;
   --lcd-shadow: inset 0 2px 4px rgb(0 0 0 / 0.8);
+
+  /* Fields and the selected, on and disabled states. */
+  --field-bg: #f6ff8a;
+  --field-fg: #142200;
+  --field-dim: #4a6a00;
+  --field-edge: #2e4a00;
+  --state-on: #141400;
+  --state-on-ink: #fff23a;
+  --state-on-shadow: inset 0 2px 4px rgb(0 0 0 / 0.6), 0 0 0 2px #2e4a00;
+  --state-selected: #ffd400;
+  --state-selected-ink: #111100;
+  --state-selected-shadow: 0 0 0 2px #1a2c00;
+  --state-disabled: #86b81a;
+  --state-disabled-ink: #2e4a00;
+  --state-disabled-shadow: inset 0 0 0 1px #4a6a00;
 }

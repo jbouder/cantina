@@ -48,7 +48,7 @@ function Badge({ children, title }: { children: string; title: string }) {
   return (
     <span
       title={title}
-      className="surface-lcd shrink-0 px-1 py-0.5 font-lcd text-[11px] uppercase leading-none tracking-[0.08em]"
+      className="surface-lcd shrink-0 px-1 py-0.5 font-lcd text-label leading-none"
     >
       <span className="lcd-text">{children}</span>
     </span>
@@ -184,7 +184,7 @@ export function PedalChain({
           </li>
         ))}
         {chain.length === 0 ? (
-          <li className="self-center text-ink-dim text-sm">
+          <li className="self-center text-ink-dim text-body">
             No pedals: the signal goes straight through.
           </li>
         ) : null}
@@ -196,10 +196,10 @@ export function PedalChain({
             title="Add a stock pedal, one of yours, a plugin, a new design or a file"
             className="grid min-h-32 w-44 shrink-0 cursor-pointer content-start justify-items-center gap-1 rounded-control border-2 border-frame-hi border-dashed bg-transparent p-2 pt-8 text-ink-dim hover:border-ink hover:text-ink"
           >
-            <span aria-hidden="true" className="font-lcd text-5xl leading-none">
+            <span aria-hidden="true" className="font-lcd text-display leading-none">
               +
             </span>
-            <span className="font-bold text-[11px] uppercase tracking-[0.1em]">Add a pedal</span>
+            <span className="font-bold text-label">Add a pedal</span>
           </button>
         </li>
       </ol>
@@ -289,7 +289,7 @@ function PedalCard({
     <article
       aria-label={`${pedal.name} pedal`}
       style={offset === null ? undefined : { transform: `translateX(${offset}px)` }}
-      className={`surface-panel grid shrink-0 content-start gap-1.5 p-2 ${wide ? "w-88" : "w-44"} ${offset === null ? "" : "relative z-10"}`}
+      className={`surface-panel grid shrink-0 content-start gap-2 p-2 ${wide ? "w-88" : "w-44"} ${offset === null ? "" : "relative z-10"}`}
     >
       <header
         {...grip}
@@ -306,7 +306,7 @@ function PedalCard({
         >
           <Led on={!pedal.bypassed} label={pedal.name} />
         </button>
-        <h3 className="m-0 min-w-0 flex-1 font-bold text-[11px] uppercase tracking-[0.1em]">
+        <h3 className="m-0 min-w-0 flex-1 font-bold text-body">
           <span className="flex items-center gap-1">
             <button
               type="button"
@@ -316,7 +316,7 @@ function PedalCard({
                 if (e.key === "ArrowLeft" && index > 0) onMove(index - 1);
                 if (e.key === "ArrowRight" && index < count - 1) onMove(index + 1);
               }}
-              className="min-h-8 min-w-0 flex-1 cursor-[inherit] truncate border-0 bg-transparent p-0 text-left font-bold text-[11px] text-inherit uppercase tracking-[0.1em]"
+              className="min-h-8 min-w-0 flex-1 cursor-[inherit] truncate border-0 bg-transparent p-0 text-left text-inherit"
             >
               {pedal.name}
             </button>
@@ -330,7 +330,7 @@ function PedalCard({
           </span>
           {pedal.latencyFrames > 0 ? (
             <small
-              className="block font-normal text-ink-dim normal-case tracking-normal"
+              className="hint block text-ink-dim"
               title="Delay this pedal adds; other tracks are delayed to match"
             >
               {ms(pedal.latencyFrames, sampleRate)} latency
@@ -350,16 +350,16 @@ function PedalCard({
           </svg>
         </button>
       </header>
-      <div className={`grid min-w-0 content-start gap-1.5 ${pedal.bypassed ? "opacity-50" : ""}`}>
+      <div className={`grid min-w-0 content-start gap-2 ${pedal.bypassed ? "opacity-50" : ""}`}>
         {cabinetIr !== null ? (
           <div className="grid gap-1">
-            <label htmlFor={irId} className="font-bold text-[11px] uppercase tracking-[0.08em]">
+            <label htmlFor={irId} className="caption">
               Impulse
             </label>
             <span className="relative">
               <select
                 id={irId}
-                className="surface-lcd min-h-8 w-full appearance-none truncate py-0 pr-8 pl-2 font-lcd text-base"
+                className="surface-field min-h-8 w-full appearance-none truncate py-0 pr-8 pl-2"
                 value={cabinetIr}
                 onChange={(e) => onSpec(`cab:${e.target.value}`)}
               >
@@ -377,7 +377,7 @@ function PedalCard({
               <svg
                 aria-hidden="true"
                 viewBox="0 0 16 16"
-                className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 fill-lcd-fg"
+                className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 fill-field-fg"
               >
                 <path d="M2 5l6 6 6-6z" />
               </svg>
@@ -400,7 +400,6 @@ function PedalCard({
           <Button
             aria-pressed={pedal.editorOpen}
             onClick={() => onEditor(!pedal.editorOpen)}
-            variant={pedal.editorOpen ? "transport" : "panel"}
             title={
               pedal.editorOpen
                 ? "Close the plugin's own window"

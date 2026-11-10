@@ -73,6 +73,12 @@ a slower one, so review looks for them first.
   version and adds a migration; old files must still load.
 - **Colours are skin tokens.** Components never carry a literal colour,
   radius, shadow or typeface.
+- **Type and spacing are scales.** Four type sizes (`text-label`,
+  `text-body`, `text-readout`, `text-display`) and eight spacing steps.
+  Buttons come in three tiers with at most one primary per view, states
+  come from ARIA, captions are the only capitals, and an editable field
+  never uses the display material. The rules are in the docs under
+  architecture, "The UI", and `npm run lint` checks them.
 - **Every public Rust item has a doc comment.**
 - **The docs stay true.** A change someone would notice updates its
   guide or architecture page in the same pull request.

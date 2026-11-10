@@ -10,7 +10,7 @@ export function Notice({ message, onDismiss }: Props) {
   return (
     <div
       role="status"
-      className="surface-lcd flex items-center gap-3 px-3 py-2 font-lcd text-lcd-error text-lg leading-tight"
+      className="surface-lcd flex items-center gap-3 px-3 py-2 font-lcd text-lcd-error text-readout leading-tight"
     >
       <span className="lcd-text flex-1">{message}</span>
       <Button onClick={onDismiss} className="shrink-0">

@@ -67,7 +67,7 @@ export function DevicePicker({ onStatusChange }: Props) {
   );
 
   if (!settings) {
-    return <p className="m-0 text-ink-dim text-sm">{error ?? "Looking for devices…"}</p>;
+    return <p className="m-0 text-ink-dim text-body">{error ?? "Looking for devices…"}</p>;
   }
 
   const inputs = devices.filter((d) => d.inputChannels > 0);

@@ -39,12 +39,12 @@ export function KeepSheet({ kept, project, onClose, onStatus, onError }: Props) 
     );
   return (
     <Sheet title="Keep that" onClose={() => place({ into: "takes" })}>
-      <p className="m-0 text-sm">
+      <p className="m-0 text-body">
         Kept the last {minutes(kept.seconds)} of your playing, dry and through the rig, in{" "}
         <span className="font-lcd">Jams/Takes</span>. Put it in a project with the drums that played
         under it?
       </p>
-      <Button variant="transport" onClick={() => place({ into: "open" })}>
+      <Button tier="primary" onClick={() => place({ into: "open" })}>
         Into {project}
       </Button>
       <form

@@ -91,7 +91,7 @@ export function InstrumentSettings({ status, onStatusChange, reveal = false }: P
 
   return (
     <section ref={section} aria-labelledby="instrument-heading" className="grid gap-2">
-      <h3 id="instrument-heading" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+      <h3 id="instrument-heading" className="caption m-0">
         Instrument
       </h3>
       <Select
@@ -137,7 +137,7 @@ export function InstrumentSettings({ status, onStatusChange, reveal = false }: P
         ))}
       </Select>
       <div className="flex items-center gap-2">
-        <Lcd aria-live="polite" className="min-w-0 flex-1 text-base">
+        <Lcd aria-live="polite" className="min-w-0 flex-1 text-readout">
           {listening
             ? `Play hard… ${left} · peak ${Number.isFinite(heardDb) ? heardDb.toFixed(1) : "—"} dBFS`
             : profile.calibratedPeakDb !== null
@@ -162,7 +162,7 @@ export function InstrumentSettings({ status, onStatusChange, reveal = false }: P
           </Button>
         ) : null}
       </div>
-      <p className="m-0 text-ink-dim text-xs">
+      <p className="m-0 text-ink-dim text-label">
         {problem ??
           (status.running
             ? `Calibrate plays nothing: press it, then play your hardest for ${CALIBRATE_SECONDS} seconds. Rigs you audition or apply from then on trim their input to suit.`

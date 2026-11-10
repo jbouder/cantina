@@ -13,24 +13,19 @@ export function Shortcuts({ onClose }: Props) {
   const sections = shortcutSections();
   return (
     <Sheet title="Keyboard shortcuts" onClose={onClose} wide>
-      <p className="m-0 text-ink-dim text-sm">
+      <p className="m-0 text-ink-dim text-body">
         Keys without ⌘ do nothing while you are typing in a text field.
       </p>
       <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
         {sections.map((section) => (
           <section key={section.title} aria-labelledby={`keys-${section.title}`}>
-            <h3
-              id={`keys-${section.title}`}
-              className="m-0 mb-1 font-bold text-[11px] uppercase tracking-[0.1em]"
-            >
+            <h3 id={`keys-${section.title}`} className="caption m-0 mb-1">
               {section.title}
               {section.note ? (
-                <small className="block font-normal text-ink-dim text-xs normal-case tracking-normal">
-                  {section.note}
-                </small>
+                <small className="hint block text-ink-dim">{section.note}</small>
               ) : null}
             </h3>
-            <table className="w-full border-collapse text-sm">
+            <table className="w-full border-collapse text-body">
               <tbody>
                 {section.rows.map((row) => (
                   <tr key={`${row.keys}-${row.does}`}>

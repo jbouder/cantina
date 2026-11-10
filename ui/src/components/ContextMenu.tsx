@@ -102,7 +102,7 @@ export function ContextMenu({ label, x, y, items, onClose }: Props) {
       aria-label={label}
       tabIndex={-1}
       style={place}
-      className="surface-panel fixed z-20 grid min-w-52 bg-sheet-bg py-1 text-sheet-ink text-sm"
+      className="surface-panel fixed z-20 grid min-w-52 bg-sheet-bg py-1 text-sheet-ink text-body"
       onKeyDown={onKeyDown}
       onContextMenu={(e) => e.preventDefault()}
     >

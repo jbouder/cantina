@@ -790,9 +790,8 @@ export function App() {
               aria-label={status?.assistant.persona ? "Tapster" : "Assistant"}
               title={`${status?.assistant.persona ? "Tapster" : "Assistant"} (⌘J)`}
               aria-pressed={assistantOpen}
-              variant={assistantOpen ? "transport" : "panel"}
               onClick={() => setAssistantOpen((open) => !open)}
-              className="px-1.5"
+              className="px-2"
             >
               <Droid size={20} />
             </Button>
@@ -801,7 +800,6 @@ export function App() {
             aria-label="Jam"
             title="Jam (J)"
             aria-pressed={jamming}
-            variant={jamming ? "transport" : "panel"}
             disabled={!status || frame.recording}
             onClick={() => (jamming ? leaveJam() : openJam())}
             className="px-2"
@@ -859,7 +857,7 @@ export function App() {
             <Recovery recovery={status.project.recovery} onStatus={setStatus} onError={setError} />
           ) : null}
           {status?.latency.warn ? (
-            <Lcd role="status" error className="text-base">
+            <Lcd role="status" error className="text-readout">
               Plugins delay playback by {ms(status.latency.compensationFrames, status.sampleRate)},
               above the {status.latency.warnMs} ms you set. Live monitoring is not delayed.
             </Lcd>

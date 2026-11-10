@@ -4,7 +4,7 @@ import { type Block, type Inline, parseMarkdown } from "../lib/markdown";
 
 /** A reply's Markdown as elements. Nothing in it is ever treated as HTML. */
 export function Markdown({ text }: { text: string }) {
-  return <div className="grid gap-2 text-sm leading-snug">{parseMarkdown(text).map(block)}</div>;
+  return <div className="grid gap-2 text-body leading-snug">{parseMarkdown(text).map(block)}</div>;
 }
 
 function block(b: Block, key: number): ReactNode {
@@ -26,7 +26,7 @@ function block(b: Block, key: number): ReactNode {
       return (
         <List
           key={key}
-          className={`m-0 grid gap-0.5 pl-5 ${b.ordered ? "list-decimal" : "list-disc"}`}
+          className={`m-0 grid gap-0.5 pl-4 ${b.ordered ? "list-decimal" : "list-disc"}`}
         >
           {b.items.map((item, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: list items have no identity but their place
@@ -39,7 +39,7 @@ function block(b: Block, key: number): ReactNode {
       return (
         <pre
           key={key}
-          className="surface-lcd m-0 overflow-x-auto whitespace-pre px-2 py-1 font-lcd text-sm"
+          className="surface-lcd m-0 overflow-x-auto whitespace-pre px-2 py-1 font-lcd text-body"
         >
           <code className="lcd-text">{b.text}</code>
         </pre>

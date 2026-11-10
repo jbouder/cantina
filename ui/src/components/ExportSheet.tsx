@@ -102,24 +102,14 @@ export function ExportSheet({ projectName, sampleRate, onClose }: Props) {
   return (
     <Sheet title="Export mixdown" onClose={running ? () => {} : onClose}>
       <section aria-labelledby="export-range" className="grid gap-2">
-        <h3 id="export-range" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+        <h3 id="export-range" className="caption m-0">
           Range
         </h3>
         <div role="radiogroup" aria-labelledby="export-range" className="flex gap-1">
-          <Button
-            role="radio"
-            aria-checked={whole}
-            variant={whole ? "transport" : "panel"}
-            onClick={() => setWhole(true)}
-          >
+          <Button role="radio" aria-checked={whole} onClick={() => setWhole(true)}>
             Whole song
           </Button>
-          <Button
-            role="radio"
-            aria-checked={!whole}
-            variant={whole ? "panel" : "transport"}
-            onClick={() => setWhole(false)}
-          >
+          <Button role="radio" aria-checked={!whole} onClick={() => setWhole(false)}>
             Bars
           </Button>
         </div>
@@ -144,7 +134,7 @@ export function ExportSheet({ projectName, sampleRate, onClose }: Props) {
         )}
       </section>
       <section aria-labelledby="export-format" className="grid gap-2">
-        <h3 id="export-format" className="m-0 font-bold text-[11px] uppercase tracking-[0.1em]">
+        <h3 id="export-format" className="caption m-0">
           File
         </h3>
         <Select
@@ -173,7 +163,6 @@ export function ExportSheet({ projectName, sampleRate, onClose }: Props) {
         <div className="flex">
           <Button
             aria-pressed={tail}
-            variant={tail ? "transport" : "panel"}
             onClick={() => setTail(!tail)}
             title="Keep rendering past the end until reverbs and delays have died away"
           >
@@ -190,14 +179,14 @@ export function ExportSheet({ projectName, sampleRate, onClose }: Props) {
         ) : (
           <>
             <span className="flex-1" />
-            <Button variant="transport" disabled={!rangeValid} onClick={start}>
+            <Button tier="primary" disabled={!rangeValid} onClick={start}>
               Export…
             </Button>
           </>
         )}
       </div>
       {result ? (
-        <Lcd role="status" className="text-base">
+        <Lcd role="status" className="text-readout">
           Wrote {result.path.split("/").pop()} · {clock(result.seconds)} in{" "}
           {result.renderSeconds.toFixed(1)} s (
           {Math.max(1, Math.round(result.seconds / Math.max(result.renderSeconds, 0.001)))}× real

@@ -10,7 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "lint": "biome check . && node scripts/check-colors.mjs && node scripts/check-contrast.mjs",
+    "lint": "biome check . && node scripts/check-colors.mjs && node scripts/check-scale.mjs && node scripts/check-contrast.mjs",
     "format": "biome check --write .",
     "typecheck": "tsc -b packages/scenes && tsc --noEmit -p tsconfig.json && tsc --noEmit -p packages/scenes/test",
     "test": "vitest run",

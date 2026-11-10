@@ -88,7 +88,7 @@ export function Transport({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button
-        variant="transport"
+        tier="primary"
         aria-pressed={transport.recording}
         disabled={!running || armed.length === 0 || rolling}
         onClick={() => run(transportRecord())}
@@ -98,7 +98,7 @@ export function Transport({
         Record
       </Button>
       <Button
-        variant="transport"
+        tier="primary"
         aria-pressed={transport.playing && !transport.recording}
         disabled={!running || !hasClips || rolling}
         onClick={() => run(transportPlay())}
@@ -110,7 +110,7 @@ export function Transport({
         Play
       </Button>
       <Button
-        variant="transport"
+        tier="primary"
         disabled={!running || !rolling}
         onClick={() => run(transportStop())}
         title="Stop (Space)"
@@ -126,8 +126,8 @@ export function Transport({
       >
         {countIn > 0 ? `Count-in ${countIn}` : `${timeline.bars} · ${clock(position)}`}
       </Lcd>
-      <span className="flex items-center gap-1 text-sm">
-        <label htmlFor="tempo-bpm" className="font-bold text-[11px] uppercase tracking-[0.08em]">
+      <span className="flex items-center gap-1 text-body">
+        <label htmlFor="tempo-bpm" className="caption">
           Tempo
         </label>
         <input
@@ -142,7 +142,7 @@ export function Transport({
           onKeyDown={(e) => {
             if (e.key === "Enter") commitBpm();
           }}
-          className="surface-lcd min-h-8 w-16 px-2 text-center font-lcd text-base tabular-nums"
+          className="surface-field min-h-8 w-16 px-2 text-center tabular-nums"
         />
         <span className="whitespace-nowrap text-ink-dim">
           {tempo.numerator}/{tempo.denominator} · grid {timeline.divisionLabel}
@@ -161,7 +161,7 @@ export function Transport({
       <Button onClick={timeline.fit} title="Zoom to show every clip">
         Fit
       </Button>
-      <span className="text-ink-dim text-sm">{note}</span>
+      <span className="text-ink-dim text-body">{note}</span>
     </div>
   );
 }
