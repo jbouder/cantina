@@ -138,7 +138,7 @@ To build a chain yourself, the dashed
 pedals you have designed, and the Audio Unit and CLAP plugins installed on
 your Mac.
 
-![The pedal picker, with the stock pedals and the installed plugins](../../../assets/guides/picker.png)
+![The pedal picker: the stock pedals, with the installed plugins further down the list](../../../assets/guides/picker.png)
 
 Pick one and it is added to the end of the chain, already playing. Drag the
 knobs while you play. **×** on a pedal removes it, and every change can be
