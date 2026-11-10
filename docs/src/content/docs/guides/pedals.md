@@ -9,8 +9,8 @@ the timeline.
 
 ## The chain
 
-For a whole chain at once, pick a [rig](/guides/rigs/): **Rigs** above the
-pedalboard lists ready-made chains by genre, auditions one on your live
+For a whole chain at once, pick a [rig](/guides/rigs/): **Rigs…** above the
+pedalboard opens a panel that lists ready-made chains by genre, auditions one on your live
 input against your own chain, and applies it in one undoable step. **Save
 chain as rig…** there keeps a chain you built for other projects.
 
@@ -25,12 +25,18 @@ chain as rig…** there keeps a chain you built for other projects.
   are saved with the project and can be undone.
 - **Remove** a pedal with the small **×** at the right of its name.
 - **Change** a knob by dragging its fader, or from the keyboard. Every
-  change is heard at once, and every change can be undone.
+  change is heard at once, and every change can be undone. Double-click a
+  fader to put it back to its default.
 
-The badge on a card says where a pedal comes from: **stock** for one built
-into Cantina, **json** for a stock pedal written in the
-[pedal format](/reference/pedal-format/), and **yours** for one you
-designed. A pedal that delays the signal says by how much under its name.
+A card shows every knob at once, one to a line: the name, the fader and
+its value. A pedal with more than six knobs gets a card two columns wide.
+A chain too long for the window scrolls sideways, with a bar under it, and
+**Add a pedal** stays at the right.
+
+Hover a pedal's name to see where it comes from: a stock pedal built into
+Cantina, a stock pedal written in the
+[pedal format](/reference/pedal-format/), one you designed, or a plugin.
+A pedal that delays the signal says by how much under its name.
 
 ## Plugins
 
@@ -162,7 +168,8 @@ cabinet.
 The sound of a speaker cabinet, from an impulse response. Pick one from the
 card. Four come with Cantina: a 1×12 open back, a 2×12 closed back, a 4×12
 and a 4×10 for bass. To use your own, put `.wav` impulse responses in
-`~/Music/Cantina/IRs` and press **Rescan** on the card. **Level** sets the
+`~/Music/Cantina/IRs` and press the rescan key beside the **Impulse**
+menu on the card. **Level** sets the
 volume.
 
 ### Gain

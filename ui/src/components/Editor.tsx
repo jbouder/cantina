@@ -366,7 +366,7 @@ export function Editor({
             onError={onError}
           />
         ) : shown === "pedalboard" ? (
-          <div className="grid gap-3">
+          <div className="flex h-full min-h-0 flex-col gap-2">
             {track.kit ? null : (
               <RigPicker
                 track={track}

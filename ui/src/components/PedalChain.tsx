@@ -43,16 +43,11 @@ function kindOf(kinds: PedalKindInfo[], spec: string) {
   return kinds.find((k) => k.spec === base);
 }
 
-/** A small tag in the frame's lettering: where a pedal comes from. */
-function Badge({ children, title }: { children: string; title: string }) {
-  return (
-    <span
-      title={title}
-      className="surface-lcd shrink-0 px-1 py-0.5 font-lcd text-label leading-none"
-    >
-      <span className="lcd-text">{children}</span>
-    </span>
-  );
+/** Where a pedal comes from, for its name's tooltip. */
+function origin(kind: PedalKindInfo | undefined, designed: boolean): string {
+  if (kind?.stock)
+    return kind.designable ? "Stock pedal, in the pedal format" : "Stock pedal, built in";
+  return designed ? "Your pedal, designed here" : "Plugin";
 }
 
 /** A card being dragged by its header. */
@@ -152,15 +147,15 @@ export function PedalChain({
   });
 
   return (
-    <div className="grid gap-2">
-      <ol className="m-0 flex list-none items-stretch gap-2 overflow-x-auto p-0 pb-1">
+    <div className="flex min-h-0 min-w-0 flex-1 items-stretch gap-2">
+      <ol className="scroll-area m-0 flex min-h-0 min-w-0 flex-1 list-none items-stretch gap-2 p-0 pb-1">
         {chain.map((pedal, index) => (
           <li
             key={pedal.id}
             ref={(el) => {
               items.current[index] = el;
             }}
-            className={`flex ${drag?.moved && drag.over === index && drag.id !== pedal.id ? "outline-2 outline-focus" : ""}`}
+            className={`flex min-h-0 ${drag?.moved && drag.over === index && drag.id !== pedal.id ? "outline-2 outline-focus" : ""}`}
           >
             <PedalCard
               pedal={pedal}
@@ -188,21 +183,19 @@ export function PedalChain({
             No pedals: the signal goes straight through.
           </li>
         ) : null}
-        <li className="flex">
-          <button
-            type="button"
-            aria-haspopup="dialog"
-            onClick={onAdd}
-            title="Add a stock pedal, one of yours, a plugin, a new design or a file"
-            className="grid min-h-32 w-44 shrink-0 cursor-pointer content-start justify-items-center gap-1 rounded-control border-2 border-frame-hi border-dashed bg-transparent p-2 pt-8 text-ink-dim hover:border-ink hover:text-ink"
-          >
-            <span aria-hidden="true" className="font-lcd text-display leading-none">
-              +
-            </span>
-            <span className="font-bold text-label">Add a pedal</span>
-          </button>
-        </li>
       </ol>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        onClick={onAdd}
+        title="Add a stock pedal, one of yours, a plugin, a new design or a file"
+        className="mb-1 grid min-h-24 w-24 shrink-0 cursor-pointer place-content-center justify-items-center gap-1 rounded-control border-2 border-frame-hi border-dashed bg-transparent p-2 text-ink-dim hover:border-ink hover:text-ink"
+      >
+        <span aria-hidden="true" className="font-lcd text-display leading-none">
+          +
+        </span>
+        <span className="font-bold text-label">Add a pedal</span>
+      </button>
     </div>
   );
 }
@@ -264,8 +257,8 @@ function PedalCard({
   useEffect(() => {
     setValues(pedal.params.map((p) => p.value));
   }, [pedal.params]);
-  // A pedal with many knobs (the EQ) gets a double-width card.
-  const wide = pedal.params.length > 8;
+  // A pedal with many knobs gets a double-width card, so none is tall.
+  const wide = pedal.params.length > 6;
   const pending = useRef<Map<number, number>>(new Map());
   const scheduled = useRef(false);
 
@@ -289,7 +282,7 @@ function PedalCard({
     <article
       aria-label={`${pedal.name} pedal`}
       style={offset === null ? undefined : { transform: `translateX(${offset}px)` }}
-      className={`surface-panel grid shrink-0 content-start gap-2 p-2 ${wide ? "w-88" : "w-44"} ${offset === null ? "" : "relative z-10"}`}
+      className={`surface-panel scroll-area grid max-h-full shrink-0 content-start gap-1 p-2 [scrollbar-gutter:auto] ${wide ? "w-128" : "w-64"} ${offset === null ? "" : "relative z-10"}`}
     >
       <header
         {...grip}
@@ -311,22 +304,15 @@ function PedalCard({
             <button
               type="button"
               aria-label={`${pedal.name}, position ${index + 1} of ${count}. Drag the card's header or use the arrow keys to move it.`}
-              title="Drag to reorder; the arrow keys move it too"
+              title={`${origin(kind, designed)}. Drag to reorder; the arrow keys move it too`}
               onKeyDown={(e) => {
                 if (e.key === "ArrowLeft" && index > 0) onMove(index - 1);
                 if (e.key === "ArrowRight" && index < count - 1) onMove(index + 1);
               }}
-              className="min-h-8 min-w-0 flex-1 cursor-[inherit] truncate border-0 bg-transparent p-0 text-left text-inherit"
+              className="min-h-6 min-w-0 flex-1 cursor-[inherit] truncate border-0 bg-transparent p-0 text-left text-inherit"
             >
               {pedal.name}
             </button>
-            {kind?.stock ? (
-              <Badge title={kind.designable ? "Stock, in the pedal format" : "Stock, built in"}>
-                {kind.designable ? "json" : "stock"}
-              </Badge>
-            ) : designed ? (
-              <Badge title="Designed here, in the pedal format">yours</Badge>
-            ) : null}
           </span>
           {pedal.latencyFrames > 0 ? (
             <small
@@ -350,16 +336,16 @@ function PedalCard({
           </svg>
         </button>
       </header>
-      <div className={`grid min-w-0 content-start gap-2 ${pedal.bypassed ? "opacity-50" : ""}`}>
+      <div className={`grid min-w-0 content-start gap-1 ${pedal.bypassed ? "opacity-50" : ""}`}>
         {cabinetIr !== null ? (
-          <div className="grid gap-1">
+          <div className="grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)_auto] items-center gap-2">
             <label htmlFor={irId} className="caption">
               Impulse
             </label>
-            <span className="relative">
+            <span className="relative min-w-0">
               <select
                 id={irId}
-                className="surface-field min-h-8 w-full appearance-none truncate py-0 pr-8 pl-2"
+                className="surface-field min-h-6 w-full appearance-none truncate py-0 pr-6 pl-2"
                 value={cabinetIr}
                 onChange={(e) => onSpec(`cab:${e.target.value}`)}
               >
@@ -377,22 +363,33 @@ function PedalCard({
               <svg
                 aria-hidden="true"
                 viewBox="0 0 16 16"
-                className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 fill-field-fg"
+                className="pointer-events-none absolute top-1/2 right-2 size-3 -translate-y-1/2 fill-field-fg"
               >
                 <path d="M2 5l6 6 6-6z" />
               </svg>
             </span>
             <Button
+              tier="quiet"
+              square
+              aria-label="Rescan impulse responses"
               onClick={onRescanIrs}
               title="Look for impulse responses added to ~/Music/Cantina/IRs"
+              className="min-h-6"
             >
-              Rescan
+              <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-current">
+                <path d="M8 2a6 6 0 0 1 5.2 3H11v1.5h4.5V2H14v1.7A7.5 7.5 0 0 0 .6 6.7l1.5.3A6 6 0 0 1 8 2zm5.9 7A6 6 0 0 1 2.8 11H5V9.5H.5V14H2v-1.7a7.5 7.5 0 0 0 13.4-3z" />
+              </svg>
             </Button>
           </div>
         ) : null}
         <PedalReadout pedal={pedal} values={readouts} />
         {designed ? (
-          <Button aria-haspopup="dialog" onClick={onDesign} title="Open this pedal in the designer">
+          <Button
+            aria-haspopup="dialog"
+            onClick={onDesign}
+            title="Open this pedal in the designer"
+            className="min-h-6"
+          >
             Edit…
           </Button>
         ) : null}
@@ -400,6 +397,7 @@ function PedalCard({
           <Button
             aria-pressed={pedal.editorOpen}
             onClick={() => onEditor(!pedal.editorOpen)}
+            className="min-h-6"
             title={
               pedal.editorOpen
                 ? "Close the plugin's own window"
@@ -410,7 +408,7 @@ function PedalCard({
             {pedal.editorOpen ? "Editor open" : "Edit…"}
           </Button>
         ) : null}
-        <div className={wide ? "grid min-w-0 grid-cols-2 gap-x-4 gap-y-2" : "contents"}>
+        <div className={wide ? "grid min-w-0 grid-cols-2 gap-x-4 gap-y-1" : "contents"}>
           {pedal.params.map((param, i) => (
             <Fader
               key={`${String(i)}-${param.name}`}

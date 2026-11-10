@@ -98,6 +98,10 @@ A canvas reads `--type-label` from the computed style instead of writing a size.
 
 **Tabs and overflow.** Views of one thing are tabs: `role="tab"` buttons with the `tab` utility in a `tab-rule` tablist. The selected tab is filled from `--state-selected`. Actions are not tabs. An action used rarely goes in an overflow menu: a quiet square key with three dots that opens a `ContextMenu` under itself (`alignEnd`).
 
+**Parameters.** A pedal parameter is one line (`Fader`): a caption, the control, and for a fader its value in a small display. Cards are a fixed width and as tall as their knobs, so nothing is clipped.
+
+**Side sheets.** `Sheet` with `side` opens down the right edge with nothing dimmed. Use it when what the sheet changes should stay in view, as the rig picker does with the chain.
+
 **Scrolling.** A region that can scroll uses `scroll-area`, which always draws a slim bar while there is more to see. The system's bars hide until touched, which leaves clipped content looking like a bug.
 
 **Narrow windows.** The toolbar and the transport strip never wrap. Each is a container (`@container`), and what is optional carries a container variant: a key's caption is `@5xl:inline hidden`, so below that width the key shows its glyph alone. Such a key always has an `aria-label` and a `title`. A key that only ever holds a glyph takes `square` on `Button`.
