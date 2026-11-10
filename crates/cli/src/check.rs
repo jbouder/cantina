@@ -878,7 +878,7 @@ mod tests {
         assert!(
             r.warnings
                 .iter()
-                .any(|w| w.contains("1 values for 5 parameters")),
+                .any(|w| w.contains("1 values for 6 parameters")),
             "{:?}",
             r.warnings
         );
