@@ -45,7 +45,8 @@ and the export is of the project as it was when you pressed the button.
 
 ## Bounce a track in place
 
-Select the track and choose **Bounce** in the editor's header, or
+Select the track and choose **Bounce to one clip** from the **⋯** menu in
+the editor's header, or
 **File ▸ Bounce Track in Place**. Cantina
 renders the track's clips, or a drum track's patterns through its kit,
 through every pedal that is on, and puts the result on the track as one

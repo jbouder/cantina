@@ -19,6 +19,8 @@ type Props = {
   x: number;
   y: number;
   items: MenuItem[];
+  /** Opens to the left of `x`, for a menu under a key at the right edge. */
+  alignEnd?: boolean;
   onClose: () => void;
 };
 
@@ -38,7 +40,7 @@ function enabled(panel: HTMLElement | null): HTMLElement[] {
  * keys, Home and End move through it; Escape, Tab or a press outside
  * close it, and focus goes back where it was.
  */
-export function ContextMenu({ label, x, y, items, onClose }: Props) {
+export function ContextMenu({ label, x, y, items, alignEnd = false, onClose }: Props) {
   const panel = useRef<HTMLDivElement>(null);
   const [place, setPlace] = useState({ left: x, top: y });
 
@@ -46,10 +48,10 @@ export function ContextMenu({ label, x, y, items, onClose }: Props) {
     const r = panel.current?.getBoundingClientRect();
     if (!r) return;
     setPlace({
-      left: fit(x, r.width, window.innerWidth),
+      left: alignEnd ? Math.max(0, x - r.width) : fit(x, r.width, window.innerWidth),
       top: fit(y, r.height, window.innerHeight),
     });
-  }, [x, y]);
+  }, [x, y, alignEnd]);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;

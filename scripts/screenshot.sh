@@ -19,6 +19,12 @@ if [ ${#queries[@]} -eq 0 ]; then
   queries=("")
 fi
 
+# SHOT_SIZE=800,520 sets the window size; SHOT_SCROLLBARS=1 leaves scroll
+# bars in the picture, to show a region that scrolls.
+hide="--hide-scrollbars"
+if [ -n "${SHOT_SCROLLBARS:-}" ]; then
+  hide=""
+fi
 chrome="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 port=1427
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -45,7 +51,7 @@ for query in "${queries[@]}"; do
   file="$file.png"
   # The compositor flag makes animation frames run under virtual time,
   # which the meters need: frames are drawn from requestAnimationFrame.
-  "$chrome" --headless=new --disable-gpu --hide-scrollbars \
+  "$chrome" --headless=new --disable-gpu $hide \
     --window-size="${SHOT_SIZE:-1100,720}" --force-device-scale-factor=2 \
     --run-all-compositor-stages-before-draw --virtual-time-budget=2000 \
     --screenshot="$file" "http://localhost:$port/?$query" >/dev/null 2>&1

@@ -39,7 +39,7 @@ add their own items when they arrive.
 | Import Pattern… | | Adds a `.pattern.json` to the project, onto the selected drum track. |
 | Import Kit… | | Copies a kit folder (one with a `kit.json`) into `~/Music/Cantina/Kits`, after checking it loads, so drum tracks can pick it. |
 | Export Mixdown… | ⌘E | The [export sheet](/guides/mixdown/#export-the-mix). |
-| Bounce Track in Place | | [Bounces](/guides/mixdown/#bounce-a-track-in-place) the selected track, as **Bounce** in its editor does. |
+| Bounce Track in Place | | [Bounces](/guides/mixdown/#bounce-a-track-in-place) the selected track, as **Bounce to one clip** in its editor's **⋯** menu does. |
 | Show Project in Finder | | Opens a Finder window with the project's folder selected. |
 | Show Library in Finder | | Opens `~/Music/Cantina`, which holds your projects and the Pedals, Patterns, Kits and IRs folders. |
 

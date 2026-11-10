@@ -18,7 +18,7 @@ import { Meter } from "./Meter";
 const KEY =
   "button-standard grid size-6 shrink-0 place-items-center border-0 p-0 font-bold text-label leading-none";
 /** A strip's value beside its fader: display text with no box of its own. */
-const VALUE = "lcd-text font-lcd text-label text-lcd-fg tabular-nums leading-none";
+const VALUE = "font-lcd text-label text-lcd-fg tabular-nums leading-none";
 
 /** A speaker with a cross: the mute key's glyph. */
 function MuteGlyph() {

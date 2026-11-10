@@ -96,6 +96,10 @@ A canvas reads `--type-label` from the computed style instead of writing a size.
 
 **Messages.** A notice, a warning, an error, the update prompt and the recovery question are toasts (`Toast` inside `Toasts`), stacked in the bottom right corner of the body. They sit over the work and out of the layout, so one arriving never moves the arrangement or the editor. Each has its own role for assistive tech: `status` for something to know, `alert` for an error, `alertdialog` for a question. A message with nothing to answer takes `onDismiss`; one that asks takes `actions`. Never add a full-width row above the content for a message.
 
+**Tabs and overflow.** Views of one thing are tabs: `role="tab"` buttons with the `tab` utility in a `tab-rule` tablist. The selected tab is filled from `--state-selected`. Actions are not tabs. An action used rarely goes in an overflow menu: a quiet square key with three dots that opens a `ContextMenu` under itself (`alignEnd`).
+
+**Scrolling.** A region that can scroll uses `scroll-area`, which always draws a slim bar while there is more to see. The system's bars hide until touched, which leaves clipped content looking like a bug.
+
 **Narrow windows.** The toolbar and the transport strip never wrap. Each is a container (`@container`), and what is optional carries a container variant: a key's caption is `@5xl:inline hidden`, so below that width the key shows its glyph alone. Such a key always has an `aria-label` and a `title`. A key that only ever holds a glyph takes `square` on `Button`.
 
 **Fields and readouts.** An `<input>`, `<select>` or `<textarea>` is a `surface-field`: the UI face in a well with an edge. A value that can only be read is a `surface-lcd`. The check fails on a field in the display material.

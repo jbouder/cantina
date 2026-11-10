@@ -323,6 +323,59 @@
 }
 
 /*
+ * A tab: one of several views of the same thing, sitting on the rule its
+ * tablist draws. Unselected it is plain text; selected it is filled with
+ * the selection color, so it reads as chosen in every skin.
+ */
+@utility tab {
+  color: var(--ink-dim);
+  background: transparent;
+  border: 0;
+  border-radius: var(--control-radius) var(--control-radius) 0 0;
+  &:hover:not([aria-selected="true"]) {
+    color: var(--ink);
+    background: var(--quiet-hover-bg);
+  }
+  &[aria-selected="true"] {
+    color: var(--state-selected-ink);
+    background: var(--state-selected);
+  }
+}
+
+/* The rule a row of tabs sits on, in the selection color. */
+@utility tab-rule {
+  box-shadow: inset 0 -2px 0 var(--state-selected);
+}
+
+/*
+ * A region that scrolls and shows that it does: a slim bar that is
+ * always drawn while there is more to see, in place of the system's
+ * bars that hide until touched.
+ */
+@utility scroll-area {
+  overflow: auto;
+  scrollbar-gutter: stable;
+  &::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  &::-webkit-scrollbar-track {
+    background: var(--scroll-track);
+    border-radius: var(--control-radius);
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--scroll-thumb);
+    border-radius: var(--control-radius);
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--scroll-thumb-hover);
+  }
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+/*
  * A field the user can type in or choose from: an input, a select, a
  * textarea. Always the UI face at body size, in a well with an edge, so
  * it never passes for a read-only display (`surface-lcd`).
