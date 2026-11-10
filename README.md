@@ -35,7 +35,8 @@ file, so you or a coding agent can write one and the app picks it up.
   tweak pedals while you play; every parameter is smoothed so nothing
   clicks.
 - **Stock pedals.** Tuner, noise gate, compressor, overdrive, distortion
-  and fuzz (oversampled), EQ, chorus, flanger, phaser, tremolo, tempo-synced
+  and fuzz (oversampled, with a blend for the clean signal), EQ, chorus,
+  flanger, phaser, tremolo, an octaver and pitch shifter, tempo-synced
   delay, reverb, and an amp and cabinet with a starter set of impulse
   responses.
 - **Multitrack recording.** Tracks and clips on a timeline: record, move,
