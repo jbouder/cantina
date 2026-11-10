@@ -14,8 +14,8 @@ on your input as you make it.
 - **New design…** in the pedal picker adds an empty pedal to the end of the
   chain, an input wired straight to an output, and opens it.
 - **Edit…** on one of your pedals' cards opens that one.
-- **Start from** in the side panel loads any stock pedal marked *json* as a
-  starting point. The overdrive is a good first look.
+- **Start from** in the inspector loads any stock pedal written in the
+  pedal format as a starting point. The overdrive is a good first look.
 
 ## The canvas
 
@@ -27,13 +27,21 @@ Each part is a card. **Add a node** puts a new one on the canvas.
   input port on the left of another. A card takes one wire in, except a
   **mix**, which sums every wire into it.
 - **Delete** removes the selected card or wire.
+- **Fit**, at the bottom right of the canvas, frames the whole graph, and
+  **100%** shows it at full size again. A design opens fitted. A graph too
+  big to read when fitted scrolls at full size, with bars to show it.
 - **Dashed lines** show one card's signal driving another's setting, such as
   an oscillator sweeping a filter. An oscillator has no output port, because
-  it carries no audio: you connect it from the side panel instead.
+  it carries no audio: you connect it from the inspector instead.
+
+The line under the canvas says what a click will do next, such as which
+card a wire is being drawn from.
 
 ## Settings and knobs
 
-Select a card to edit its settings in the side panel. Each setting can be:
+Select a card to edit its settings in the inspector, at the right of the
+canvas. Each setting is one group: its name, where its value comes from,
+and the value. A setting can be:
 
 - **a constant**, set with a fader, a pick or a switch
 - **a parameter**: one of the pedal's knobs, with the knob's range mapped
@@ -49,7 +57,7 @@ build.
 ## When something is wrong
 
 A design that cannot play, such as a card left unwired, a loop, or a setting
-out of range, shows its problems in the side panel and outlines the
+out of range, shows its problems in the inspector and outlines the
 cards they are about. The last version that worked keeps playing until you
 fix it, so a mistake never cuts the sound.
 

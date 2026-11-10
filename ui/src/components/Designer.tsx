@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -66,6 +67,10 @@ type Props = {
 
 /** Node card geometry on the canvas, in CSS pixels. */
 const CARD_W = 160;
+/** A card's height with its three lines of fields, for framing the graph. */
+const CARD_H = 100;
+/** The smallest the graph is drawn when fitted, so its text stays readable. */
+const MIN_SCALE = 0.25;
 const PORT_Y = 22;
 const BIND_Y = 44;
 const LABEL = "caption";
@@ -92,6 +97,8 @@ export function Designer({ pedal, kinds, onClose, onStatus, onError }: Props) {
   const [pending, setPending] = useState<string | null>(null);
   const [adding, setAdding] = useState("gain");
   const [startFrom, setStartFrom] = useState("");
+  // Bumped when another graph is loaded, so the canvas frames it again.
+  const [fitKey, setFitKey] = useState(0);
   // Parameter values by id, so a reshaped parameter list keeps them.
   const values = useRef<Map<string, number>>(new Map());
   const panel = useRef<HTMLDivElement>(null);
@@ -158,6 +165,7 @@ export function Designer({ pedal, kinds, onClose, onStatus, onError }: Props) {
       (stock) => {
         setSelected(null);
         commit(stock);
+        setFitKey((k) => k + 1);
       },
       (e) => onError(String(e)),
     );
@@ -216,6 +224,7 @@ export function Designer({ pedal, kinds, onClose, onStatus, onError }: Props) {
           <span className="title-text text-body">· {def.name} · running in the chain</span>
           <span className="flex-1" />
           <Button
+            tier="primary"
             onClick={save}
             title="Save to your library under a name made from the pedal's, and keep the project's own copy"
           >
@@ -224,30 +233,49 @@ export function Designer({ pedal, kinds, onClose, onStatus, onError }: Props) {
           <Button onClick={exportFile} title="Write the definition to a .pedal.json file to share">
             Export…
           </Button>
-          <Button onClick={onClose} aria-label="Close the designer" className="px-2">
+          <Button
+            tier="quiet"
+            square
+            onClick={onClose}
+            aria-label="Close the designer"
+            title="Close (Esc)"
+            className="text-title-text"
+          >
             <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-current">
               <path d="M3 2l5 5 5-5 1 1-5 5 5 5-1 1-5-5-5 5-1-1 5-5-5-5z" />
             </svg>
           </Button>
         </header>
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_22rem] grid-rows-[minmax(0,1fr)] gap-3 bg-sheet-bg p-3 text-sheet-ink">
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_24rem] grid-rows-[minmax(0,1fr)] gap-3 bg-sheet-bg p-3 text-sheet-ink">
           <section aria-label="Graph" className="flex min-h-0 min-w-0 flex-col gap-2">
-            <div className="flex flex-wrap items-end gap-2">
-              <Select
-                id={`${titleId}-add`}
-                label="Add a node"
-                value={adding}
-                onChange={(e) => setAdding(e.target.value)}
-                className="min-w-36"
-              >
-                {KINDS.filter((k) => k.kind !== "input" && k.kind !== "output").map((k) => (
-                  <option key={k.kind} value={k.kind}>
-                    {k.label}
-                  </option>
-                ))}
-              </Select>
+            <div className="flex items-center gap-2">
+              <label htmlFor={`${titleId}-add`} className={LABEL}>
+                Add a node
+              </label>
+              <span className="relative">
+                <select
+                  id={`${titleId}-add`}
+                  value={adding}
+                  onChange={(e) => setAdding(e.target.value)}
+                  className="surface-field min-h-8 w-44 appearance-none truncate py-0 pr-6 pl-2"
+                >
+                  {KINDS.filter((k) => k.kind !== "input" && k.kind !== "output").map((k) => (
+                    <option key={k.kind} value={k.kind}>
+                      {k.label}
+                    </option>
+                  ))}
+                </select>
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 16 16"
+                  className="pointer-events-none absolute top-1/2 right-2 size-3 -translate-y-1/2 fill-field-fg"
+                >
+                  <path d="M2 5l6 6 6-6z" />
+                </svg>
+              </span>
               <Button onClick={add}>Add</Button>
               <Button
+                tier="quiet"
                 onClick={remove}
                 disabled={
                   !selected ||
@@ -257,11 +285,6 @@ export function Designer({ pedal, kinds, onClose, onStatus, onError }: Props) {
               >
                 Remove
               </Button>
-              <p className="m-0 text-ink-dim text-label">
-                {pending
-                  ? `Wiring from ${pending}: click a node's input, or its output again to stop.`
-                  : "Drag nodes to arrange them; click an output then an input to wire them."}
-              </p>
             </div>
             <Canvas
               def={def}
@@ -273,11 +296,18 @@ export function Designer({ pedal, kinds, onClose, onStatus, onError }: Props) {
               onPortOut={(id) => setPending((p) => (p === id ? null : id))}
               onPortIn={onPortIn}
               onDelete={remove}
+              fitKey={fitKey}
             />
+            <p role="status" className="m-0 truncate text-ink-dim text-label">
+              {pending
+                ? `Wiring from ${pending}: click a node's input, or its output again to stop.`
+                : "Drag a node to move it. Click an output, then an input, to wire them."}
+            </p>
           </section>
           <aside
             ref={panel}
-            className="surface-lcd grid min-h-0 content-start gap-3 overflow-y-auto p-3"
+            aria-label="Inspector"
+            className="scroll-area grid min-h-0 content-start gap-3 border-frame-lo border-l pl-3"
           >
             <TextInput
               id={`${titleId}-name`}
@@ -375,6 +405,8 @@ type CanvasProps = {
   onPortOut: (id: string) => void;
   onPortIn: (id: string) => void;
   onDelete: () => void;
+  /** Changes when another graph is loaded: the canvas fits it again. */
+  fitKey: number;
 };
 
 function posOf(node: NodeDef | undefined): [number, number] {
@@ -401,6 +433,7 @@ function Canvas({
   onPortOut,
   onPortIn,
   onDelete,
+  fitKey,
 }: CanvasProps) {
   const [dragging, setDragging] = useState<{ id: string; pos: [number, number] } | null>(null);
   const drag = useRef<{
@@ -409,8 +442,44 @@ function Canvas({
     origin: [number, number];
     moved: boolean;
   } | null>(null);
-  const width = Math.max(600, ...def.nodes.map((n) => posOf(n)[0] + CARD_W + 60));
-  const height = Math.max(360, ...def.nodes.map((n) => posOf(n)[1] + 160));
+  // The view: how far the graph is scaled down and which corner of it
+  // sits at the canvas's top left. Fit sets both so every node shows.
+  const scroller = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState({ scale: 1, ox: 0, oy: 0 });
+  const nodes = useRef(def.nodes);
+  nodes.current = def.nodes;
+  const fit = useCallback(() => {
+    const el = scroller.current;
+    const all = nodes.current;
+    if (!el || all.length === 0) return;
+    const pad = 24;
+    const xs = all.map((n) => posOf(n)[0]);
+    const ys = all.map((n) => posOf(n)[1]);
+    const [minX, minY] = [Math.min(...xs), Math.min(...ys)];
+    const w = Math.max(...xs) + CARD_W - minX;
+    const h = Math.max(...ys) + CARD_H - minY;
+    const scale = Math.min(
+      1,
+      Math.max(MIN_SCALE, (el.clientWidth - 2 * pad) / w, 0) || 1,
+      Math.max(MIN_SCALE, (el.clientHeight - 2 * pad) / h, 0) || 1,
+    );
+    setView({ scale, ox: minX - pad / scale, oy: minY - pad / scale });
+    el.scrollTo(0, 0);
+  }, []);
+  // A design opens fitted, and so does a stock graph loaded over it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fits when the key changes
+  useLayoutEffect(fit, [fitKey]);
+  // A node moved up or left of the view takes the view with it.
+  const move = (id: string, pos: [number, number]) => {
+    setView((v) =>
+      pos[0] < v.ox || pos[1] < v.oy
+        ? { ...v, ox: Math.min(v.ox, pos[0]), oy: Math.min(v.oy, pos[1]) }
+        : v,
+    );
+    onMove(id, pos);
+  };
+  const width = Math.max(600, ...def.nodes.map((n) => posOf(n)[0] + CARD_W + 60)) - view.ox;
+  const height = Math.max(360, ...def.nodes.map((n) => posOf(n)[1] + 160)) - view.oy;
   const at = (id: string): [number, number] =>
     dragging?.id === id ? dragging.pos : posOf(def.nodes.find((n) => n.id === id));
 
@@ -427,8 +496,8 @@ function Canvas({
   const onPointerMove = (e: PointerEvent<HTMLButtonElement>) => {
     const d = drag.current;
     if (!d) return;
-    const dx = e.clientX - d.start[0];
-    const dy = e.clientY - d.start[1];
+    const dx = (e.clientX - d.start[0]) / view.scale;
+    const dy = (e.clientY - d.start[1]) / view.scale;
     if (!d.moved && Math.hypot(dx, dy) < 3) return;
     d.moved = true;
     setDragging({ id: d.id, pos: [Math.max(0, d.origin[0] + dx), Math.max(0, d.origin[1] + dy)] });
@@ -440,7 +509,7 @@ function Canvas({
     e.currentTarget.releasePointerCapture(e.pointerId);
     if (d.moved && dragging) {
       setDragging(null);
-      onMove(d.id, dragging.pos);
+      move(d.id, dragging.pos);
     }
   };
 
@@ -456,7 +525,7 @@ function Canvas({
     const to = moves[e.key];
     if (to) {
       e.preventDefault();
-      onMove(node.id, to);
+      move(node.id, to);
     } else if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
       onDelete();
@@ -464,143 +533,175 @@ function Canvas({
   };
 
   return (
-    <div className="relative min-h-0 flex-1 overflow-auto bg-tl-bg">
-      <div className="relative" style={{ width, height }}>
-        <svg
-          aria-label="Wires"
-          className="absolute inset-0"
-          width={width}
-          height={height}
-          viewBox={`0 0 ${width} ${height}`}
+    <div className="relative flex min-h-0 flex-1">
+      <div className="absolute right-4 bottom-4 z-10 flex items-center gap-1">
+        <span className="font-lcd text-label text-tl-clip-edge">
+          {Math.round(view.scale * 100)}%
+        </span>
+        <Button onClick={fit} title="Frame the whole graph" className="min-h-6">
+          Fit
+        </Button>
+        <Button
+          onClick={() => setView((v) => ({ ...v, scale: 1 }))}
+          disabled={view.scale === 1}
+          title="Show the graph at full size"
+          className="min-h-6"
         >
-          {def.edges.map(([from, to]) => {
-            const d = wire(at(from), at(to), PORT_Y, PORT_Y);
-            const isSelected =
-              selected?.type === "edge" && selected.from === from && selected.to === to;
-            return (
-              <g key={`${from}->${to}`}>
-                <path
-                  d={d}
-                  fill="none"
-                  className={isSelected ? "stroke-focus" : "stroke-glyph"}
-                  strokeWidth={2}
-                />
-                {/* biome-ignore lint/a11y/useSemanticElements: an SVG path cannot be a button; the role and key handler make the wire selectable from the keyboard */}
-                <path
-                  d={d}
-                  fill="none"
-                  stroke="transparent"
-                  strokeWidth={12}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Wire from ${from} to ${to}`}
-                  className="pointer-events-auto cursor-pointer"
-                  onClick={() => onSelect({ type: "edge", from, to })}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onSelect({ type: "edge", from, to });
-                    }
-                  }}
-                />
-              </g>
-            );
-          })}
-          {def.nodes.flatMap((node) =>
-            Object.entries(fieldsOf(node))
-              .filter(([, v]) => isBinding(v) && v.node && !v.param)
-              .map(([field, v]) => {
-                const source = (v as Binding).node as string;
-                if (!def.nodes.some((n) => n.id === source)) return null;
-                const d = wire(at(source), at(node.id), PORT_Y, BIND_Y);
-                const end = at(node.id);
+          100%
+        </Button>
+      </div>
+      <div ref={scroller} className="scroll-area min-h-0 min-w-0 flex-1 bg-tl-bg">
+        <div style={{ width: width * view.scale, height: height * view.scale }}>
+          <div
+            className="relative origin-top-left"
+            style={{
+              width,
+              height,
+              transform: `scale(${view.scale}) translate(${-view.ox}px, ${-view.oy}px)`,
+            }}
+          >
+            <svg
+              aria-label="Wires"
+              className="absolute inset-0 overflow-visible"
+              width={width}
+              height={height}
+              viewBox={`0 0 ${width} ${height}`}
+            >
+              {def.edges.map(([from, to]) => {
+                const d = wire(at(from), at(to), PORT_Y, PORT_Y);
+                const isSelected =
+                  selected?.type === "edge" && selected.from === from && selected.to === to;
                 return (
-                  <g key={`${source}~${node.id}.${field}`}>
+                  <g key={`${from}->${to}`}>
                     <path
                       d={d}
                       fill="none"
-                      className="stroke-lcd-fg"
-                      strokeWidth={1.5}
-                      strokeDasharray="5 4"
+                      className={isSelected ? "stroke-focus" : "stroke-glyph"}
+                      strokeWidth={2}
                     />
-                    <text
-                      x={end[0] - 6}
-                      y={end[1] + BIND_Y + 4}
-                      textAnchor="end"
-                      className="fill-lcd-fg font-lcd text-body"
-                    >
-                      {field}
-                    </text>
+                    {/* biome-ignore lint/a11y/useSemanticElements: an SVG path cannot be a button; the role and key handler make the wire selectable from the keyboard */}
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke="transparent"
+                      strokeWidth={12}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Wire from ${from} to ${to}`}
+                      className="pointer-events-auto cursor-pointer"
+                      onClick={() => onSelect({ type: "edge", from, to })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onSelect({ type: "edge", from, to });
+                        }
+                      }}
+                    />
                   </g>
                 );
-              }),
-          )}
-        </svg>
-        {def.nodes.map((node) => {
-          const kind = kindOf(node.kind);
-          const [x, y] = at(node.id);
-          const isSelected = selected?.type === "node" && selected.id === node.id;
-          const broken = (problems.get(node.id)?.length ?? 0) > 0;
-          const summary = Object.entries(fieldsOf(node)).slice(0, 3);
-          return (
-            <div
-              key={node.id}
-              className={`surface-panel absolute grid gap-1 p-1 ${isSelected ? "outline-2 outline-focus" : broken ? "outline-2 outline-lcd-error" : ""}`}
-              style={{ left: x, top: y, width: CARD_W }}
-            >
-              <button
-                type="button"
-                aria-pressed={isSelected}
-                aria-label={`${kind?.label ?? node.kind} ${node.id}${broken ? ", has a problem" : ""}. Arrow keys move it; Delete removes it.`}
-                onClick={() => onSelect({ type: "node", id: node.id })}
-                onPointerDown={(e) => onPointerDown(e, node)}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
-                onKeyDown={(e) => onKey(e, node)}
-                className="button-standard min-h-9 cursor-grab touch-none truncate border-0 px-2 text-left font-bold text-label"
-              >
-                {kind?.label ?? node.kind}
-                <span className="hint text-ink-dim"> {node.id}</span>
-              </button>
-              {kind && !kind.source ? (
-                <button
-                  type="button"
-                  aria-label={pending ? `Wire ${pending} into ${node.id}` : `Input of ${node.id}`}
-                  disabled={!pending}
-                  onClick={() => onPortIn(node.id)}
-                  className={`absolute size-5 rounded-full border-2 border-frame-edge ${pending ? "bg-focus" : "bg-silver"}`}
-                  style={{ left: -10, top: PORT_Y - 10 }}
-                />
-              ) : null}
-              {kind && !kind.control && kind.kind !== "output" ? (
-                <button
-                  type="button"
-                  aria-pressed={pending === node.id}
-                  aria-label={`Output of ${node.id}: start a wire`}
-                  onClick={() => onPortOut(node.id)}
-                  className={`absolute size-5 rounded-full border-2 border-frame-edge ${pending === node.id ? "bg-focus" : "bg-silver"}`}
-                  style={{ right: -10, top: PORT_Y - 10 }}
-                />
-              ) : null}
-              {kind?.control ? (
-                <span
-                  aria-hidden="true"
-                  className="absolute size-5 rounded-full border-2 border-lcd-fg border-dashed bg-lcd-bg"
-                  style={{ right: -10, top: PORT_Y - 10 }}
-                />
-              ) : null}
-              {summary.length > 0 ? (
-                <ul className="surface-lcd m-0 list-none px-1 py-0.5">
-                  {summary.map(([field, value]) => (
-                    <li key={field} className="lcd-text truncate font-lcd text-body leading-tight">
-                      {field} {describe(value)}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          );
-        })}
+              })}
+              {def.nodes.flatMap((node) =>
+                Object.entries(fieldsOf(node))
+                  .filter(([, v]) => isBinding(v) && v.node && !v.param)
+                  .map(([field, v]) => {
+                    const source = (v as Binding).node as string;
+                    if (!def.nodes.some((n) => n.id === source)) return null;
+                    const d = wire(at(source), at(node.id), PORT_Y, BIND_Y);
+                    const end = at(node.id);
+                    return (
+                      <g key={`${source}~${node.id}.${field}`}>
+                        <path
+                          d={d}
+                          fill="none"
+                          className="stroke-lcd-fg"
+                          strokeWidth={1.5}
+                          strokeDasharray="5 4"
+                        />
+                        <text
+                          x={end[0] - 6}
+                          y={end[1] + BIND_Y + 4}
+                          textAnchor="end"
+                          className="fill-lcd-fg font-lcd text-body"
+                        >
+                          {field}
+                        </text>
+                      </g>
+                    );
+                  }),
+              )}
+            </svg>
+            {def.nodes.map((node) => {
+              const kind = kindOf(node.kind);
+              const [x, y] = at(node.id);
+              const isSelected = selected?.type === "node" && selected.id === node.id;
+              const broken = (problems.get(node.id)?.length ?? 0) > 0;
+              const summary = Object.entries(fieldsOf(node)).slice(0, 3);
+              return (
+                <div
+                  key={node.id}
+                  className={`surface-panel absolute grid gap-1 p-1 ${isSelected ? "outline-2 outline-focus" : broken ? "outline-2 outline-lcd-error" : ""}`}
+                  style={{ left: x, top: y, width: CARD_W }}
+                >
+                  <button
+                    type="button"
+                    aria-pressed={isSelected}
+                    aria-label={`${kind?.label ?? node.kind} ${node.id}${broken ? ", has a problem" : ""}. Arrow keys move it; Delete removes it.`}
+                    onClick={() => onSelect({ type: "node", id: node.id })}
+                    onPointerDown={(e) => onPointerDown(e, node)}
+                    onPointerMove={onPointerMove}
+                    onPointerUp={onPointerUp}
+                    onKeyDown={(e) => onKey(e, node)}
+                    className="button-standard min-h-9 cursor-grab touch-none truncate border-0 px-2 text-left font-bold text-label"
+                  >
+                    {kind?.label ?? node.kind}
+                    <span className="hint text-ink-dim"> {node.id}</span>
+                  </button>
+                  {kind && !kind.source ? (
+                    <button
+                      type="button"
+                      aria-label={
+                        pending ? `Wire ${pending} into ${node.id}` : `Input of ${node.id}`
+                      }
+                      disabled={!pending}
+                      onClick={() => onPortIn(node.id)}
+                      className={`absolute size-5 rounded-full border-2 border-frame-edge ${pending ? "bg-focus" : "bg-silver"}`}
+                      style={{ left: -10, top: PORT_Y - 10 }}
+                    />
+                  ) : null}
+                  {kind && !kind.control && kind.kind !== "output" ? (
+                    <button
+                      type="button"
+                      aria-pressed={pending === node.id}
+                      aria-label={`Output of ${node.id}: start a wire`}
+                      onClick={() => onPortOut(node.id)}
+                      className={`absolute size-5 rounded-full border-2 border-frame-edge ${pending === node.id ? "bg-focus" : "bg-silver"}`}
+                      style={{ right: -10, top: PORT_Y - 10 }}
+                    />
+                  ) : null}
+                  {kind?.control ? (
+                    <span
+                      aria-hidden="true"
+                      className="absolute size-5 rounded-full border-2 border-lcd-fg border-dashed bg-lcd-bg"
+                      style={{ right: -10, top: PORT_Y - 10 }}
+                    />
+                  ) : null}
+                  {summary.length > 0 ? (
+                    <ul className="surface-lcd m-0 list-none px-1 py-0.5">
+                      {summary.map(([field, value]) => (
+                        <li
+                          key={field}
+                          className="lcd-text truncate font-lcd text-body leading-tight"
+                        >
+                          {field} {describe(value)}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -744,8 +845,8 @@ function FieldEditor({ def, node, field, value, problems, onChange }: FieldEdito
   const paramLabel = (p: ParamDef) => `${p.label || p.id} (${p.id})`;
 
   return (
-    <fieldset className="m-0 grid gap-1 border-0 p-0">
-      <div className="flex items-baseline justify-between gap-2">
+    <fieldset className="m-0 grid gap-1 border-0 border-frame-lo border-l-2 border-solid p-0 pl-2">
+      <div className="flex items-center justify-between gap-2">
         <legend className={`${LABEL} float-left p-0`} title={field.summary}>
           {field.label}
           {field.modulatable ? <span className="hint text-ink-dim"> · modulatable</span> : null}
@@ -756,7 +857,7 @@ function FieldEditor({ def, node, field, value, problems, onChange }: FieldEdito
             aria-label={`${field.label} source`}
             value={source}
             onChange={(e) => setSource(e.target.value as Source)}
-            className="surface-field min-h-9 appearance-none py-0 pr-6 pl-2"
+            className="surface-field min-h-6 appearance-none py-0 pr-6 pl-2"
           >
             <option value="default">Default</option>
             <option value="constant">Constant</option>
@@ -774,6 +875,7 @@ function FieldEditor({ def, node, field, value, problems, onChange }: FieldEdito
       </div>
       {source === "constant" && kind.type === "number" ? (
         <Fader
+          bare
           param={fieldAsParam(field, typeof value === "number" ? value : kind.default)}
           value={typeof value === "number" ? value : kind.default}
           onChange={onChange}
@@ -781,6 +883,7 @@ function FieldEditor({ def, node, field, value, problems, onChange }: FieldEdito
       ) : null}
       {source === "constant" && kind.type === "name" ? (
         <Fader
+          bare
           param={fieldAsParam(field, kind.options.indexOf(String(value)))}
           value={Math.max(0, kind.options.indexOf(String(value)))}
           onChange={(i) => onChange(kind.options[i] ?? kind.options[0] ?? "")}
@@ -788,6 +891,7 @@ function FieldEditor({ def, node, field, value, problems, onChange }: FieldEdito
       ) : null}
       {source === "constant" && kind.type === "bool" ? (
         <Fader
+          bare
           param={fieldAsParam(field, value === true || value === 1 ? 1 : 0)}
           value={value === true || value === 1 ? 1 : 0}
           onChange={(v) => onChange(v >= 0.5)}

@@ -7,6 +7,11 @@ type Props = {
   param: ParamInfo;
   value: number;
   onChange: (value: number) => void;
+  /**
+   * The control alone, with no caption beside it, for a place that has
+   * already named it. The name is still its accessible label.
+   */
+  bare?: boolean;
 };
 
 function format(value: number, unit: string) {
@@ -26,13 +31,15 @@ const LOG_STEPS = 1000;
  * beside it, or for a switch a key, or for a pick from a list a
  * drop-down. Double-click resets a fader.
  */
-export function Fader({ param, value, onChange }: Props) {
+export function Fader({ param, value, onChange, bare = false }: Props) {
   const id = useId();
+  const row = bare ? "grid min-w-0" : ROW;
+  const caption = bare ? "sr-only" : LABEL;
   if (param.toggle) {
     const on = value >= 0.5;
     return (
-      <div className={ROW}>
-        <span id={id} className={LABEL} title={param.name}>
+      <div className={row}>
+        <span id={id} className={caption} title={param.name}>
           {param.name}
         </span>
         <Button
@@ -49,8 +56,8 @@ export function Fader({ param, value, onChange }: Props) {
   }
   if (param.choices.length > 0) {
     return (
-      <div className={ROW}>
-        <label htmlFor={id} className={LABEL} title={param.name}>
+      <div className={row}>
+        <label htmlFor={id} className={caption} title={param.name}>
           {param.name}
         </label>
         <span className="relative min-w-0">
@@ -87,8 +94,8 @@ export function Fader({ param, value, onChange }: Props) {
   const fromSlider = (t: number) =>
     log ? Math.round(param.min * (param.max / param.min) ** (t / LOG_STEPS)) : t;
   return (
-    <div className={ROW}>
-      <label htmlFor={id} className={LABEL} title={param.name}>
+    <div className={row}>
+      <label htmlFor={id} className={caption} title={param.name}>
         {param.name}
       </label>
       <span className="grid min-w-0 grid-cols-[minmax(0,1fr)_3.75rem] items-center gap-2">
