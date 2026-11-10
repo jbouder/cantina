@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { type UpdateInfo, updateInstall } from "../lib/engine";
 import { Button } from "./Button";
-import { Lcd } from "./Lcd";
+import { Toast } from "./Toast";
 
 type Props = {
   update: UpdateInfo;
@@ -13,7 +13,8 @@ type Props = {
 };
 
 /**
- * Says a newer Cantina is out, with Install and restart and Later.
+ * A toast that says a newer Cantina is out, with Install and restart and
+ * Later.
  * Installing waits for the project to be saved and for recording to
  * stop, since the app restarts into the new version.
  */
@@ -37,29 +38,37 @@ export function UpdateBanner({ update, dirty, recording, onDismiss }: Props) {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Lcd role="status" error={error !== null} className="min-w-0 flex-1 text-readout">
-        {error
-          ? `The update did not install: ${error}`
-          : installing
-            ? progress === null
-              ? `Downloading Cantina ${update.version}…`
-              : `Downloading Cantina ${update.version}… ${Math.round(progress * 100)}%`
-            : `Cantina ${update.version} is out.${update.notes ? ` ${update.notes}` : ""}`}
-      </Lcd>
-      {installing ? null : (
-        <>
-          <Button
-            tier="primary"
-            disabled={blocked !== null}
-            title={blocked ?? "Download, install and restart into the new version"}
-            onClick={install}
-          >
-            Install and restart
-          </Button>
-          <Button onClick={onDismiss}>Later</Button>
-        </>
-      )}
-    </div>
+    <Toast
+      role="status"
+      warn={error !== null}
+      actions={
+        installing ? null : (
+          <>
+            <Button tier="quiet" onClick={onDismiss}>
+              Later
+            </Button>
+            <Button
+              tier="primary"
+              disabled={blocked !== null}
+              title={blocked ?? "Download, install and restart into the new version"}
+              onClick={install}
+            >
+              Install and restart
+            </Button>
+          </>
+        )
+      }
+    >
+      {error
+        ? `The update did not install: ${error}`
+        : installing
+          ? progress === null
+            ? `Downloading Cantina ${update.version}…`
+            : `Downloading Cantina ${update.version}… ${Math.round(progress * 100)}%`
+          : `Cantina ${update.version} is out.${update.notes ? ` ${update.notes}` : ""}`}
+      {blocked && !installing && !error ? (
+        <span className="block text-ink-dim text-label">{blocked}.</span>
+      ) : null}
+    </Toast>
   );
 }

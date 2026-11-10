@@ -47,7 +47,8 @@ Clicks, crackles or short gaps mean the Mac did not finish a buffer in time.
 
 If the sample rate or buffer changes on its own, for example when the
 interface is unplugged or Audio MIDI Setup is changed, Cantina rebuilds the
-audio graph to match and says so in a notice. Takes in progress are closed
+audio graph to match and says so in a notice. Notices show in the bottom
+right corner of the window, over the work, and stay until you dismiss them. Takes in progress are closed
 and kept.
 
 ## The wrong input

@@ -8,7 +8,6 @@ import { Editor, isEditorTab } from "./components/Editor";
 import { EngineControl } from "./components/EngineControl";
 import { ExportSheet } from "./components/ExportSheet";
 import { JamView } from "./components/JamView";
-import { Lcd } from "./components/Lcd";
 import { Meter } from "./components/Meter";
 import { Notice } from "./components/Notice";
 import { PedalPicker } from "./components/PedalPicker";
@@ -22,6 +21,7 @@ import { Shortcuts } from "./components/Shortcuts";
 import { StageView } from "./components/StageView";
 import { StartDialog } from "./components/StartDialog";
 import { Timeline, type TimelineEdit, type TimelineEditState } from "./components/Timeline";
+import { Toasts } from "./components/Toast";
 import { Transport, transportNote } from "./components/Transport";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { Window } from "./components/Window";
@@ -415,6 +415,12 @@ export function App() {
       ? null
       : (tracks.flatMap((t) => t.chain).find((p) => p.id === designing) ?? null);
   const problem = error ?? status?.error ?? null;
+  const latencyWarning = status?.latency.warn
+    ? `Plugins delay playback by ${ms(status.latency.compensationFrames, status.sampleRate)}, above the ${status.latency.warnMs} ms you set. Live monitoring is not delayed.`
+    : null;
+  // Messages the player dismissed that the engine still reports: each
+  // stays hidden until its text changes.
+  const [hidden, setHidden] = useState<{ latency?: string; problem?: string }>({});
   // The split never leaves the editor less than a pane's worth.
   const arrangeHeight = Math.min(split, Math.max(MIN_PANE, bodyHeight - MIN_PANE));
   // The transport flags in the frame are fresher than the last status push.
@@ -849,30 +855,41 @@ export function App() {
       }
     >
       <div className="flex min-h-0 flex-1">
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 px-window pt-3 pb-2">
-          {status?.notice ? <Notice message={status.notice} onDismiss={dismiss} /> : null}
-          {update && status ? (
-            <UpdateBanner
-              update={update}
-              dirty={status.project.dirty}
-              recording={frame.recording}
-              onDismiss={() => setUpdate(null)}
-            />
-          ) : null}
-          {status?.project.recovery ? (
-            <Recovery recovery={status.project.recovery} onStatus={setStatus} onError={setError} />
-          ) : null}
-          {status?.latency.warn ? (
-            <Lcd role="status" error className="text-readout">
-              Plugins delay playback by {ms(status.latency.compensationFrames, status.sampleRate)},
-              above the {status.latency.warnMs} ms you set. Live monitoring is not delayed.
-            </Lcd>
-          ) : null}
-          {problem ? (
-            <Lcd role="alert" error>
-              {problem}
-            </Lcd>
-          ) : null}
+        <main className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-3 px-window pt-3 pb-2">
+          <Toasts>
+            {status?.project.recovery ? (
+              <Recovery
+                recovery={status.project.recovery}
+                onStatus={setStatus}
+                onError={setError}
+              />
+            ) : null}
+            {update && status ? (
+              <UpdateBanner
+                update={update}
+                dirty={status.project.dirty}
+                recording={frame.recording}
+                onDismiss={() => setUpdate(null)}
+              />
+            ) : null}
+            {latencyWarning && latencyWarning !== hidden.latency ? (
+              <Notice
+                message={latencyWarning}
+                onDismiss={() => setHidden((h) => ({ ...h, latency: latencyWarning }))}
+              />
+            ) : null}
+            {status?.notice ? <Notice message={status.notice} onDismiss={dismiss} /> : null}
+            {problem && problem !== hidden.problem ? (
+              <Notice
+                error
+                message={problem}
+                onDismiss={() => {
+                  setError(null);
+                  setHidden((h) => ({ ...h, problem }));
+                }}
+              />
+            ) : null}
+          </Toasts>
 
           {status && jamming ? (
             <JamView
