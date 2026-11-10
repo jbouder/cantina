@@ -70,18 +70,39 @@ import {
 import { dropPatternAt, setPatternDrag, usePatternDrag } from "../lib/pattern-drag";
 import { DRAG_THRESHOLD } from "../lib/reorder";
 import { Button } from "./Button";
+import { ContextMenu } from "./ContextMenu";
 import { GrooveBrowser } from "./GrooveBrowser";
 import { Led } from "./Led";
 import { LivePads } from "./LivePads";
 import { PadMixer } from "./PadMixer";
 import { PatternFeel } from "./PatternFeel";
-import { Select } from "./Select";
 
 /** Grooves in genre order, as the shell sorts them, grouped by genre. */
 function groupByGenre(grooves: StockGroove[]): [string, StockGroove[]][] {
   const groups = new Map<string, StockGroove[]>();
   for (const g of grooves) groups.set(g.genre, [...(groups.get(g.genre) ?? []), g]);
   return [...groups];
+}
+
+/**
+ * What the closed grid and feel row says: the steps and length always,
+ * and the swing and humanize when they are set.
+ */
+function feelSummary(pattern: PatternInfo, length: string): string {
+  const pct = (v: number) => `${Math.round(v * 100)}%`;
+  const parts = [
+    RESOLUTIONS.find((r) => r.stepsPerBeat === pattern.stepsPerBeat)?.label ?? "",
+    `${pattern.length} steps (${length})`,
+  ];
+  if (pattern.swing > 0) parts.push(`swing ${pct(pattern.swing)}`);
+  const h = pattern.humanize;
+  if (h && (h.timing > 0 || h.velocity > 0)) {
+    parts.push(`humanize ${pct(h.timing)} timing, ${pct(h.velocity)} velocity`);
+  }
+  const rows = pattern.rows.filter((r) => r.swing !== undefined || r.humanize !== undefined);
+  if (rows.length > 0)
+    parts.push(`${rows.length} row${rows.length === 1 ? "" : "s"} with their own`);
+  return parts.filter(Boolean).join(" · ");
 }
 
 /** A mark as the cell shows it: ×3 for a ratchet, f for a flam, 50 for a chance. */
@@ -195,6 +216,17 @@ export function DrumGrid({
     patterns[0] ??
     null;
   const [editing, setEditing] = useState(false);
+  // The grid and feel row, closed until asked for; `?feel` opens it in a browser.
+  const [feelOpen, setFeelOpen] = useState(() =>
+    new URLSearchParams(window.location.search).has("feel"),
+  );
+  // The pattern and kit actions menu, opened under its key.
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const menuKey = useRef<HTMLButtonElement>(null);
+  const openMenu = () => {
+    const r = menuKey.current?.getBoundingClientRect();
+    if (r) setMenu({ x: r.left, y: r.bottom + 2 });
+  };
   const [name, setName] = useState(pattern?.name ?? "");
   const [swing, setSwing] = useState(pattern?.swing ?? 0);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -610,161 +642,182 @@ export function DrumGrid({
             document.body,
           )
         : null}
-      <div className="flex flex-wrap items-end gap-2">
-        <Select
-          id={`${id}-kit`}
-          label="Kit"
-          value={track.kit?.id ?? ""}
-          onChange={(e) => run(trackSetKit(track.id, e.target.value))}
-        >
-          {track.kit?.missing ? (
-            <option value={track.kit.id}>{track.kit.name} (not installed)</option>
-          ) : null}
-          {kits.map((k) => (
-            <option key={k.id} value={k.id}>
-              {k.name}
-            </option>
-          ))}
-          {brokenKits.length > 0 ? (
-            <optgroup label="Will not load">
-              {brokenKits.map((b) => (
-                <option key={b.path} value={`broken:${b.path}`} disabled title={b.reason}>
-                  {b.name}: {b.reason}
+      <div className="flex items-center gap-2">
+        <label className="flex min-w-0 items-center gap-2">
+          <span className="caption">Kit</span>
+          <span className="relative min-w-0">
+            <select
+              id={`${id}-kit`}
+              className="surface-field min-h-8 w-36 min-w-0 max-w-full appearance-none truncate py-0 pr-6 pl-2"
+              value={track.kit?.id ?? ""}
+              onChange={(e) => run(trackSetKit(track.id, e.target.value))}
+            >
+              {track.kit?.missing ? (
+                <option value={track.kit.id}>{track.kit.name} (not installed)</option>
+              ) : null}
+              {kits.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.name}
                 </option>
               ))}
-            </optgroup>
-          ) : null}
-        </Select>
-        <Button onClick={() => run(kitsRescan())} title="Look for kits installed since launch">
-          Rescan
-        </Button>
-        <Select
-          id={`${id}-pattern`}
-          label="Pattern"
-          value={pattern?.id ?? ""}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (value.startsWith("file:")) importPaths([value.slice(5)]);
-            else setChosen(Number(value));
-          }}
-          disabled={
-            patterns.length === 0 &&
-            library.patterns.length === 0 &&
-            grooves.length === 0 &&
-            brokenPatterns.length === 0
-          }
-        >
-          {patterns.length === 0 ? <option value="">No pattern</option> : null}
-          {patterns.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-          {library.patterns.length > 0 ? (
-            <optgroup label="Import from the library">
-              {library.patterns.map((p) => (
-                <option key={p.path} value={`file:${p.path}`}>
-                  {p.name}
-                </option>
-              ))}
-            </optgroup>
-          ) : null}
-          {groupByGenre(grooves).map(([genre, list]) => (
-            <optgroup key={genre} label={`Add a groove: ${genre}`}>
-              {list.map((g) => (
-                <option key={g.path} value={`file:${g.path}`}>
-                  {g.name} ({g.tempo.min}–{g.tempo.max} bpm)
-                </option>
-              ))}
-            </optgroup>
-          ))}
-          {brokenPatterns.length > 0 ? (
-            <optgroup label="Will not load">
-              {brokenPatterns.map((b) => (
-                <option key={b.path} value={`broken:${b.path}`} disabled title={b.reason}>
-                  {b.name}: {b.reason}
-                </option>
-              ))}
-            </optgroup>
-          ) : null}
-        </Select>
+              {brokenKits.length > 0 ? (
+                <optgroup label="Will not load">
+                  {brokenKits.map((b) => (
+                    <option key={b.path} value={`broken:${b.path}`} disabled title={b.reason}>
+                      {b.name}: {b.reason}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+            </select>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 16 16"
+              className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 fill-field-fg"
+            >
+              <path d="M2 5l6 6 6-6z" />
+            </svg>
+          </span>
+        </label>
+        {editing && pattern ? (
+          <form onSubmit={rename} className="flex items-center gap-2">
+            <label htmlFor={`${id}-name`} className="sr-only">
+              Pattern name
+            </label>
+            <input
+              id={`${id}-name`}
+              // biome-ignore lint/a11y/noAutofocus: the field appears on request, under the pointer
+              autoFocus
+              className="surface-field min-h-8 w-40 px-2"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={rename}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setName(pattern.name);
+                  setEditing(false);
+                }
+              }}
+            />
+          </form>
+        ) : (
+          <label className="flex min-w-0 items-center gap-2">
+            <span className="caption">Pattern</span>
+            <span className="relative min-w-0">
+              <select
+                id={`${id}-pattern`}
+                className="surface-field min-h-8 w-44 min-w-0 max-w-full appearance-none truncate py-0 pr-6 pl-2"
+                value={pattern?.id ?? ""}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value.startsWith("file:")) importPaths([value.slice(5)]);
+                  else setChosen(Number(value));
+                }}
+                disabled={
+                  patterns.length === 0 &&
+                  library.patterns.length === 0 &&
+                  grooves.length === 0 &&
+                  brokenPatterns.length === 0
+                }
+              >
+                {patterns.length === 0 ? <option value="">No pattern</option> : null}
+                {patterns.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+                {library.patterns.length > 0 ? (
+                  <optgroup label="Import from the library">
+                    {library.patterns.map((p) => (
+                      <option key={p.path} value={`file:${p.path}`}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
+                {groupByGenre(grooves).map(([genre, list]) => (
+                  <optgroup key={genre} label={`Add a groove: ${genre}`}>
+                    {list.map((g) => (
+                      <option key={g.path} value={`file:${g.path}`}>
+                        {g.name} ({g.tempo.min}–{g.tempo.max} bpm)
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+                {brokenPatterns.length > 0 ? (
+                  <optgroup label="Will not load">
+                    {brokenPatterns.map((b) => (
+                      <option key={b.path} value={`broken:${b.path}`} disabled title={b.reason}>
+                        {b.name}: {b.reason}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
+              </select>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 16 16"
+                className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 fill-field-fg"
+              >
+                <path d="M2 5l6 6 6-6z" />
+              </svg>
+            </span>
+          </label>
+        )}
         <Button
-          onClick={() =>
-            run(
-              patternAdd().then((s) => {
-                setChosen(s.project.patterns[s.project.patterns.length - 1]?.id ?? null);
-                return s;
-              }),
-            )
-          }
+          ref={menuKey}
+          tier="quiet"
+          square
+          aria-label="Pattern and kit actions"
+          aria-haspopup="menu"
+          aria-expanded={menu !== null}
+          title="New, import, export, rename or remove a pattern; rescan the kits"
+          onClick={openMenu}
         >
-          New
+          <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
+            <circle cx="3" cy="8" r="1.6" />
+            <circle cx="8" cy="8" r="1.6" />
+            <circle cx="13" cy="8" r="1.6" />
+          </svg>
         </Button>
-        <Button
-          onClick={importFiles}
-          title="Add .pattern.json files to the project; files in your Patterns folder are also in the pattern menu"
-        >
-          Import…
-        </Button>
-        <Button
-          aria-pressed={browsing}
-          aria-expanded={browsing}
-          onClick={() => setBrowsing(!browsing)}
-          title="Browse the stock grooves: filter, hear and add them"
-        >
-          Grooves
-        </Button>
-        <Button
-          aria-pressed={mixing}
-          aria-expanded={mixing}
-          onClick={() => setMixing(!mixing)}
-          title="The pad mixer: each pad's level, pan, tune, decay and mute"
-        >
-          Mixer
-        </Button>
-        <Button
-          aria-pressed={playingPads}
-          aria-expanded={playingPads}
-          onClick={() => setPlayingPads(!playingPads)}
-          title="Play the kit from pads or the keyboard, and record into the pattern"
-        >
-          Pads
-        </Button>
+        {menu ? (
+          <ContextMenu
+            label="Pattern and kit actions"
+            x={menu.x}
+            y={menu.y}
+            onClose={() => setMenu(null)}
+            items={[
+              {
+                label: "New pattern",
+                onSelect: () =>
+                  run(
+                    patternAdd().then((s) => {
+                      setChosen(s.project.patterns[s.project.patterns.length - 1]?.id ?? null);
+                      return s;
+                    }),
+                  ),
+              },
+              { label: "Import patterns…", onSelect: importFiles },
+              { label: "Export pattern…", disabled: !pattern, onSelect: exportPattern },
+              {
+                label: "Rename pattern…",
+                separated: true,
+                disabled: !pattern,
+                onSelect: () => setEditing(true),
+              },
+              {
+                label: "Remove pattern",
+                disabled: !pattern,
+                onSelect: () => {
+                  if (pattern) run(patternRemove(pattern.id));
+                },
+              },
+              { label: "Rescan kits", separated: true, onSelect: () => run(kitsRescan()) },
+            ]}
+          />
+        ) : null}
         {pattern ? (
           <>
-            <Button onClick={exportPattern} title="Write this pattern to a .pattern.json file">
-              Export…
-            </Button>
-            {editing ? (
-              <form onSubmit={rename} className="flex items-center gap-2">
-                <label htmlFor={`${id}-name`} className="sr-only">
-                  Pattern name
-                </label>
-                <input
-                  id={`${id}-name`}
-                  // biome-ignore lint/a11y/noAutofocus: the field appears on request, under the pointer
-                  autoFocus
-                  className="surface-field min-h-8 w-40 px-2"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onBlur={rename}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      setName(pattern.name);
-                      setEditing(false);
-                    }
-                  }}
-                />
-              </form>
-            ) : (
-              <Button onClick={() => setEditing(true)}>Rename</Button>
-            )}
-            <Button
-              aria-label={`Remove pattern ${pattern.name}`}
-              onClick={() => run(patternRemove(pattern.id))}
-            >
-              Remove
-            </Button>
             <Button
               aria-pressed={auditioning === pattern.id}
               onClick={toggleLoop}
@@ -814,6 +867,32 @@ export function DrumGrid({
             </Button>
           </>
         ) : null}
+        <span className="ml-auto flex shrink-0 items-center gap-1">
+          <Button
+            aria-pressed={browsing}
+            aria-expanded={browsing}
+            onClick={() => setBrowsing(!browsing)}
+            title="Browse the stock grooves: filter, hear and add them"
+          >
+            Grooves
+          </Button>
+          <Button
+            aria-pressed={mixing}
+            aria-expanded={mixing}
+            onClick={() => setMixing(!mixing)}
+            title="The pad mixer: each pad's level, pan, tune, decay and mute"
+          >
+            Mixer
+          </Button>
+          <Button
+            aria-pressed={playingPads}
+            aria-expanded={playingPads}
+            onClick={() => setPlayingPads(!playingPads)}
+            title="Play the kit from pads or the keyboard, and record into the pattern"
+          >
+            Pads
+          </Button>
+        </span>
       </div>
       {mixing ? <PadMixer track={track} run={run} /> : null}
       {playingPads && pattern ? (
@@ -839,96 +918,132 @@ export function DrumGrid({
         />
       ) : null}
       {pattern ? (
-        <div className="flex flex-wrap items-end gap-3">
-          <Select
-            id={`${id}-resolution`}
-            label="Steps"
-            value={pattern.stepsPerBeat}
-            onChange={(e) => run(patternSetResolution(pattern.id, Number(e.target.value)))}
+        <div className="flex items-center gap-2">
+          <Button
+            aria-expanded={feelOpen}
+            aria-controls={`${id}-feel`}
+            onClick={() => setFeelOpen(!feelOpen)}
+            title="The pattern's grid (steps and length) and its feel (swing and humanize)"
           >
-            {RESOLUTIONS.map((r) => (
-              <option key={r.stepsPerBeat} value={r.stepsPerBeat}>
-                {r.label}
-              </option>
-            ))}
-          </Select>
-          <span className="flex items-center gap-1 text-body">
-            <label htmlFor={`${id}-length`} className="caption">
-              Length
-            </label>
-            <input
-              id={`${id}-length`}
-              type="number"
-              min={1}
-              max={128}
-              step={1}
-              value={pattern.length}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                if (Number.isInteger(v) && v >= 1 && v <= 128 && v !== pattern.length) {
-                  run(patternSetLength(pattern.id, v));
-                }
-              }}
-              className="surface-field min-h-8 w-20 px-2 text-center tabular-nums"
-            />
-            <span className="text-ink-dim">{lengthLabel(pattern, tempo)}</span>
-            <Button
-              disabled={pattern.length * 2 > 128}
-              onClick={() => replace(doublePattern(pattern))}
-              title="Double the pattern: play it twice in a row, twice as long (D with no selection)"
-              aria-label="Double the pattern"
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 16 16"
+              className={`size-3 fill-current ${feelOpen ? "rotate-90" : ""}`}
             >
-              ×2
-            </Button>
-            <Button
-              disabled={pattern.length < 2}
-              onClick={() => replace(halvePattern(pattern))}
-              title="Halve the pattern: keep the first half (H)"
-              aria-label="Halve the pattern"
-            >
-              ½
-            </Button>
-          </span>
-          <span className="grid w-48 gap-0.5">
-            <span className="flex items-baseline justify-between">
-              <label htmlFor={`${id}-swing`} className="caption">
-                Swing
-              </label>
-              <output
-                htmlFor={`${id}-swing`}
-                className="surface-lcd px-2 py-0.5 font-lcd text-body leading-none tabular-nums"
-              >
-                <span className="lcd-text">{Math.round(swing * 100)}%</span>
-              </output>
-            </span>
-            <input
-              id={`${id}-swing`}
-              type="range"
-              className="fader"
-              min={0}
-              max={1}
-              step={0.01}
-              value={swing}
-              aria-valuetext={`${Math.round(swing * 100)}%`}
-              onChange={(e) => queueSwing(Number(e.target.value))}
-              onDoubleClick={() => queueSwing(0)}
-            />
+              <path d="M5 2l7 6-7 6z" />
+            </svg>
+            Grid and feel
+          </Button>
+          <span className="min-w-0 truncate text-ink-dim text-label">
+            {feelSummary(pattern, lengthLabel(pattern, tempo))}
           </span>
         </div>
       ) : null}
-      {pattern && pads.length > 0 ? (
-        <PatternFeel
-          pattern={pattern}
-          pad={
-            focused
-              ? {
-                  id: focused.pad,
-                  name: pads.find((p) => p.id === focused.pad)?.name ?? focused.pad,
-                }
-              : null
-          }
-          onReplace={replace}
-        />
+      {pattern && feelOpen ? (
+        <div id={`${id}-feel`} className="grid gap-2">
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex items-center gap-2">
+              <span className="caption">Steps</span>
+              <span className="relative">
+                <select
+                  id={`${id}-resolution`}
+                  className="surface-field min-h-8 w-20 appearance-none py-0 pr-6 pl-2"
+                  value={pattern.stepsPerBeat}
+                  onChange={(e) => run(patternSetResolution(pattern.id, Number(e.target.value)))}
+                >
+                  {RESOLUTIONS.map((r) => (
+                    <option key={r.stepsPerBeat} value={r.stepsPerBeat}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 16 16"
+                  className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 fill-field-fg"
+                >
+                  <path d="M2 5l6 6 6-6z" />
+                </svg>
+              </span>
+            </label>
+            <span className="flex items-center gap-1 text-body">
+              <label htmlFor={`${id}-length`} className="caption">
+                Length
+              </label>
+              <input
+                id={`${id}-length`}
+                type="number"
+                min={1}
+                max={128}
+                step={1}
+                value={pattern.length}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  if (Number.isInteger(v) && v >= 1 && v <= 128 && v !== pattern.length) {
+                    run(patternSetLength(pattern.id, v));
+                  }
+                }}
+                className="surface-field min-h-8 w-20 px-2 text-center tabular-nums"
+              />
+              <span className="text-ink-dim">{lengthLabel(pattern, tempo)}</span>
+              <Button
+                disabled={pattern.length * 2 > 128}
+                onClick={() => replace(doublePattern(pattern))}
+                title="Double the pattern: play it twice in a row, twice as long (D with no selection)"
+                aria-label="Double the pattern"
+              >
+                ×2
+              </Button>
+              <Button
+                disabled={pattern.length < 2}
+                onClick={() => replace(halvePattern(pattern))}
+                title="Halve the pattern: keep the first half (H)"
+                aria-label="Halve the pattern"
+              >
+                ½
+              </Button>
+            </span>
+            <span className="grid w-48 gap-0.5">
+              <span className="flex items-baseline justify-between">
+                <label htmlFor={`${id}-swing`} className="caption">
+                  Swing
+                </label>
+                <output
+                  htmlFor={`${id}-swing`}
+                  className="surface-lcd px-2 py-0.5 font-lcd text-body leading-none tabular-nums"
+                >
+                  <span className="lcd-text">{Math.round(swing * 100)}%</span>
+                </output>
+              </span>
+              <input
+                id={`${id}-swing`}
+                type="range"
+                className="fader"
+                min={0}
+                max={1}
+                step={0.01}
+                value={swing}
+                aria-valuetext={`${Math.round(swing * 100)}%`}
+                onChange={(e) => queueSwing(Number(e.target.value))}
+                onDoubleClick={() => queueSwing(0)}
+              />
+            </span>
+          </div>
+          {pads.length > 0 ? (
+            <PatternFeel
+              pattern={pattern}
+              pad={
+                focused
+                  ? {
+                      id: focused.pad,
+                      name: pads.find((p) => p.id === focused.pad)?.name ?? focused.pad,
+                    }
+                  : null
+              }
+              onReplace={replace}
+            />
+          ) : null}
+        </div>
       ) : null}
       {pattern && pads.length > 0 ? (
         <div className="surface-lcd overflow-x-auto p-2">
