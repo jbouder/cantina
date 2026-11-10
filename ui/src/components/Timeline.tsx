@@ -957,69 +957,71 @@ export function Timeline({
   return (
     <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-2">
       {strip(controls)}
-      <div
-        className="surface-lcd grid min-h-0 content-start overflow-x-hidden overflow-y-auto"
-        style={{ gridTemplateColumns: `${LABEL_WIDTH}px 1fr` }}
-      >
-        <div className="grid content-start">
-          <div className="flex items-center gap-1 px-1" style={{ height: RULER_HEIGHT }}>
-            <button
-              type="button"
-              onClick={() => run(trackAdd())}
-              title="A track that records your instrument through its pedalboard"
-              className={ADD_KEY}
-            >
-              Add guitar
-            </button>
-            <button
-              type="button"
-              onClick={() => run(trackAddDrums())}
-              disabled={!hasKits}
-              title={hasKits ? "A track that plays drum patterns" : "No drum kits are installed"}
-              className={ADD_KEY}
-            >
-              Add drums
-            </button>
+      <div className="surface-lcd grid min-h-0 grid-rows-[minmax(0,1fr)_auto]">
+        <div
+          className="grid min-h-0 content-start overflow-x-hidden overflow-y-auto"
+          style={{ gridTemplateColumns: `${LABEL_WIDTH}px 1fr` }}
+        >
+          <div className="grid content-start">
+            <div className="flex items-center gap-1 px-1" style={{ height: RULER_HEIGHT }}>
+              <button
+                type="button"
+                onClick={() => run(trackAdd())}
+                title="A track that records your instrument through its pedalboard"
+                className={ADD_KEY}
+              >
+                Add guitar
+              </button>
+              <button
+                type="button"
+                onClick={() => run(trackAddDrums())}
+                disabled={!hasKits}
+                title={hasKits ? "A track that plays drum patterns" : "No drum kits are installed"}
+                className={ADD_KEY}
+              >
+                Add drums
+              </button>
+            </div>
+            {tracks.map((t, i) => (
+              <TrackHeader
+                key={t.id}
+                track={t}
+                selected={t.id === selectedTrack}
+                silenced={t.strip.mute || (anySolo && !t.strip.solo)}
+                level={levels[i] ?? SILENT}
+                onSelect={() => onSelectTrack(t.id)}
+                onStatus={onStatus}
+                onError={onError}
+              />
+            ))}
           </div>
-          {tracks.map((t, i) => (
-            <TrackHeader
-              key={t.id}
-              track={t}
-              selected={t.id === selectedTrack}
-              silenced={t.strip.mute || (anySolo && !t.strip.solo)}
-              level={levels[i] ?? SILENT}
-              onSelect={() => onSelectTrack(t.id)}
-              onStatus={onStatus}
-              onError={onError}
+          <div ref={container} className="min-w-0">
+            <canvas
+              ref={canvas}
+              tabIndex={0}
+              aria-label="Timeline. Drag clips to move them, drag an edge to trim, Alt-click to split, right-click a clip for its menu, click the ruler to move the playhead, Shift-drag the ruler to set the loop. With a clip selected: Delete removes it, Command-D duplicates it, Command-X and Command-C cut and copy it, S splits it at the playhead, the arrow keys nudge it. Command-V pastes a copied clip on the selected track at the playhead. Drop a pattern from the drum grid on a drum track to place it."
+              aria-disabled={!running}
+              style={{ width, height, touchAction: "none" }}
+              className={`block ${cursor}`}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+              onKeyDown={onKeyDown}
+              onContextMenu={onContextMenu}
             />
-          ))}
-          <MasterHeader master={master} level={masterLevel} onStatus={onStatus} onError={onError} />
+            {menu && selected ? (
+              <ContextMenu
+                label={`${selected.clip.name} clip`}
+                x={menu.x}
+                y={menu.y}
+                items={menuItems(selected, menu.at)}
+                onClose={closeMenu}
+              />
+            ) : null}
+          </div>
         </div>
-        <div ref={container} className="min-w-0">
-          <canvas
-            ref={canvas}
-            tabIndex={0}
-            aria-label="Timeline. Drag clips to move them, drag an edge to trim, Alt-click to split, right-click a clip for its menu, click the ruler to move the playhead, Shift-drag the ruler to set the loop. With a clip selected: Delete removes it, Command-D duplicates it, Command-X and Command-C cut and copy it, S splits it at the playhead, the arrow keys nudge it. Command-V pastes a copied clip on the selected track at the playhead. Drop a pattern from the drum grid on a drum track to place it."
-            aria-disabled={!running}
-            style={{ width, height, touchAction: "none" }}
-            className={`block ${cursor}`}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-            onKeyDown={onKeyDown}
-            onContextMenu={onContextMenu}
-          />
-          {menu && selected ? (
-            <ContextMenu
-              label={`${selected.clip.name} clip`}
-              x={menu.x}
-              y={menu.y}
-              items={menuItems(selected, menu.at)}
-              onClose={closeMenu}
-            />
-          ) : null}
-        </div>
+        <MasterHeader master={master} level={masterLevel} onStatus={onStatus} onError={onError} />
       </div>
     </div>
   );

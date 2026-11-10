@@ -10,13 +10,15 @@ import {
   type TrackStatus,
   trackArm,
 } from "../lib/engine";
-import { TRACK_HEIGHT } from "../lib/timeline";
+import { MASTER_HEIGHT, TRACK_HEIGHT } from "../lib/timeline";
 import { Led } from "./Led";
 import { Meter } from "./Meter";
 
 /** A small square key. On, it lights up through `aria-pressed`. */
 const KEY =
-  "button-standard grid size-7 shrink-0 place-items-center border-0 p-0 font-bold text-label leading-none";
+  "button-standard grid size-6 shrink-0 place-items-center border-0 p-0 font-bold text-label leading-none";
+/** A strip's value beside its fader: display text with no box of its own. */
+const VALUE = "lcd-text font-lcd text-label text-lcd-fg tabular-nums leading-none";
 
 /** A speaker with a cross: the mute key's glyph. */
 function MuteGlyph() {
@@ -56,9 +58,10 @@ type Props = {
 };
 
 /**
- * A track's header beside its lane: the name (click to select), arm or
- * the kit mark, mute and solo, then the strip's gain and pan with a
- * thin post-fader meter under them.
+ * A track's header beside its lane, in two rows: the name (click to
+ * select) with arm or the kit mark, mute and solo; then the strip's gain
+ * and pan, each a fader with its value beside it. A thin post-fader meter
+ * runs along the bottom edge.
  */
 export function TrackHeader({
   track,
@@ -73,14 +76,14 @@ export function TrackHeader({
   return (
     <div
       style={{ height: TRACK_HEIGHT }}
-      className={`grid content-center gap-1 border-tl-grid border-b px-1 ${selected ? "bg-tl-lane" : ""} ${silenced ? "opacity-70" : ""}`}
+      className={`relative grid content-center gap-0.5 border-tl-grid border-b px-2 pb-1 ${selected ? "bg-tl-lane" : ""} ${silenced ? "opacity-70" : ""}`}
     >
       <div className="flex items-center gap-1">
         <button
           type="button"
           aria-pressed={selected}
           onClick={onSelect}
-          className="min-h-7 min-w-0 flex-1 truncate border-0 bg-transparent px-1 text-left font-bold text-label text-lcd-fg"
+          className="min-h-6 min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-left font-bold text-body text-lcd-fg"
         >
           {track.name}
         </button>
@@ -89,7 +92,7 @@ export function TrackHeader({
             role="img"
             aria-label="Drum track"
             title={track.kit.name}
-            className="grid size-7 shrink-0 place-items-center text-lcd-fg"
+            className="grid size-6 shrink-0 place-items-center text-lcd-fg"
           >
             <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
               <path d="M8 2c3.3 0 6 1.1 6 2.5v6C14 12.9 11.3 14 8 14s-6-1.1-6-3.5v-6C2 3.1 4.7 2 8 2zm0 1.5c-2.8 0-4.5.8-4.5 1s1.7 1 4.5 1 4.5-.8 4.5-1-1.7-1-4.5-1z" />
@@ -102,7 +105,7 @@ export function TrackHeader({
             aria-label={`Arm ${track.name}`}
             title="Arm for recording"
             onClick={() => run(trackArm(track.id, !track.armed))}
-            className="grid size-7 shrink-0 place-items-center border-0 bg-transparent p-0"
+            className="grid size-6 shrink-0 place-items-center border-0 bg-transparent p-0"
           >
             <Led on={track.recording || track.armed} tone="record" label="Armed" />
           </button>
@@ -135,11 +138,13 @@ export function TrackHeader({
       <StripControls
         name={track.name}
         strip={track.strip}
-        level={level}
         onGain={(db) => stripGain(track.id, db)}
         onPan={(pan) => stripPan(track.id, pan)}
         onError={onError}
       />
+      <div className="absolute inset-x-2 bottom-1">
+        <Meter label={`${track.name} output`} level={level} bare />
+      </div>
     </div>
   );
 }
@@ -151,36 +156,40 @@ type MasterProps = {
   onError: (message: string) => void;
 };
 
-/** The master strip, pinned under the track headers: gain, mute and the output meter. */
+/**
+ * The master strip, pinned along the bottom of the arrangement and out
+ * of the scrolling tracks: mute, gain, and the output meter across the
+ * width the lanes take above it.
+ */
 export function MasterHeader({ master, level, onStatus, onError }: MasterProps) {
   const run = (action: Promise<EngineStatus>) => action.then(onStatus, (e) => onError(String(e)));
   return (
     <div
-      style={{ height: TRACK_HEIGHT }}
-      className={`grid content-center gap-1 border-tl-bar border-t border-b px-1 ${master.mute ? "opacity-70" : ""}`}
+      style={{ height: MASTER_HEIGHT }}
+      className={`flex items-center gap-2 border-tl-bar border-t px-2 ${master.mute ? "opacity-70" : ""}`}
     >
-      <div className="flex items-center gap-1">
-        <span className="min-w-0 flex-1 truncate px-1 font-bold text-label text-lcd-fg">
-          Master
-        </span>
-        <button
-          type="button"
-          aria-pressed={master.mute}
-          aria-label={master.mute ? "Unmute master" : "Mute master"}
-          title={master.mute ? "Unmute master" : "Mute master"}
-          onClick={() => run(stripMute(null, !master.mute))}
-          className={KEY}
-        >
-          <MuteGlyph />
-        </button>
+      <span className="w-14 shrink-0 truncate font-bold text-body text-lcd-fg">Master</span>
+      <button
+        type="button"
+        aria-pressed={master.mute}
+        aria-label={master.mute ? "Unmute master" : "Mute master"}
+        title={master.mute ? "Unmute master" : "Mute master"}
+        onClick={() => run(stripMute(null, !master.mute))}
+        className={KEY}
+      >
+        <MuteGlyph />
+      </button>
+      <div className="w-56 shrink-0">
+        <StripControls
+          name="Master"
+          strip={master}
+          onGain={(db) => stripGain(null, db)}
+          onError={onError}
+        />
       </div>
-      <StripControls
-        name="Master"
-        strip={master}
-        level={level}
-        onGain={(db) => stripGain(null, db)}
-        onError={onError}
-      />
+      <div className="min-w-0 flex-1">
+        <Meter label="Master output" level={level} bare />
+      </div>
     </div>
   );
 }
@@ -188,13 +197,12 @@ export function MasterHeader({ master, level, onStatus, onError }: MasterProps) 
 type StripProps = {
   name: string;
   strip: Strip;
-  level: Level;
   onGain: (db: number) => Promise<void>;
   onPan?: (pan: number) => Promise<void>;
   onError: (message: string) => void;
 };
 
-function StripControls({ name, strip, level, onGain, onPan, onError }: StripProps) {
+function StripControls({ name, strip, onGain, onPan, onError }: StripProps) {
   const id = useId();
   // Continuous values live here between status pushes, since the
   // commands that set them are not echoed back.
@@ -223,71 +231,62 @@ function StripControls({ name, strip, level, onGain, onPan, onError }: StripProp
   };
 
   return (
-    <>
-      <div
-        className={`grid items-center gap-1 ${onPan ? "grid-cols-[1fr_3.5rem_4rem_2rem]" : "grid-cols-[1fr_3.5rem]"}`}
-      >
-        <input
-          id={`${id}-gain`}
-          type="range"
-          className="fader-slim"
-          min={-60}
-          max={12}
-          step={0.5}
-          value={gain}
-          aria-label={`${name} gain`}
-          aria-valuetext={`${gain.toFixed(1)} dB`}
-          title="Gain; double-click for 0 dB"
-          onChange={(e) => {
-            const v = Number(e.target.value);
-            setGain(v);
-            queue({ gain: v });
-          }}
-          onDoubleClick={() => {
-            setGain(0);
-            queue({ gain: 0 });
-          }}
-        />
-        <output
-          htmlFor={`${id}-gain`}
-          className="surface-lcd px-1 text-right font-lcd text-label leading-tight tabular-nums"
-        >
-          <span className="lcd-text">{gain.toFixed(1)} dB</span>
-        </output>
-        {onPan ? (
-          <>
-            <input
-              id={`${id}-pan`}
-              type="range"
-              className="fader-slim"
-              min={-1}
-              max={1}
-              step={0.01}
-              value={pan}
-              aria-label={`${name} pan`}
-              aria-valuetext={panLabel(pan)}
-              title="Pan; double-click for centre"
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setPan(v);
-                queue({ pan: v });
-              }}
-              onDoubleClick={() => {
-                setPan(0);
-                queue({ pan: 0 });
-              }}
-            />
-            <output
-              htmlFor={`${id}-pan`}
-              className="surface-lcd px-1 text-center font-lcd text-label leading-tight tabular-nums"
-            >
-              <span className="lcd-text">{panLabel(pan)}</span>
-            </output>
-          </>
-        ) : null}
-      </div>
-      <Meter label={`${name} output`} level={level} bare />
-    </>
+    <div
+      className={`grid items-center gap-2 ${onPan ? "grid-cols-[1fr_3rem_3.5rem_1.75rem]" : "grid-cols-[1fr_3rem]"}`}
+    >
+      <input
+        id={`${id}-gain`}
+        type="range"
+        className="fader-slim"
+        min={-60}
+        max={12}
+        step={0.5}
+        value={gain}
+        aria-label={`${name} gain`}
+        aria-valuetext={`${gain.toFixed(1)} dB`}
+        title="Gain; double-click for 0 dB"
+        onChange={(e) => {
+          const v = Number(e.target.value);
+          setGain(v);
+          queue({ gain: v });
+        }}
+        onDoubleClick={() => {
+          setGain(0);
+          queue({ gain: 0 });
+        }}
+      />
+      <output htmlFor={`${id}-gain`} className={`${VALUE} text-right`}>
+        {gain.toFixed(1)} dB
+      </output>
+      {onPan ? (
+        <>
+          <input
+            id={`${id}-pan`}
+            type="range"
+            className="fader-slim"
+            min={-1}
+            max={1}
+            step={0.01}
+            value={pan}
+            aria-label={`${name} pan`}
+            aria-valuetext={panLabel(pan)}
+            title="Pan; double-click for centre"
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setPan(v);
+              queue({ pan: v });
+            }}
+            onDoubleClick={() => {
+              setPan(0);
+              queue({ pan: 0 });
+            }}
+          />
+          <output htmlFor={`${id}-pan`} className={`${VALUE} text-right`}>
+            {panLabel(pan)}
+          </output>
+        </>
+      ) : null}
+    </div>
   );
 }
 

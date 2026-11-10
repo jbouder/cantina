@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ClipInfo, PatternInfo } from "./engine";
 import {
+  arrangementHeight,
   canSplit,
   fitView,
   follow,
@@ -15,6 +16,7 @@ import {
   sampleAt,
   samplesPerTick,
   snap,
+  splitHeight,
   TRACK_HEIGHT,
   trimmedLeft,
   trimmedRight,
@@ -199,5 +201,34 @@ describe("pattern clips", () => {
       { row: 0, at: 2880 * spt, velocity: 1 },
     ]);
     expect(previewHits(clip, pattern, ["ride"], spt, 0, 1e9)).toEqual([]);
+  });
+});
+
+describe("the arrangement's height", () => {
+  const MIN = 160;
+
+  it("is as tall as its tracks when the user has not dragged the split", () => {
+    expect(splitHeight(null, 1, 900, MIN)).toBe(arrangementHeight(1));
+    expect(splitHeight(null, 3, 900, MIN)).toBe(arrangementHeight(3));
+    // An empty project still shows one lane.
+    expect(arrangementHeight(0)).toBe(arrangementHeight(1));
+  });
+
+  it("stops at half the body with many tracks, so the editor keeps its room", () => {
+    expect(arrangementHeight(12)).toBeGreaterThan(450);
+    expect(splitHeight(null, 12, 900, MIN)).toBe(450);
+  });
+
+  it("keeps a dragged split, but never past the tracks", () => {
+    expect(splitHeight(300, 12, 900, MIN)).toBe(300);
+    expect(splitHeight(700, 12, 900, MIN)).toBe(700);
+    // Dragged below one track's worth of room: nothing empty shows.
+    expect(splitHeight(600, 2, 900, MIN)).toBe(arrangementHeight(2));
+  });
+
+  it("leaves each pane its minimum in a short window", () => {
+    expect(splitHeight(null, 12, 400, MIN)).toBe(200);
+    expect(splitHeight(700, 12, 400, MIN)).toBe(240);
+    expect(splitHeight(null, 12, 200, MIN)).toBe(MIN);
   });
 });

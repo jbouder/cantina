@@ -112,13 +112,21 @@ projects and launches, and undo does not touch it.
 
 Each track header is a channel strip:
 
+- the name, which selects the track
 - the **arm** light, or a drum mark on a drum track
 - **mute** and **solo**
-- a **gain** fader with its readout in dB, and a **pan** fader
-- a meter of what the track sends to the master
+- a **gain** fader with its value in dB beside it, and a **pan** fader
+  with its position (`C`, `L25`, `R10`)
+- a thin meter along the bottom of what the track sends to the master
 
-The **Master** strip under the tracks has the overall gain, a mute and the
+The **Master** strip is pinned along the bottom of the arrangement and
+stays put while the tracks scroll. It has a mute, the overall gain and the
 output meter. Double-click a fader to reset it.
+
+The arrangement is as tall as its tracks, up to half the window, and the
+editor below takes the rest. Drag the divider to give the tracks less
+room; it never opens past the last track, so there is no empty space under
+them. A split you drag is kept for the session.
 
 When the mix is done, [export it](/guides/mixdown/) to a WAV file.
 

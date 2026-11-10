@@ -1111,6 +1111,9 @@ const MOCK_DEFS: Record<string, PedalDef> = {
 const mockDesigns = new Map<string, PedalDef>();
 
 /** The stand-in's library: `?library` fills it with two pedals. */
+/** `?tracks=<n>`: how many audio tracks the stand-in project has; two by default. */
+const mockTrackCount = Math.max(1, Number(mockParams?.get("tracks")) || 2);
+
 const mockLibrary: PedalKindInfo[] = mockParams?.has("library")
   ? [
       { spec: "pedal:warm-drive", name: "Warm Drive", stock: false, designable: true },
@@ -1561,19 +1564,37 @@ const mock: EngineStatus = {
         latencyFrames: mockParams?.has("latency") ? MOCK_LATENCY : 0,
         pads: {},
       },
-      {
-        id: 6,
-        name: "Bass",
+      ...(mockTrackCount < 2
+        ? []
+        : [
+            {
+              id: 6,
+              name: "Bass",
+              armed: false,
+              recording: false,
+              kit: null,
+              chain: [mockPedal(7, "gain")],
+              clips: mockParams?.has("take") ? [mockClip(8, "Bass 1", 2, 20)] : [],
+              patternClips: [],
+              strip: { gainDb: 0, pan: 0.1, mute: mockParams?.has("mute") ?? false, solo: false },
+              latencyFrames: 0,
+              pads: {},
+            },
+          ]),
+      // `?tracks=<n>` adds guitar tracks up to n in all, for a long list.
+      ...Array.from({ length: Math.max(0, mockTrackCount - 2) }, (_, i) => ({
+        id: 200 + i,
+        name: `Guitar ${i + 2}`,
         armed: false,
         recording: false,
         kit: null,
-        chain: [mockPedal(7, "gain")],
-        clips: mockParams?.has("take") ? [mockClip(8, "Bass 1", 2, 20)] : [],
+        chain: [],
+        clips: [],
         patternClips: [],
-        strip: { gainDb: 0, pan: 0.1, mute: mockParams?.has("mute") ?? false, solo: false },
+        strip: { gainDb: 0, pan: 0, mute: false, solo: false },
         latencyFrames: 0,
         pads: {},
-      },
+      })),
       ...(mockParams?.has("drums")
         ? [
             {

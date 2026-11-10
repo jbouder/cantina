@@ -89,7 +89,7 @@ import {
 } from "./lib/engine";
 import { readoutsByPedal } from "./lib/readouts";
 import { openStageWindow } from "./lib/stage";
-import { samplesPerTick } from "./lib/timeline";
+import { arrangementHeight, samplesPerTick, splitHeight } from "./lib/timeline";
 import { SKINS, type SkinId, useSkin } from "./skins";
 
 const IDLE: MeterFrame = {
@@ -107,11 +107,10 @@ const params = inTauri ? null : new URLSearchParams(window.location.search);
 
 const SPLIT_KEY = "cantina.split";
 const METERS_KEY = "cantina.meters";
-/** Room for the strip, the ruler, two tracks and the master at the default window. */
-const DEFAULT_SPLIT = 352;
 const MIN_PANE = 160;
 
-function loadSplit(): number {
+/** The split the user dragged this session, or `null` to size it to the tracks. */
+function loadSplit(): number | null {
   // `?split=200` sets the arrangement's height, for screenshots.
   const asked = Number(params?.get("split"));
   if (Number.isFinite(asked) && asked >= MIN_PANE) return asked;
@@ -119,9 +118,9 @@ function loadSplit(): number {
     const saved = Number(window.sessionStorage.getItem(SPLIT_KEY));
     if (Number.isFinite(saved) && saved >= MIN_PANE) return saved;
   } catch {
-    // Storage can be unavailable; the default is fine.
+    // Storage can be unavailable; sizing to the tracks is fine.
   }
-  return DEFAULT_SPLIT;
+  return null;
 }
 
 /** Four bars from the start of the bar at `seconds`, in samples. */
@@ -421,8 +420,9 @@ export function App() {
   // Messages the player dismissed that the engine still reports: each
   // stays hidden until its text changes.
   const [hidden, setHidden] = useState<{ latency?: string; problem?: string }>({});
-  // The split never leaves the editor less than a pane's worth.
-  const arrangeHeight = Math.min(split, Math.max(MIN_PANE, bodyHeight - MIN_PANE));
+  // As tall as its tracks unless the user dragged it; see `splitHeight`.
+  const trackCount = status?.project.tracks.length ?? 0;
+  const arrangeHeight = splitHeight(split, trackCount, bodyHeight, MIN_PANE);
   // The transport flags in the frame are fresher than the last status push.
   const transport = status
     ? { ...status.transport, playing: frame.playing, recording: frame.recording }
@@ -947,7 +947,10 @@ export function App() {
               <Divider
                 value={arrangeHeight}
                 min={MIN_PANE}
-                max={Math.max(MIN_PANE, bodyHeight - MIN_PANE)}
+                max={Math.max(
+                  MIN_PANE,
+                  Math.min(arrangementHeight(trackCount), bodyHeight - MIN_PANE),
+                )}
                 onChange={changeSplit}
               />
               {selected ? (
