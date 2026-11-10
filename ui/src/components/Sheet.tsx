@@ -6,6 +6,11 @@ type Props = {
   onClose: () => void;
   /** A wider panel, for a list with details beside each entry. */
   wide?: boolean;
+  /**
+   * Opens down the right side with nothing dimmed, so what is under it
+   * to the left stays in view: the chain a rig is about to change.
+   */
+  side?: boolean;
   children: ReactNode;
 };
 
@@ -15,7 +20,7 @@ type Props = {
  * and focus returns to the opener when it goes away. It is never taller
  * than the window; a long one scrolls.
  */
-export function Sheet({ title, onClose, wide = false, children }: Props) {
+export function Sheet({ title, onClose, wide = false, side = false, children }: Props) {
   const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
 
@@ -36,7 +41,9 @@ export function Sheet({ title, onClose, wide = false, children }: Props) {
   }, [onClose]);
 
   return (
-    <div className="absolute inset-0 z-10 flex items-start justify-center bg-scrim p-6 pt-8">
+    <div
+      className={`absolute inset-0 z-10 flex ${side ? "items-stretch justify-end p-2" : "items-start justify-center bg-scrim p-6 pt-8"}`}
+    >
       <button
         type="button"
         aria-label="Close"
@@ -49,7 +56,7 @@ export function Sheet({ title, onClose, wide = false, children }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`surface-panel relative flex max-h-full w-full flex-col overflow-hidden ${wide ? "max-w-2xl" : "max-w-md"}`}
+        className={`surface-panel relative flex max-h-full w-full flex-col overflow-hidden ${wide ? "max-w-2xl" : "max-w-md"} ${side ? "h-full" : ""}`}
       >
         <header className="surface-titlebar flex min-h-[30px] items-center gap-2 py-1 pr-1 pl-3">
           <h2 id={titleId} className="title-text m-0 flex-1 font-normal text-readout">
@@ -61,7 +68,9 @@ export function Sheet({ title, onClose, wide = false, children }: Props) {
             </svg>
           </Button>
         </header>
-        <div className="grid min-h-0 gap-3 overflow-y-auto bg-sheet-bg p-4 text-sheet-ink">
+        <div
+          className={`scroll-area grid min-h-0 content-start gap-3 bg-sheet-bg p-4 text-sheet-ink ${side ? "flex-1" : ""}`}
+        >
           {children}
         </div>
       </div>

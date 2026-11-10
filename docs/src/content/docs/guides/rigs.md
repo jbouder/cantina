@@ -12,15 +12,18 @@ fresh install.
 
 ## Picking a rig
 
-Select an audio track, open its **Pedalboard** and press **Rigs** above
-the chain. The picker lists the rigs for an instrument, guitar or bass,
-with each one's genre, a line on what it sounds like and its chain.
-Narrow it with **Genre** or by typing in the search.
+Select an audio track, open its **Pedalboard** and press **Rigs…** above
+the chain. The picker opens down the right side of the window, and your
+chain stays in view beside it. It lists the rigs for an instrument, guitar
+or bass, with each one's genre, a line on what it sounds like and its
+chain. Narrow it with **Genre** or by typing in the search. Click a rig to
+show its keys: **Audition**, **Apply** and **Export**, and for a rig of
+yours **Rename** and **Delete**.
 
 ![The rig picker on a guitar track's pedalboard: instrument, genre and search, Save chain as rig and Import, and the rigs with their descriptions and chains](../../../assets/guides/rigs.png)
 
 - **Audition** a rig to hear it on your live input in place of the
-  track's chain. Nothing in the project changes: the chain under the
+  track's chain. Nothing in the project changes: the chain beside the
   picker is still yours. The rig being heard has a lit light.
 - **A** and **B** flip between the rig and your own chain while you play,
   so you can compare them. The swap fades the track out and back in over
