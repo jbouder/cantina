@@ -86,8 +86,8 @@ edit like any other; the groove that ships with the app never changes.
 
 ### Browse and hear grooves
 
-**Grooves**, beside **Import…**, opens the groove browser under the
-pattern controls.
+**Grooves**, at the right of the drum editor's toolbar, opens the groove
+browser under it.
 
 ![The groove browser: search, genre, section and time signature filters, and the list](../../../assets/guides/grooves.png)
 
@@ -118,8 +118,15 @@ clear of clipping. Turn the fader up if a quieter pattern needs it.
 
 ## Program a pattern
 
-A pattern belongs to the project, so any drum track can use it. **New**
-makes one; **Rename** and **Remove** do what they say.
+The drum editor has one toolbar row: the **Kit**, the **Pattern**, a **⋯**
+menu, **Loop** and **Place at playhead**, and at the right **Grooves**,
+**Mixer** and **Pads**. Under it, **Grid and feel** opens the pattern's
+steps, length, swing and humanize; closed, the line beside it reads them
+back, such as *1/16 · 16 steps (1 bar) · swing 25%*.
+
+A pattern belongs to the project, so any drum track can use it. In the
+**⋯** menu, **New pattern** makes one, and **Rename pattern…** and
+**Remove pattern** do what they say.
 
 - **Click** a cell to add a hit at full strength, or to remove one.
 - **Drag up or down** on a cell to set how hard it hits. The fill shows it.
@@ -154,7 +161,7 @@ Every gesture is one step of **Undo**.
 
 ![Two rows selected across a beat, and the open hat muted](../../../assets/guides/drums-edit.png)
 
-Above the grid:
+Under **Grid and feel**:
 
 - **Steps** sets the size of a step: from quarter notes to 1/32, with
   triplets.
@@ -347,8 +354,9 @@ when the groove is added to a project:
 - **`feel`** is `straight`, `shuffle`, `swing`, `half-time` or
   `double-time`.
 
-- **Export…** writes the pattern shown to a `.pattern.json` file.
-- **Import…** adds pattern files to the project, as does dropping one on
+- **Export pattern…** in the **⋯** menu writes the pattern shown to a
+  `.pattern.json` file.
+- **Import patterns…** adds pattern files to the project, as does dropping one on
   the window. An imported pattern gets a new id, and a name already in the
   project gets a number after it (`Beat 2`). Rows for pads the track's kit
   does not have are kept, so the pattern still plays them on another kit,
@@ -368,7 +376,7 @@ or by a coding agent:
 | `~/Music/Cantina/Jams/` | `*.jam.json` files (see [jam](/guides/jam/)) |
 
 A file saved there appears within a second, with no restart and no
-**Rescan**: a kit in the **Kit** list, a pattern in the **Pattern** menu
+**Rescan kits**: a kit in the **Kit** list, a pattern in the **Pattern** menu
 under *Import from the library* (choosing it adds it to the project). A
 file that does not load is listed under *Will not load* with the reason,
 and cannot be chosen until it is fixed; `cantina-cli check` gives the same
