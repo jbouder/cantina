@@ -146,8 +146,12 @@ inline:
 A pedal reports the longest latency along any path from its input to
 its output (the oversampled waveshapers are the only nodes with any).
 Parallel branches are summed as they arrive, so a shaped branch beside
-a dry one is 22 samples behind it; a designer who wants them aligned
-puts a `delay` of 22 samples on the dry side.
+a dry one is 22 samples behind it. To align them, run the dry side
+through a waveshaper with the same `oversample` and nothing to clip: the
+stock drives' **Blend** pads the dry side by `linear: 0.0625`, puts it
+through a `hard` waveshaper bound to their **Oversampling**, and brings
+it back up by 16, which lines it up to the sample at every factor and
+follows the oversampler's filtering too.
 
 ## Channels
 

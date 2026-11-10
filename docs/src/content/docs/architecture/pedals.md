@@ -105,9 +105,27 @@ few blocks while the release takes hundreds.
 with a **voicing** each: a highpass to keep the low end out of the
 clipper, an optional mid boost, the drive gain, the waveshaper run
 through the oversampler, a highpass to remove the offset a lopsided
-curve leaves, a tone lowpass, and the level. Each has the same five
+curve leaves, a tone lowpass, and the level. Each has the same six
 knobs: **Drive** (dB), **Tone** (500 to 8000 Hz lowpass), **Level**
-(dB), **Curve** and **Oversampling**.
+(dB), **Curve**, **Oversampling** and **Blend** (0 to 100%).
+
+**Blend** mixes the driven signal (after **Level**) with the clean input,
+taken before the pedal's highpass so a bass keeps its lows: the driven
+side is scaled by Blend and the clean by one minus it, both smoothed.
+The clean side has to arrive with the driven one or the blend combs, and
+parallel branches in the pedal format are not aligned for you. So the
+clean side runs through the same oversampler: a gain of 1/16, a *Hard*
+waveshaper bound to the same **Oversampling** choice, and a gain of 16
+(times one minus Blend). Below +24 dBFS of input the *Hard* curve never
+clips, the powers of two scale exactly, and the clean side is the input
+through the same filters and the same 22 samples as the driven side. At
+100% the clean side is multiplied by zero, so the pedal sounds as it did
+before Blend existed and its golden files are unchanged. Blend is the
+last parameter, so projects saved before it load with it at 100%. The
+tests check that, at 0%, a bass note comes out as it went in, 22
+samples late; that the two sides correlate best within a sample of each
+other at every oversampling factor; and that 50% is exactly half of
+each.
 
 | Pedal | Drive | Curves | Before the clipper |
 | --- | --- | --- | --- |

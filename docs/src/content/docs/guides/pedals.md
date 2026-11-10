@@ -79,6 +79,11 @@ Three drives that share their knobs:
 - **Curve**: the character of the clipping.
 - **Oversampling**: the quality of the clipping, from off to 8×. Higher is
   cleaner on high notes and costs more processing; 4× is the default.
+- **Blend**: how much of the drive you hear over your clean signal. At
+  100%, the default, it is all drive. Lower, the clean signal comes
+  through underneath, untouched by the pedal's filters, which is how bass
+  players drive a bass and keep its low end whole. Set **Level** so the
+  drive is about as loud as the clean signal, then blend to taste.
 
 | Pedal | Sound | Curves |
 | --- | --- | --- |

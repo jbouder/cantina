@@ -46,6 +46,14 @@
         "8×"
       ],
       "default": 2
+    },
+    {
+      "id": "blend",
+      "label": "Blend",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "default": 100
     }
   ],
   "nodes": [
@@ -63,7 +71,7 @@
       "type": "highpass",
       "freq": 60,
       "pos": [
-        260,
+        480,
         160
       ]
     },
@@ -75,7 +83,7 @@
       "gain": 6,
       "q": 0.7,
       "pos": [
-        480,
+        700,
         160
       ]
     },
@@ -91,7 +99,7 @@
       },
       "smooth": 0.01,
       "pos": [
-        700,
+        920,
         160
       ]
     },
@@ -116,7 +124,7 @@
         ]
       },
       "pos": [
-        920,
+        1140,
         160
       ]
     },
@@ -126,7 +134,7 @@
       "type": "highpass",
       "freq": 20,
       "pos": [
-        1140,
+        1360,
         160
       ]
     },
@@ -139,8 +147,59 @@
       },
       "smooth": 0.01,
       "pos": [
-        1360,
+        1580,
         160
+      ]
+    },
+    {
+      "id": "tee",
+      "kind": "split",
+      "pos": [
+        260,
+        160
+      ]
+    },
+    {
+      "id": "dry-pad",
+      "kind": "gain",
+      "linear": 0.0625,
+      "pos": [
+        480,
+        340
+      ]
+    },
+    {
+      "id": "dry-align",
+      "kind": "waveshaper",
+      "curve": "hard",
+      "oversample": {
+        "param": "oversampling",
+        "values": [
+          1,
+          2,
+          4,
+          8
+        ]
+      },
+      "pos": [
+        920,
+        340
+      ]
+    },
+    {
+      "id": "dry",
+      "kind": "gain",
+      "linear": {
+        "param": "blend",
+        "map": [
+          16,
+          0
+        ]
+      },
+      "smooth": 0.01,
+      "pos": [
+        1360,
+        340
       ]
     },
     {
@@ -151,15 +210,39 @@
       },
       "smooth": 0.01,
       "pos": [
-        1580,
+        1800,
         160
+      ]
+    },
+    {
+      "id": "wet",
+      "kind": "gain",
+      "linear": {
+        "param": "blend",
+        "map": [
+          0,
+          1
+        ]
+      },
+      "smooth": 0.01,
+      "pos": [
+        2020,
+        160
+      ]
+    },
+    {
+      "id": "blend",
+      "kind": "mix",
+      "pos": [
+        2240,
+        250
       ]
     },
     {
       "id": "out",
       "kind": "output",
       "pos": [
-        1800,
+        2460,
         160
       ]
     }
@@ -167,6 +250,10 @@
   "edges": [
     [
       "in",
+      "tee"
+    ],
+    [
+      "tee",
       "pre"
     ],
     [
@@ -195,6 +282,30 @@
     ],
     [
       "level",
+      "wet"
+    ],
+    [
+      "tee",
+      "dry-pad"
+    ],
+    [
+      "dry-pad",
+      "dry-align"
+    ],
+    [
+      "dry-align",
+      "dry"
+    ],
+    [
+      "wet",
+      "blend"
+    ],
+    [
+      "dry",
+      "blend"
+    ],
+    [
+      "blend",
       "out"
     ]
   ]

@@ -119,7 +119,10 @@ fn drives_are_silent_on_silence_and_report_the_oversamplers_latency() {
         );
         assert_eq!(pedal.latency(), LATENCY);
         let names: Vec<&str> = pedal.params().iter().map(|p| p.name.as_ref()).collect();
-        assert_eq!(names, ["Drive", "Tone", "Level", "Curve", "Oversampling"]);
+        assert_eq!(
+            names,
+            ["Drive", "Tone", "Level", "Curve", "Oversampling", "Blend"]
+        );
     }
 }
 
@@ -495,4 +498,105 @@ fn tremolo_pumps_at_its_rate_and_follows_the_tempo() {
         lanes[0][0] > 0.999 && lanes[0][16_000] > 0.999,
         "not loudest on the beat"
     );
+}
+
+/// Blend's index on the drives: last, so saved projects keep theirs.
+const BLEND: usize = 5;
+
+#[test]
+fn a_drive_blended_all_dry_passes_the_input_late_by_the_oversampler() {
+    for name in ["overdrive", "distortion", "fuzz"] {
+        let mut drive = stock(name).unwrap();
+        assert_eq!(drive.params()[BLEND].name, "Blend", "{name}");
+        assert_eq!(drive.param(BLEND), 100.0, "{name} is all wet by default");
+        drive.set_param(BLEND, 0.0);
+        drive.set_param(2, 0.0); // Level at 0 dB.
+        drive.prepare(48_000.0, 256);
+        assert_eq!(drive.latency(), LATENCY, "{name}");
+        // A bass note, low end and all, comes out as it went in, the
+        // oversampler's latency late: none of the pedal's filters touch it.
+        let input = sine(41.2, 9600, 0.8);
+        let out = Renderer::default().render(drive.as_mut(), std::slice::from_ref(&input));
+        let late = &out[0][LATENCY + 2000..];
+        let worst = late
+            .iter()
+            .zip(&input[2000..])
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0f32, f32::max);
+        assert!(worst < 1e-3, "{name}: off by {worst}");
+    }
+}
+
+#[test]
+fn blended_dry_and_wet_line_up() {
+    // A little white noise, so the drive barely clips and its output is
+    // the input filtered: lined up, the two paths correlate best within
+    // a sample (the wet path's filters' own group delay), at every
+    // oversampling factor, where an unaligned dry path would be the
+    // oversampler's 22 samples early. So a blend never combs.
+    let mut seed = 1u32;
+    let noise: Vec<f32> = (0..24_000)
+        .map(|_| {
+            seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            0.02 * ((seed >> 8) as f32 / (1u32 << 24) as f32 - 0.5)
+        })
+        .collect();
+    for name in ["overdrive", "distortion", "fuzz"] {
+        for factor in 0..4 {
+            let path = |blend: f32| {
+                let mut drive = stock(name).unwrap();
+                drive.set_param(0, 0.0);
+                drive.set_param(1, 8000.0);
+                drive.set_param(4, factor as f32);
+                drive.set_param(BLEND, blend);
+                Renderer::default().render(drive.as_mut(), std::slice::from_ref(&noise))[0].clone()
+            };
+            let (dry, wet) = (path(0.0), path(100.0));
+            // The clean path alone is the input, peaking on the latency.
+            let mut impulse = vec![0.0; 256];
+            impulse[0] = 0.5;
+            let mut clean = stock(name).unwrap();
+            clean.set_param(4, factor as f32);
+            clean.set_param(BLEND, 0.0);
+            let out = Renderer::default().render(clean.as_mut(), &[impulse])[0].clone();
+            let peak = (0..out.len())
+                .max_by(|a, b| out[*a].abs().total_cmp(&out[*b].abs()))
+                .unwrap();
+            assert_eq!(peak, LATENCY, "{name} clean at factor index {factor}");
+            let best = (-30i32..=30)
+                .max_by(|a, b| {
+                    let corr = |lag: i32| -> f32 {
+                        (100..23_900)
+                            .map(|i| dry[i] * wet[(i as i32 + lag) as usize])
+                            .sum()
+                    };
+                    corr(*a).total_cmp(&corr(*b))
+                })
+                .unwrap();
+            assert!(
+                best.abs() <= 1,
+                "{name} at factor index {factor}: lag {best}"
+            );
+        }
+    }
+}
+
+#[test]
+fn blend_is_a_straight_mix_of_the_two_paths() {
+    // The drive hard on a bass note: half blend is exactly half of each.
+    let note = sine(55.0, 9600, 0.5);
+    for name in ["overdrive", "distortion", "fuzz"] {
+        let at = |blend: f32| {
+            let mut drive = stock(name).unwrap();
+            drive.set_param(BLEND, blend);
+            Renderer::default().render(drive.as_mut(), std::slice::from_ref(&note))[0].clone()
+        };
+        let (dry, wet, half) = (at(0.0), at(100.0), at(50.0));
+        let worst = (0..note.len())
+            .map(|i| (half[i] - 0.5 * (dry[i] + wet[i])).abs())
+            .fold(0.0f32, f32::max);
+        assert!(worst < 1e-5, "{name}: off by {worst}");
+        // And the clean half is there: the bass note at its own level.
+        assert!(rms(&dry[2000..]) > 0.3, "{name}");
+    }
 }

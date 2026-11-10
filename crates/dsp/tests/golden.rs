@@ -134,6 +134,15 @@ fn cases() -> Vec<Case> {
             processor: p,
         });
     }
+    // Each drive blended half over the clean signal.
+    for name in ["overdrive", "distortion", "fuzz"] {
+        let mut p = stock(name).unwrap();
+        p.set_param(5, 50.0);
+        cases.push(Case {
+            name: format!("{name}-blend"),
+            processor: p,
+        });
+    }
     // A gate that the fixtures' quiet tails fall below.
     let mut gate = stock("gate").unwrap();
     gate.set_param(0, -20.0);
