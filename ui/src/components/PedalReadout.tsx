@@ -48,7 +48,7 @@ export function PedalReadout({ pedal, values }: Props) {
 const STRIP_CENTS = 50;
 /** Lights across the strip, an odd number so one sits at zero. */
 const LIGHTS = 11;
-/** Within this many cents the centre light reads in tune. */
+/** Within this many cents the center light reads in tune. */
 const IN_TUNE_CENTS = 3;
 
 function TunerDisplay({
@@ -63,7 +63,7 @@ function TunerDisplay({
   const note = clarity > 0 ? noteFor(hz, reference) : null;
   const cents = note?.cents ?? 0;
   const inTune = note !== null && Math.abs(cents) < IN_TUNE_CENTS;
-  // Which light the needle is nearest; the centre light is index 5.
+  // Which light the needle is nearest; the center light is index 5.
   const lit =
     note === null ? -1 : Math.round(((cents + STRIP_CENTS) / (2 * STRIP_CENTS)) * (LIGHTS - 1));
   const description =
@@ -85,13 +85,13 @@ function TunerDisplay({
       </div>
       <div aria-hidden="true" className="flex justify-between px-1">
         {Array.from({ length: LIGHTS }, (_, i) => {
-          const centre = i === (LIGHTS - 1) / 2;
+          const center = i === (LIGHTS - 1) / 2;
           const on = i === lit;
-          const color = !on ? "bg-led-off" : inTune && centre ? "bg-led-on" : "bg-vol-mid";
+          const color = !on ? "bg-led-off" : inTune && center ? "bg-led-on" : "bg-vol-mid";
           return (
             <span
               key={`light-${String(i)}`}
-              className={`block rounded-full ${centre ? "size-3" : "size-2 self-center"} ${color}`}
+              className={`block rounded-full ${center ? "size-3" : "size-2 self-center"} ${color}`}
             />
           );
         })}

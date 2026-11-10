@@ -1,5 +1,5 @@
 //! Writes the starter cabinet impulse responses into `irs/` at the
-//! repository root. They are synthesised, not recorded: an impulse
+//! repository root. They are synthesized, not recorded: an impulse
 //! through a speaker-shaped filter (a resonant low cut, a steep high
 //! roll-off, a mid dip and a presence peak), a few close reflections
 //! for the cone and the microphone, and a short dark tail for the box.
@@ -71,7 +71,7 @@ const DESIGNS: [Design; 4] = [
     },
 ];
 
-fn synthesise(d: &Design) -> Vec<f32> {
+fn synthesize(d: &Design) -> Vec<f32> {
     let mut x = vec![0.0f32; FRAMES];
     x[0] = 1.0;
     // The cone and the microphone: a few close copies with sign flips.
@@ -120,7 +120,7 @@ fn main() -> anyhow::Result<()> {
     std::fs::create_dir_all(&dir)?;
     for d in &DESIGNS {
         let path = dir.join(format!("{}.wav", d.id));
-        wav::write(&path, RATE as f64, &[synthesise(d)])?;
+        wav::write(&path, RATE as f64, &[synthesize(d)])?;
         println!("wrote {}", path.display());
     }
     Ok(())

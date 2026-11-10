@@ -17,7 +17,7 @@ fn main() -> TractResult<()> {
         .with_input_fact(0, f32::fact([1, WINDOW, 1]).into())?
         .into_optimized()?
         .into_runnable()?;
-    eprintln!("load+optimise: {:.1} ms", t.elapsed().as_secs_f64() * 1e3);
+    eprintln!("load+optimize: {:.1} ms", t.elapsed().as_secs_f64() * 1e3);
     let bytes = std::fs::read(&args[2])?;
     let audio: Vec<f32> = bytes
         .chunks_exact(4)

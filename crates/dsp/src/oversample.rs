@@ -34,14 +34,14 @@ const STAGE_BETA: [f32; 3] = [7.0, 6.0, 5.0];
 /// A halfband FIR used both as an interpolator and a decimator.
 #[derive(Debug, Clone)]
 struct Halfband {
-    /// Nonzero taps as (index, coefficient), the centre included.
+    /// Nonzero taps as (index, coefficient), the center included.
     taps: Vec<(usize, f32)>,
     /// Interpolation branch for the odd outputs: (input offset, coefficient).
     odd_branch: Vec<(usize, f32)>,
-    /// Input offset the even outputs copy from (the centre tap).
+    /// Input offset the even outputs copy from (the center tap).
     even_offset: usize,
-    /// Which output parity the centre tap serves.
-    centre_parity: usize,
+    /// Which output parity the center tap serves.
+    center_parity: usize,
     /// The last samples of the previous block, oldest first.
     history: Vec<f32>,
     /// History followed by the current block.
@@ -82,8 +82,8 @@ impl Halfband {
                 taps.push((k, value));
             }
         }
-        let centre_parity = delay % 2;
-        let odd_parity = 1 - centre_parity;
+        let center_parity = delay % 2;
+        let odd_parity = 1 - center_parity;
         let odd_branch = taps
             .iter()
             .filter(|(k, _)| k % 2 == odd_parity)
@@ -93,7 +93,7 @@ impl Halfband {
             taps,
             odd_branch,
             even_offset: delay / 2,
-            centre_parity,
+            center_parity,
             history: vec![0.0; length],
             line: Vec::new(),
         }
@@ -118,14 +118,14 @@ impl Halfband {
         let line = &self.line[..h + n];
         for i in 0..n {
             let at = h + i;
-            // The branch holding the centre tap is a delay; the other
+            // The branch holding the center tap is a delay; the other
             // sums the nonzero taps.
-            output[2 * i + self.centre_parity] = line[at - self.even_offset];
+            output[2 * i + self.center_parity] = line[at - self.even_offset];
             let mut acc = 0.0f32;
             for &(offset, c) in &self.odd_branch {
                 acc += c * line[at - offset];
             }
-            output[2 * i + 1 - self.centre_parity] = acc;
+            output[2 * i + 1 - self.center_parity] = acc;
         }
         self.history.copy_from_slice(&line[n..n + h]);
     }

@@ -6,7 +6,7 @@ type Props = SelectHTMLAttributes<HTMLSelectElement> & {
   hint?: string;
 };
 
-/** A labelled drop-down, as a form row. */
+/** A labeled drop-down, as a form row. */
 export function Select({ label, hint, id, className = "", children, ...rest }: Props) {
   return (
     <Field label={label} hint={hint} htmlFor={id}>

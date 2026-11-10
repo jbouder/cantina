@@ -303,7 +303,7 @@ export interface StockGroove {
   feel: "straight" | "shuffle" | "swing" | "half-time" | "double-time";
 }
 
-/** How to practise with a tab. Mirrors `Practice` in src-tauri. */
+/** How to practice with a tab. Mirrors `Practice` in src-tauri. */
 export interface Practice {
   /** Play every track's tabs through the plucked-string voice, into the track's pedals. */
   voice: boolean;
@@ -645,7 +645,7 @@ export interface TabSummary {
   capo: number;
   /** Notes in the tab. */
   notes: number;
-  /** True when it came from a transcription and can be re-quantised. */
+  /** True when it came from a transcription and can be re-quantized. */
   transcribed: boolean;
 }
 
@@ -685,7 +685,7 @@ export interface Tab {
   notes: TabNote[];
 }
 
-/** The grid a transcription quantises to: eighths, sixteenths or their triplets. */
+/** The grid a transcription quantizes to: eighths, sixteenths or their triplets. */
 export type TabGrid = "1/8" | "1/16" | "1/8t" | "1/16t";
 
 /** What a transcription is asked for. Mirrors `TabSettings` in the shell. */
@@ -2876,7 +2876,7 @@ export async function rigExport(path: string, to: string): Promise<void> {
 }
 
 /**
- * Sets how to practise: hear the tabs, mute the recordings under them, and
+ * Sets how to practice: hear the tabs, mute the recordings under them, and
  * the speed from 50% to 100%. Not an edit.
  */
 export async function practiceSet(practice: Practice): Promise<EngineStatus> {
@@ -3115,16 +3115,16 @@ export async function clipTabEdit(
  * Builds a transcribed tab's notes again on another grid, without
  * transcribing again: the selected notes (indices), or all of them.
  */
-export async function clipTabRequantise(
+export async function clipTabRequantize(
   id: number,
   grid: TabGrid,
   selection: number[] = [],
 ): Promise<EngineStatus> {
-  if (inTauri) return invoke<EngineStatus>("clip_tab_requantise", { id, grid, selection });
+  if (inTauri) return invoke<EngineStatus>("clip_tab_requantize", { id, grid, selection });
   const { clip } = mockClipAt(id);
   if (!clip.tab) throw new Error(`${clip.name} has no tab`);
   if (!clip.tab.transcribed) {
-    throw new Error(`${clip.name}'s tab was not transcribed, so there is nothing to re-quantise`);
+    throw new Error(`${clip.name}'s tab was not transcribed, so there is nothing to re-quantize`);
   }
   // The stand-in heard nothing: it snaps the notes it has to the grid.
   const step = { "1/8": 480, "1/16": 240, "1/8t": 320, "1/16t": 160 }[grid];
@@ -4478,14 +4478,14 @@ export function onRenderProgress(listener: (p: RenderProgress) => void): () => v
   return () => renderListeners.delete(listener);
 }
 
-let mockCancelled = false;
+let mockCanceled = false;
 
 /** The stand-in's render: progress in steps, a little slower than instant. */
 async function mockRender(what: RenderProgress["what"]): Promise<void> {
-  mockCancelled = false;
+  mockCanceled = false;
   for (let i = 1; i <= 10; i++) {
     await new Promise((r) => setTimeout(r, 60));
-    if (mockCancelled) throw new Error("cancelled");
+    if (mockCanceled) throw new Error("canceled");
     for (const l of renderListeners) l({ what, fraction: i / 10 });
   }
 }
@@ -4536,10 +4536,10 @@ export async function trackBounce(id: number): Promise<EngineStatus> {
   return mockEdit(`bounce ${track.name}`);
 }
 
-/** Stops the running export, bounce or transcription; its promise fails with "cancelled". */
+/** Stops the running export, bounce or transcription; its promise fails with "canceled". */
 export async function renderCancel(): Promise<void> {
   if (inTauri) return invoke("render_cancel");
-  mockCancelled = true;
+  mockCanceled = true;
 }
 
 const WAV_FILTER = [{ name: "WAV audio", extensions: ["wav"] }];

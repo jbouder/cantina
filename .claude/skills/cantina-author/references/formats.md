@@ -112,8 +112,8 @@ One pad of a recipe. Every number is optional and starts at the voice's default.
 | `noise` |  | number (≥ 0, ≤ 1) | How much noise is blended with the pitched part, 0 to 1. |
 | `pan` |  | number (≥ -1, ≤ 1) | -1 is hard left, 1 hard right. |
 | `pitch` |  | number (≥ 20, ≤ 12000) | The fundamental, in Hz: where a kick or tom settles, a snare's body, a hat's lowest partial, a clap's band, a cowbell's lower tone. |
-| `tone` |  | number (≥ 0, ≤ 1) | Brightness from 0 (dark) to 1 (bright): the click on a kick, the noise's colour on a snare, the cut-off of a hat. |
-| `voice` | yes | `Voice` | What it is synthesised as. |
+| `tone` |  | number (≥ 0, ≤ 1) | Brightness from 0 (dark) to 1 (bright): the click on a kick, the noise's color on a snare, the cut-off of a hat. |
+| `voice` | yes | `Voice` | What it is synthesized as. |
 
 ## Cantina drum pattern (`pattern`)
 
@@ -201,7 +201,7 @@ A guitar or bass part as strings and frets: the tuning, the capo, the tempo the 
 | Field | Required | Takes | What it is |
 | --- | --- | --- | --- |
 | `capo` |  | integer (≥ 0, ≤ 36) | The fret the capo is at; 0 for none. |
-| `heard` |  | array of `HeardNote` | For a transcribed tab, the notes as transcription heard them, before they were quantised to the grid and fitted to strings, so either can be redone without transcribing again. Empty for a tab written by hand. |
+| `heard` |  | array of `HeardNote` | For a transcribed tab, the notes as transcription heard them, before they were quantized to the grid and fitted to strings, so either can be redone without transcribing again. Empty for a tab written by hand. |
 | `instrument` | yes | `Instrument` | Guitar or bass, which sets how many strings it may have. |
 | `name` |  | string | Shown above the tab and in exports. Default `""`. |
 | `notes` |  | array of `TabNote` | The notes, in any order. Default `[]`. |
@@ -292,7 +292,7 @@ One pedal in a rig.
 
 ## Cantina jam (`jam`)
 
-What plays along while you practise: drums from a stock groove (named by its genre) or patterns of the jam's own by section, a backing (a chord progression played by a built-in guitar or bass through a rig, an audio file, or a project's track), a tempo, a key and the rig the input plays through (named by its file less `.rig.json`).
+What plays along while you practice: drums from a stock groove (named by its genre) or patterns of the jam's own by section, a backing (a chord progression played by a built-in guitar or bass through a rig, an audio file, or a project's track), a tempo, a key and the rig the input plays through (named by its file less `.rig.json`).
 
 | Field | Required | Takes | What it is |
 | --- | --- | --- | --- |
@@ -558,7 +558,7 @@ A tab: the tuning, the capo, the tempo it was written against and the notes.
 | Field | Required | Takes | What it is |
 | --- | --- | --- | --- |
 | `capo` |  | integer (≥ 0, ≤ 36) | The fret the capo is at; 0 for none. |
-| `heard` |  | array of `HeardNote` | For a transcribed tab, the notes as transcription heard them, before they were quantised to the grid and fitted to strings, so either can be redone without transcribing again. Empty for a tab written by hand. |
+| `heard` |  | array of `HeardNote` | For a transcribed tab, the notes as transcription heard them, before they were quantized to the grid and fitted to strings, so either can be redone without transcribing again. Empty for a tab written by hand. |
 | `instrument` | yes | `Instrument` | Guitar or bass, which sets how many strings it may have. |
 | `name` |  | string | Shown above the tab and in exports. Default `""`. |
 | `notes` |  | array of `TabNote` | The notes, in any order. Default `[]`. |

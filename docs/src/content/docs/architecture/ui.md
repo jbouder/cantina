@@ -19,13 +19,13 @@ The UI is React and TypeScript in `ui/`, styled with Tailwind v4 over the skin t
 
 ## Skins
 
-Every component is drawn through semantic tokens: CSS custom properties defined per skin under `:root[data-skin='…']`. Components never carry a literal colour, radius, shadow or typeface; they name a token through a Tailwind utility or a material utility (`surface-window`, `button-standard`, `surface-lcd`). `npm run lint` fails on a literal colour outside the skin files, on a size or gap off the scales below, and on any skin that falls below the contrast ratios. See [skins](/guides/skins/) for writing one and the [skin tokens](/reference/skin-tokens/) for every token.
+Every component is drawn through semantic tokens: CSS custom properties defined per skin under `:root[data-skin='…']`. Components never carry a literal color, radius, shadow or typeface; they name a token through a Tailwind utility or a material utility (`surface-window`, `button-standard`, `surface-lcd`). `npm run lint` fails on a literal color outside the skin files, on a size or gap off the scales below, and on any skin that falls below the contrast ratios. See [skins](/guides/skins/) for writing one and the [skin tokens](/reference/skin-tokens/) for every token.
 
 ## The timeline
 
 The timeline is a canvas, not DOM. `Timeline.tsx` draws tracks, clips with waveforms, the ruler, the grid and the playhead from the project status and the frames, and everything it decides (pixels to samples, the grid, snapping, hit testing, what a move or trim does to a clip) is a pure function in `ui/src/lib/timeline.ts`, tested on its own.
 
-A file's samples are reduced once, in a Web Worker (`peaks.worker.ts`), into min and max per bin at five bin sizes from 64 to 16384 samples. Drawing a clip reads the coarsest level whose bin is no larger than the zoom's samples per pixel, so a column costs a few reads at any zoom and a long take is never touched again after its cache is built. The canvas reads its colours from the skin's `--tl-*` tokens on each draw, so it reskins live.
+A file's samples are reduced once, in a Web Worker (`peaks.worker.ts`), into min and max per bin at five bin sizes from 64 to 16384 samples. Drawing a clip reads the coarsest level whose bin is no larger than the zoom's samples per pixel, so a column costs a few reads at any zoom and a long take is never touched again after its cache is built. The canvas reads its colors from the skin's `--tl-*` tokens on each draw, so it reskins live.
 
 Edits are previewed on the canvas while dragging and become one command when the pointer is released.
 
@@ -123,6 +123,6 @@ A form row is a `Field`: the label with its helper text under it at the left, th
 ## Checks
 
 ```sh
-npm run check        # Biome, the colour, scale and contrast checks, TypeScript and the tests
+npm run check        # Biome, the color, scale and contrast checks, TypeScript and the tests
 npm run test:scenes  # every scene drawn in headless Chrome from recorded frames
 ```

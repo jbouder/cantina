@@ -12,7 +12,7 @@ import {
   clipTab,
   clipTabEdit,
   clipTabRefit,
-  clipTabRequantise,
+  clipTabRequantize,
   type EngineStatus,
   loopSet,
   type Practice,
@@ -165,7 +165,7 @@ export function TabView({
     firstClip.current = clipId;
   }, [clipId]);
 
-  // The tab, again whenever the clip changes (a re-quantise, a trim).
+  // The tab, again whenever the clip changes (a re-quantize, a trim).
   useEffect(() => {
     if (!clip) return;
     let live = true;
@@ -218,7 +218,7 @@ export function TabView({
 
   if (!clip) return null;
 
-  const practise = (next: Practice) => {
+  const setPractice = (next: Practice) => {
     practiceSet(next).then(onStatus, (e) => onError(String(e)));
   };
 
@@ -473,14 +473,14 @@ export function TabView({
           <Button
             aria-pressed={practice.voice}
             title="Play the tabs through a plucked-string voice, into the track's pedals"
-            onClick={() => practise({ ...practice, voice: !practice.voice })}
+            onClick={() => setPractice({ ...practice, voice: !practice.voice })}
           >
             Hear tab
           </Button>
           <Button
             aria-pressed={practice.muteRecordings}
             title="Silence the recordings under the tabs, to play the part yourself"
-            onClick={() => practise({ ...practice, muteRecordings: !practice.muteRecordings })}
+            onClick={() => setPractice({ ...practice, muteRecordings: !practice.muteRecordings })}
           >
             Mute recording
           </Button>
@@ -495,8 +495,8 @@ export function TabView({
               max={100}
               step={5}
               value={Math.round(practice.speed * 100)}
-              onChange={(e) => practise({ ...practice, speed: Number(e.target.value) / 100 })}
-              onDoubleClick={() => practise({ ...practice, speed: 1 })}
+              onChange={(e) => setPractice({ ...practice, speed: Number(e.target.value) / 100 })}
+              onDoubleClick={() => setPractice({ ...practice, speed: 1 })}
             />
             <output className="surface-lcd px-2 py-0.5 font-lcd text-body leading-none tabular-nums">
               <span className="lcd-text">{Math.round(practice.speed * 100)}%</span>
@@ -565,12 +565,12 @@ export function TabView({
               <Button
                 title={
                   selection.length > 0
-                    ? `Quantise the selected notes to ${grid} again from what was heard`
-                    : `Quantise every note to ${grid} again from what was heard`
+                    ? `Quantize the selected notes to ${grid} again from what was heard`
+                    : `Quantize every note to ${grid} again from what was heard`
                 }
-                onClick={() => whole(clipTabRequantise(clip.id, grid, selection))}
+                onClick={() => whole(clipTabRequantize(clip.id, grid, selection))}
               >
-                Re-quantise
+                Re-quantize
               </Button>
             ) : null}
             <span className="text-ink-dim text-label">

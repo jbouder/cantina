@@ -4,8 +4,8 @@
 //!
 //! A transcription keeps what it heard in `Tab::heard`, in seconds from
 //! the tab's tick 0, and the notes are built from that: cleaned for the
-//! tuning, quantised to a grid at the tab's tempo, fitted to strings and
-//! frets, with the techniques the timing shows. Re-quantising runs the
+//! tuning, quantized to a grid at the tab's tempo, fitted to strings and
+//! frets, with the techniques the timing shows. Re-quantizing runs the
 //! same build again on the same heard notes, so it never transcribes
 //! twice.
 
@@ -61,7 +61,7 @@ pub struct TabSettings {
     /// The capo's fret; 0 for none.
     #[serde(default)]
     pub capo: u8,
-    /// The grid to quantise to.
+    /// The grid to quantize to.
     pub grid: Grid,
 }
 
@@ -155,7 +155,7 @@ pub fn transcribed(
 }
 
 /// Builds a tab's notes from what it heard: clean for the tuning,
-/// quantise to `grid`, fit to strings and frets, and read techniques.
+/// quantize to `grid`, fit to strings and frets, and read techniques.
 pub fn notes(tab: &Tab, grid: Grid) -> Vec<TabNote> {
     let board = Fretboard::new(tab.tuning.clone(), tab.capo, FRETS);
     let mut heard: Vec<fretboard::Note> = tab
@@ -174,7 +174,7 @@ pub fn notes(tab: &Tab, grid: Grid) -> Vec<TabNote> {
     let tick = tab.seconds(1);
     let step = grid.ticks();
     let snap = |seconds: f64| ((seconds / tick / step as f64).round().max(0.0) as u64) * step;
-    let quantised: Vec<fretboard::Note> = heard
+    let quantized: Vec<fretboard::Note> = heard
         .iter()
         .map(|n| {
             let start = snap(n.start);
@@ -188,9 +188,9 @@ pub fn notes(tab: &Tab, grid: Grid) -> Vec<TabNote> {
         .collect();
     let places = fretboard::fit(
         &board,
-        &quantised,
+        &quantized,
         FitOptions {
-            // Quantised, a chord's notes start together exactly.
+            // Quantized, a chord's notes start together exactly.
             chord_window: tick / 2.0,
             ..FitOptions::default()
         },
@@ -198,7 +198,7 @@ pub fn notes(tab: &Tab, grid: Grid) -> Vec<TabNote> {
     let techniques = fretboard::techniques(&board, &heard, &places);
 
     let mut out: Vec<TabNote> = Vec::new();
-    for ((q, place), t) in quantised.iter().zip(&places).zip(&techniques) {
+    for ((q, place), t) in quantized.iter().zip(&places).zip(&techniques) {
         let Some(place) = place else { continue };
         let start = (q.start / tick).round() as u64;
         let end = (q.end / tick).round() as u64;
@@ -231,12 +231,12 @@ pub fn notes(tab: &Tab, grid: Grid) -> Vec<TabNote> {
 /// add, as `Command::EditTabNotes` carries them.
 pub type NotesEdit = (Vec<u32>, Vec<TabNote>);
 
-/// Re-quantises the notes at `selection`, or every note when it is
+/// Re-quantizes the notes at `selection`, or every note when it is
 /// empty, from what the tab heard. A selected note stands for the heard
 /// notes of its pitch (or an octave off, which cleaning may have fixed)
 /// that started within a beat of it; those alone are built again, so
 /// the notes around the selection stay as they are.
-pub fn requantise(tab: &Tab, grid: Grid, selection: &[u32]) -> NotesEdit {
+pub fn requantize(tab: &Tab, grid: Grid, selection: &[u32]) -> NotesEdit {
     let chosen: Vec<u32> = selection
         .iter()
         .copied()
@@ -466,7 +466,7 @@ mod tests {
     }
 
     #[test]
-    fn heard_notes_become_a_quantised_fitted_tab() {
+    fn heard_notes_become_a_quantized_fitted_tab() {
         // 120 bpm: an eighth is a quarter second. An E5 a little late,
         // then a B a little early, then a long A.
         let notes = [
@@ -505,7 +505,7 @@ mod tests {
     }
 
     #[test]
-    fn requantising_uses_what_was_heard() {
+    fn requantizing_uses_what_was_heard() {
         let notes = [heard(57, 0.13, 0.36), heard(59, 0.38, 0.6)];
         let tab = transcribed(
             "Take",
@@ -560,7 +560,7 @@ mod tests {
     }
 
     #[test]
-    fn a_selection_requantises_only_its_span() {
+    fn a_selection_requantizes_only_its_span() {
         // Four notes a beat apart; on eighths each snaps to a beat line.
         let notes = [
             heard(57, 0.02, 0.4),
@@ -578,16 +578,16 @@ mod tests {
         )
         .unwrap();
         assert_eq!(tab.notes.len(), 4);
-        // Move the first note by hand: a whole-tab re-quantise undoes it,
-        // a re-quantise of the third note alone keeps it.
+        // Move the first note by hand: a whole-tab re-quantize undoes it,
+        // a re-quantize of the third note alone keeps it.
         tab.notes[0].start = 120;
-        let (remove, add) = requantise(&tab, Grid::Sixteenth, &[2]);
+        let (remove, add) = requantize(&tab, Grid::Sixteenth, &[2]);
         assert_eq!(remove, vec![2]);
         assert_eq!(tab.pitch(&add[0]), Some(60));
         assert_eq!(add.len(), 1);
         // 1.13 s is 2.26 beats: the 9th sixteenth on sixteenths.
         assert_eq!(add[0].start, 2160);
-        let (remove, add) = requantise(&tab, Grid::Sixteenth, &[]);
+        let (remove, add) = requantize(&tab, Grid::Sixteenth, &[]);
         assert_eq!(remove.len(), 4);
         assert_eq!(add[0].start, 0);
     }

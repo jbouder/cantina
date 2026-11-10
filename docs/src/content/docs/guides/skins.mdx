@@ -29,7 +29,7 @@ CSS files and an entry in a list.
   </figure>
   <figure>
     <Image src={metal} alt="The studio in Brushed metal" width={1100} />
-    <figcaption><strong>Brushed metal</strong>: a screwed aluminium faceplate, machined keys, a dot-matrix display.</figcaption>
+    <figcaption><strong>Brushed metal</strong>: a screwed aluminum faceplate, machined keys, a dot-matrix display.</figcaption>
   </figure>
   <figure>
     <Image src={hifi} alt="The studio in Hi-fi" width={1100} />
@@ -104,7 +104,7 @@ Then import it at the end of `packages/skins/tokens.css`:
 ### 2. Cantina's own tokens
 
 Create `ui/src/skins/ember.css` for the tokens only Cantina has: `--face`,
-the flat colour text sits on, the timeline's colours, and the colors that
+the flat color text sits on, the timeline's colors, and the colors that
 follow the display and the lights. Classic's are green, so a skin with
 another display color sets `--lcd-muted` (secondary text on a display) and
 the on and selected states to match. Materials such as the window's shape
@@ -145,7 +145,7 @@ Import it in `ui/src/styles.css`, after the other skins:
 
 Add Ember to `SKINS` in `packages/skins/index.ts`. The picker in Settings,
 the saved choice and the screenshot script all read this list. The preview
-colours draw the swatch in Settings, and a test checks that they match the
+colors draw the swatch in Settings, and a test checks that they match the
 skin's tokens: `--frame`, `--title-on`, `--lcd-bg`, `--lcd-fg`, `--silver`
 and `--led-on`, falling back to Classic's.
 
@@ -175,7 +175,7 @@ A test fails until every skin has one.
 npm run check
 ```
 
-This lints, checks that no colour appears outside the skin files, checks
+This lints, checks that no color appears outside the skin files, checks
 every skin's contrast and that its button states can be told apart, and
 runs the tests, including the preview check.
 Then look at it:
@@ -200,7 +200,7 @@ Ember appears in Settings with the others:
   and `--ink-dim` on `--face`, `--glyph` on `--silver`, `--lcd-fg` on
   `--lcd-bg` and `--sheet-ink` on `--sheet-bg`, and below 3:1 for the focus
   ring. Gradients cannot be measured, so `--face`, `--silver` and `--pbtn`
-  must be the flat colours the surfaces average to.
+  must be the flat colors the surfaces average to.
 - **States that differ.** A key that is on (`--state-on`), selected
   (`--state-selected`) or disabled (`--state-disabled`) must not pass for
   one of the others, so the check fails when two of the three fills are
@@ -213,7 +213,7 @@ Ember appears in Settings with the others:
   colors: a user must see at a glance what can be typed in.
 - **Reduced motion.** Anything that moves on `--beat` must look still when
   it is 0, which it is under *Reduce motion* and Reduce flashing.
-- **No colours outside skin files.** If a component needs a new colour, add
+- **No colors outside skin files.** If a component needs a new color, add
   a token to Classic first and set it in each skin that should differ.
 - **Light frames set `color-scheme: light`** so form controls and scroll
   bars match, as Brushed metal, Hi-fi and Toxic do.

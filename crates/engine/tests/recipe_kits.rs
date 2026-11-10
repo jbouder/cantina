@@ -1,8 +1,8 @@
-//! The stock kit recipes in `recipes/` synthesised, written as a kit
+//! The stock kit recipes in `recipes/` synthesized, written as a kit
 //! folder, loaded the way the app loads kits, and played on the sampler:
 //! every pad sounds, the hats choke, and the pads patterns share are
 //! there, so a pattern written for a stock kit plays on it. Every recipe
-//! but lo-fi also ships synthesised, as `kits/<name>`; each folder must be
+//! but lo-fi also ships synthesized, as `kits/<name>`; each folder must be
 //! what its recipe makes.
 
 use std::path::{Path, PathBuf};
@@ -84,12 +84,12 @@ fn sampler_plays(name: &str, title: &str, extra: &str) {
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-/// Each synthesised stock kit, `kits/<name>`, is `recipes/<name>.recipe.json`
-/// synthesised: the same `kit.json`, and every sample the same to within
+/// Each synthesized stock kit, `kits/<name>`, is `recipes/<name>.recipe.json`
+/// synthesized: the same `kit.json`, and every sample the same to within
 /// the 16-bit rounding `synth-kit` writes. Change a recipe, then run
 /// `cantina-cli synth-kit recipes/<name>.recipe.json kits/<name>`.
 #[test]
-fn the_synthesised_kits_are_their_recipes() {
+fn the_synthesized_kits_are_their_recipes() {
     for name in ["metal", "jazz", "vintage", "hiphop-808", "metal-triggered"] {
         kit_is_its_recipe(name);
     }

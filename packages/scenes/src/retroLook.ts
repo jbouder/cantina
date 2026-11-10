@@ -6,7 +6,7 @@ import { PALETTES, resolvePalette, type Palette } from './renderers/retro/palett
 const TARGET_PIXELS = 64000;
 const STEP = 1 / 30;
 
-// 4 x 4 ordered-dither thresholds, centred on zero.
+// 4 x 4 ordered-dither thresholds, centered on zero.
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16 - 0.5);
 const MONO_LEVELS = 10;
 

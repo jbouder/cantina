@@ -1,7 +1,7 @@
 //! The guitar DI fixture `render pedal --di` plays: a few seconds of a
 //! plucked guitar as it leaves the instrument, before any amp.
 //!
-//! It is synthesised, not recorded, so it is ours to give away: CC0, like
+//! It is synthesized, not recorded, so it is ours to give away: CC0, like
 //! everything else made here. Karplus-Strong strings, each pluck shaped
 //! by where it is picked and damped a little by the palm, play a short
 //! riff (open low E, a power chord, a strummed open chord and a few single
@@ -213,7 +213,7 @@ fn pluck_all(notes: Vec<Pluck>, touch: Touch) -> Vec<f32> {
     out
 }
 
-/// Quantised to 16 bits, as the fixture file stores it.
+/// Quantized to 16 bits, as the fixture file stores it.
 pub fn quantize(samples: &[f32]) -> Vec<i16> {
     samples
         .iter()
@@ -226,7 +226,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn di_fixtures_are_the_synthesised_riffs() {
+    fn di_fixtures_are_the_synthesized_riffs() {
         fixture_matches("di-guitar.wav", &synthesize());
         fixture_matches("di-bass.wav", &synthesize_bass());
     }

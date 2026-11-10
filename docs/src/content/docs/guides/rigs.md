@@ -147,7 +147,7 @@ clean ones a little quieter so their peaks have room.
 | Bass Metal | Metal | A tight gate, a hard distortion blended over the clean bass so the low end stays whole, and a clanky top end that locks with the kick. | Gate, Compressor, Distortion, Amp, 4x10 |
 | Bass Funk | Funk | Slap-ready: heavy compression, deep lows, scooped mids and a bright top. | Compressor, Amp, 4x10 |
 
-The cabinets are Cantina's synthesised [starter impulse
+The cabinets are Cantina's synthesized [starter impulse
 responses](/guides/pedals/); a rig sounds more like a real amp in a room
 through a captured one. Drop your own into `~/Music/Cantina/IRs` with the
 same name to replace a stock one everywhere.

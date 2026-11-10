@@ -170,7 +170,7 @@
                 "anyOf": [
                   {
                     "default": 1000.0,
-                    "description": "Corner or centre frequency In Hz.",
+                    "description": "Corner or center frequency In Hz.",
                     "maximum": 20000.0,
                     "minimum": 20.0,
                     "type": "number"
@@ -605,7 +605,7 @@
                 "anyOf": [
                   {
                     "default": 1000.0,
-                    "description": "Where the phase shift is centred In Hz.",
+                    "description": "Where the phase shift is centered In Hz.",
                     "maximum": 20000.0,
                     "minimum": 20.0,
                     "type": "number"

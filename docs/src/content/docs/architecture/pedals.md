@@ -10,7 +10,7 @@ as `Processor`s (see the trait in `crates/dsp/src/processor.rs`). This
 page is how each one is built and the design choices behind it; what the
 knobs do for a player is in the [pedals guide](/guides/pedals/). Every pedal has golden-file tests (`crates/dsp/tests/golden`)
 that pin its output over an impulse, a sine, a sweep and a square burst,
-plus its own tests for the behaviour that matters.
+plus its own tests for the behavior that matters.
 
 User-designed pedals are a JSON graph of the same primitives; the
 format is in the [pedal format](/reference/pedal-format/) and the editor in
@@ -40,7 +40,7 @@ name, an octave, and cents against the reference, and lights a strip
 from 50 cents flat to 50 cents sharp.
 
 The detector is the McLeod pitch method (`crates/dsp/src/pitch.rs`): the
-normalised square difference function of a window scores every
+normalized square difference function of a window scores every
 candidate period by how well the signal matches itself one period
 later, and the first peak that comes within 93% of the highest is the
 period, which keeps a bass note from reading an octave up when its
@@ -61,7 +61,7 @@ multiplies, far too much for one audio callback, so it is spread: each
 block computes one lag per input frame, and the result is published
 when the last lag is done, about 10 ms after the window closed. Every
 block pays the same small amount. Silence (RMS under −80 dBFS) is not
-analysed and reads as no pitch.
+analyzed and reads as no pitch.
 
 ## Gate
 
@@ -195,7 +195,7 @@ on the next block. Most pedals ignore it.
 
 ## EQ
 
-`eq`. A four-band parametric equaliser, each band a biquad on both
+`eq`. A four-band parametric equalizer, each band a biquad on both
 channels with a **type** (Peak, Low shelf, High shelf, Low cut, High
 cut, Notch), **Freq** (20 Hz to 20 kHz; the fader moves in octaves),
 **Gain** (±18 dB, ignored by the cuts and the notch) and **Q**. The
@@ -265,7 +265,7 @@ trailing them, and `latency()` reports it for compensation. The tests
 check each voice's interval on sine input from 82 to 440 Hz stands
 more than 40 dB above anything else in the spectrum, that the dry
 signal arrives exactly `latency()` samples late, that a voice's energy
-is centred on the delayed dry note, and that a jump of interval from
+is centered on the delayed dry note, and that a jump of interval from
 an octave down to an octave up does not step.
 
 ## Delay
@@ -356,7 +356,7 @@ and finds it on another machine with the same file. Swapping the
 impulse is an undoable edit (`SetPedalSpec`), and the shell rebuilds
 only that pedal's node.
 
-The starter set is **synthesised**, not recorded (`irs/CREDITS.md`,
+The starter set is **synthesized**, not recorded (`irs/CREDITS.md`,
 `crates/engine/examples/make_irs.rs`): an impulse through a
 speaker-shaped filter, a few close reflections and a short dark tail,
 four designs (1×12 open back, 2×12 closed, 4×12 modern, 4×10 bass),

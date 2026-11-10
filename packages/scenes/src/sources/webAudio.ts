@@ -2,7 +2,7 @@ import { FrameAnalyzer } from '../analyzer';
 import { FFT_SIZE, type AudioFrame } from '../frame';
 import type { FrameSource } from '../Stage';
 
-/** How music-visualizer sets its analyser, which the scenes are tuned to. */
+/** How music-visualizer sets its analyzer, which the scenes are tuned to. */
 export function configureAnalyser(analyser: AnalyserNode): AnalyserNode {
   analyser.fftSize = FFT_SIZE;
   analyser.smoothingTimeConstant = 0.8;
@@ -11,7 +11,7 @@ export function configureAnalyser(analyser: AnalyserNode): AnalyserNode {
   return analyser;
 }
 
-/** A frame source that reads a Web Audio analyser, for an app with no engine. */
+/** A frame source that reads a Web Audio analyzer, for an app with no engine. */
 export class AnalyserFrames implements FrameSource {
   private readonly analyzer: FrameAnalyzer;
 

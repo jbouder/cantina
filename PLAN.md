@@ -142,7 +142,7 @@ without the app, and picked up by the app.
   `render` a pedal or a pattern offline through the real processors and
   report peak, RMS, DC and latency, `kinds` for the node catalog.
 - Patterns as standalone `*.pattern.json` files with import and export.
-- Kit recipes: synthesise a complete kit's samples and `kit.json` from JSON.
+- Kit recipes: synthesize a complete kit's samples and `kit.json` from JSON.
 - A Claude Code skill, `cantina-author`, with generated references, worked
   examples and the design rules the stock pedals follow; evals whose
   outputs must pass `cantina check`, run in CI.
@@ -166,7 +166,7 @@ page.
 
 - Spike: how to transcribe a recording into notes.
 - A versioned tab format inside the project.
-- Transcribe a clip, off the audio thread, and quantise to the tempo map.
+- Transcribe a clip, off the audio thread, and quantize to the tempo map.
 - Fit notes to strings and frets.
 - A tab viewer, an editor, a player with practice speed, and exports.
 - A guide to tabs.

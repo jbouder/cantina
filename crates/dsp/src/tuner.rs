@@ -21,7 +21,7 @@ const ANALYSIS_RATE: f64 = 12_000.0;
 /// Decimated samples between analyses: about 21 ms at 12 kHz, so the
 /// display updates around fifty times a second.
 const HOP: usize = 256;
-/// A window quieter than this is not analysed.
+/// A window quieter than this is not analyzed.
 const SILENCE_RMS: f32 = 1e-4;
 /// Butterworth pair for the fourth-order anti-aliasing lowpass.
 const AA_Q: [f32; 2] = [0.5412, 1.3066];
@@ -107,7 +107,7 @@ impl Tuner {
     }
 
     /// Advances the analysis in progress by up to `lags` lags.
-    fn analyse(&mut self, lags: usize) {
+    fn analyze(&mut self, lags: usize) {
         if self.cursor >= MAX_LAG {
             return;
         }
@@ -206,7 +206,7 @@ impl Processor for Tuner {
                 }
             }
         }
-        self.analyse(frames);
+        self.analyze(frames);
     }
 
     fn readout(&self) -> Option<Readout> {

@@ -1,7 +1,7 @@
 //! Authoring in the app: the cantina-author skill's loop without a coding
 //! agent. The model writes a pedal, a drum pattern or a kit recipe; this
 //! checks it with the same code as `cantina-cli check`, renders it with
-//! `cantina-cli render` (or synthesises the kit with `synth-kit`), and
+//! `cantina-cli render` (or synthesizes the kit with `synth-kit`), and
 //! only then saves it to the library folder the app watches.
 //!
 //! A file that fails is never saved: the problems go back to the model,

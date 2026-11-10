@@ -33,7 +33,7 @@ export function waveRms(wave: Uint8Array): number {
 }
 
 /**
- * Turns raw analyser buffers into AudioFrames. The frame object and its arrays
+ * Turns raw analyzer buffers into AudioFrames. The frame object and its arrays
  * are reused every call, so renderers must read them synchronously.
  */
 export class FrameAnalyzer {

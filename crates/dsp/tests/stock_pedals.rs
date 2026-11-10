@@ -1,5 +1,5 @@
 //! The stock pedals that ship as pedal JSON (`pedals/`), checked for
-//! the behaviour that matters: these are the tests their native
+//! the behavior that matters: these are the tests their native
 //! implementations had, run against the definitions through the
 //! interpreter.
 
@@ -413,10 +413,10 @@ fn chorus_spreads_a_tone_and_the_channels_differ() {
     let mut chorus = stock("chorus").unwrap();
     chorus.set_param(MOD_RATE, 2.0);
     let out = Renderer::default().render(chorus.as_mut(), &[input.clone(), input.clone()]);
-    let centre = goertzel_db(&out[0], 440.0);
+    let center = goertzel_db(&out[0], 440.0);
     let side = goertzel_db(&out[0], 446.0);
     let side_in = goertzel_db(&input, 446.0);
-    assert!(side - centre > side_in - goertzel_db(&input, 440.0) + 10.0);
+    assert!(side - center > side_in - goertzel_db(&input, 440.0) + 10.0);
     let diff: f32 = out[0].iter().zip(&out[1]).map(|(a, b)| (a - b).abs()).sum();
     assert!(diff > 100.0, "channels are the same: {diff}");
 }

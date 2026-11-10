@@ -37,7 +37,7 @@ Cantina is a Rust audio engine under a React UI, joined by a Tauri 2 shell. Each
 | Platform | macOS only | CoreAudio gives a round trip of about 5 ms with a class-compliant interface, aggregate devices for free, and one signed DMG to ship. |
 | Engine language | Rust | Real-time audio needs no garbage collector, no allocation on the audio thread, and a good lock-free ecosystem. |
 | UI | React and TypeScript in Tauri 2 | The visualizer scenes already run in a web view, and Tauri channels carry the binary frames the stage needs. |
-| Plugins | Audio Units, then CLAP; no VST3 | AU covers nearly every commercial Mac plugin. CLAP is MIT licensed with a Rust host library. VST3's licence would force the project's. |
+| Plugins | Audio Units, then CLAP; no VST3 | AU covers nearly every commercial Mac plugin. CLAP is MIT licensed with a Rust host library. VST3's license would force the project's. |
 | User-made pedals | A node graph over DSP primitives, saved as JSON | Real-time safe by construction, shareable, no compiler. |
 | Plugin process model | In process, on the audio thread | What nearly every DAW does. Scanning runs in a child process so a crashing plugin cannot take the app down. |
 | Transcription | Basic Pitch on the device, through tract | Finds chords as well as single notes, runs at about 57× real time, and the recording never leaves the machine. See [transcription](/architecture/transcription/). |

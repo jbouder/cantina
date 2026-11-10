@@ -89,7 +89,7 @@ it belongs. `cantina-cli render` gives you the numbers to check each rule.
   fine for a clap or a cowbell.
 - Hats and percussion a few dB under the kick and snare (`gainDb` -6 to
   -9), panned a little (`pan` ±0.2 to 0.3) as from a drummer's seat.
-- `synth-kit` normalises every sample, so balance the kit with `gainDb`,
+- `synth-kit` normalizes every sample, so balance the kit with `gainDb`,
   not with `decay` or `noise`.
 
 ## Patterns

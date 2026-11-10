@@ -11,10 +11,11 @@ sidebar:
 
 `window_state.rs` remembers the main window between launches in
 `window.json`, beside `settings.json`. With no file, which is a first
-launch, the window opens full screen. After that it comes back as it was
-left: full screen, zoomed, or at its last size and place. The size and
-place are tracked only while the window is a plain window, so leaving full
-screen returns to them. A saved size below the minimum is dropped, and so
+launch, the window opens zoomed to fill the screen, with the title bar
+kept. After that it comes back as it was left: zoomed, or at its last size
+and place. It never opens full screen: a window left full screen comes
+back zoomed. The size and place are tracked only while the window is a
+plain window, so unzooming returns to them. A saved size below the minimum is dropped, and so
 is a place that is on no screen now, as when a second display was
 unplugged. The state is written when the window loses focus and when it
 closes.

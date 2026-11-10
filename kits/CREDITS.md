@@ -69,7 +69,7 @@ and choke groups) are Cantina's own, under its MIT license.
 
 ## Metal (`kits/metal`)
 
-No third-party audio: every sample is synthesised by Cantina from
+No third-party audio: every sample is synthesized by Cantina from
 [`recipes/metal.recipe.json`](../recipes/metal.recipe.json) with
 `cantina-cli synth-kit recipes/metal.recipe.json kits/metal`, and is under
 Cantina's MIT license. Regenerate the folder that way after changing the

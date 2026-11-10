@@ -279,7 +279,7 @@ pub(crate) mod tests {
     use hound::{WavSpec, WavWriter};
 
     /// Writes a file where frame `i` of channel `c` holds `(i + c) / 65536`,
-    /// so any region is recognisable.
+    /// so any region is recognizable.
     pub(crate) fn ramp_file(
         dir: &Path,
         name: &str,

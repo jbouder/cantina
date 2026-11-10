@@ -42,7 +42,7 @@ export class PixelBuffer {
     }
   }
 
-  /** Light blur: each pixel averaged with the mean of its four neighbours. */
+  /** Light blur: each pixel averaged with the mean of its four neighbors. */
   blur(): void {
     const { w, h, px, back } = this;
     const avg = (a: number, b: number) => ((a & 0xfefefe) >>> 1) + ((b & 0xfefefe) >>> 1);

@@ -53,7 +53,7 @@ pub enum Format {
     Project,
     /// A rig, `<name>.rig.json`: a chain of pedals with their settings.
     Rig,
-    /// A jam, `<name>.jam.json`: drums, a backing and a rig to practise with.
+    /// A jam, `<name>.jam.json`: drums, a backing and a rig to practice with.
     Jam,
 }
 

@@ -34,9 +34,10 @@ later opens go straight through. (Or, in Terminal:
 Cantina looks for a new release each time it opens and offers to install
 it; see **Settings → Updates**.
 
-The first time, Cantina opens full screen. Leave full screen with ⌃⌘F or
-the green button and it remembers: the next launch brings the window back
-at the size and place you left it.
+The first time, Cantina opens zoomed to fill the screen, with its title
+bar showing. Resize it and it remembers: the next launch brings the window
+back at the size and place you left it. It never opens full screen, even
+if you quit in full screen.
 
 ### Build from source
 

@@ -64,7 +64,7 @@ frame, and only when some page will take the frame:
 - **Spectrum**: `S` = 128 bins, log-spaced from 20 Hz to 20 kHz (or
   Nyquist), from a Hann-windowed FFT. Each bin is its band's loudest
   FFT bin as a sine's amplitude, so a full-scale tone reads 1; a band
-  narrower than an FFT bin, low down, interpolates at its centre.
+  narrower than an FFT bin, low down, interpolates at its center.
   `spectrumBinHz` in `frame.ts` gives a bin's lower edge.
 - **Waveform**: `W` = 2048 samples, the analysis window itself, oldest
   first.

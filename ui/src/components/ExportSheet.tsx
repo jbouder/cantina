@@ -94,7 +94,7 @@ export function ExportSheet({ projectName, sampleRate, onClose }: Props) {
       );
     } catch (e) {
       const message = String(e);
-      if (!message.includes("cancelled")) setError(message);
+      if (!message.includes("canceled")) setError(message);
     } finally {
       setRunning(false);
     }

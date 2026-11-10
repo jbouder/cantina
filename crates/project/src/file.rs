@@ -226,7 +226,7 @@ fn migrate(from: u32, mut value: Value) -> Value {
     match from {
         // Version 0 never existed; a file claiming it is read as version 1.
         0 => value,
-        // 1 -> 2: the mixer. Every track gets a strip at unity, centred,
+        // 1 -> 2: the mixer. Every track gets a strip at unity, centered,
         // not muted or soloed, and the project a master strip the same.
         1 => {
             let unity = serde_json::json!({

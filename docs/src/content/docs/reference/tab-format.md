@@ -94,7 +94,7 @@ the audio rather than the timeline, so it stays on its notes when the clip
 is moved, trimmed or split, and notes the clip has trimmed away are kept
 but not played. A tab from a transcription also keeps **`heard`**: the
 notes as transcription heard them, in seconds from tick 0, which is what
-re-quantising builds from. A tab file never has an `origin`, and one
+re-quantizing builds from. A tab file never has an `origin`, and one
 written by hand needs no `heard`.
 
 ## Checking a file

@@ -1,6 +1,6 @@
 //! The project as data: what `project.json` holds.
 //!
-//! Everything here is plain `serde` data with no behaviour beyond lookups
+//! Everything here is plain `serde` data with no behavior beyond lookups
 //! and validation. Edits go through [`Command`](crate::Command) so that
 //! every change has an inverse, which is what undo, the journal and crash
 //! recovery are built on.

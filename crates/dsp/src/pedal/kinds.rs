@@ -215,7 +215,7 @@ static BIQUAD_FIELDS: [FieldInfo; 5] = [
         20.0,
         20_000.0,
         1000.0,
-        "Corner or centre frequency",
+        "Corner or center frequency",
     ))),
     smoothed(number(
         "gain",
@@ -374,7 +374,7 @@ static ALLPASS_FIELDS: [FieldInfo; 5] = [
         20.0,
         20_000.0,
         1000.0,
-        "Where the phase shift is centred",
+        "Where the phase shift is centered",
     ))),
     smoothed(number(
         "feedback",

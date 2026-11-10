@@ -5,7 +5,7 @@ sidebar:
   order: 6
 ---
 
-Third-party plugins are Audio Units and CLAP plugins. VST3 is not supported: its licence would force the project's. Both formats end up as a [`Processor`](/architecture/processor/) in a chain, so the chain, the mixer and the project file never know they are holding a plugin. The code is `crates/hosting`; the API is [`cantina_hosting`](/api/cantina_hosting/).
+Third-party plugins are Audio Units and CLAP plugins. VST3 is not supported: its license would force the project's. Both formats end up as a [`Processor`](/architecture/processor/) in a chain, so the chain, the mixer and the project file never know they are holding a plugin. The code is `crates/hosting`; the API is [`cantina_hosting`](/api/cantina_hosting/).
 
 Each plugin also returns a [handle](/architecture/processor/#the-handle), its UI-thread side, which the shell uses for state, latency, changes the plugin makes on its own and editor windows. Nothing on a handle is called from the audio thread. For an Audio Unit the two halves share one `AudioComponentInstance` behind an `Arc` (property and parameter calls on an AUv2 instance are safe from another thread while it renders, which is how every host works), and the instance is disposed when both halves are gone. The processor's own `state()` and `set_state()` serve a processor that is not in a graph yet, which is how a project loads: the state goes in before the node is added.
 

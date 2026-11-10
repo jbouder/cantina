@@ -21,12 +21,12 @@ function settle(source: EngineFrames, spectrum: Float32Array, waveform = new Flo
 }
 
 describe('engine frames', () => {
-  it('puts a tone in the linear bins around its frequency, at analyser height', () => {
+  it('puts a tone in the linear bins around its frequency, at analyzer height', () => {
     const frame = settle(new EngineFrames(), tone(1000, 1));
     // Bin k is k * 48000 / 2048 Hz, so 1 kHz is bin 43.
     const peak = frame.freq.indexOf(Math.max(...frame.freq));
     expect(Math.abs(peak - 43)).toBeLessThanOrEqual(3);
-    // A full-scale tone sits near the top of the analyser's range, not clipped flat.
+    // A full-scale tone sits near the top of the analyzer's range, not clipped flat.
     expect(frame.freq[peak]).toBeGreaterThan(200);
     expect(frame.freq[400]).toBe(0);
     expect(frame.mid).toBeGreaterThan(frame.treble);

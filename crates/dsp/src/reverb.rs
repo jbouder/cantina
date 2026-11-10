@@ -47,7 +47,7 @@ const SMOOTHING_SECONDS: f32 = 0.05;
 /// smoother on the read position is enough since it is rarely moved.
 const MAX_PREDELAY_MS: f32 = 200.0;
 
-/// A Schroeder allpass: dense, colourless smearing.
+/// A Schroeder allpass: dense, colorless smearing.
 #[derive(Debug, Clone)]
 struct Diffuser {
     line: DelayLine,
@@ -324,7 +324,7 @@ mod tests {
     fn the_tail_has_no_periodic_structure() {
         // A metallic ring is a repeating pattern in the tail: a comb
         // whose period you hear as a pitch. The impulse response's
-        // tail, normalised, must not correlate with itself at any lag
+        // tail, normalized, must not correlate with itself at any lag
         // from 1 ms to 100 ms.
         let mut r = wet(3.0);
         let mut input = vec![0.0; 72_000];

@@ -98,7 +98,7 @@ be picked until it is fixed. See [library folders](/guides/drums/#library-folder
 
 Drum kits are a special case: an agent cannot record a snare. It writes a
 [kit recipe](/reference/kit-format/#kit-recipes) instead, a few numbers per
-pad, and `cantina-cli synth-kit` synthesises the samples and the
+pad, and `cantina-cli synth-kit` synthesizes the samples and the
 `kit.json` straight into the kits folder. You can swap in real samples
 later.
 

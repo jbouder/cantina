@@ -3,7 +3,7 @@
 //! project's.
 //!
 //! Each output sample is the input convolved with a Kaiser-windowed sinc
-//! centred on the output's position in the input. The sinc's cutoff sits
+//! centered on the output's position in the input. The sinc's cutoff sits
 //! just below the lower of the two Nyquist frequencies, so going down
 //! nothing above the new Nyquist folds back, and going up no images of
 //! the old spectrum appear. The kernel is tabulated once per conversion
@@ -11,7 +11,7 @@
 //!
 //! Allocates; not for the audio thread.
 
-/// Zero crossings of the sinc on each side of the centre, at the cutoff.
+/// Zero crossings of the sinc on each side of the center, at the cutoff.
 /// More is a steeper transition band and a longer kernel.
 const ZEROS: usize = 32;
 /// Table points per input sample.
@@ -41,9 +41,9 @@ pub fn resample(input: &[f32], from: f64, to: f64) -> Vec<f32> {
     let mut out = Vec::with_capacity(out_len);
     for n in 0..out_len {
         let t = n as f64 * step;
-        let centre = t.floor() as isize;
-        let first = (centre - half as isize + 1).max(0);
-        let last = (centre + half as isize).min(input.len() as isize - 1);
+        let center = t.floor() as isize;
+        let first = (center - half as isize + 1).max(0);
+        let last = (center + half as isize).min(input.len() as isize - 1);
         let mut acc = 0.0f64;
         let mut k = first;
         while k <= last {
@@ -57,7 +57,7 @@ pub fn resample(input: &[f32], from: f64, to: f64) -> Vec<f32> {
 
 /// The windowed sinc, tabulated over one side.
 struct Kernel {
-    /// Input samples from the centre to the last non-zero tap.
+    /// Input samples from the center to the last non-zero tap.
     half_width: usize,
     table: Vec<f64>,
 }
@@ -81,7 +81,7 @@ impl Kernel {
         Self { half_width, table }
     }
 
-    /// The kernel at `x` input samples from the centre.
+    /// The kernel at `x` input samples from the center.
     fn at(&self, x: f64) -> f64 {
         let pos = x.abs() * RESOLUTION as f64;
         let i = pos as usize;

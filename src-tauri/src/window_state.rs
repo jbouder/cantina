@@ -1,8 +1,9 @@
 //! The main window's size and state, remembered between launches.
 //!
-//! The first launch opens full screen. After that the window comes back
-//! the way it was left: full screen, zoomed, or at its last size and
-//! place. The state lives in `window.json` beside the settings. A missing
+//! The app never opens full screen. The first launch opens zoomed to fill
+//! the screen, with the title bar kept. After that the window comes back
+//! the way it was left: zoomed, or at its last size and place. A window
+//! left full screen comes back zoomed. The state lives in `window.json` beside the settings. A missing
 //! or unreadable file counts as a first launch.
 
 use std::fs;
@@ -38,12 +39,12 @@ pub struct WindowState {
 }
 
 impl Default for WindowState {
-    /// A first launch: full screen, and the size from `tauri.conf.json`
-    /// for when the user leaves it.
+    /// A first launch: zoomed, and the size from `tauri.conf.json` for
+    /// when the user unzooms it.
     fn default() -> Self {
         Self {
-            fullscreen: true,
-            maximized: false,
+            fullscreen: false,
+            maximized: true,
             width: 0,
             height: 0,
             x: None,
@@ -68,8 +69,9 @@ pub struct Restore {
     pub size: Option<(u32, u32)>,
     /// Where to put it, or `None` to leave it where the system does.
     pub position: Option<(i32, i32)>,
+    /// Zoomed to fill the screen. A window left full screen is zoomed
+    /// too: the app never opens full screen.
     pub maximized: bool,
-    pub fullscreen: bool,
 }
 
 impl WindowState {
@@ -104,8 +106,7 @@ impl WindowState {
         Restore {
             size,
             position,
-            maximized: self.maximized,
-            fullscreen: self.fullscreen,
+            maximized: self.maximized || self.fullscreen,
         }
     }
 }
@@ -188,9 +189,6 @@ fn apply(window: &WebviewWindow, state: &WindowState) {
     if plan.maximized {
         let _ = window.maximize();
     }
-    if plan.fullscreen {
-        let _ = window.set_fullscreen(true);
-    }
 }
 
 /// Keeps the tracked state current as the main window changes, and saves
@@ -247,14 +245,13 @@ mod tests {
     const MIN: (u32, u32) = (1600, 1040);
 
     #[test]
-    fn a_first_launch_is_full_screen_at_the_configured_size() {
+    fn a_first_launch_is_zoomed_at_the_configured_size() {
         let dir = std::env::temp_dir().join(format!("cantina-window-{}", std::process::id()));
         let path = dir.join("window.json");
         let _ = fs::remove_file(&path);
         assert_eq!(WindowState::load(&path), None, "no file yet");
         let plan = WindowState::default().restore(&[LAPTOP], MIN);
-        assert!(plan.fullscreen);
-        assert!(!plan.maximized);
+        assert!(plan.maximized);
         assert_eq!(plan.size, None, "keeps the size in tauri.conf.json");
         assert_eq!(plan.position, None);
     }
@@ -275,10 +272,20 @@ mod tests {
         let loaded = WindowState::load(&path).unwrap();
         assert_eq!(loaded, state);
         let plan = loaded.restore(&[LAPTOP], MIN);
-        assert!(!plan.fullscreen, "leaving full screen is remembered");
+        assert!(!plan.maximized, "leaving zoom is remembered");
         assert_eq!(plan.size, Some((2400, 1500)));
         assert_eq!(plan.position, Some((200, 120)));
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_window_left_full_screen_comes_back_zoomed() {
+        let state = WindowState {
+            fullscreen: true,
+            maximized: false,
+            ..WindowState::default()
+        };
+        assert!(state.restore(&[LAPTOP], MIN).maximized);
     }
 
     #[test]

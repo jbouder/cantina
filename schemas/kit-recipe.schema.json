@@ -72,7 +72,7 @@
           ]
         },
         "tone": {
-          "description": "Brightness from 0 (dark) to 1 (bright): the click on a kick, the noise's colour on a snare, the cut-off of a hat.",
+          "description": "Brightness from 0 (dark) to 1 (bright): the click on a kick, the noise's color on a snare, the cut-off of a hat.",
           "format": "float",
           "maximum": 1.0,
           "minimum": 0.0,
@@ -83,7 +83,7 @@
         },
         "voice": {
           "$ref": "#/$defs/Voice",
-          "description": "What it is synthesised as."
+          "description": "What it is synthesized as."
         }
       },
       "required": [
@@ -93,7 +93,7 @@
       "type": "object"
     },
     "Voice": {
-      "description": "What a pad is synthesised as.",
+      "description": "What a pad is synthesized as.",
       "oneOf": [
         {
           "const": "kick",

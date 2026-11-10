@@ -1,5 +1,5 @@
 //! Kit recipes: a whole drum kit described by a few numbers per pad and
-//! synthesised into samples, for when there is nothing to record.
+//! synthesized into samples, for when there is nothing to record.
 //!
 //! A recipe names each pad's voice (`kick`, `snare`, `hat`, `clap`, `tom`
 //! or `cowbell`) and shapes it with `pitch`, `decay`, `tone` and `noise`.
@@ -34,7 +34,7 @@ use crate::kit::{Kit, Layer, Pad, MAX_LAYERS, MAX_PADS};
 /// The recipe format version this crate reads.
 pub const RECIPE_VERSION: u32 = 1;
 
-/// The rate recipes are synthesised at.
+/// The rate recipes are synthesized at.
 pub const RECIPE_SAMPLE_RATE: f32 = 48_000.0;
 
 /// The longest decay a pad may ask for, in seconds.
@@ -59,7 +59,7 @@ pub struct KitRecipe {
     pub pads: Vec<PadRecipe>,
 }
 
-/// What a pad is synthesised as.
+/// What a pad is synthesized as.
 #[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -105,7 +105,7 @@ pub struct PadRecipe {
     /// Display name; the id when missing.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub name: String,
-    /// What it is synthesised as.
+    /// What it is synthesized as.
     pub voice: Voice,
     /// The fundamental, in Hz: where a kick or tom settles, a snare's
     /// body, a hat's lowest partial, a clap's band, a cowbell's lower tone.
@@ -115,7 +115,7 @@ pub struct PadRecipe {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub decay: Option<f32>,
     /// Brightness from 0 (dark) to 1 (bright): the click on a kick, the
-    /// noise's colour on a snare, the cut-off of a hat.
+    /// noise's color on a snare, the cut-off of a hat.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tone: Option<f32>,
     /// How much noise is blended with the pitched part, 0 to 1.
@@ -151,7 +151,7 @@ fn is_zero(x: &f32) -> bool {
 /// Most velocity layers a recipe pad may ask for.
 pub const MAX_RECIPE_LAYERS: u8 = 4;
 
-/// A synthesised sample: the file name it goes in, and mono samples at
+/// A synthesized sample: the file name it goes in, and mono samples at
 /// [`RECIPE_SAMPLE_RATE`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct SynthSample {
@@ -235,7 +235,7 @@ impl KitRecipe {
     }
 }
 
-/// Synthesises every pad's layers and the kit that maps them. The kit's
+/// Synthesizes every pad's layers and the kit that maps them. The kit's
 /// layer files are the samples' names.
 pub fn synthesize(recipe: &KitRecipe) -> (Kit, Vec<SynthSample>) {
     let mut samples = Vec::new();
@@ -461,7 +461,7 @@ fn render(voice: Voice, s: &Settings, seed: u32) -> Vec<f32> {
 }
 
 /// Blocks any offset, fades in over half a millisecond and out over the
-/// last five, and normalises the peak: the full hit to -1 dBFS, softer
+/// last five, and normalizes the peak: the full hit to -1 dBFS, softer
 /// layers a little below so the change of layer is not a jump.
 fn finish(out: &mut [f32], force: f32) {
     let mut dc = Biquad::identity();

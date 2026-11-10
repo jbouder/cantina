@@ -715,7 +715,7 @@ export function Timeline({
 
   // Cut, Copy and Paste are the system's own, so text fields keep them.
   // With the timeline focused they act on clips: the web view raises the
-  // clipboard events, and cancelling `before…` is how WebKit enables the
+  // clipboard events, and canceling `before…` is how WebKit enables the
   // menu item. The copied clip stays in the timeline, not the system
   // clipboard, and pastes onto the selected track at the playhead.
   const clipboard = useRef<CopiedClip | null>(null);

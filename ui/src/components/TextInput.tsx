@@ -6,7 +6,7 @@ type Props = InputHTMLAttributes<HTMLInputElement> & {
   hint?: string;
 };
 
-/** A labelled text field, as a form row. */
+/** A labeled text field, as a form row. */
 export function TextInput({ label, hint, id, className = "", ...rest }: Props) {
   return (
     <Field label={label} hint={hint} htmlFor={id}>

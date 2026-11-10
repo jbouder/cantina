@@ -29,7 +29,7 @@ library, off the audio thread.
   three seconds. Its outputs match ONNX Runtime's to within 1.5 × 10⁻⁶,
   so the notes are the same ones the reference implementation finds. It
   is MIT/Apache licensed and pure Rust, so there is no native library to
-  bundle, sign or notarise.
+  bundle, sign or notarize.
 - **Cantina's own cleanup** follows the model, because each error
   pattern below has a cause a tab can correct:
   1. Basic Pitch's note creation (thresholding onsets and frames into
@@ -61,12 +61,12 @@ when asked. A stopped transcription changes nothing. A finished one is one
 `SetClipTab` command, so it is undone like any edit.
 
 Later edits to the notes, from the tab editor, re-fitting or
-re-quantising, are `EditTabNotes` commands: the indices of the notes
+re-quantizing, are `EditTabNotes` commands: the indices of the notes
 taken away and the notes added. The notes are kept in order of start,
 the lowest-pitched string first, so the inverse names the added notes
 where they landed. Only notes travel, never what was heard, so an edit
 stays small in the journal. `tabs::refit` runs `fretboard::refit` over
-the selection; `tabs::requantise` rebuilds only the heard notes of the
+the selection; `tabs::requantize` rebuilds only the heard notes of the
 selected pitches that started within a beat of a selected note.
 
 ## From notes to a tab
@@ -79,13 +79,13 @@ selected pitches that started within a beat of a selected note.
    is used, and failing that the clip's first frame.
 2. **Keep what was heard.** Every note goes into the tab's `heard` list,
    in seconds from tick 0.
-3. **Clean, quantise, fit.** The heard notes are cleaned for the tuning,
+3. **Clean, quantize, fit.** The heard notes are cleaned for the tuning,
    snapped to the chosen grid (eighths, sixteenths or their triplets) at
    the project's tempo, given strings and frets, and given the
    techniques the timing shows. Where two notes on one string overlap
    after snapping, the first ends where the second starts.
 
-Re-quantising runs step 3 again on the same `heard` notes, so changing
+Re-quantizing runs step 3 again on the same `heard` notes, so changing
 the grid is instant and never transcribes twice.
 
 On the reference takes, through the whole pipeline at sixteenths (an
@@ -102,7 +102,7 @@ ignored test, `cargo test --release -p cantina reference_takes --
 | `single-notes` | 0.82 | 0.88 | 0.88 |
 | mean | 0.68 | 0.75 | 0.75 |
 
-Cleaning is worth seven points. Quantising costs nothing except on
+Cleaning is worth seven points. Quantizing costs nothing except on
 strummed chords, where the later strings of a strum snap onto the beat
 more than 50 ms before they sound. That is the tab a player wants, but it
 counts as a miss here.
@@ -172,7 +172,7 @@ with [mir_eval](https://craffel.github.io/mir_eval/): a note counts when
 its onset is within 50 ms and its pitch within 50 cents. "With offsets"
 also needs the end within 20% of the note's length.
 
-The strings are synthesised, and synthesised strings are cleaner than a
+The strings are synthesized, and synthesized strings are cleaner than a
 real guitar: no fret buzz, no string noise, no room, and the same pluck
 every time. Treat these numbers as an upper bound. The takes are there so
 that a later change can be compared with this one, not to promise
@@ -183,7 +183,7 @@ accuracy on a real recording.
 Measured on an Apple M1 Pro. Speed is audio duration divided by
 wall-clock time.
 
-| Approach | Mean F1 | F1 with offsets | Onset error | Speed | Size | Licence |
+| Approach | Mean F1 | F1 with offsets | Onset error | Speed | Size | License |
 | --- | ---: | ---: | ---: | ---: | --- | --- |
 | Basic Pitch, default settings | 0.69 | 0.50 | 10 ms | 130× ¹ | 228 KB | Apache-2.0 |
 | Basic Pitch, range set per instrument | 0.70 | 0.46 | 10 ms | 130× ¹ | 228 KB | Apache-2.0 |
@@ -255,7 +255,7 @@ patterns:
   Bend merging, using the contour, turns these back into one bent note.
 - **Offsets.** Ends are much less reliable than starts (0.50 against
   0.69), because a note that rings into the next one has no clear end.
-  A tab cares about onsets far more than ends, and quantising to the
+  A tab cares about onsets far more than ends, and quantizing to the
   tempo map snaps durations anyway.
 
 Things the takes do not cover, and that will be worse on a real guitar:

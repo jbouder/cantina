@@ -41,8 +41,8 @@ decisions and the milestones; the architecture lives on the docs site, in
   project and applies every edit through `Engine::apply`; `commands.rs` is
   the Tauri commands; `library.rs` the watched folders under
   `~/Music/Cantina`; `frame.rs` the binary analysis channel;
-  `window_state.rs` the main window's remembered size and state (full
-  screen on a first launch).
+  `window_state.rs` the main window's remembered size and state (zoomed
+  to fill the screen on a first launch).
 - `ui/` — React 19 + TypeScript + Tailwind v4. `ui/src/lib/engine.ts` is
   the client for the shell's commands and the stand-in engine `npm run dev`
   runs against. `ui/src/lib/pedal-kinds.json` is the node catalog the
@@ -58,7 +58,7 @@ decisions and the milestones; the architecture lives on the docs site, in
 - `pedals/`, `kits/`, `irs/`, `recipes/`, `rigs/`, `jams/` — stock pedals
   (JSON), drum kits, cabinet impulse responses, kit recipes, rigs (chains
   of stock pedals for a style, `*.rig.json`), jams (a stock groove, a
-  backing progression, a tempo, a key and rigs to practise with,
+  backing progression, a tempo, a key and rigs to practice with,
   `*.jam.json`). `takes/` holds the
   hand-written ground truth for the transcription reference takes. Third-party audio is credited in
   each folder's `CREDITS.md`.
@@ -72,7 +72,7 @@ decisions and the milestones; the architecture lives on the docs site, in
   the site and the README embed, retaken by `scripts/docs-screenshots.sh`.
   `docs/screenshots/` holds the PR screenshots `scripts/screenshot.sh`
   captures.
-- `scripts/` — colour, scale and contrast checks, the scene harness, the
+- `scripts/` — color, scale and contrast checks, the scene harness, the
   two screenshot scripts, the skill's reference generator and fixture
   runner.
 
@@ -102,7 +102,7 @@ decisions and the milestones; the architecture lives on the docs site, in
   editors and parameter info go through the plugin's handle on the UI
   thread.
 - **Every project edit is a `Command`** with an inverse, applied through
-  `Engine::apply`, so it is undoable, journalled and reconciled into the
+  `Engine::apply`, so it is undoable, journaled and reconciled into the
   live graph. Never change the project or the graph around it. Adding a
   shell command: the `Engine` method, a `#[tauri::command]` wrapper in
   `commands.rs` registered in `lib.rs`, and the client in
@@ -119,10 +119,10 @@ decisions and the milestones; the architecture lives on the docs site, in
   is wrong.
 - **Every public Rust item has a doc comment** (`missing_docs` is
   enforced through `cargo doc` with `-D warnings`).
-- **Colours are skin tokens.** Components never carry a literal colour,
+- **Colors are skin tokens.** Components never carry a literal color,
   radius, shadow or typeface; they use a token through a Tailwind or
   material utility (`surface-window`, `button-standard`, `surface-lcd`).
-  `npm run lint` fails on a literal colour outside the skin files and on
+  `npm run lint` fails on a literal color outside the skin files and on
   any skin below the contrast ratios. Every skin must define every token.
 - **Type, spacing and buttons follow the scales.** Four type sizes
   (`text-label`, `text-body`, `text-readout`, `text-display`), spacing
@@ -160,7 +160,7 @@ npm run tauri dev        # the app, rebuilding as the code changes
 npm run dev              # the UI alone in a browser, against the stand-in engine
 npm run tauri build      # target/release/bundle/macos/Cantina.app
 
-npm run check            # Biome, colour, scale and contrast checks, TypeScript, Vitest
+npm run check            # Biome, color, scale and contrast checks, TypeScript, Vitest
 npm run test:scenes      # draws every scene in headless Chrome
 npm run format           # biome check --write
 

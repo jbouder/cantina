@@ -78,7 +78,7 @@ fn stock_kits_load_fast_with_the_shared_pads() {
                     entry.id,
                     pad.id
                 );
-                // Recorded kits are at 44.1 kHz; synthesised ones at the
+                // Recorded kits are at 44.1 kHz; synthesized ones at the
                 // recipe rate, 48 kHz.
                 assert!(
                     [44_100.0, 48_000.0].contains(&layer.sample.sample_rate),

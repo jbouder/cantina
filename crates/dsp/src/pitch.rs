@@ -1,7 +1,7 @@
 //! Pitch detection for the tuner: the McLeod pitch method over a short
 //! window, with the period refined over several cycles.
 //!
-//! The normalised square difference function (NSDF) of a window scores
+//! The normalized square difference function (NSDF) of a window scores
 //! every candidate period by how well the signal matches itself one
 //! period later, from -1 to 1. Its peaks at multiples of the period are
 //! the same height for a periodic signal, so the first peak that comes
@@ -79,7 +79,7 @@ fn parabola(y0: f32, y1: f32, y2: f32) -> (f32, f32) {
     (offset, y1 - 0.25 * (y0 - y2) * offset)
 }
 
-/// The interpolated peak around index `i`, which must have a neighbour
+/// The interpolated peak around index `i`, which must have a neighbor
 /// on each side.
 fn peak_at(nsdf: &[f32], i: usize) -> (f32, f32) {
     let (offset, value) = parabola(nsdf[i - 1], nsdf[i], nsdf[i + 1]);

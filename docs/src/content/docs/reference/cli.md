@@ -98,7 +98,7 @@ cantina-cli render pedal <file> [--di | --tone <hz> | --input <wav>]
 ```
 
 Runs the pedal in 64-frame blocks with the transport rolling at `--bpm`,
-over the guitar DI fixture (the default, four seconds of a synthesised
+over the guitar DI fixture (the default, four seconds of a synthesized
 guitar at DI level), a sine at -12 dBFS, or a WAV at its own rate, plus a
 tail of silence. `--set` takes a parameter's id, label or index. It writes
 a 32-bit float WAV and prints:
@@ -131,7 +131,7 @@ cantina-cli render rig <file> [--di | --bass-di | --tone <hz> | --input <wav>]
 
 Runs a rig's chain, after its `inputGainDb`, over the DI of its
 instrument: the guitar DI for a guitar rig, the bass DI (four seconds of a
-synthesised bass line at DI level, `crates/cli/fixtures/di-bass.wav`) for a
+synthesized bass line at DI level, `crates/cli/fixtures/di-bass.wav`) for a
 bass rig, or whatever source is named. Bypassed pedals are skipped and
 pedals that are not installed are left out with a warning, as in the app.
 The numbers are the same as for a pedal; `latency` is the whole chain's.
@@ -156,7 +156,7 @@ with a warning naming them.
 cantina-cli synth-kit <recipe.recipe.json> <out dir>
 ```
 
-Synthesises a [kit recipe](/reference/kit-format/#kit-recipes) into a kit
+Synthesizes a [kit recipe](/reference/kit-format/#kit-recipes) into a kit
 folder: one 16-bit WAV per velocity layer and the `kit.json`, then checks
 the result. The same recipe always writes the same bytes.
 

@@ -326,13 +326,13 @@ impl Cancel {
     }
 
     /// True once stopped.
-    pub fn is_cancelled(&self) -> bool {
+    pub fn is_canceled(&self) -> bool {
         self.flag.load(Ordering::SeqCst)
     }
 
     /// Resolves when stopped.
-    pub async fn cancelled(&self) {
-        while !self.is_cancelled() {
+    pub async fn canceled(&self) {
+        while !self.is_canceled() {
             self.notify.notified().await;
         }
     }
@@ -370,7 +370,7 @@ pub async fn converse(
         };
         let step = tokio::select! {
             step = model.complete(&request, &specs, &mut on_text) => Some(step),
-            _ = cancel.cancelled() => None,
+            _ = cancel.canceled() => None,
         };
         let step = match step {
             None => {
@@ -401,15 +401,15 @@ pub async fn converse(
         for call in &step.calls {
             let item = run_call(tools, call, sink, cancel, ask).await;
             push(item);
-            if cancel.is_cancelled() {
+            if cancel.is_canceled() {
                 break;
             }
         }
-        if cancel.is_cancelled() {
+        if cancel.is_canceled() {
             break;
         }
     }
-    if !cancel.is_cancelled() && ended_on_a_call(&lock(thread).items) {
+    if !cancel.is_canceled() && ended_on_a_call(&lock(thread).items) {
         push(Item::Error {
             problem: Problem::new(
                 ProblemKind::Other,
@@ -458,7 +458,7 @@ async fn run_call(
                 let answer = ask(&call.id);
                 let yes = tokio::select! {
                     answer = answer => answer.unwrap_or(false),
-                    _ = cancel.cancelled() => false,
+                    _ = cancel.canceled() => false,
                 };
                 if yes {
                     tools.run(&call.name, &arguments)

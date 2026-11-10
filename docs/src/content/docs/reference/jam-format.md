@@ -3,7 +3,7 @@ title: "Jam format"
 description: "A jam is a *.jam.json: a stock groove or patterns of its own, a backing (a chord progression, an audio file or a project's track), a tempo, a key and the rig the input plays through."
 ---
 
-A jam is what plays along while you practise, as a file of its own:
+A jam is what plays along while you practice, as a file of its own:
 `<id>.jam.json`. The stock jams in `jams/` of the repository are jams, and
 so is anything an agent writes or a player saves with **Save…** in the
 Jam view. The [jam guide](/guides/jam/) is about playing them; this page

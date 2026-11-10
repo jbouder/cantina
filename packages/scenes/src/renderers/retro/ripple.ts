@@ -66,7 +66,7 @@ export class RippleScene extends RetroScene {
       if (y > 1 && y < H - 1) this.cur[y * W + x] += (v * 90) | 0;
     }
 
-    // Classic two-buffer water: new = (sum of neighbours) / 2 - previous, damped.
+    // Classic two-buffer water: new = (sum of neighbors) / 2 - previous, damped.
     const { cur, prev } = this;
     for (let y = 1; y < H - 1; y++) {
       for (let x = 1, i = y * W + 1; x < W - 1; x++, i++) {

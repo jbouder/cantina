@@ -29,7 +29,7 @@ pub const SPECTRUM_LOW_HZ: f32 = 20.0;
 pub const SPECTRUM_HIGH_HZ: f32 = 20_000.0;
 
 /// One log band: the FFT bins it spans, or, for a band narrower than a
-/// bin, the fractional bin at its centre to interpolate at.
+/// bin, the fractional bin at its center to interpolate at.
 #[derive(Debug, Clone, Copy)]
 enum Band {
     Bins(usize, usize),
@@ -37,7 +37,7 @@ enum Band {
 }
 
 /// Turns captured audio into a frame's analysis sections. Everything is
-/// allocated up front; [`Analyzer::analyse`] allocates nothing.
+/// allocated up front; [`Analyzer::analyze`] allocates nothing.
 pub struct Analyzer {
     fft: Fft,
     window: Vec<f32>,
@@ -91,13 +91,13 @@ impl Analyzer {
         }
     }
 
-    /// Analyses the most recent window the scope holds.
-    pub fn analyse(&mut self, scope: &ScopeHandle) {
+    /// Analyzes the most recent window the scope holds.
+    pub fn analyze(&mut self, scope: &ScopeHandle) {
         scope.latest(&mut self.samples);
         self.analyse_samples();
     }
 
-    /// Analyses what is in `samples` now.
+    /// Analyzes what is in `samples` now.
     fn analyse_samples(&mut self) {
         let mut sum = 0.0f64;
         for (bin, (&s, &w)) in self
@@ -178,7 +178,7 @@ mod tests {
 
     const RATE: f64 = 48_000.0;
 
-    fn analyse(samples: impl Fn(usize) -> f32) -> Analyzer {
+    fn analyze(samples: impl Fn(usize) -> f32) -> Analyzer {
         let mut a = Analyzer::new(RATE);
         for (i, s) in a.samples.iter_mut().enumerate() {
             *s = samples(i);
@@ -196,9 +196,9 @@ mod tests {
 
     #[test]
     fn a_sine_reads_its_amplitude_in_its_band() {
-        // On a bin centre, so no leakage softens the peak.
+        // On a bin center, so no leakage softens the peak.
         let hz = 43.0 * RATE as f32 / FFT_SIZE as f32;
-        let a = analyse(|i| 0.5 * (2.0 * PI * hz * i as f32 / RATE as f32).sin());
+        let a = analyze(|i| 0.5 * (2.0 * PI * hz * i as f32 / RATE as f32).sin());
         let band = band_of(hz);
         assert!(
             (a.spectrum[band] - 0.5).abs() < 0.01,
@@ -221,7 +221,7 @@ mod tests {
     #[test]
     fn low_bands_narrower_than_a_bin_interpolate() {
         // 30 Hz sits below the first FFT bin wide enough for its band.
-        let a = analyse(|i| (2.0 * PI * 30.0 * i as f32 / RATE as f32).sin());
+        let a = analyze(|i| (2.0 * PI * 30.0 * i as f32 / RATE as f32).sin());
         let band = band_of(30.0);
         assert!(a.spectrum[band] > 0.3, "{}", a.spectrum[band]);
         assert!(a.spectrum.iter().all(|v| v.is_finite()));
@@ -229,7 +229,7 @@ mod tests {
 
     #[test]
     fn silence_is_zero_everywhere() {
-        let mut a = analyse(|_| 0.0);
+        let mut a = analyze(|_| 0.0);
         assert!(a.spectrum.iter().all(|&v| v == 0.0));
         assert_eq!(a.rms, 0.0);
         a.clear();

@@ -38,7 +38,7 @@ A second-order filter: lowpass, highpass, peak, shelf or notch.
 | Field | Takes | Default | | What it does |
 | --- | --- | --- | --- | --- |
 | `type` | `lowpass`, `highpass`, `peak`, `lowshelf`, `highshelf`, `notch` | `lowpass` |  | The design: a cut, a bell, a shelf or a notch |
-| `freq` | 20 to 20000 Hz | 1000 | modulatable, smoothed | Corner or centre frequency |
+| `freq` | 20 to 20000 Hz | 1000 | modulatable, smoothed | Corner or center frequency |
 | `gain` | -24 to 24 dB | 0 | smoothed | Boost or cut for a peak or shelf; the cuts and the notch ignore it |
 | `q` | 0.1 to 10 | 0.707107 | smoothed | Width: 0.7071 is a flat Butterworth cut |
 | `smooth` | 0 to 1 s | 0 |  | Seconds a parameter change takes to settle; 0 applies it on the next block |
@@ -89,7 +89,7 @@ A cascade of allpass stages with feedback: flat in level, it shifts phase, and m
 | Field | Takes | Default | | What it does |
 | --- | --- | --- | --- | --- |
 | `stages` | 1 to 16 | 4 |  | First-order allpasses in a row; each pair makes a notch when mixed with the dry signal |
-| `freq` | 20 to 20000 Hz | 1000 | modulatable, smoothed | Where the phase shift is centred |
+| `freq` | 20 to 20000 Hz | 1000 | modulatable, smoothed | Where the phase shift is centered |
 | `feedback` | 0 to 0.95 | 0 | smoothed | The cascade's output fed back to its input, which deepens the notches |
 | `mix` | 0 to 1 | 1 | smoothed | Dry at 0, the shifted signal alone at 1; a phaser sits at 0.5 |
 | `smooth` | 0 to 1 s | 0.02 |  | Seconds a parameter change takes to settle; 0 applies it on the next block |

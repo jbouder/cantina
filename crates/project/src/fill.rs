@@ -124,7 +124,7 @@ pub fn generate_fill(groove: &Pattern, beats: u32, pads: &[&str], seed: u64) -> 
     };
     for k in 0..span {
         let step = from + k;
-        // Louder towards the bar line, a little uneven, like hands.
+        // Louder toward the bar line, a little uneven, like hands.
         let rise = 0.55 + 0.45 * (k as f32 + 1.0) / span as f32;
         let velocity = rise - 0.08 * rng.unit();
         match style {

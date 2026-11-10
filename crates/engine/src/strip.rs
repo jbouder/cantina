@@ -25,7 +25,7 @@ const SMOOTHING: f32 = 0.01;
 const MUTE_FADE: f32 = 0.004;
 
 /// Gain in decibels (parameter 0), pan from -1 left to 1 right (1) and
-/// mute (2, 0 or 1). Pan is equal power: a centred signal sits 3 dB down
+/// mute (2, 0 or 1). Pan is equal power: a centered signal sits 3 dB down
 /// on each side so it is as loud as when panned hard. On a one-channel
 /// buffer pan does nothing.
 pub struct Strip {
@@ -167,7 +167,7 @@ mod tests {
     }
 
     #[test]
-    fn centre_is_equal_power_and_hard_pan_is_one_sided() {
+    fn center_is_equal_power_and_hard_pan_is_one_sided() {
         let mut strip = Strip::default();
         strip.prepare(48_000.0, 64);
         let (l, r) = run(&mut strip, 1);

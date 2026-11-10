@@ -11,7 +11,7 @@
 //!
 //! Velocity maps to gain linearly: a hit at 0.5 is half the amplitude of
 //! one at 1.0. A pan is constant power, so a mono sample sits at −3 dB on
-//! each side when centred; a stereo sample plays at unity when centred.
+//! each side when centered; a stereo sample plays at unity when centered.
 
 use std::sync::Arc;
 
@@ -273,7 +273,7 @@ impl Sampler {
         let layer_index = pad.layer_for(trigger.velocity);
         let layer = &pad.layers[layer_index];
         let gain = trigger.velocity * pad.gain * layer.gain;
-        // Constant power: −3 dB a side at centre for mono.
+        // Constant power: −3 dB a side at center for mono.
         let mix = &self.mix[trigger.pad];
         let pan = if mix.pan == 0.0 {
             pad.pan
@@ -287,7 +287,7 @@ impl Sampler {
         let (mut gain_left, mut gain_right) =
             (exact(angle.cos()) * gain, exact(angle.sin()) * gain);
         if layer.sample.channels.len() == 2 {
-            // Unity at centre for stereo: the pan is a balance.
+            // Unity at center for stereo: the pan is a balance.
             gain_left *= std::f32::consts::SQRT_2;
             gain_right *= std::f32::consts::SQRT_2;
         }
@@ -647,17 +647,17 @@ mod tests {
         assert!(!s.trigger(9, 1.0, 0), "unknown pad");
         assert!(!s.trigger(0, 0.0, 0), "silent hit");
         let (l, r) = render(&mut s, 64);
-        let centre = std::f32::consts::FRAC_1_SQRT_2;
+        let center = std::f32::consts::FRAC_1_SQRT_2;
         assert!(l[..10].iter().all(|v| *v == 0.0));
-        assert!((l[10] - 1.0 * centre).abs() < 1e-6, "{}", l[10]);
-        assert!((l[11] - 0.5 * centre).abs() < 1e-6);
-        assert!((l[13] - 0.125 * centre).abs() < 1e-6);
+        assert!((l[10] - 1.0 * center).abs() < 1e-6, "{}", l[10]);
+        assert!((l[11] - 0.5 * center).abs() < 1e-6);
+        assert!((l[13] - 0.125 * center).abs() < 1e-6);
         assert_eq!(l[14], 0.0, "the hard sample is four frames long");
         assert!(
-            (l[20] - 0.25 * 0.4 * centre).abs() < 1e-6,
+            (l[20] - 0.25 * 0.4 * center).abs() < 1e-6,
             "soft layer at 0.4"
         );
-        assert_eq!(l, r, "centred");
+        assert_eq!(l, r, "centered");
         assert_eq!(s.active_voices(), 0);
     }
 
