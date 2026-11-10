@@ -84,7 +84,7 @@ Open **Settings** (the gear at the top right) and scroll to **Assistant**.
 
 ![The Assistant section of Settings, connected to a provider](../../../assets/guides/assistant-settings.png)
 
-1. Press **Assistant off** so it reads **Assistant on**.
+1. Turn on **Use the assistant**.
 2. Pick a **Provider**, or choose **Other** and type the **Endpoint URL**
    yourself. It is the API's base address, usually ending in `/v1`.
 3. Paste your **API key** and press **Save key**. A local model needs none.
@@ -273,6 +273,6 @@ every message, so each request is larger than a plain chat.
 
 ## Turn it off
 
-Press **Assistant on** again in Settings. Nothing is shown or sent from
+Turn **Use the assistant** off in Settings. Nothing is shown or sent from
 then on. Your endpoint and model are remembered for next time; remove the
 key too if you want it gone.

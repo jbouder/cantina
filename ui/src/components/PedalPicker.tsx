@@ -152,7 +152,7 @@ export function PedalPicker({
         <span className="lcd-text min-w-0 flex-1 truncate font-lcd text-readout">{k.name}</span>
         {k.designable ? (
           <span
-            className="lcd-text shrink-0 font-lcd text-readout text-lcd-dim"
+            className="lcd-text shrink-0 font-lcd text-readout text-lcd-muted"
             title="In the pedal format: the designer can open it"
           >
             json
@@ -201,7 +201,7 @@ export function PedalPicker({
                 {brokenShown.map((b) => (
                   <li key={b.path} className="px-2 py-0.5 font-lcd text-readout">
                     <span className="lcd-text text-lcd-error">{b.name}</span>
-                    <span className="lcd-text text-lcd-dim"> · will not load: {b.reason}</span>
+                    <span className="lcd-text text-lcd-muted"> · will not load: {b.reason}</span>
                   </li>
                 ))}
               </ul>
@@ -213,7 +213,7 @@ export function PedalPicker({
             <h3 id={`${id}-plugins`} className="caption m-0">
               Plugins
             </h3>
-            <span className="lcd-text min-w-0 flex-1 truncate font-lcd text-readout text-lcd-dim">
+            <span className="lcd-text min-w-0 flex-1 truncate font-lcd text-readout text-lcd-muted">
               {summary}
             </span>
             <Button
@@ -233,7 +233,7 @@ export function PedalPicker({
             </Button>
           </div>
           {groups.length === 0 ? (
-            <p className="m-0 px-2 py-1 font-lcd text-readout text-lcd-dim">
+            <p className="m-0 px-2 py-1 font-lcd text-readout text-lcd-muted">
               {plugins.scanning
                 ? "Looking for plugins…"
                 : filter
@@ -243,7 +243,7 @@ export function PedalPicker({
           ) : (
             groups.map(({ format, vendors }) => (
               <div key={format}>
-                <h4 className="m-0 px-2 pt-1 font-lcd text-readout text-lcd-dim">
+                <h4 className="m-0 px-2 pt-1 font-lcd text-readout text-lcd-muted">
                   {FORMAT_NAMES[format]}
                 </h4>
                 {vendors.map(({ vendor, plugins: entries }) => (
@@ -263,7 +263,7 @@ export function PedalPicker({
                           <span className="lcd-text min-w-0 flex-1 truncate font-lcd text-readout">
                             {p.name}
                           </span>
-                          <span className="lcd-text shrink-0 truncate font-lcd text-readout text-lcd-dim">
+                          <span className="lcd-text shrink-0 truncate font-lcd text-readout text-lcd-muted">
                             {vendor} · {p.inputs}→{p.outputs}
                             {p.hasEditor ? " · editor" : ""}
                             {p.version ? ` · v${p.version}` : ""}
@@ -285,7 +285,7 @@ export function PedalPicker({
                 {list.failed.map((f) => (
                   <li key={`${f.source}:${f.name}`} className="py-0.5 font-lcd text-readout">
                     <span className="lcd-text text-lcd-error">{f.name}</span>
-                    <span className="lcd-text text-lcd-dim"> · {f.why}</span>
+                    <span className="lcd-text text-lcd-muted"> · {f.why}</span>
                   </li>
                 ))}
               </ul>

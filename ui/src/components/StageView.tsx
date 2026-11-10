@@ -26,7 +26,19 @@ export function StageView({ status, onClose, onPerform, onStatus }: Props) {
   const source = status.analysisSource;
 
   return (
-    <Sheet title="Stage" onClose={onClose} wide>
+    <Sheet
+      title="Stage"
+      onClose={onClose}
+      wide
+      footer={
+        <>
+          <Button onClick={onClose}>Close</Button>
+          <Button tier="primary" onClick={onPerform}>
+            Perform
+          </Button>
+        </>
+      }
+    >
       <SceneCanvas
         scene={scene}
         onError={setProblem}
@@ -68,12 +80,7 @@ export function StageView({ status, onClose, onPerform, onStatus }: Props) {
           </option>
         ))}
       </Select>
-      <div className="flex items-center justify-between gap-3">
-        <small className="text-ink-dim text-label">P plays full screen from anywhere.</small>
-        <Button tier="primary" onClick={onPerform}>
-          Perform
-        </Button>
-      </div>
+      <small className="text-ink-dim text-label">P plays full screen from anywhere.</small>
     </Sheet>
   );
 }

@@ -231,7 +231,7 @@ export function GrooveBrowser({ track, grooves, audition, onStatus, onError, onA
         className="surface-lcd max-h-56 overflow-y-auto p-1"
       >
         {shown.length === 0 ? (
-          <p className="m-0 px-2 py-1 font-lcd text-readout text-lcd-dim">
+          <p className="m-0 px-2 py-1 font-lcd text-readout text-lcd-muted">
             <span className="lcd-text">No grooves match.</span>
           </p>
         ) : null}

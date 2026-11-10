@@ -9,6 +9,7 @@ import {
   renderCancel,
 } from "../lib/engine";
 import { Button } from "./Button";
+import { Toggle } from "./Field";
 import { Lcd } from "./Lcd";
 import { Select } from "./Select";
 import { Sheet } from "./Sheet";
@@ -100,7 +101,25 @@ export function ExportSheet({ projectName, sampleRate, onClose }: Props) {
   };
 
   return (
-    <Sheet title="Export mixdown" onClose={running ? () => {} : onClose}>
+    <Sheet
+      title="Export mixdown"
+      onClose={running ? () => {} : onClose}
+      footer={
+        running ? (
+          <>
+            <RenderBar label="Exporting" fraction={progress ?? 0} />
+            <Button onClick={() => renderCancel()}>Stop</Button>
+          </>
+        ) : (
+          <>
+            <Button onClick={onClose}>{result ? "Done" : "Cancel"}</Button>
+            <Button tier="primary" disabled={!rangeValid} onClick={start}>
+              Export…
+            </Button>
+          </>
+        )
+      }
+    >
       <section aria-labelledby="export-range" className="grid gap-2">
         <h3 id="export-range" className="caption m-0">
           Range
@@ -160,31 +179,14 @@ export function ExportSheet({ projectName, sampleRate, onClose }: Props) {
           <option value={16}>16-bit</option>
           <option value={32}>32-bit float</option>
         </Select>
-        <div className="flex">
-          <Button
-            aria-pressed={tail}
-            onClick={() => setTail(!tail)}
-            title="Keep rendering past the end until reverbs and delays have died away"
-          >
-            Let the tail ring out
-          </Button>
-        </div>
+        <Toggle
+          id="export-tail"
+          label="Let the tail ring out"
+          hint="Keeps rendering past the end until reverbs and delays have died away."
+          checked={tail}
+          onChange={setTail}
+        />
       </section>
-      <div className="flex items-center gap-2">
-        {running ? (
-          <>
-            <RenderBar label="Exporting" fraction={progress ?? 0} />
-            <Button onClick={() => renderCancel()}>Stop</Button>
-          </>
-        ) : (
-          <>
-            <span className="flex-1" />
-            <Button tier="primary" disabled={!rangeValid} onClick={start}>
-              Export…
-            </Button>
-          </>
-        )}
-      </div>
       {result ? (
         <Lcd role="status" className="text-readout">
           Wrote {result.path.split("/").pop()} · {clock(result.seconds)} in{" "}

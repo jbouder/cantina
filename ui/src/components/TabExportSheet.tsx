@@ -92,9 +92,6 @@ export function TabExportSheet({ clip, tab, onClose }: Props) {
           {error}
         </Lcd>
       ) : null}
-      <div className="flex justify-end">
-        <Button onClick={onClose}>Done</Button>
-      </div>
     </Sheet>
   );
 }

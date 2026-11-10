@@ -134,7 +134,30 @@ export function TranscribeSheet({ clip, profile, onStatus, onClose }: Props) {
   };
 
   return (
-    <Sheet title={`Transcribe ${clip.name} to tab`} onClose={running ? () => {} : onClose}>
+    <Sheet
+      title={`Transcribe ${clip.name} to tab`}
+      onClose={running ? () => {} : onClose}
+      footer={
+        running ? (
+          <>
+            <RenderBar label="Transcribing" fraction={progress ?? 0} />
+            <Button onClick={() => renderCancel()}>Stop</Button>
+          </>
+        ) : (
+          <>
+            <Button onClick={onClose}>Cancel</Button>
+            {clip.tab?.transcribed ? (
+              <Button onClick={requantise} title="Snap the notes it heard to the grid again">
+                Re-quantise
+              </Button>
+            ) : null}
+            <Button tier="primary" onClick={transcribe}>
+              {clip.tab ? "Transcribe again" : "Transcribe"}
+            </Button>
+          </>
+        )
+      }
+    >
       <section aria-labelledby="tab-instrument" className="grid gap-2">
         <h3 id="tab-instrument" className="caption m-0">
           Instrument
@@ -216,26 +239,6 @@ export function TranscribeSheet({ clip, profile, onStatus, onClose }: Props) {
           ))}
         </Select>
       </section>
-      <div className="flex items-center gap-2">
-        {running ? (
-          <>
-            <RenderBar label="Transcribing" fraction={progress ?? 0} />
-            <Button onClick={() => renderCancel()}>Stop</Button>
-          </>
-        ) : (
-          <>
-            <span className="flex-1" />
-            {clip.tab?.transcribed ? (
-              <Button onClick={requantise} title="Snap the notes it heard to the grid again">
-                Re-quantise
-              </Button>
-            ) : null}
-            <Button tier="primary" onClick={transcribe}>
-              {clip.tab ? "Transcribe again" : "Transcribe"}
-            </Button>
-          </>
-        )}
-      </div>
       {clip.tab ? (
         <Lcd role="status" className="text-readout">
           Has a {clip.tab.instrument} tab · {clip.tab.notes} notes

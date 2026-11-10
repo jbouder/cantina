@@ -15,6 +15,7 @@ import { SKINS, useSkin } from "../skins";
 import { AssistantSettings } from "./AssistantSettings";
 import { Button } from "./Button";
 import { DevicePicker } from "./DevicePicker";
+import { Toggle } from "./Field";
 import { InstrumentSettings } from "./InstrumentSettings";
 import { Lcd } from "./Lcd";
 import { Select } from "./Select";
@@ -148,7 +149,6 @@ export function Settings({
             {routeLabel(status)}
           </Lcd>
           <Button
-            tier="primary"
             aria-pressed={status.running}
             disabled={busy}
             onClick={onToggleEngine}
@@ -205,32 +205,26 @@ export function Settings({
       <section aria-labelledby="motion-label" className="grid gap-2">
         <h3 id="motion-label" className="caption m-0">
           Motion
-          <small className="hint block text-ink-dim">
-            Stills the stage's flashes and the skin's beat pulse. Your system's reduce motion
-            setting stills the pulse too.
-          </small>
         </h3>
-        <div className="flex">
-          <Button aria-pressed={reduceFlashing} onClick={() => setReduceFlashing(!reduceFlashing)}>
-            Reduce flashing
-          </Button>
-        </div>
+        <Toggle
+          id="reduce-flashing"
+          label="Reduce flashing"
+          hint="Stills the stage's flashes and the skin's beat pulse. Your system's reduce motion setting stills the pulse too."
+          checked={reduceFlashing}
+          onChange={setReduceFlashing}
+        />
       </section>
       <section aria-labelledby="launch-label" className="grid gap-2">
         <h3 id="launch-label" className="caption m-0">
           Launch
-          <small className="hint block text-ink-dim">
-            Off, Cantina opens with the start dialog: a new project, a recent one, or a jam.
-          </small>
         </h3>
-        <div className="flex">
-          <Button
-            aria-pressed={status.openLastAtLaunch}
-            onClick={() => openLastAtLaunchSet(!status.openLastAtLaunch).then(onStatusChange)}
-          >
-            Open the last project at launch
-          </Button>
-        </div>
+        <Toggle
+          id="open-last"
+          label="Open the last project at launch"
+          hint="Off, Cantina opens with the start dialog: a new project, a recent one, or a jam."
+          checked={status.openLastAtLaunch}
+          onChange={(on) => openLastAtLaunchSet(on).then(onStatusChange)}
+        />
       </section>
       <AssistantSettings
         assistant={status.assistant}

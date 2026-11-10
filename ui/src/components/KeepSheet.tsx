@@ -38,15 +38,23 @@ export function KeepSheet({ kept, project, onClose, onStatus, onError }: Props) 
       (e) => onError(String(e)),
     );
   return (
-    <Sheet title="Keep that" onClose={() => place({ into: "takes" })}>
+    <Sheet
+      title="Keep that"
+      onClose={() => place({ into: "takes" })}
+      footer={
+        <>
+          <Button onClick={() => place({ into: "takes" })}>Just keep the files</Button>
+          <Button tier="primary" onClick={() => place({ into: "open" })}>
+            Into {project}
+          </Button>
+        </>
+      }
+    >
       <p className="m-0 text-body">
         Kept the last {minutes(kept.seconds)} of your playing, dry and through the rig, in{" "}
         <span className="font-lcd">Jams/Takes</span>. Put it in a project with the drums that played
         under it?
       </p>
-      <Button tier="primary" onClick={() => place({ into: "open" })}>
-        Into {project}
-      </Button>
       <form
         className="grid grid-cols-[1fr_auto] items-end gap-2"
         onSubmit={(e) => {
@@ -64,7 +72,6 @@ export function KeepSheet({ kept, project, onClose, onStatus, onError }: Props) 
           Create
         </Button>
       </form>
-      <Button onClick={() => place({ into: "takes" })}>Just keep the files</Button>
     </Sheet>
   );
 }

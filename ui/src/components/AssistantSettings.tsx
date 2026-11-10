@@ -11,6 +11,7 @@ import {
   openLink,
 } from "../lib/engine";
 import { Button } from "./Button";
+import { Toggle } from "./Field";
 import { Lcd } from "./Lcd";
 import { Select } from "./Select";
 import { TextInput } from "./TextInput";
@@ -125,14 +126,12 @@ export function AssistantSettings({ assistant, onStatusChange, reveal = false }:
           </button>
         </small>
       </h3>
-      <div className="flex">
-        <Button
-          aria-pressed={assistant.enabled}
-          onClick={() => configure({ enabled: !assistant.enabled })}
-        >
-          {assistant.enabled ? "Assistant on" : "Assistant off"}
-        </Button>
-      </div>
+      <Toggle
+        id="assistant-enabled"
+        label="Use the assistant"
+        checked={assistant.enabled}
+        onChange={(enabled) => configure({ enabled })}
+      />
       {assistant.enabled ? (
         <>
           <Select
@@ -217,22 +216,20 @@ export function AssistantSettings({ assistant, onStatusChange, reveal = false }:
               onChange={(model) => configure({ model })}
             />
           )}
-          <div className="flex flex-wrap items-center gap-1">
-            <Button
-              aria-pressed={assistant.persona}
-              onClick={() => configure({ persona: !assistant.persona })}
-              title="Talks as Tapster, the house droid. Off gives plain replies."
-            >
-              Droid persona
-            </Button>
-            <Button
-              aria-pressed={assistant.sounds}
-              onClick={() => configure({ sounds: !assistant.sounds })}
-              title="Beeps and chirps on a reply and on an error, in the window only."
-            >
-              Droid sounds
-            </Button>
-          </div>
+          <Toggle
+            id="assistant-persona"
+            label="Droid persona"
+            hint="Talks as Tapster, the house droid. Off gives plain replies."
+            checked={assistant.persona}
+            onChange={(persona) => configure({ persona })}
+          />
+          <Toggle
+            id="assistant-sounds"
+            label="Droid sounds"
+            hint="Beeps and chirps on a reply and on an error, in the window only."
+            checked={assistant.sounds}
+            onChange={(sounds) => configure({ sounds })}
+          />
           <div className="flex items-center gap-2">
             <Lcd
               aria-live="polite"
