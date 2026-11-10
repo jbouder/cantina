@@ -50,7 +50,9 @@ back the next time you open it, tempo and all.
   trims its input as it does for any rig. Pedals that are not installed
   are left out and named.
 
-The meters show your input and what comes out.
+The **IN** and **OUT** meters in the toolbar show your input and what
+comes out. The line along the bottom of the window lists the jam's keys:
+Space, 1 to 6, the arrows, T and Return.
 
 ## Playing
 
@@ -99,7 +101,7 @@ is the backing's.
 
 ## Backing
 
-**Backing**, under the sections, is what plays with the drums:
+**Backing**, under the settings at the left, is what plays with the drums:
 
 - **Drums only**.
 - **Chord progression**: chords played by a built-in guitar or bass, the

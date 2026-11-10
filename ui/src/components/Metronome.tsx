@@ -30,18 +30,18 @@ export function Metronome({ metronome, onStatus, onError }: Props) {
         aria-pressed={on}
         onClick={() => set({ on: !on })}
         title="Metronome (K)"
-        className="px-2"
+        tight
       >
         <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
           <path d="M6 1h4l3.5 14h-11zm1.2 1.5L5.9 8h2.3l2.6-4.1.9.6L9.5 8h.6L8.8 2.5zM5.5 9.5l-1 4h7l-1-4z" />
         </svg>
         <span className="@5xl:inline hidden">Click</span>
       </Button>
-      <span className="relative min-w-0">
+      <span className="relative min-w-20 shrink">
         <select
           aria-label="Metronome sound"
           title="Metronome sound"
-          className="surface-field min-h-8 w-28 min-w-0 max-w-full appearance-none truncate py-0 pr-6 pl-2"
+          className="surface-field min-h-8 w-28 min-w-20 max-w-full appearance-none truncate py-0 pr-6 pl-2"
           value={sound}
           onChange={(e) => set({ sound: e.target.value })}
         >
@@ -61,7 +61,7 @@ export function Metronome({ metronome, onStatus, onError }: Props) {
       </span>
       <input
         type="range"
-        className="fader-slim w-16 shrink-0"
+        className="fader-slim w-16 min-w-10 shrink"
         min={-40}
         max={6}
         step={1}
