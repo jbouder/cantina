@@ -73,7 +73,7 @@ wins on a duplicate id), the kits that ship with the app, and any folder
 `CANTINA_KITS` names. A kit is loaded the first time a track asks for it
 and kept for the session. A track whose kit is not installed plays
 silence and its grid says so; pick another kit from the panel's picker.
-The picker's **Rescan** looks for kits again, for one installed while
+**Rescan kits**, in the drum editor's **⋯** menu, looks for kits again, for one installed while
 the app runs.
 Changing a track's kit is an edit (`SetTrackKit`) and rebuilds its
 sequencer. The shell's `Kits` (`src-tauri/src/engine.rs`) holds all of

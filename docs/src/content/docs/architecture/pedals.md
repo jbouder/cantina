@@ -346,7 +346,7 @@ of a core per channel on an Apple Silicon MacBook Pro.
 ### Impulse responses
 
 A cabinet's impulse is part of its spec, `cab:<id>`, so the project
-file carries which one it uses; the card has a picker and **Rescan**.
+file carries which one it uses; the card has a picker and a rescan key.
 Impulses are `.wav` files (stereo averaged to mono, cut at three
 seconds) found under `~/Music/Cantina/IRs` (which wins), anything
 `CANTINA_IRS` names, and the starter set that ships with the app
