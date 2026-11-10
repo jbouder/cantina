@@ -62,7 +62,18 @@ export function Projects({ current, dirty, onClose, onStatus, startNew, opening 
   };
 
   return (
-    <Sheet title="Projects" onClose={onClose}>
+    <Sheet
+      title="Projects"
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="new-project-form" tier="primary" disabled={!name.trim()}>
+            Create
+          </Button>
+        </>
+      }
+    >
       {error ? (
         <Lcd role="alert" error className="text-readout">
           {error}
@@ -93,7 +104,7 @@ export function Projects({ current, dirty, onClose, onStatus, startNew, opening 
           ))
         )}
       </ul>
-      <form onSubmit={create} className="grid gap-2">
+      <form id="new-project-form" onSubmit={create} className="grid gap-2">
         <TextInput
           id="new-project-name"
           label="New project"
@@ -102,11 +113,6 @@ export function Projects({ current, dirty, onClose, onStatus, startNew, opening 
           onChange={(e) => setName(e.target.value)}
           autoComplete="off"
         />
-        <div className="flex justify-end">
-          <Button type="submit" tier="primary" disabled={!name.trim()}>
-            Create
-          </Button>
-        </div>
       </form>
     </Sheet>
   );

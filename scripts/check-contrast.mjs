@@ -59,6 +59,8 @@ const PAIRS = [
   ["pbtn-ink", "pbtn", 4.5, "label on a panel key"],
   ["lcd-fg", "lcd-bg", 4.5, "display text"],
   ["lcd-error", "lcd-bg", 4.5, "display error text"],
+  ["lcd-muted", "lcd-bg", 4.5, "secondary text on a display"],
+  ["ink-dim", "sheet-bg", 4.5, "secondary text in a sheet"],
   ["sheet-ink", "sheet-bg", 4.5, "text in a sheet"],
   ["title-text", "title-bg", 4.5, "the window title"],
   ["field-fg", "field-bg", 4.5, "text in a field"],

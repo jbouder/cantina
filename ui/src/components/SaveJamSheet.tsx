@@ -32,8 +32,20 @@ export function SaveJamSheet({ setup, mine, onClose, onStatus, onError }: Props)
       (e) => onError(String(e)),
     );
   return (
-    <Sheet title="Save jam" onClose={onClose}>
+    <Sheet
+      title="Save jam"
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button type="submit" form={`${ids}-form`} tier="primary" disabled={!name.trim()}>
+            {clash ? "Replace" : "Save"}
+          </Button>
+        </>
+      }
+    >
       <form
+        id={`${ids}-form`}
         className="grid gap-3"
         onSubmit={(e) => {
           e.preventDefault();
@@ -66,12 +78,6 @@ export function SaveJamSheet({ setup, mine, onClose, onStatus, onError }: Props)
             ? `Replaces your jam called ${name.trim()}.`
             : "Saved in Jams in your Cantina folder; stock jams stay as they are."}
         </p>
-        <div className="flex justify-end gap-2">
-          <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" tier="primary" disabled={!name.trim()}>
-            {clash ? "Replace" : "Save"}
-          </Button>
-        </div>
       </form>
     </Sheet>
   );

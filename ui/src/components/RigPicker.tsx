@@ -276,7 +276,7 @@ export function RigPicker({
               className="surface-lcd p-1"
             >
               {shown.length === 0 ? (
-                <p className="m-0 px-2 py-1 font-lcd text-readout text-lcd-dim">
+                <p className="m-0 px-2 py-1 font-lcd text-readout text-lcd-muted">
                   <span className="lcd-text">No rigs match.</span>
                 </p>
               ) : null}
@@ -388,7 +388,7 @@ export function RigPicker({
                 {broken.map((b) => (
                   <li key={b.path} className="px-2 py-0.5 font-lcd text-readout">
                     <span className="lcd-text text-lcd-error">{b.name}</span>
-                    <span className="lcd-text text-lcd-dim"> · will not load: {b.reason}</span>
+                    <span className="lcd-text text-lcd-muted"> · will not load: {b.reason}</span>
                   </li>
                 ))}
               </ul>

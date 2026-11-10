@@ -28,6 +28,7 @@
   --color-lcd-fg: var(--lcd-fg);
   --color-lcd-dim: var(--lcd-dim);
   --color-lcd-error: var(--lcd-error);
+  --color-lcd-muted: var(--lcd-muted);
   --color-list-bg: var(--list-bg);
   --color-list-fg: var(--list-fg);
   --color-select: var(--select);
@@ -319,6 +320,49 @@
   &:disabled {
     background: transparent;
     box-shadow: none;
+  }
+}
+
+/*
+ * A switch: a setting that is on or off, as distinct from a key that
+ * does something. Use it with role="switch" and aria-checked.
+ */
+@utility switch {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--track);
+  box-shadow: var(--fader-track-shadow);
+  &::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--button-bg);
+    box-shadow: var(--button-shadow);
+    transition: transform 0.1s;
+  }
+  &[aria-checked="true"] {
+    background: var(--led-on);
+  }
+  &[aria-checked="true"]::after {
+    transform: translateX(16px);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &::after {
+      transition: none;
+    }
   }
 }
 

@@ -59,13 +59,29 @@ export function ProjectName({ mode, current, onClose, onStatus }: Props) {
   };
 
   return (
-    <Sheet title={copy.title} onClose={onClose}>
+    <Sheet
+      title={copy.title}
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button
+            type="submit"
+            form="project-name-form"
+            tier="primary"
+            disabled={unchanged || busy}
+          >
+            {copy.action}
+          </Button>
+        </>
+      }
+    >
       {error ? (
         <Lcd role="alert" error className="text-readout">
           {error}
         </Lcd>
       ) : null}
-      <form onSubmit={submit} className="grid gap-2">
+      <form id="project-name-form" onSubmit={submit} className="grid gap-2">
         <TextInput
           id="project-name"
           label="Name"
@@ -75,14 +91,6 @@ export function ProjectName({ mode, current, onClose, onStatus }: Props) {
           onFocus={(e) => e.currentTarget.select()}
           autoComplete="off"
         />
-        <div className="flex justify-end gap-2">
-          <Button type="button" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" tier="primary" disabled={unchanged || busy}>
-            {copy.action}
-          </Button>
-        </div>
       </form>
     </Sheet>
   );

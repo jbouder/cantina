@@ -100,6 +100,10 @@ A canvas reads `--type-label` from the computed style instead of writing a size.
 
 **Parameters.** A pedal parameter is one line (`Fader`): a caption, the control, and for a fader its value in a small display. Cards are a fixed width and as tall as their knobs, so nothing is clipped.
 
+**Sheets and forms.** A `Sheet` is centered and never taller than the window. Its body scrolls between a fixed title bar and a fixed footer. The footer holds the sheet's keys, right-aligned, with its one primary button last; a sheet that passes no `footer` gets a single **Done**. A submit button in the footer names its form with the `form` attribute.
+
+A form row is a `Field`: the label with its helper text under it at the left, the control at the right, in the same two columns in every sheet. `TextInput` and `Select` are fields. A setting that is on or off is a `Toggle`, which draws a switch (`role="switch"`); a `Button` with `aria-pressed` is for a key on the panel, never for a setting in a sheet. Secondary text on a display uses `text-lcd-muted`, not `text-lcd-dim`, which is the color of an unlit segment and is too faint to read.
+
 **Side sheets.** `Sheet` with `side` opens down the right edge with nothing dimmed. Use it when what the sheet changes should stay in view, as the rig picker does with the chain.
 
 **Scrolling.** A region that can scroll uses `scroll-area`, which always draws a slim bar while there is more to see. The system's bars hide until touched, which leaves clipped content looking like a bug.

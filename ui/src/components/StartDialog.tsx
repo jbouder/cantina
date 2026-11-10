@@ -115,7 +115,26 @@ export function StartDialog({
   };
 
   return (
-    <Sheet title="Welcome to Cantina" onClose={pickDefault} wide>
+    <Sheet
+      title="Welcome to Cantina"
+      onClose={pickDefault}
+      wide
+      footer={
+        <>
+          <Button onClick={onJam} title="Play over a drum loop and a backing track">
+            Jam
+          </Button>
+          <Button
+            type="submit"
+            form="start-new-form"
+            tier="primary"
+            disabled={!name.trim() || !tempoOk}
+          >
+            Create
+          </Button>
+        </>
+      }
+    >
       {error ? (
         <Lcd role="alert" error className="text-readout">
           {error}
@@ -170,21 +189,19 @@ export function StartDialog({
           <h3 id="start-new-label" className={heading}>
             New project
           </h3>
-          <form onSubmit={create} className="grid gap-2">
+          <form id="start-new-form" onSubmit={create} className="grid gap-2">
             <TextInput
               id="start-name"
               label="Name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoComplete="off"
-              className="min-w-36"
             />
             <Select
               id="start-rate"
               label="Sample rate"
               value={rate}
               onChange={(e) => setRate(Number(e.target.value))}
-              className="min-w-36"
             >
               {SAMPLE_RATES.map((r) => (
                 <option key={r} value={r}>
@@ -201,14 +218,12 @@ export function StartDialog({
               aria-invalid={!tempoOk}
               onChange={(e) => setBpm(e.target.value)}
               autoComplete="off"
-              className="min-w-36"
             />
             <Select
               id="start-meter"
               label="Time signature"
               value={meter}
               onChange={(e) => setMeter(Number(e.target.value))}
-              className="min-w-36"
             >
               {METERS.map((m, i) => (
                 <option key={`${m.numerator}/${m.denominator}`} value={i}>
@@ -222,7 +237,6 @@ export function StartDialog({
               {...(hasKits ? {} : { hint: "No drum kits installed" })}
               value={start}
               onChange={(e) => setStart(e.target.value as ProjectStart)}
-              className="min-w-36"
             >
               {STARTS.map((s) => (
                 <option key={s.id} value={s.id} disabled={s.id === "guitarDrums" && !hasKits}>
@@ -230,29 +244,19 @@ export function StartDialog({
                 </option>
               ))}
             </Select>
-            <div className="flex justify-end">
-              <Button type="submit" tier="primary" disabled={!name.trim() || !tempoOk}>
-                Create
-              </Button>
-            </div>
           </form>
         </section>
       </div>
       <section
         aria-labelledby="start-jam-label"
-        className="flex flex-wrap items-center gap-3 border-0 border-ink-dim border-t border-solid pt-3"
+        className="border-0 border-ink-dim border-t border-solid pt-3"
       >
-        <div className="min-w-0 flex-1">
-          <h3 id="start-jam-label" className={heading}>
-            Jam session
-          </h3>
-          <p className="m-0 text-ink-dim text-body">
-            Play over a drum loop and a backing track, nothing to set up first.
-          </p>
-        </div>
-        <Button tier="primary" onClick={onJam}>
-          Jam
-        </Button>
+        <h3 id="start-jam-label" className={heading}>
+          Jam session
+        </h3>
+        <p className="m-0 text-ink-dim text-body">
+          Play over a drum loop and a backing track, nothing to set up first. Press Jam below.
+        </p>
       </section>
     </Sheet>
   );
