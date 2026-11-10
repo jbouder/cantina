@@ -27,7 +27,7 @@ export function ProjectBar({ project, onOpenProjects, onOpenExport, onStatus, on
       <Lcd
         aria-live="polite"
         title={`${project.name} · ${project.sampleRate / 1000} kHz`}
-        className="min-w-64 max-w-96 truncate text-readout"
+        className="w-64 min-w-24 shrink truncate text-readout"
       >
         {project.name}
         {project.dirty ? (
@@ -42,7 +42,7 @@ export function ProjectBar({ project, onOpenProjects, onOpenExport, onStatus, on
         title={project.undoLabel ? `Undo ${project.undoLabel} (⌘Z)` : "Nothing to undo"}
         disabled={!project.undoLabel}
         onClick={() => run(projectUndo())}
-        className="px-2"
+        square
       >
         <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
           <path d="M6 3L1 7.5 6 12v-3h4a3 3 0 0 1 0 6H7v2h3a5 5 0 0 0 0-10H6z" />
@@ -53,13 +53,13 @@ export function ProjectBar({ project, onOpenProjects, onOpenExport, onStatus, on
         title={project.redoLabel ? `Redo ${project.redoLabel} (⇧⌘Z)` : "Nothing to redo"}
         disabled={!project.redoLabel}
         onClick={() => run(projectRedo())}
-        className="px-2"
+        square
       >
         <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
           <path d="M10 3l5 4.5L10 12V9H6a3 3 0 0 0 0 6h3v2H6A5 5 0 0 1 6 7h4z" />
         </svg>
       </Button>
-      <Button tier="primary" disabled={!project.dirty} onClick={() => run(projectSave())}>
+      <Button title="Save (⌘S)" disabled={!project.dirty} onClick={() => run(projectSave())}>
         Save
       </Button>
       <Button aria-haspopup="dialog" onClick={onOpenProjects}>

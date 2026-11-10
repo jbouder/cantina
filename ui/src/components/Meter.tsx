@@ -15,6 +15,12 @@ type Props = {
   vertical?: boolean;
   /** Just a thin bar, for a track header; the label goes to assistive tech only. */
   bare?: boolean;
+  /**
+   * For the toolbar: a caption and a bar that shrinks with the window.
+   * The dB figure shows when the toolbar has room and is always the
+   * tooltip.
+   */
+  compact?: boolean;
 };
 
 function position(db: number): number {
@@ -27,7 +33,7 @@ function position(db: number): number {
  * assistive tech; the drawn bar is decoration. Ballistics run here at
  * display rate; the engine only sends what it measured.
  */
-export function Meter({ label, level, vertical = false, bare = false }: Props) {
+export function Meter({ label, level, vertical = false, bare = false, compact = false }: Props) {
   const [peakDb, setPeakDb] = useState(FLOOR);
   const hold = useRef({ db: FLOOR, since: 0 });
 
@@ -82,6 +88,36 @@ export function Meter({ label, level, vertical = false, bare = false }: Props) {
           />
         </span>
       </span>
+    );
+  }
+
+  if (compact) {
+    return (
+      <div
+        className="flex min-w-0 max-w-72 flex-1 items-center gap-2"
+        title={`${label}: ${readout} dB`}
+      >
+        <span className="caption shrink-0">{label}</span>
+        <span className="relative block h-3 min-w-6 flex-1">
+          {bar}
+          <span aria-hidden="true" className="surface-lcd absolute inset-0 block overflow-hidden">
+            <span
+              className="surface-meter absolute inset-0 block"
+              style={{ clipPath: `inset(0 ${(1 - rmsPos) * 100}% 0 0)` }}
+            />
+            <span
+              className={`absolute top-0 bottom-0 block w-0.5 ${clipping ? "bg-vol-hi" : "bg-ink"}`}
+              style={{ left: `calc(${peakPos * 100}% - 1px)` }}
+            />
+          </span>
+        </span>
+        <span
+          aria-hidden="true"
+          className={`@5xl:block hidden w-10 shrink-0 text-right font-lcd text-body tabular-nums leading-none ${clipping ? "text-led-rec" : ""}`}
+        >
+          {readout}
+        </span>
+      </div>
     );
   }
 

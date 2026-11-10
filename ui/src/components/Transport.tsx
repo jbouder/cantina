@@ -36,6 +36,29 @@ type Props = {
 };
 
 /**
+ * The one status line: what the transport is doing or waiting for. It
+ * lives at the bottom of the window, not in the header.
+ */
+export function transportNote(
+  transport: TransportStatus,
+  tracks: TrackStatus[],
+  countIn: number,
+): string {
+  const armed = tracks.filter((t) => t.armed && !t.kit);
+  const names = armed.map((t) => t.name).join(", ");
+  if (countIn > 0) return "Counting in…";
+  if (transport.recording) return `Recording ${names}…`;
+  if (armed.length === 0) return "Arm a track to record";
+  return `${names} armed`;
+}
+
+/** A key's caption, dropped when the strip is too narrow for it. */
+const WIDE = "@5xl:inline hidden";
+
+/**
+ * The strip above the lanes, one row that never wraps: at a narrow
+ * window the keys keep their glyphs and lose their captions.
+ *
  * The strip above the lanes: record, play and stop, one clock in bars
  * and time, the tempo and the metronome, then snap and zoom for the
  * timeline.
@@ -63,15 +86,6 @@ export function Transport({
   // Record stays down through the count-in; its light means audio is
   // going to disk, so it waits for the first frame.
   const recording = transport.recording && countIn === 0;
-  const note =
-    countIn > 0
-      ? "Counting in…"
-      : transport.recording
-        ? `Recording ${armed.map((t) => t.name).join(", ")}…`
-        : armed.length === 0
-          ? "Arm a track to record"
-          : `${armed.map((t) => t.name).join(", ")} armed`;
-
   const [bpm, setBpm] = useState(String(tempo.bpm));
   useEffect(() => {
     setBpm(String(tempo.bpm));
@@ -86,82 +100,95 @@ export function Transport({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Button
-        tier="primary"
-        aria-pressed={transport.recording}
-        disabled={!running || armed.length === 0 || rolling}
-        onClick={() => run(transportRecord())}
-        title="Record after a four-beat count-in (R)"
-      >
-        <Led on={recording} tone="record" label="Recording" />
-        Record
-      </Button>
-      <Button
-        tier="primary"
-        aria-pressed={transport.playing && !transport.recording}
-        disabled={!running || !hasClips || rolling}
-        onClick={() => run(transportPlay())}
-        title="Play (Space)"
-      >
-        <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-current">
-          <path d="M3 2l11 6-11 6z" />
-        </svg>
-        Play
-      </Button>
-      <Button
-        tier="primary"
-        disabled={!running || !rolling}
-        onClick={() => run(transportStop())}
-        title="Stop (Space)"
-      >
-        <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-current">
-          <path d="M3 3h10v10H3z" />
-        </svg>
-        Stop
-      </Button>
-      <Lcd
-        aria-label="Position"
-        className="min-h-8 min-w-32 whitespace-nowrap px-2 text-center tabular-nums"
-      >
-        {countIn > 0 ? `Count-in ${countIn}` : `${timeline.bars} · ${clock(position)}`}
-      </Lcd>
-      <span className="flex items-center gap-1 text-body">
-        <label htmlFor="tempo-bpm" className="caption">
-          Tempo
-        </label>
-        <input
-          id="tempo-bpm"
-          type="number"
-          min={20}
-          max={300}
-          step={1}
-          value={bpm}
-          onChange={(e) => setBpm(e.target.value)}
-          onBlur={commitBpm}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commitBpm();
-          }}
-          className="surface-field min-h-8 w-16 px-2 text-center tabular-nums"
-        />
-        <span className="whitespace-nowrap text-ink-dim">
-          {tempo.numerator}/{tempo.denominator} · grid {timeline.divisionLabel}
+    <div className="@container">
+      <div className="flex items-center gap-3">
+        <span className="flex shrink-0 items-center gap-1">
+          <Button
+            tier="primary"
+            aria-label="Record"
+            aria-pressed={transport.recording}
+            disabled={!running || armed.length === 0 || rolling}
+            onClick={() => run(transportRecord())}
+            title="Record after a four-beat count-in (R)"
+            className="px-2"
+          >
+            <Led on={recording} tone="record" label="Recording" />
+            <span className={WIDE}>Record</span>
+          </Button>
+          <Button
+            aria-label="Play"
+            aria-pressed={transport.playing && !transport.recording}
+            disabled={!running || !hasClips || rolling}
+            onClick={() => run(transportPlay())}
+            title="Play (Space)"
+            className="px-2"
+          >
+            <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-current">
+              <path d="M3 2l11 6-11 6z" />
+            </svg>
+            <span className={WIDE}>Play</span>
+          </Button>
+          <Button
+            aria-label="Stop"
+            disabled={!running || !rolling}
+            onClick={() => run(transportStop())}
+            title="Stop (Space)"
+            className="px-2"
+          >
+            <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-current">
+              <path d="M3 3h10v10H3z" />
+            </svg>
+            <span className={WIDE}>Stop</span>
+          </Button>
         </span>
-      </span>
-      <Metronome metronome={metronome} onStatus={onStatus} onError={onError} />
-      <Button aria-pressed={timeline.snapOn} onClick={timeline.toggleSnap}>
-        Snap
-      </Button>
-      <Button aria-label="Zoom out" onClick={timeline.zoomOut}>
-        −
-      </Button>
-      <Button aria-label="Zoom in" onClick={timeline.zoomIn}>
-        +
-      </Button>
-      <Button onClick={timeline.fit} title="Zoom to show every clip">
-        Fit
-      </Button>
-      <span className="text-ink-dim text-body">{note}</span>
+        <Lcd
+          aria-label="Position"
+          className="min-h-8 min-w-28 shrink-0 whitespace-nowrap px-2 text-center tabular-nums"
+        >
+          {countIn > 0 ? `Count-in ${countIn}` : `${timeline.bars} · ${clock(position)}`}
+        </Lcd>
+        <span className="flex shrink-0 items-center gap-1 text-body">
+          <label htmlFor="tempo-bpm" className="caption">
+            Tempo
+          </label>
+          <input
+            id="tempo-bpm"
+            type="number"
+            min={20}
+            max={300}
+            step={1}
+            value={bpm}
+            onChange={(e) => setBpm(e.target.value)}
+            onBlur={commitBpm}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitBpm();
+            }}
+            className="surface-field min-h-8 w-14 px-1 text-center tabular-nums"
+          />
+          <span className={`${WIDE} whitespace-nowrap text-ink-dim`}>
+            {tempo.numerator}/{tempo.denominator} · grid {timeline.divisionLabel}
+          </span>
+        </span>
+        <Metronome metronome={metronome} onStatus={onStatus} onError={onError} />
+        <span className="ml-auto flex shrink-0 items-center gap-1">
+          <Button
+            aria-pressed={timeline.snapOn}
+            onClick={timeline.toggleSnap}
+            title="Snap edits to the grid"
+          >
+            Snap
+          </Button>
+          <Button aria-label="Zoom out" title="Zoom out (⌘−)" onClick={timeline.zoomOut}>
+            −
+          </Button>
+          <Button aria-label="Zoom in" title="Zoom in (⌘=)" onClick={timeline.zoomIn}>
+            +
+          </Button>
+          <Button onClick={timeline.fit} title="Zoom to show every clip">
+            Fit
+          </Button>
+        </span>
+      </div>
     </div>
   );
 }

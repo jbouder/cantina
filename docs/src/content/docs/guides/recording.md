@@ -91,7 +91,8 @@ bars when the tempo changes.
 
 ## Metronome
 
-**Click** in the transport strip turns the metronome on and off; K does the
+The metronome key in the transport strip (**Click**, or only its glyph in
+a narrow window) turns the metronome on and off; K does the
 same from the keyboard. While the transport rolls, it clicks on every beat
 of the tempo, with a different sound on the first beat of each bar.
 

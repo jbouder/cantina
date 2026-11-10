@@ -10,6 +10,8 @@ export type ButtonTier = "primary" | "standard" | "quiet";
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   tier?: ButtonTier;
+  /** For a key that holds only a glyph: 32 px wide as well as high. */
+  square?: boolean;
 };
 
 const SURFACE: Record<ButtonTier, string> = {
@@ -24,11 +26,17 @@ const SURFACE: Record<ButtonTier, string> = {
  * toggle that is on, `aria-selected`, `aria-checked` or `aria-current`
  * for the chosen one of several, and `disabled`.
  */
-export function Button({ tier = "standard", className = "", type = "button", ...rest }: Props) {
+export function Button({
+  tier = "standard",
+  square = false,
+  className = "",
+  type = "button",
+  ...rest
+}: Props) {
   return (
     <button
       type={type}
-      className={`${SURFACE[tier]} inline-flex min-h-8 min-w-8 items-center justify-center gap-2 whitespace-nowrap border-0 px-3 font-bold text-label leading-none ${className}`}
+      className={`${SURFACE[tier]} inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center gap-2 whitespace-nowrap border-0 ${square ? "w-8 px-0" : "px-3"} font-bold text-label leading-none ${className}`}
       {...rest}
     />
   );

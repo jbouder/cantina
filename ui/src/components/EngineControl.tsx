@@ -18,13 +18,15 @@ export function EngineControl({ status, busy, onToggle }: Props) {
   const running = status?.running ?? false;
   return (
     <Button
+      aria-label="Engine"
       aria-pressed={running}
       disabled={status === null || busy}
       onClick={onToggle}
-      title={status ? routeLabel(status) : undefined}
+      title={status ? `Engine: ${routeLabel(status)}` : "Engine"}
+      className="px-2"
     >
       <Led on={running} label="Engine" />
-      {busy ? "…" : "Engine"}
+      <span className="@4xl:inline hidden">{busy ? "…" : "Engine"}</span>
     </Button>
   );
 }

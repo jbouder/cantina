@@ -7,6 +7,18 @@ sidebar:
 
 `src-tauri/` is a Tauri 2 app that owns the engine handle and the open project, and exposes both to the React UI. The engine never reaches the web view directly.
 
+## The window
+
+`window_state.rs` remembers the main window between launches in
+`window.json`, beside `settings.json`. With no file, which is a first
+launch, the window opens full screen. After that it comes back as it was
+left: full screen, zoomed, or at its last size and place. The size and
+place are tracked only while the window is a plain window, so leaving full
+screen returns to them. A saved size below the minimum is dropped, and so
+is a place that is on no screen now, as when a second display was
+unplugged. The state is written when the window loses focus and when it
+closes.
+
 ## Commands in
 
 The UI calls Tauri commands (`commands.rs`). Each one locks the shell's `Engine` for one call, does its work and returns the status the UI should show. Every edit to the project is a [`Command`](/architecture/project/#commands) applied through `Engine::apply`, which records it for undo, appends it to the journal, and brings the live graph in line: a parameter change goes over the audio thread's queue, and anything structural reconciles the graph's tracks and pedals against the project, rewires and commits a new schedule. Nodes that survive keep their state.

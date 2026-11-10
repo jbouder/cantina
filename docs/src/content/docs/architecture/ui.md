@@ -92,6 +92,8 @@ A canvas reads `--type-label` from the computed style instead of writing a size.
 | Selected | `aria-selected`, `aria-checked`, `aria-current` | Filled, from `--state-selected`. The chosen one of several: a tab, a radio key, the open project. |
 | Disabled | `disabled` | Flat and dim, from `--state-disabled`. Never brighter than a live key. |
 
+**Narrow windows.** The toolbar and the transport strip never wrap. Each is a container (`@container`), and what is optional carries a container variant: a key's caption is `@5xl:inline hidden`, so below that width the key shows its glyph alone. Such a key always has an `aria-label` and a `title`. A key that only ever holds a glyph takes `square` on `Button`.
+
 **Fields and readouts.** An `<input>`, `<select>` or `<textarea>` is a `surface-field`: the UI face in a well with an edge. A value that can only be read is a `surface-lcd`. The check fails on a field in the display material.
 
 ## Frames
