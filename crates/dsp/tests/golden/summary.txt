@@ -46,6 +46,10 @@ tremolo_impulse              peak  1.00000  rms  0.00913  nonzero 0..1
 tremolo_sine                 peak  0.49992  rms  0.27122  nonzero 1..12000
 tremolo_sweep                peak  0.49998  rms  0.27117  nonzero 1..12000
 tremolo_square               peak  1.00000  rms  0.46264  nonzero 0..4800
+pitch_impulse                peak  0.50000  rms  0.00456  nonzero 4..782
+pitch_sine                   peak  0.48115  rms  0.24241  nonzero 8..12000
+pitch_sweep                  peak  0.49768  rms  0.22615  nonzero 13..12000
+pitch_square                 peak  1.04393  rms  0.43143  nonzero 4..5774
 delay_impulse                peak  0.65000  rms  0.00593  nonzero 0..1
 delay_sine                   peak  0.32500  rms  0.22981  nonzero 1..12000
 delay_sweep                  peak  0.32500  rms  0.22979  nonzero 1..12000
@@ -122,6 +126,14 @@ reverb-wet_impulse           peak  0.06265  rms  0.00694  nonzero 1906..12000
 reverb-wet_sine              peak  0.38828  rms  0.13291  nonzero 1907..12000
 reverb-wet_sweep             peak  1.04804  rms  0.28800  nonzero 1907..12000
 reverb-wet_square            peak  2.49523  rms  0.69516  nonzero 1906..12000
+pitch-shimmer_impulse        peak  0.50325  rms  0.00459  nonzero 1..962
+pitch-shimmer_sine           peak  0.50000  rms  0.34406  nonzero 2..12000
+pitch-shimmer_sweep          peak  0.49999  rms  0.30212  nonzero 4..12000
+pitch-shimmer_square         peak  1.00002  rms  0.62745  nonzero 1..5521
+pitch-stack_impulse          peak  0.50000  rms  0.00502  nonzero 1..962
+pitch-stack_sine             peak  0.85816  rms  0.29011  nonzero 3..12000
+pitch-stack_sweep            peak  0.77881  rms  0.26242  nonzero 6..12000
+pitch-stack_square           peak  1.86909  rms  0.53271  nonzero 1..5811
 amp-driven_impulse           peak  1.04128  rms  0.01627  nonzero 8..5606
 amp-driven_sine              peak  0.58904  rms  0.41847  nonzero 10..12000
 amp-driven_sweep             peak  0.79535  rms  0.47127  nonzero 11..12000

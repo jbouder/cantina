@@ -1020,6 +1020,18 @@ const MOCK_STOCK: Record<string, { name: string; params: ParamInfo[]; readouts: 
     ],
     readouts: [],
   },
+  pitch: {
+    name: "Pitch",
+    params: [
+      p("Two down", "%", 0, 100, 0),
+      p("Octave down", "%", 0, 100, 100),
+      p("Octave up", "%", 0, 100, 0),
+      p("Semitones", "", -12, 12, 7),
+      p("Shift", "%", 0, 100, 0),
+      p("Mix", "%", 0, 100, 50),
+    ],
+    readouts: [],
+  },
   delay: {
     name: "Delay",
     params: [

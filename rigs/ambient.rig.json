@@ -2,7 +2,7 @@
   "version": 1,
   "name": "Ambient",
   "genre": "Ambient",
-  "description": "Clean swells into long ping-pong delays and a huge, dark reverb.",
+  "description": "Clean swells into long ping-pong delays and a huge, dark reverb with an octave-up shimmer.",
   "instrument": "guitar",
   "inputGainDb": 0,
   "chain": [
@@ -22,7 +22,7 @@
         "gain": 3,
         "bass": 1,
         "treble": -2,
-        "level": 6.3
+        "level": 8.4
       }
     },
     {
@@ -44,6 +44,14 @@
         "tone": 3000,
         "mix": 40,
         "mode": "Ping-pong"
+      }
+    },
+    {
+      "pedal": "pitch",
+      "params": {
+        "octave down": 0,
+        "octave up": 100,
+        "mix": 25
       }
     },
     {
