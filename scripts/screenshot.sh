@@ -46,7 +46,7 @@ for query in "${queries[@]}"; do
   # The compositor flag makes animation frames run under virtual time,
   # which the meters need: frames are drawn from requestAnimationFrame.
   "$chrome" --headless=new --disable-gpu --hide-scrollbars \
-    --window-size=1100,720 --force-device-scale-factor=2 \
+    --window-size="${SHOT_SIZE:-1100,720}" --force-device-scale-factor=2 \
     --run-all-compositor-stages-before-draw --virtual-time-budget=2000 \
     --screenshot="$file" "http://localhost:$port/?$query" >/dev/null 2>&1
   echo "$file"

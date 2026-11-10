@@ -21,6 +21,7 @@ mod project;
 mod rigs;
 mod settings;
 mod tabs;
+mod window_state;
 
 use engine::EngineState;
 use tauri::{Manager, RunEvent};
@@ -34,6 +35,8 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
             app.manage(EngineState::new(app.handle().clone()));
+            // Full screen on a first launch; after that, as it was left.
+            window_state::restore(app.handle());
             // The chat thread, kept beside the plugin cache.
             let thread = app
                 .path()
@@ -55,6 +58,7 @@ pub fn run() {
             }
             Ok(())
         })
+        .on_window_event(window_state::on_event)
         .on_menu_event(|app, event| menu::on_event(app, event.id().as_ref()))
         .invoke_handler(tauri::generate_handler![
             commands::ui_log,

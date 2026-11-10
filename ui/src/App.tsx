@@ -22,7 +22,7 @@ import { Shortcuts } from "./components/Shortcuts";
 import { StageView } from "./components/StageView";
 import { StartDialog } from "./components/StartDialog";
 import { Timeline, type TimelineEdit, type TimelineEditState } from "./components/Timeline";
-import { Transport } from "./components/Transport";
+import { Transport, transportNote } from "./components/Transport";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { Window } from "./components/Window";
 import {
@@ -791,7 +791,7 @@ export function App() {
               title={`${status?.assistant.persona ? "Tapster" : "Assistant"} (⌘J)`}
               aria-pressed={assistantOpen}
               onClick={() => setAssistantOpen((open) => !open)}
-              className="px-2"
+              square
             >
               <Droid size={20} />
             </Button>
@@ -802,7 +802,7 @@ export function App() {
             aria-pressed={jamming}
             disabled={!status || frame.recording}
             onClick={() => (jamming ? leaveJam() : openJam())}
-            className="px-2"
+            square
           >
             <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
               <path d="M11 1.5v8.6a2.4 2.4 0 1 1-1.5-2.2V4.3L6 5.2v6.4a2.4 2.4 0 1 1-1.5-2.2V3.1z" />
@@ -814,7 +814,7 @@ export function App() {
             aria-haspopup="dialog"
             aria-expanded={stageOpen}
             onClick={() => setStageOpen(true)}
-            className="px-2"
+            square
           >
             <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
               <path d="M1 3h14v9H1zm1.5 1.5v6h11v-6zM4 9l2.5-3 2 2.2L10 6.5 12 9zM5 13.5h6V15H5z" />
@@ -822,10 +822,11 @@ export function App() {
           </Button>
           <Button
             aria-label="Settings"
+            title="Settings (⌘,)"
             aria-haspopup="dialog"
             aria-expanded={settingsOpen}
             onClick={() => setSettingsOpen(true)}
-            className="px-2"
+            square
           >
             <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">
               <path d="M8 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm6.6 2-1.5-.3a5.3 5.3 0 0 0-.5-1.2l.9-1.3-1.7-1.7-1.3.9a5.3 5.3 0 0 0-1.2-.5L9 1.4H7l-.3 1.5a5.3 5.3 0 0 0-1.2.5l-1.3-.9-1.7 1.7.9 1.3a5.3 5.3 0 0 0-.5 1.2L1.4 7v2l1.5.3c.1.4.3.8.5 1.2l-.9 1.3 1.7 1.7 1.3-.9c.4.2.8.4 1.2.5L7 14.6h2l.3-1.5c.4-.1.8-.3 1.2-.5l1.3.9 1.7-1.7-.9-1.3c.2-.4.4-.8.5-1.2l1.5-.3V7z" />
@@ -833,17 +834,22 @@ export function App() {
           </Button>
         </>
       }
+      status={
+        status && transport && !jamming
+          ? transportNote(transport, status.project.tracks, frame.countIn)
+          : null
+      }
       meters={
         metersShown && !jamming ? (
           <>
-            <Meter label="In" level={frame.input} />
-            <Meter label="Out" level={frame.output} />
+            <Meter compact label="In" level={frame.input} />
+            <Meter compact label="Out" level={frame.output} />
           </>
         ) : null
       }
     >
       <div className="flex min-h-0 flex-1">
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-window">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 px-window pt-3 pb-2">
           {status?.notice ? <Notice message={status.notice} onDismiss={dismiss} /> : null}
           {update && status ? (
             <UpdateBanner

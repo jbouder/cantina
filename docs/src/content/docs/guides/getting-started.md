@@ -34,6 +34,10 @@ later opens go straight through. (Or, in Terminal:
 Cantina looks for a new release each time it opens and offers to install
 it; see **Settings → Updates**.
 
+The first time, Cantina opens full screen. Leave full screen with ⌃⌘F or
+the green button and it remembers: the next launch brings the window back
+at the size and place you left it.
+
 ### Build from source
 
 You need [Rust](https://rustup.rs) (make sure `~/.cargo/bin` is on your
@@ -121,6 +125,15 @@ arm it; it turns red. An armed track plays your input through its pedals,
 so strum: the **IN** meter moves, and you hear the overdrive.
 
 ![The studio with the guitar track armed, two takes on the timeline and its pedalboard below](../../../assets/guides/studio.png)
+
+The header is two rows. The top one holds the project (its name, undo,
+redo, **Save**, **Projects…**, **Export…**), the **IN** and **OUT** meters
+in the middle, and the engine, jam, stage and settings keys at the right.
+The second is the transport: record, play, stop, the clock, the tempo, the
+metronome, and snap and zoom for the timeline. In a narrow window the keys
+keep their glyphs and drop their captions; hover one for its name and
+shortcut. The line along the bottom of the window says what the transport
+is waiting for, such as *Arm a track to record* or *Guitar armed*.
 
 Nothing moving on the **IN** meter means nothing is reaching Cantina; see
 [Troubleshooting](/guides/troubleshooting/).
