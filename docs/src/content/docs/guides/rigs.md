@@ -127,13 +127,13 @@ clean ones a little quieter so their peaks have room.
 | Classic Rock | Rock | An amp on the edge of breakup, mids up, through a closed two-twelve in a warm room. | Amp, 2x12, Reverb |
 | Alternative | Alternative | A gritty distortion into a mid-gain amp with a little chorus for width. | Distortion, Amp, 2x12, Chorus, Reverb |
 | Grunge | Alternative | A dark, wooly fuzz into a dirty amp: loud quiet loud. | Fuzz, Amp, 4x12, Reverb |
-| Shoegaze | Alternative | A wall of fuzz washed in chorus, long delays and an enormous reverb. | Fuzz, Amp, 2x12, Chorus, Delay, Reverb |
+| Shoegaze | Alternative | A wall of fuzz washed in chorus, long delays and an enormous reverb with an octave shimmer. | Fuzz, Amp, 2x12, Chorus, Delay, Pitch, Reverb |
 | Punk | Punk | Bright, aggressive distortion with the mids left in: three chords and the truth. | Distortion, Amp, 2x12 |
 | Blues | Blues | A light overdrive into a small combo just breaking up, with a spring-sized reverb. | Compressor, Overdrive, Amp, 1x12, Reverb |
 | Funk Clean | Funk | Squashed and sparkly: a fast compressor into a clean amp, mids scooped for scratches. | Compressor, Amp, 1x12, Reverb |
 | Jazz Clean | Jazz | Warm and round: a clean amp with the treble rolled off and a soft room. | Compressor, Amp, 1x12, Reverb |
 | Country | Country | Snappy chicken pickin': hard compression, a bright clean amp and a slapback echo. | Compressor, Amp, 1x12, Delay, Reverb |
-| Ambient | Ambient | Clean swells into long ping-pong delays and a huge, dark reverb. | Compressor, Amp, 2x12, Chorus, Delay, Reverb |
+| Ambient | Ambient | Clean swells into long ping-pong delays and a huge, dark reverb with an octave-up shimmer. | Compressor, Amp, 2x12, Chorus, Delay, Pitch, Reverb |
 
 ### Bass
 

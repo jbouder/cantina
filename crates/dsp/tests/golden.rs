@@ -199,6 +199,25 @@ fn cases() -> Vec<Case> {
         name: "reverb-wet".into(),
         processor: room,
     });
+    // The pitch pedal as a shimmer: the octave up alone, all wet, and
+    // every voice at once over the dry.
+    let mut shimmer = stock("pitch").unwrap();
+    shimmer.set_param(1, 0.0);
+    shimmer.set_param(2, 100.0);
+    shimmer.set_param(5, 100.0);
+    cases.push(Case {
+        name: "pitch-shimmer".into(),
+        processor: shimmer,
+    });
+    let mut stack = stock("pitch").unwrap();
+    stack.set_param(0, 60.0);
+    stack.set_param(2, 50.0);
+    stack.set_param(3, -5.0);
+    stack.set_param(4, 50.0);
+    cases.push(Case {
+        name: "pitch-stack".into(),
+        processor: stack,
+    });
     // The amp driven, and a cabinet with a short made-up impulse.
     let mut amp = stock("amp").unwrap();
     amp.set_param(0, 30.0);

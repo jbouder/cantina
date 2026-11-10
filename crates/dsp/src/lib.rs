@@ -50,6 +50,7 @@ mod sampler;
 #[cfg(any(test, feature = "schema"))]
 pub mod schema;
 mod shaper;
+mod shifter;
 mod smooth;
 mod tuner;
 
@@ -81,6 +82,7 @@ pub use sampler::{
     PAD_PARAMS, PAD_TUNE,
 };
 pub use shaper::Curve;
+pub use shifter::PitchShifter;
 pub use smooth::Smoother;
 pub use tuner::Tuner;
 
@@ -110,6 +112,7 @@ pub const STOCK_NAMES: &[&str] = &[
     "flanger",
     "phaser",
     "tremolo",
+    "pitch",
     "delay",
     "reverb",
     "amp",
@@ -178,6 +181,7 @@ pub fn stock(name: &str) -> Option<Box<dyn Processor>> {
         "compressor" => Some(Box::new(Compressor::default())),
         "delay" => Some(Box::new(Echo::default())),
         "reverb" => Some(Box::new(Reverb::default())),
+        "pitch" => Some(Box::new(PitchShifter::default())),
         "cab" => Some(Box::new(Cabinet::default())),
         "gain" => Some(Box::new(Gain::default())),
         _ => None,

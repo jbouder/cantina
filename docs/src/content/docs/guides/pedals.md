@@ -117,6 +117,26 @@ transport plays.
 **Depth** sets how far each one sweeps, **Feedback** how strong the effect
 is, and **Mix** how much of it you hear.
 
+### Pitch
+
+An octaver and a pitch shifter. It follows one line at a time, as an
+octaver does: single notes track cleanly, chords come out rougher.
+Four voices, each with its own level:
+
+- **Two down**: two octaves below, for sub bass under a riff.
+- **Octave down**: an octave below, the synth-like bass line or the
+  doubled drop-tuned riff. On at 100% by default.
+- **Octave up**: an octave above. All wet in front of a long reverb,
+  it is the shimmer of ambient and shoegaze pads.
+- **Shift**: the level of a free voice **Semitones** away, up to an
+  octave either way: a fifth (7) for power-chord harmonies, −5 for a
+  fourth below. Turning **Semitones** glides between intervals.
+
+**Mix** blends the voices over your dry signal. The pedal delays the
+dry signal by about 16 ms to keep it in step with the voices, so it
+adds that much to what you hear while you play; the recorded tracks are
+kept in line for you.
+
 ### Delay
 
 Echoes. **Time** sets the gap, up to two seconds, or with **Sync** on a

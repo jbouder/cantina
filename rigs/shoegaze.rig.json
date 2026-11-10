@@ -2,7 +2,7 @@
   "version": 1,
   "name": "Shoegaze",
   "genre": "Alternative",
-  "description": "A wall of fuzz washed in chorus, long delays and an enormous reverb.",
+  "description": "A wall of fuzz washed in chorus, long delays and an enormous reverb with an octave shimmer.",
   "instrument": "guitar",
   "inputGainDb": 0,
   "chain": [
@@ -21,7 +21,7 @@
         "gain": 8,
         "bass": 2,
         "treble": -2,
-        "level": -10.0
+        "level": -7.8
       }
     },
     {
@@ -43,6 +43,14 @@
         "tone": 2500,
         "mix": 35,
         "mode": "Ping-pong"
+      }
+    },
+    {
+      "pedal": "pitch",
+      "params": {
+        "octave down": 0,
+        "octave up": 100,
+        "mix": 25
       }
     },
     {

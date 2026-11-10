@@ -5,8 +5,8 @@
     "rmsDb": -19.0
   },
   "ambient": {
-    "latency": 22,
-    "peakDb": -5.5,
+    "latency": 803,
+    "peakDb": -5.8,
     "rmsDb": -19.1
   },
   "bass-clean": {
@@ -85,8 +85,8 @@
     "rmsDb": -18.8
   },
   "shoegaze": {
-    "latency": 44,
-    "peakDb": -6.4,
+    "latency": 825,
+    "peakDb": -5.8,
     "rmsDb": -19.0
   },
   "thrash": {

@@ -234,6 +234,40 @@ quarter cycle apart, except the tremolo, which pumps both together.
   the test syncs to an eighth note at 90 bpm and checks the dips land
   8000 samples after each beat.
 
+## Pitch
+
+`pitch` (`crates/dsp/src/shifter.rs`). Four shifted voices on the mono
+sum of the input, at fixed ratios of ¼ (**Two down**), ½ (**Octave
+down**) and 2 (**Octave up**), and a free one at 2^(**Semitones**/12)
+(**Shift**, −12 to 12), each with a level, under **Mix**. Every level,
+the mix and the free voice's ratio are smoothed; a change of interval
+glides.
+
+Each voice is a delay-line shifter: a read head moves through a 20 ms
+window of the input at the ratio's speed (slower than real time to go
+down, faster to go up), so it has to jump back once it crosses the
+window. Two heads run half a crossfade apart under raised-cosine gains
+that sum to one, each silent as it jumps. Jumping to a fixed place
+leaves the two heads reading a note a fraction of a period apart, and a
+steady note comes out as a warble of sidebands around the interval. So
+a head lands, WSOLA-style, at the place within the next 12.5 ms (a
+period of a guitar's low E) whose last 128 samples correlate best with
+what the other head reads, and the two run in phase. The search costs
+about 77 thousand multiply-adds per landing, a few dozen times a second
+per voice, and a voice that cannot be heard (its level or the mix at
+zero) lands without searching. The voices below the input are
+low-passed at 2.5 kHz to hide the crossfades' grain.
+
+The heads read, on average, half the window and half the search behind
+the input. The dry signal is delayed by that much, 781 samples at
+48 kHz, so the voices line up with the notes they came from instead of
+trailing them, and `latency()` reports it for compensation. The tests
+check each voice's interval on sine input from 82 to 440 Hz stands
+more than 40 dB above anything else in the spectrum, that the dry
+signal arrives exactly `latency()` samples late, that a voice's energy
+is centred on the delayed dry note, and that a jump of interval from
+an octave down to an octave up does not step.
+
 ## Delay
 
 `delay` (`crates/dsp/src/echo.rs`). **Time** (1 to 2000 ms) or, with
@@ -363,6 +397,8 @@ The rest stay native because the format cannot express them:
 - **Gate** and **compressor**: a level detector controlling a gain is
   feedback-free, but the detector, the hysteresis and hold, the knee
   and the readout are one tight loop, not a graph of primitives.
+- **Pitch**: heads that land by correlating the input against itself,
+  which no node does.
 - **Delay**: its crossfading read heads, tempo sync at note values and
   ping-pong mode are not what the format's `delay` node does (it slides
   its read head, as a chorus needs).
