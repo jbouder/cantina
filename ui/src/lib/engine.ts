@@ -941,6 +941,7 @@ function drive(driveMax: number, driveDefault: number, level: number, curves: st
     p("Level", "dB", -24, 6, level),
     choice("Curve", curves, 0),
     choice("Oversampling", ["Off", "2×", "4×", "8×"], 2),
+    p("Blend", "%", 0, 100, 100),
   ];
 }
 

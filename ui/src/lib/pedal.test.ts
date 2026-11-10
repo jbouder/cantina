@@ -149,6 +149,6 @@ describe("edits", () => {
       ["drive", 33],
       ["level", 99],
     ]);
-    expect(valuesFor(stock, had)).toEqual([33, 3000, 6, 0, 2]);
+    expect(valuesFor(stock, had)).toEqual([33, 3000, 6, 0, 2, 100]);
   });
 });

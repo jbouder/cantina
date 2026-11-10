@@ -141,7 +141,7 @@ clean ones a little quieter so their peaks have room.
 | --- | --- | --- | --- |
 | Bass Clean | Clean | Round and even: gentle compression into a clean bass amp and a four-ten. | Compressor, Amp, 4x10 |
 | Bass Rock | Rock | Growl with the mids pushed so the bass cuts through loud guitars. | Compressor, Amp, 4x10 |
-| Bass Metal | Metal | A tight gate, a hard distortion and a clanky top end that locks with the kick. | Gate, Compressor, Distortion, Amp, 4x10 |
+| Bass Metal | Metal | A tight gate, a hard distortion blended over the clean bass so the low end stays whole, and a clanky top end that locks with the kick. | Gate, Compressor, Distortion, Amp, 4x10 |
 | Bass Funk | Funk | Slap-ready: heavy compression, deep lows, scooped mids and a bright top. | Compressor, Amp, 4x10 |
 
 The cabinets are Cantina's synthesised [starter impulse

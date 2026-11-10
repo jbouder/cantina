@@ -2,7 +2,7 @@
   "version": 1,
   "name": "Bass Metal",
   "genre": "Metal",
-  "description": "A tight gate, a hard distortion and a clanky top end that locks with the kick.",
+  "description": "A tight gate, a hard distortion blended over the clean bass so the low end stays whole, and a clanky top end that locks with the kick.",
   "instrument": "bass",
   "inputGainDb": 0,
   "chain": [
@@ -26,9 +26,10 @@
     {
       "pedal": "distortion",
       "params": {
-        "drive": 14,
+        "drive": 18,
         "tone": 3000,
-        "level": -20
+        "level": -19,
+        "blend": 60
       }
     },
     {
@@ -39,7 +40,7 @@
         "mid": -3,
         "treble": 4,
         "presence": 3,
-        "level": -13.7
+        "level": -14.0
       }
     },
     {
