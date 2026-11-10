@@ -641,7 +641,7 @@ mod tests {
     }
 
     #[test]
-    fn a_take_counted_in_starts_on_its_position_and_a_cancelled_one_is_empty() {
+    fn a_take_counted_in_starts_on_its_position_and_a_canceled_one_is_empty() {
         let dir = tempdir();
         let (mut runtime, mut controller, mut handle) = runtime_with_recorder(48_000);
         controller.transport_mut().locate(5000);
@@ -674,15 +674,15 @@ mod tests {
         // Stopped during the count, the take closes with nothing in it.
         controller.transport_mut().locate(0);
         settle(&mut runtime);
-        let cancelled = dir.join("cancelled.wav");
-        handle.start(cancelled.clone(), 0).unwrap();
+        let canceled = dir.join("canceled.wav");
+        handle.start(canceled.clone(), 0).unwrap();
         controller.transport_mut().count_in(SR);
         settle(&mut runtime);
         controller.transport_mut().stop();
         handle.stop().unwrap();
         settle(&mut runtime);
         wait_for_close(&handle, 2);
-        assert_eq!(crate::wav::info(&cancelled).unwrap().frames, 0);
+        assert_eq!(crate::wav::info(&canceled).unwrap().frames, 0);
     }
 
     #[test]

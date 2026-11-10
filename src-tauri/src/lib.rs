@@ -179,7 +179,7 @@ pub fn run() {
             commands::render_cancel,
             commands::clip_transcribe,
             commands::clip_tab,
-            commands::clip_tab_requantise,
+            commands::clip_tab_requantize,
             commands::clip_tab_refit,
             commands::clip_tab_edit,
             commands::practice_set,

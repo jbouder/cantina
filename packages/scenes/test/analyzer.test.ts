@@ -57,7 +57,7 @@ describe('waveRms', () => {
 describe('FrameAnalyzer', () => {
   it('produces a full AudioFrame from raw buffers', () => {
     const a = new FrameAnalyzer(SR);
-    // Stay clear of the 250 Hz and 2 kHz edges, which neighbouring bands share.
+    // Stay clear of the 250 Hz and 2 kHz edges, which neighboring bands share.
     a.frame.freq.set(spectrum(400, 1800));
     a.frame.wave.set(sine(0.8));
     const f = a.update(1.5);

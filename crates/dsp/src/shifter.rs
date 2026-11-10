@@ -452,7 +452,7 @@ mod tests {
     #[test]
     fn a_voice_lines_up_with_the_dry_signal() {
         // A burst through the octave-down voice alone: its energy is
-        // centred on the burst delayed by the latency, not later.
+        // centered on the burst delayed by the latency, not later.
         let mut p = only(OCTAVE_DOWN);
         p.prepare(RATE as f64, 256);
         let latency = p.latency();
@@ -463,7 +463,7 @@ mod tests {
         let out = Renderer::default().render(&mut p, &[input]);
         let energy: Vec<f32> = out[0].iter().map(|s| s * s).collect();
         let total: f32 = energy.iter().sum();
-        let centre = energy
+        let center = energy
             .iter()
             .enumerate()
             .map(|(i, e)| i as f32 * e)
@@ -471,8 +471,8 @@ mod tests {
             / total;
         let expected = 7200.0 + latency as f32;
         assert!(
-            (centre - expected).abs() < 0.004 * RATE,
-            "centred at {centre}, expected {expected}"
+            (center - expected).abs() < 0.004 * RATE,
+            "centered at {center}, expected {expected}"
         );
     }
 

@@ -1,5 +1,5 @@
 /*
- * Tapster's beeps and chirps, synthesised in the window with Web Audio:
+ * Tapster's beeps and chirps, synthesized in the window with Web Audio:
  * a few quick rising blips when a reply lands, a falling warble on an
  * error. They play through the system's output from the web view, never
  * through the engine, so they are never in a recording, a mixdown or the

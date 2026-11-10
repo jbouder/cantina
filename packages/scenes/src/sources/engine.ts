@@ -118,7 +118,7 @@ export class EngineFrames implements FrameSource {
       const hi = Math.min(bins - 1, Math.floor(logBin(hz + binHz / 2)));
       this.first[k] = lo;
       this.last[k] = hi;
-      // Each log bin's value stands at the centre of its band.
+      // Each log bin's value stands at the center of its band.
       const at = logBin(hz) - 0.5;
       this.at[k] = hz < lowHz || at > bins - 1 ? -1 : Math.max(0, at);
     }

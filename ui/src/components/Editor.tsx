@@ -455,7 +455,7 @@ function ClipList({ track, profile, patterns, sampleRate, tempo, onStatus, onErr
             </span>
             <Button
               aria-label={`Transcribe ${clip.name} to tab`}
-              title={clip.tab ? "Transcribe again or re-quantise" : "Transcribe to tab"}
+              title={clip.tab ? "Transcribe again or re-quantize" : "Transcribe to tab"}
               onClick={() => setTranscribing(clip.id)}
               className="min-h-9 px-2"
             >

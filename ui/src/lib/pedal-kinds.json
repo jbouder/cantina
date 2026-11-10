@@ -99,7 +99,7 @@
       {
         "name": "freq",
         "label": "Frequency",
-        "summary": "Corner or centre frequency",
+        "summary": "Corner or center frequency",
         "kind": {
           "type": "number",
           "min": 20.0,
@@ -448,7 +448,7 @@
       {
         "name": "freq",
         "label": "Frequency",
-        "summary": "Where the phase shift is centred",
+        "summary": "Where the phase shift is centered",
         "kind": {
           "type": "number",
           "min": 20.0,

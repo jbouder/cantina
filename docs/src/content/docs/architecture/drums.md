@@ -37,7 +37,7 @@ each step lands on from the tempo map and the sampler does the rest.
   `pads` (version 10), by pad id, and the shell sends them to the
   sequencer's sampler on every sync and after `SetPadMix`.
 - **Pan** is constant power. A mono sample sits at −3 dB a side when
-  centred; a stereo sample plays at unity when centred and the pan
+  centered; a stereo sample plays at unity when centered and the pan
   becomes a balance.
 - **Rate**: a sample recorded at 44.1 kHz plays at the right pitch in a
   48 kHz project; the voice steps through it at the ratio of the rates
@@ -215,7 +215,7 @@ A clip may also play a **fill** (version 8):
   `cantina_project::generate_fill`: one bar of the clip's pattern on the
   pads the kit has, whose last one or two beats break into a snare roll,
   a run down the toms, snare and toms in pairs, or kick-and-snare
-  accents, louder towards the bar line. The seed picks the length, the
+  accents, louder toward the bar line. The seed picks the length, the
   style and small velocity differences, so the same seed writes the same
   fill. The result is an ordinary pattern, added and set as the clip's
   fill in one undoable edit.

@@ -553,7 +553,7 @@
           "type": "integer"
         },
         "heard": {
-          "description": "For a transcribed tab, the notes as transcription heard them, before they were quantised to the grid and fitted to strings, so either can be redone without transcribing again. Empty for a tab written by hand.",
+          "description": "For a transcribed tab, the notes as transcription heard them, before they were quantized to the grid and fitted to strings, so either can be redone without transcribing again. Empty for a tab written by hand.",
           "items": {
             "$ref": "#/$defs/HeardNote"
           },

@@ -3,7 +3,7 @@
 //! A [`Scope`] sits in the graph as a sink, like a meter: it sums what
 //! flows through it to mono and writes it into a ring of atomics, leaving
 //! the audio alone. The pump reads the most recent samples through a
-//! [`ScopeHandle`] at display rate and analyses them off the audio
+//! [`ScopeHandle`] at display rate and analyzes them off the audio
 //! thread. A read that races a write sees a few samples from the newer
 //! block, which a picture of the sound does not mind.
 

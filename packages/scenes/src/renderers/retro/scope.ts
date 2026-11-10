@@ -42,7 +42,7 @@ export class ScopeScene extends RetroScene {
     const start = findTrigger(wave, SPAN);
     const amp = H * 0.45;
     const mode = optionValue(this.rc, this.id, this.options, 'mode');
-    // With a tempo map the trace takes a new colour on every bar.
+    // With a tempo map the trace takes a new color on every bar.
     g.fillStyle = g.strokeStyle = frame.tempo ? lutCss(p.cycle, (this.barCount(frame) * 64 + 32) & 255) : p.fg;
 
     if (mode === 'solid') {

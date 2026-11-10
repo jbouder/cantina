@@ -1,6 +1,6 @@
 ---
 title: "Tabs"
-description: "Turn a recorded guitar or bass part into a tab, read it, fix it, play it back to practise, and export it, with an honest account of what transcription gets right."
+description: "Turn a recorded guitar or bass part into a tab, read it, fix it, play it back to practice, and export it, with an honest account of what transcription gets right."
 ---
 
 A tab shows where to play each note: which string, which fret, and how.
@@ -15,7 +15,7 @@ The whole round trip, in order:
    or a page at a time.
 3. **[Fix](#fix-a-tab)** what transcription got wrong: type frets, move
    notes, add techniques.
-4. **[Play and practise](#play-and-practise)**: hear the tab through
+4. **[Play and practice](#play-and-practice)**: hear the tab through
    your pedals, mute the take to play the part yourself, loop a passage
    and slow it down.
 5. **[Export](#export-a-tab)** it as MusicXML, ASCII tab, MIDI or a PDF.
@@ -24,7 +24,7 @@ The whole round trip, in order:
 
 Transcription is a draft, not a finished tab. On Cantina's reference
 takes it gets about three notes in four right (pitch and start), and
-those takes are clean, synthesised strings, so a real recording usually
+those takes are clean, synthesized strings, so a real recording usually
 does worse. It is best at:
 
 - **Single-note lines and bass lines**, clean or lightly driven: close to
@@ -41,7 +41,7 @@ It is weakest at:
 Strings and frets are a separate guess: Cantina places notes the way a
 player's hand would, but it cannot know which position you used. Plan
 to fix both with the [editor](#fix-a-tab), and use
-[re-fit](#re-fit-and-re-quantise-a-passage) for a passage that sits in
+[re-fit](#re-fit-and-re-quantize-a-passage) for a passage that sits in
 the wrong place. The [transcription](/architecture/transcription/)
 architecture page has the numbers take by take.
 
@@ -52,7 +52,7 @@ The file format is on the [tab format](/reference/tab-format/) page.
 1. Open the track's **Clips** tab and press **Tab** beside the clip.
 2. Choose the instrument (guitar or bass), the number of strings, the
    tuning and the capo.
-3. Choose the grid to quantise to: sixteenths, eighths, or their
+3. Choose the grid to quantize to: sixteenths, eighths, or their
    triplets. Notes snap to it at the project's tempo.
 4. Press **Transcribe**. A bar shows progress; **Stop** cancels and
    leaves everything as it was.
@@ -67,11 +67,11 @@ on the notes it describes; both halves of a split keep it.
 
 ![Transcribing a clip: instrument, tuning, capo and grid](../../../assets/guides/transcribe.png)
 
-### Quantising again
+### Quantizing again
 
 If the notes landed on the wrong grid, triplets where you played
 sixteenths say, press **Tab** again, choose another grid and press
-**Re-quantise**. Cantina keeps what it heard, so this is instant and
+**Re-quantize**. Cantina keeps what it heard, so this is instant and
 does not listen to the recording again. **Transcribe again** starts over,
 with a new tuning for instance.
 
@@ -90,7 +90,7 @@ recordings it finds about three notes in four. Expect to fix:
 - **Bends heard as two notes.** Most become one bent note; a fast bend
   may not.
 - **Note ends.** Where a note stops is much less reliable than where it
-  starts. Quantising tidies most of this.
+  starts. Quantizing tidies most of this.
 - **Strums.** The strings of a strum are snapped together onto the beat.
 - **Fast legato, fret noise and heavy gain on single notes** are harder
   than anything Cantina was tested on.
@@ -170,7 +170,7 @@ Every edit is one step of **Undo**, and is kept if the app quits
 unexpectedly. The [shortcut reference](/reference/shortcuts/) lists the
 keys under **Tab editor**.
 
-### Re-fit and re-quantise a passage
+### Re-fit and re-quantize a passage
 
 **Re-fit** places the selected notes on the fretboard again, as one hand
 position, keeping their timing and techniques: useful after moving a
@@ -178,7 +178,7 @@ passage by hand, or to bring a run that jumps around the neck into one
 place. Notes outside the selection are left alone, and dead notes and
 harmonics stay where they are.
 
-**Re-quantise** builds the selected notes again on the chosen grid, from
+**Re-quantize** builds the selected notes again on the chosen grid, from
 what Cantina heard, so a bar of triplets can be fixed without touching
 the sixteenths around it. It finds the heard notes of the same pitch that
 started within a beat of each selected note. It is there only for a tab
@@ -186,7 +186,7 @@ that was transcribed.
 
 With nothing selected, both work on the whole tab.
 
-## Play and practise
+## Play and practice
 
 Above the tab are the practice controls. They are not part of the
 project: nothing is saved, and Undo does not see them.
@@ -194,7 +194,7 @@ project: nothing is saved, and Undo does not see them.
 - **Hear tab** plays every tab in the project through a plucked-string
   voice, a guitar or a bass to match the tab. It plays into the track's
   pedals, so it has your tone, and it plays bends, vibrato, palm mutes,
-  dead notes and harmonics. It is a simple synthesised string, there
+  dead notes and harmonics. It is a simple synthesized string, there
   to check the notes and learn the part, not to replace the take.
 - **Mute recording** silences the recordings on tracks that have a tab,
   so you can play the part yourself. Drums and other tracks play on.
@@ -206,7 +206,7 @@ project: nothing is saved, and Undo does not see them.
   Recordings cannot be slowed yet, so they are silent below 100%, and
   recording waits until the speed is back at 100%.
 
-![Practising: the tab voice on at 75%, recordings muted](../../../assets/guides/tab-practice.png)
+![Practicing: the tab voice on at 75%, recordings muted](../../../assets/guides/tab-practice.png)
 
 ## Export a tab
 

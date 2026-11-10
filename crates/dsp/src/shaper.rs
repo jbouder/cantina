@@ -18,7 +18,7 @@ pub enum Curve {
     /// Silicon fuzz: huge gain into a hard clip, near a square wave.
     Silicon,
     /// Germanium fuzz: softer and lopsided, with a bias that pushes
-    /// the wave off centre so it gates and sputters as it decays.
+    /// the wave off center so it gates and sputters as it decays.
     Germanium,
     /// Octave fuzz: the wave is rectified before clipping, so the
     /// fundamental doubles.
@@ -69,7 +69,7 @@ impl Curve {
                 } else {
                     0.7 * (biased / 0.7).tanh()
                 };
-                // Centred so silence rests near zero, then scaled to 1.
+                // Centered so silence rests near zero, then scaled to 1.
                 (y + 0.3234) / 1.3234
             }
             Curve::Octave => (3.0 * x.abs() - 0.6).clamp(-1.0, 1.0),

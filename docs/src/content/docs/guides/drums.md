@@ -35,7 +35,7 @@ Pick a kit from **Kit**. Eight come with Cantina:
 | Acoustic | Kick, snare, closed, pedal and open hats, three toms, crash and ride, each drum with a soft and a hard hit |
 | Tight rock | A heavy kick, a hard snare, closed and short open hats, two toms, crash, ride and cowbell |
 | Electronic | Two kicks, two snares, a clap, hats, two toms and percussion |
-| Metal (synth) | A short, clicky kick and a cracking snare with three velocity layers each for fast doubles, tight hats, three toms, crash, china and ride. Synthesised from `recipes/metal.recipe.json` |
+| Metal (synth) | A short, clicky kick and a cracking snare with three velocity layers each for fast doubles, tight hats, three toms, crash, china and ride. Synthesized from `recipes/metal.recipe.json` |
 | Metal (triggered) | A triggered kick, one layer so every hit is the same, as metal drummers trigger theirs, a cracking snare, tight hats, three toms, crash, china and ride. Synthesized from `recipes/metal-triggered.recipe.json` |
 | Jazz (brushes) | A small tuned-up kick, a brushed snare, soft hats with a pedal hat, a long singing ride, three higher-tuned toms, crash and a swish. Synthesized from `recipes/jazz.recipe.json` |
 | Vintage 60s/70s | A dead, thumpy kick, a fat snare, dark hats, deep toms and dark cymbals. Synthesized from `recipes/vintage.recipe.json` |

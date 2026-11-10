@@ -561,7 +561,7 @@ pub struct TabSummary {
     pub capo: u8,
     /// Notes in the tab.
     pub notes: usize,
-    /// True when it came from a transcription and can be re-quantised.
+    /// True when it came from a transcription and can be re-quantized.
     pub transcribed: bool,
 }
 
@@ -856,7 +856,7 @@ impl EngineState {
         let audio = tabs::clip_audio(&path, &clip)?;
         let model = cantina_engine::transcribe::Transcriber::new()?;
         let Some(maps) = model.run(&audio, progress_to(&app, "transcribe"))? else {
-            bail!("cancelled");
+            bail!("canceled");
         };
         let heard = cantina_engine::transcribe::notes(
             &maps,
@@ -889,7 +889,7 @@ impl EngineState {
     /// Builds a transcribed tab's notes again on another grid, from what
     /// it heard, as one undoable edit. Nothing is transcribed again. With
     /// a selection, only the notes in its span change.
-    pub fn clip_tab_requantise(
+    pub fn clip_tab_requantize(
         &self,
         id: u64,
         grid: tabs::Grid,
@@ -898,11 +898,11 @@ impl EngineState {
         self.edit_clip_tab(id, |clip, tab| {
             if tab.heard.is_empty() {
                 bail!(
-                    "{}'s tab was not transcribed, so there is nothing to re-quantise",
+                    "{}'s tab was not transcribed, so there is nothing to re-quantize",
                     clip.name
                 );
             }
-            Ok(tabs::requantise(tab, grid, selection))
+            Ok(tabs::requantize(tab, grid, selection))
         })
     }
 
@@ -1118,7 +1118,7 @@ enum Source {
         player: PlayerHandle,
         recorder_node: NodeId,
         recorder: RecorderHandle,
-        /// Plays the track's tabs, into its pedals, when practising.
+        /// Plays the track's tabs, into its pedals, when practicing.
         voice_node: NodeId,
         voice: TabVoiceHandle,
     },
@@ -1216,7 +1216,7 @@ type Meters = Arc<Mutex<Vec<MeterHandle>>>;
 /// status lists them. Replaced whole on each sync.
 type Readouts = Arc<Mutex<Vec<Readout>>>;
 
-/// What the pump analyses for the stage: the scope's capture, the meter
+/// What the pump analyzes for the stage: the scope's capture, the meter
 /// that measures the same signal, and the tempo map for the beat.
 struct PumpAnalysis {
     scope: ScopeHandle,
@@ -1258,10 +1258,10 @@ struct Live {
     output_levels: MeterHandle,
     meters: Meters,
     readouts: Readouts,
-    /// Captures what the stage analyses: the master, or one track.
+    /// Captures what the stage analyzes: the master, or one track.
     scope: NodeId,
     /// The metronome, straight to the output: heard, but not metered,
-    /// analysed or mixed down.
+    /// analyzed or mixed down.
     click: NodeId,
     /// The track the scope listens to; the master when it is gone.
     analysis_source: Option<TrackId>,
@@ -2318,7 +2318,7 @@ pub struct Engine {
     /// The pattern looping on a drum track for editing. Session state,
     /// not part of the project.
     audition: Auditioning,
-    /// The track the stage analyses, or none for the master. Session
+    /// The track the stage analyzes, or none for the master. Session
     /// state, kept across rebuilds of the stream.
     analysis_source: Option<TrackId>,
     /// Hearing tabs and practice speed. Session state, kept across
@@ -4414,7 +4414,7 @@ impl Engine {
         Ok(self.publish())
     }
 
-    /// Sets how to practise: hear the tabs, mute the recordings under
+    /// Sets how to practice: hear the tabs, mute the recordings under
     /// them, and the speed from 50% to 100%. Not an edit: nothing is
     /// recorded or saved.
     pub fn practice_set(&mut self, practice: Practice) -> Result<EngineStatus> {
@@ -6596,7 +6596,7 @@ fn spawn_meter_pump(
                     .iter()
                     .any(|sub| !sub.in_flight.load(Ordering::Acquire));
                 if wanted {
-                    analyzer.analyse(&analysis.scope);
+                    analyzer.analyze(&analysis.scope);
                 }
                 send(
                     &levels,

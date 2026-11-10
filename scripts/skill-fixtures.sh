@@ -8,7 +8,7 @@
 # Pedals: check, then render over the DI and fail on clipping, a DC
 # offset over 0.001 or silence (render exits 1 on silence or NaN).
 # Patterns: check against the stock rock kit and render at 140 bpm.
-# Kit recipes: check, synthesise and check the kit that comes out.
+# Kit recipes: check, synthesize and check the kit that comes out.
 # Rigs: check, then render over their instrument's DI, judged as pedals are.
 # Jams: check, with no warnings: every groove, kit and rig they name is stock.
 set -euo pipefail

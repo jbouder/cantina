@@ -33,7 +33,7 @@
 //! the other notes where they are.
 //!
 //! Everything here is pure: notes in, notes or places out. Times are in
-//! seconds, so it runs on a transcription before it is quantised and on
+//! seconds, so it runs on a transcription before it is quantized and on
 //! a tab's notes converted at its tempo alike. Strings are numbered as
 //! tab is read, 1 for the highest-pitched.
 

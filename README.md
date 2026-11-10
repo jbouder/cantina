@@ -68,8 +68,8 @@ file, so you or a coding agent can write one and the app picks it up.
 
 ## First run
 
-Cantina opens full screen the first time. Leave full screen with ⌃⌘F and
-it remembers the window's size and place from then on. The start dialog
+Cantina opens zoomed to fill the screen the first time. Resize it and it
+remembers the window's size and place from then on. The start dialog
 offers a new project, a recent one, or a jam. In the studio the header is
 two rows: the project, the in and out meters and the engine on top, the
 transport under it. Arm a track with the light beside its name, play, and

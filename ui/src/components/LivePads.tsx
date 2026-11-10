@@ -130,7 +130,7 @@ export function LivePads({
     e.stopPropagation();
   };
 
-  // A pad played with the mouse is harder towards its top.
+  // A pad played with the mouse is harder toward its top.
   const press = (e: PointerEvent<HTMLButtonElement>, index: number) => {
     const box = e.currentTarget.getBoundingClientRect();
     const height = Math.max(1, box.height);

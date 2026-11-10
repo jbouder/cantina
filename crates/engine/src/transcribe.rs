@@ -34,9 +34,9 @@ pub const WINDOW: usize = 43_844;
 const HOP: usize = 256;
 /// Frames of output per window.
 const FRAMES_PER_WINDOW: usize = 172;
-/// Frames shared by neighbouring windows.
+/// Frames shared by neighboring windows.
 const OVERLAP_FRAMES: usize = 30;
-/// Samples shared by neighbouring windows.
+/// Samples shared by neighboring windows.
 const OVERLAP: usize = OVERLAP_FRAMES * HOP;
 /// Samples from one window's start to the next.
 const STEP: usize = WINDOW - OVERLAP;
@@ -109,7 +109,7 @@ impl Default for Options {
 
 type Plan = std::sync::Arc<TypedRunnableModel>;
 
-/// The model, loaded and optimised: about 60 ms, so load it once per
+/// The model, loaded and optimized: about 60 ms, so load it once per
 /// transcription, not once per window.
 pub struct Transcriber {
     plan: Plan,
@@ -378,17 +378,17 @@ pub fn notes(a: &Activations, options: Options) -> Vec<Heard> {
 }
 
 /// How far a note's pitch rose, in semitones: the contour's peak near
-/// the note in each frame, weighted towards the note by a Gaussian as
+/// the note in each frame, weighted toward the note by a Gaussian as
 /// Basic Pitch's `get_pitch_bends` does, smoothed over three frames so
 /// one stray frame is not a bend, and the highest of those.
 fn bend(a: &Activations, start: usize, end: usize, key: usize) -> f32 {
     const TOLERANCE: isize = 25;
-    let centre = (3 * key) as isize;
+    let center = (3 * key) as isize;
     let mut track = Vec::with_capacity(end.saturating_sub(start));
     for t in start..end.min(a.frames) {
         let mut best = (0isize, f32::MIN);
         for d in -TOLERANCE..=TOLERANCE {
-            let bin = centre + d;
+            let bin = center + d;
             if !(0..CONTOUR_BINS as isize).contains(&bin) {
                 continue;
             }

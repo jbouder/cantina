@@ -12,7 +12,7 @@
 //! delay line one period long, with a pick-position comb, a loop filter
 //! that sets the decay, a fractional read for bends and vibrato, and a
 //! damped decay when the note is let go. Driven takes go through a
-//! soft clipper and a cabinet-like roll-off. Synthesised strings are
+//! soft clipper and a cabinet-like roll-off. Synthesized strings are
 //! cleaner than a real guitar, so numbers measured on them are an upper
 //! bound on what a real take will score.
 //!

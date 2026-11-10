@@ -26,7 +26,7 @@ const SURFACE: Record<ButtonTier, string> = {
 };
 
 /**
- * A skinned push button, 32 px high everywhere, labelled in sentence
+ * A skinned push button, 32 px high everywhere, labeled in sentence
  * case. Its states come from ARIA, not from classes: `aria-pressed` for a
  * toggle that is on, `aria-selected`, `aria-checked` or `aria-current`
  * for the chosen one of several, and `disabled`.

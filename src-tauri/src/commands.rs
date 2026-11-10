@@ -1035,17 +1035,17 @@ pub fn clip_tab(
     state.clip_tab(id).map_err(fail)
 }
 
-/// Re-quantises a transcribed tab to another grid from what it heard:
+/// Re-quantizes a transcribed tab to another grid from what it heard:
 /// the notes in the selection's span, or all of them.
 #[tauri::command]
-pub fn clip_tab_requantise(
+pub fn clip_tab_requantize(
     state: tauri::State<'_, EngineState>,
     id: u64,
     grid: crate::tabs::Grid,
     selection: Option<Vec<u32>>,
 ) -> Result<EngineStatus, String> {
     state
-        .clip_tab_requantise(id, grid, &selection.unwrap_or_default())
+        .clip_tab_requantize(id, grid, &selection.unwrap_or_default())
         .map_err(fail)
 }
 
@@ -1072,7 +1072,7 @@ pub fn clip_tab_edit(
     state.clip_tab_edit(id, remove, add).map_err(fail)
 }
 
-/// Sets how to practise: hear the tabs, mute the recordings under them,
+/// Sets how to practice: hear the tabs, mute the recordings under them,
 /// and the practice speed.
 #[tauri::command]
 pub fn practice_set(

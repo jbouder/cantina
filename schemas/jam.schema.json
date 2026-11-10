@@ -451,7 +451,7 @@
   },
   "$id": "https://cantina-docs.vibeproject.workers.dev/schemas/jam.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "What plays along while you practise: drums from a stock groove (named by its genre) or patterns of the jam's own by section, a backing (a chord progression played by a built-in guitar or bass through a rig, an audio file, or a project's track), a tempo, a key and the rig the input plays through (named by its file less `.rig.json`).",
+  "description": "What plays along while you practice: drums from a stock groove (named by its genre) or patterns of the jam's own by section, a backing (a chord progression played by a built-in guitar or bass through a rig, an audio file, or a project's track), a tempo, a key and the rig the input plays through (named by its file less `.rig.json`).",
   "properties": {
     "$schema": {
       "type": "string"

@@ -164,7 +164,7 @@ one for its name.
 
 The assistant works on the open project with the same edits the window
 makes. Every change is one step in **Edit ▸ Undo**, saved with the project
-and journalled like any other, and shows in the chat as a card.
+and journaled like any other, and shows in the chat as a card.
 
 It can **read**:
 
@@ -252,7 +252,7 @@ Ask for something that does not exist yet and the assistant writes it:
 - *"Write a 6/8 blues shuffle"*: a drum pattern, saved to
   `~/Music/Cantina/Patterns` and offered under **Import from the library**.
   Ask for it on a drum track and it adds it to the project and places it.
-- *"A kit for lo-fi hip hop"*: a kit recipe, synthesised into a kit in
+- *"A kit for lo-fi hip hop"*: a kit recipe, synthesized into a kit in
   `~/Music/Cantina/Kits`, which drum tracks can pick at once.
 
 This is the [cantina-author](/guides/agents/) skill's loop, in the app.
@@ -263,7 +263,7 @@ file it writes goes through the same code as `cantina-cli`:
    pattern is checked against the pads of the kit it will play on.
 2. **Render**: a pedal is run over a guitar DI and must not clip, be
    silent or carry DC at its defaults; a pattern is played through its kit
-   and must make a sound; a kit is synthesised and checked.
+   and must make a sound; a kit is synthesized and checked.
 3. **Save**, only if both pass. The library folders are scanned at once,
    so the new file is in the pickers straight away.
 

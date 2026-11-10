@@ -17,7 +17,7 @@ interface Result {
   id: string;
   ok: boolean;
   error?: string;
-  /** Share of pixels away from the darkest colour, after the sequence. */
+  /** Share of pixels away from the darkest color, after the sequence. */
   lit: number;
   /** Mean absolute pixel change between the middle and the end of the sequence. */
   motion: number;

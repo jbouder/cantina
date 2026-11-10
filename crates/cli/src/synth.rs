@@ -2,7 +2,7 @@
 //! 16-bit WAV and its `kit.json`, ready for `check` and for the app.
 //!
 //! The output depends only on the recipe, so running it again writes the
-//! same bytes and a synthesised kit can live in git like any other.
+//! same bytes and a synthesized kit can live in git like any other.
 
 use std::path::Path;
 

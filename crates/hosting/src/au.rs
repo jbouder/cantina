@@ -733,7 +733,7 @@ impl AudioUnitProcessor {
         if self.initialized {
             check(
                 unsafe { AudioUnitUninitialize(self.unit) },
-                "uninitialising",
+                "uninitializing",
             )?;
             self.initialized = false;
         }
@@ -790,7 +790,7 @@ impl AudioUnitProcessor {
             0,
             &callback,
         )?;
-        check(unsafe { AudioUnitInitialize(self.unit) }, "initialising")?;
+        check(unsafe { AudioUnitInitialize(self.unit) }, "initializing")?;
         self.initialized = true;
 
         self.latency_frames = latency_frames(self.unit);
@@ -863,7 +863,7 @@ impl Processor for AudioUnitProcessor {
     fn reset(&mut self) {
         if self.initialized {
             unsafe {
-                // Uninitialise and initialise again: the documented way to
+                // Uninitialize and initialize again: the documented way to
                 // clear an Audio Unit's internal state.
                 AudioUnitUninitialize(self.unit);
                 if AudioUnitInitialize(self.unit) != 0 {

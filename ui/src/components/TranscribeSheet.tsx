@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   type ClipInfo,
-  clipTabRequantise,
+  clipTabRequantize,
   clipTranscribe,
   type EngineStatus,
   type Instrument,
@@ -76,7 +76,7 @@ function tuningIndex(instrument: Instrument, tuning: number[] | undefined): numb
 /**
  * Transcribe to tab: choose the instrument, tuning, capo and grid, then
  * the model listens to the clip off the audio thread, with progress and
- * Stop. A clip with a transcribed tab can also be re-quantised to
+ * Stop. A clip with a transcribed tab can also be re-quantized to
  * another grid without listening again.
  */
 export function TranscribeSheet({ clip, profile, onStatus, onClose }: Props) {
@@ -116,15 +116,15 @@ export function TranscribeSheet({ clip, profile, onStatus, onClose }: Props) {
       onClose();
     } catch (e) {
       const message = String(e);
-      if (!message.includes("cancelled")) setError(message);
+      if (!message.includes("canceled")) setError(message);
     } finally {
       setRunning(false);
     }
   };
 
-  const requantise = () => {
+  const requantize = () => {
     setError(null);
-    clipTabRequantise(clip.id, grid).then(
+    clipTabRequantize(clip.id, grid).then(
       (status) => {
         onStatus(status);
         onClose();
@@ -147,8 +147,8 @@ export function TranscribeSheet({ clip, profile, onStatus, onClose }: Props) {
           <>
             <Button onClick={onClose}>Cancel</Button>
             {clip.tab?.transcribed ? (
-              <Button onClick={requantise} title="Snap the notes it heard to the grid again">
-                Re-quantise
+              <Button onClick={requantize} title="Snap the notes it heard to the grid again">
+                Re-quantize
               </Button>
             ) : null}
             <Button tier="primary" onClick={transcribe}>
@@ -226,7 +226,7 @@ export function TranscribeSheet({ clip, profile, onStatus, onClose }: Props) {
         </h3>
         <Select
           id="tab-grid"
-          label="Quantise to"
+          label="Quantize to"
           hint="Notes snap to this grid at the project's tempo"
           value={grid}
           disabled={running}
@@ -242,7 +242,7 @@ export function TranscribeSheet({ clip, profile, onStatus, onClose }: Props) {
       {clip.tab ? (
         <Lcd role="status" className="text-readout">
           Has a {clip.tab.instrument} tab · {clip.tab.notes} notes
-          {clip.tab.transcribed ? " · re-quantising keeps what it heard" : ""}
+          {clip.tab.transcribed ? " · re-quantizing keeps what it heard" : ""}
         </Lcd>
       ) : null}
       {error ? (

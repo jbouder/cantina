@@ -57,7 +57,7 @@ enum Command {
         #[arg(value_enum)]
         format: Format,
     },
-    /// Synthesise a kit folder (samples and kit.json) from a kit recipe.
+    /// Synthesize a kit folder (samples and kit.json) from a kit recipe.
     SynthKit {
         /// The recipe, a `*.recipe.json`.
         recipe: PathBuf,

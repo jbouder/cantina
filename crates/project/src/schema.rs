@@ -147,14 +147,14 @@ pub fn rig() -> Value {
 }
 
 /// The schema for a `<name>.jam.json`: what plays along while you
-/// practise. Whether its groove, kit and rigs are installed is left to
+/// practice. Whether its groove, kit and rigs are installed is left to
 /// `cantina-cli check`.
 pub fn jam() -> Value {
     let mut s = schemars::schema_for!(crate::Jam).to_value();
     s["$id"] = json!(format!("{SITE}/jam.schema.json"));
     s["title"] = json!("Cantina jam");
     s["description"] = json!(
-        "What plays along while you practise: drums from a stock groove (named by its genre) \
+        "What plays along while you practice: drums from a stock groove (named by its genre) \
          or patterns of the jam's own by section, a backing (a chord progression played by a \
          built-in guitar or bass through a rig, an audio file, or a project's track), a tempo, \
          a key and the rig the input plays through (named by its file less `.rig.json`)."

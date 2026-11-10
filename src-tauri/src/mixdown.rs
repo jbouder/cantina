@@ -34,7 +34,7 @@ use cantina_project::{Pedal, Project, Track, TrackId};
 
 use crate::engine::{engine_clips, score_for, tempo_map};
 
-/// Frames per block: the app's default buffer, so block-rate behaviour
+/// Frames per block: the app's default buffer, so block-rate behavior
 /// matches what most playback hears.
 pub const BLOCK: usize = 128;
 /// Channels the graph runs, as the live one does.
@@ -308,7 +308,7 @@ impl Render {
             }
             blocks += 1;
             if blocks % 64 == 0 && !progress((done as f32 / wanted.max(1) as f32).min(1.0)) {
-                bail!("cancelled");
+                bail!("canceled");
             }
         }
         progress(1.0);

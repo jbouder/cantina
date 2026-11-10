@@ -114,7 +114,7 @@ the engine report). `Engine` implements it in `engine.rs` with the same
 methods the UI's commands call:
 
 - **Every edit is a `Command` through `Engine::apply`**, so it is
-  undoable, journalled and reconciled into the live graph, and the status
+  undoable, journaled and reconciled into the live graph, and the status
   is pushed to the window as for any edit. Nothing in `tools.rs` touches
   the graph or the project directly.
 - **One tool call is one undo step.** A tool that changes several things
@@ -193,7 +193,7 @@ color plus the skin's LCD and LED tokens, with four states (idle,
 thinking, speaking, error) animated by the `.droid-*` rules in
 `styles.css`, all inside `prefers-reduced-motion: no-preference`. The
 panel's console uses `surface-lcd` for the readout and `Led` for Link,
-Busy and Fault. `lib/chirps.ts` synthesises the optional chirps with Web
+Busy and Fault. `lib/chirps.ts` synthesizes the optional chirps with Web
 Audio in the web view; they reach the system output directly and never the
 engine's graph.
 

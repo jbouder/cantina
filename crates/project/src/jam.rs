@@ -1,4 +1,4 @@
-//! Jams: what plays along while you practise, as a file of its own,
+//! Jams: what plays along while you practice, as a file of its own,
 //! `<name>.jam.json`. A jam is a drum groove, a backing, a tempo, a key
 //! and the rig you play through; it is not a project and jamming never
 //! edits one. `jam.schema.json` describes the file.
@@ -51,7 +51,7 @@ pub const JAM_SUFFIX: &str = ".jam.json";
 /// The slowest and fastest a jam plays, in beats per minute.
 pub const JAM_TEMPO: (f64, f64) = (30.0, 300.0);
 
-/// What plays along while you practise.
+/// What plays along while you practice.
 #[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -3,7 +3,7 @@ title: "Jam"
 description: "Jam mode is a practice room, on stage too: stock jams and your own saved ones, drums from a stock groove or your own patterns, a backing (a chord progression played by a built-in guitar or bass, an audio file or a project's track), your rig on the input, on an endless loop you steer while you play: sections at the next bar, tempo nudges, tap tempo and a count-in; and Keep that, for the riff you were not recording."
 ---
 
-Practising should not mean setting up a project, tracks and clips. Jam
+Practicing should not mean setting up a project, tracks and clips. Jam
 mode is a room of its own: drums, something to play over, a tempo, a key
 and the rig you play through. Press **Play** and it goes on until you
 stop it; change section and tempo as you go, and when you play something
@@ -84,7 +84,7 @@ The change lands exactly on the bar line, to the sample, however close
 to it you press, as long as there is a moment to spare: pressed in the
 last few hundredths of a second of a bar, it waits for the bar after.
 Pressing another section before the bar arrives replaces the one that
-was coming. A section the groove has no pattern for is greyed out.
+was coming. A section the groove has no pattern for is grayed out.
 
 While stopped, pressing a section makes the jam start with it, and so
 does pressing one during the count-in, up to its last beat.

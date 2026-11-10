@@ -735,11 +735,11 @@ mod tests {
     #[test]
     fn test_connection_reports_success_a_bad_key_a_bad_url_and_an_unknown_model() {
         let base = fake::serve(|seen| {
-            let authorised = seen
+            let authorized = seen
                 .headers
                 .iter()
                 .any(|(k, v)| k == "authorization" && v == "Bearer good");
-            match (seen.path.as_str(), authorised) {
+            match (seen.path.as_str(), authorized) {
                 (_, false) => (
                     401,
                     "application/json",

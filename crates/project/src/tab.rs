@@ -213,7 +213,7 @@ pub struct Tab {
     #[serde(default)]
     pub notes: Vec<TabNote>,
     /// For a transcribed tab, the notes as transcription heard them,
-    /// before they were quantised to the grid and fitted to strings, so
+    /// before they were quantized to the grid and fitted to strings, so
     /// either can be redone without transcribing again. Empty for a tab
     /// written by hand.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

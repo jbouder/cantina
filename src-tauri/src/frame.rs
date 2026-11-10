@@ -299,7 +299,7 @@ mod tests {
     }
 
     /// Writes `packages/scenes/test/recording.bin` when asked: a second
-    /// of frames from the real analyser, 60 of them, over a kick on every
+    /// of frames from the real analyzer, 60 of them, over a kick on every
     /// beat at 120 BPM, a hat between and a chord, with the beat fields
     /// set. The scenes' harness draws every scene from it. Each frame is
     /// a little-endian u32 length and then the frame.
@@ -370,7 +370,7 @@ mod tests {
             if (written as usize) < lead + BLOCK {
                 continue;
             }
-            analyzer.analyse(&handle);
+            analyzer.analyze(&handle);
             let heard = written - lead as u64;
             let b = beat_at(&tempo, heard, RATE);
             Frame {

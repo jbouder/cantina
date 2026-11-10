@@ -1,6 +1,6 @@
 ---
 name: cantina-author
-description: Write files for Cantina, the Mac guitar studio. Covers pedals (*.pedal.json effect graphs such as drives, fuzz, chorus, tremolo and delay), drum kit recipes (*.recipe.json, synthesised into a kit), drum patterns (*.pattern.json beats), rigs (*.rig.json, a chain of pedals with settings for a style), jams (*.jam.json, a groove, backing chords, tempo, key and rig to practise with) and projects (project.json). Checks each file with cantina-cli and renders it before putting it in the ~/Music/Cantina library, where the running app picks it up. Use when asked for a Cantina pedal, effect, tone, rig, beat, groove, drum pattern, drum kit, jam, backing track, chord progression or project, or to fix one that will not load.
+description: Write files for Cantina, the Mac guitar studio. Covers pedals (*.pedal.json effect graphs such as drives, fuzz, chorus, tremolo and delay), drum kit recipes (*.recipe.json, synthesized into a kit), drum patterns (*.pattern.json beats), rigs (*.rig.json, a chain of pedals with settings for a style), jams (*.jam.json, a groove, backing chords, tempo, key and rig to practice with) and projects (project.json). Checks each file with cantina-cli and renders it before putting it in the ~/Music/Cantina library, where the running app picks it up. Use when asked for a Cantina pedal, effect, tone, rig, beat, groove, drum pattern, drum kit, jam, backing track, chord progression or project, or to fix one that will not load.
 ---
 
 # Authoring for Cantina
@@ -73,7 +73,7 @@ numbers.
 
 ## Kits
 
-You cannot record a drum. Write a kit recipe instead and synthesise it:
+You cannot record a drum. Write a kit recipe instead and synthesize it:
 
 ```sh
 cantina-cli check lofi.recipe.json
@@ -105,7 +105,7 @@ rigs does not jump in volume.
 
 ## Jams
 
-A jam is what plays along while someone practises: drums, a backing, a
+A jam is what plays along while someone practices: drums, a backing, a
 tempo, a key and the rig their guitar goes through. Name things the app
 ships: a stock groove by its genre (`Rock`, `Blues shuffle`, `Heavy metal`;
 the folders of `patterns/` in the repository, each with its tempo range),

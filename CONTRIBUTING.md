@@ -61,7 +61,7 @@ a slower one, so review looks for them first.
 ## The other rules
 
 - **Every project edit is a `Command`** with an inverse, applied through
-  `Engine::apply`, so it is undoable, journalled and reconciled into the
+  `Engine::apply`, so it is undoable, journaled and reconciled into the
   live graph. A new shell command needs the `Engine` method, a
   `#[tauri::command]` in `src-tauri/src/commands.rs` registered in
   `lib.rs`, and the client in `ui/src/lib/engine.ts` with its browser
@@ -71,7 +71,7 @@ a slower one, so review looks for them first.
 - **Audio files are never modified.** Edits are non-destructive.
 - **File formats are versioned.** A change to `project.json` bumps its
   version and adds a migration; old files must still load.
-- **Colours are skin tokens.** Components never carry a literal colour,
+- **Colors are skin tokens.** Components never carry a literal color,
   radius, shadow or typeface.
 - **Type and spacing are scales.** Four type sizes (`text-label`,
   `text-body`, `text-readout`, `text-display`) and eight spacing steps.
@@ -97,7 +97,7 @@ CI (`.github/workflows/ci.yml`) runs all of this on every pull request.
 Run it first:
 
 ```sh
-npm run check                                  # Biome, colour and contrast checks, TypeScript, Vitest
+npm run check                                  # Biome, color and contrast checks, TypeScript, Vitest
 node scripts/skill-references.mjs --check      # the agent skill's generated references are current
 npm run test:scenes                            # every visualizer scene draws, in headless Chrome
 npm run build                                  # the UI; the shell embeds ui/dist

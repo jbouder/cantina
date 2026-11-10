@@ -8,7 +8,7 @@ sidebar:
 Everything in Cantina's menu bar is also somewhere in the window; the menus
 are where a Mac app's commands are expected to be, with their shortcuts
 beside them. An item that cannot apply right now, such as **Save** with
-nothing to save, is greyed out. The [shortcut reference](/reference/shortcuts/)
+nothing to save, is grayed out. The [shortcut reference](/reference/shortcuts/)
 lists every key on one page.
 
 The menus grow with Cantina: the assistant, tabs, rigs and jam mode each
@@ -75,7 +75,7 @@ on **Open the last project at launch** in **Settings → Launch**.
 
 ## Track
 
-These act on the selected track, and are greyed out with none.
+These act on the selected track, and are grayed out with none.
 
 | Item | Shortcut | What it does |
 | --- | --- | --- |

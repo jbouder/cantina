@@ -1,6 +1,6 @@
 # Starter cabinet impulse responses
 
-The four `.wav` files here are **synthesised**, not recorded: an
+The four `.wav` files here are **synthesized**, not recorded: an
 impulse through a speaker-shaped filter (a resonant low cut, a steep
 high roll-off, a mid dip and a presence peak), a few close reflections
 for the cone and the microphone, and a short dark tail for the box.

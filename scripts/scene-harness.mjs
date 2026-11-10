@@ -5,7 +5,7 @@
 //   node scripts/scene-harness.mjs            check
 //   node scripts/scene-harness.mjs --write    also write the thumbnails
 //
-// The recording comes from the real analyser: rerun the Rust tests with
+// The recording comes from the real analyzer: rerun the Rust tests with
 // CANTINA_WRITE_FIXTURES=1 to make a new one.
 
 import { execFile } from "node:child_process";

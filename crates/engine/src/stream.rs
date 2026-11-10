@@ -12,7 +12,7 @@
 //! When the input and output are the same device, one HAL output unit runs
 //! both directions in a single I/O cycle, so the ring buffer between the
 //! callbacks adds no latency. When they differ, two units run on
-//! unsynchronised clocks and one block of input is held back so the output
+//! unsynchronized clocks and one block of input is held back so the output
 //! never starves; drift between the clocks shows up in the counters.
 
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
@@ -201,9 +201,9 @@ impl Stream {
             .unwrap_or(&mut input_unit)
             .set_stream_format(output_format, Scope::Input, Element::Output)
             .context("setting output stream format")?;
-        input_unit.initialize().context("initialising input unit")?;
+        input_unit.initialize().context("initializing input unit")?;
         if let Some(unit) = output_unit.as_mut() {
-            unit.initialize().context("initialising output unit")?;
+            unit.initialize().context("initializing output unit")?;
         }
 
         // Audio travels from the input callback to the render callback

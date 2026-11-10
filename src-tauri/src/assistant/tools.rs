@@ -9,7 +9,7 @@
 //!
 //! Tools run against a [`Host`], which the shell's `Engine` implements.
 //! Every edit is a project `Command` applied through `Engine::apply`, so
-//! it is undoable, journalled and reconciled into the live graph, the
+//! it is undoable, journaled and reconciled into the live graph, the
 //! same as an edit from the UI; one tool call is one undo step.
 
 use std::path::{Path, PathBuf};
@@ -764,7 +764,7 @@ pub static TOOLS: &[Tool] = &[
     },
     Tool {
         name: "write_kit_recipe",
-        description: "Writes a drum kit recipe in the kit-recipe format, checks it, synthesises the kit from it as cantina-cli synth-kit does, and installs it in ~/Music/Cantina/Kits/<id>, where drum tracks can pick it. If it fails, nothing is installed. Optionally adds a drum track that uses it.",
+        description: "Writes a drum kit recipe in the kit-recipe format, checks it, synthesizes the kit from it as cantina-cli synth-kit does, and installs it in ~/Music/Cantina/Kits/<id>, where drum tracks can pick it. If it fails, nothing is installed. Optionally adds a drum track that uses it.",
         schema: || {
             object(
                 json!({

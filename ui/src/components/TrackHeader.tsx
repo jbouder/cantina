@@ -270,7 +270,7 @@ function StripControls({ name, strip, onGain, onPan, onError }: StripProps) {
             value={pan}
             aria-label={`${name} pan`}
             aria-valuetext={panLabel(pan)}
-            title="Pan; double-click for centre"
+            title="Pan; double-click for center"
             onChange={(e) => {
               const v = Number(e.target.value);
               setPan(v);
