@@ -59,7 +59,8 @@ Choosing another input channel is not in Settings yet.
 
 If **Input** says *System default*, it follows whatever macOS has selected,
 which is often the built-in microphone. Choose your interface by name
-instead.
+instead. If you play through an amp and only want the Mac to play along,
+choose **No input**.
 
 ## macOS blocks the input
 

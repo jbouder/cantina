@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AudioSettings {
+    /// Run output only: no input device is opened and every track's
+    /// input is silence, for playing along through an amp in the room.
+    pub no_input: bool,
     pub input_uid: Option<String>,
     pub output_uid: Option<String>,
     pub sample_rate: f64,
@@ -21,6 +24,7 @@ pub struct AudioSettings {
 impl Default for AudioSettings {
     fn default() -> Self {
         Self {
+            no_input: false,
             input_uid: None,
             output_uid: None,
             sample_rate: 48_000.0,
@@ -271,6 +275,7 @@ mod tests {
         let loaded = Settings::load(&path).unwrap();
         assert_eq!(loaded.audio.sample_rate, 96_000.0);
         assert_eq!(loaded.audio.buffer_frames, 128);
+        assert!(!loaded.audio.no_input);
         assert_eq!(loaded.metronome, MetronomeSettings::default());
         assert!(
             !loaded.open_last_at_launch,

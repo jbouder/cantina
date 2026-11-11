@@ -100,7 +100,7 @@ fn main() -> Result<()> {
 
     let stream = Stream::open(
         StreamConfig {
-            input,
+            input: Some(input),
             output,
             sample_rate: opts.sample_rate,
             buffer_frames: opts.buffer_frames,

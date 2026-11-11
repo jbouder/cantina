@@ -1,5 +1,5 @@
 //! A duplex CoreAudio stream: input device to output device through a
-//! [`BlockProcessor`].
+//! [`BlockProcessor`], or an output-only one that hands it silence.
 //!
 //! # Real-time rules
 //!
@@ -14,6 +14,8 @@
 //! callbacks adds no latency. When they differ, two units run on
 //! unsynchronized clocks and one block of input is held back so the output
 //! never starves; drift between the clocks shows up in the counters.
+//! With no input, one output unit runs alone and the processor's input is
+//! silence, so playback works on a Mac with no input device at all.
 
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -37,8 +39,9 @@ pub const MAX_BLOCK_FRAMES: usize = 4096;
 /// How to open a stream.
 #[derive(Debug, Clone)]
 pub struct StreamConfig {
-    /// The device to take input from.
-    pub input: DeviceId,
+    /// The device to take input from, or `None` to run output only with
+    /// silence as the input.
+    pub input: Option<DeviceId>,
     /// The device to play to; the same as `input` for one duplex unit.
     pub output: DeviceId,
     /// The rate to run at; the device is switched to it.
@@ -86,12 +89,14 @@ pub struct StreamInfo {
     pub sample_rate: f64,
     /// The buffer size the device granted, in frames.
     pub buffer_frames: u32,
-    /// Channels the input device has.
+    /// Channels the input device has; zero with no input.
     pub input_channels: u32,
     /// Channels the output device has.
     pub output_channels: u32,
     /// True when one audio unit runs both directions on one device.
     pub duplex: bool,
+    /// True when the stream runs without an input device.
+    pub output_only: bool,
     /// Frames of input the ring buffer holds back at start, zero in duplex.
     pub ring_prefill_frames: u32,
     /// Latency CoreAudio reports on the way in: the device's own, the
@@ -127,6 +132,7 @@ pub struct Stream {
 
 enum Units {
     Duplex(AudioUnit),
+    Output(AudioUnit),
     Split { input: AudioUnit, output: AudioUnit },
 }
 
@@ -142,49 +148,59 @@ impl Stream {
             input_channel,
         } = config;
 
-        device::set_sample_rate(input, sample_rate)?;
-        if output != input {
+        if let Some(input) = input {
+            device::set_sample_rate(input, sample_rate)?;
+        }
+        if input != Some(output) {
             device::set_sample_rate(output, sample_rate)?;
         }
-        let in_frames = device::set_buffer_frame_size(input, buffer_frames)?;
-        let out_frames = if output != input {
-            device::set_buffer_frame_size(output, buffer_frames)?
-        } else {
-            in_frames
+        let in_frames = match input {
+            Some(input) => Some(device::set_buffer_frame_size(input, buffer_frames)?),
+            None => None,
         };
-        if in_frames != out_frames {
-            bail!("devices disagree on buffer size: input {in_frames}, output {out_frames}");
+        let out_frames = match in_frames {
+            Some(frames) if input == Some(output) => frames,
+            _ => device::set_buffer_frame_size(output, buffer_frames)?,
+        };
+        if let Some(in_frames) = in_frames {
+            if in_frames != out_frames {
+                bail!("devices disagree on buffer size: input {in_frames}, output {out_frames}");
+            }
         }
-        let buffer_frames = in_frames;
+        let buffer_frames = out_frames;
 
-        let input_channels = device::channel_count(input, true)?;
-        if input_channels == 0 {
-            bail!("device {} has no inputs", device::name(input)?);
-        }
-        if input_channel >= input_channels as usize {
-            bail!("input channel {input_channel} is out of range; device has {input_channels}");
-        }
+        let input_channels = match input {
+            Some(input) => {
+                let channels = device::channel_count(input, true)?;
+                if channels == 0 {
+                    bail!("device {} has no inputs", device::name(input)?);
+                }
+                if input_channel >= channels as usize {
+                    bail!("input channel {input_channel} is out of range; device has {channels}");
+                }
+                channels
+            }
+            None => 0,
+        };
         let output_channels = device::channel_count(output, false)?.min(2);
         if output_channels == 0 {
             bail!("device {} has no outputs", device::name(output)?);
         }
 
-        let duplex = input == output;
-        let (mut input_unit, mut output_unit) = if duplex {
-            (duplex_unit(input)?, None)
-        } else {
-            (
-                audio_unit_from_device_id_uninitialized(input, true)?,
-                Some(audio_unit_from_device_id_uninitialized(output, false)?),
-            )
+        let duplex = input == Some(output);
+        // The unit that renders, and the separate input unit when there is one.
+        let (mut output_unit, mut input_unit) = match input {
+            Some(input) if duplex => (duplex_unit(input)?, None),
+            Some(input) => (
+                audio_unit_from_device_id_uninitialized(output, false)?,
+                Some(audio_unit_from_device_id_uninitialized(input, true)?),
+            ),
+            None => (
+                audio_unit_from_device_id_uninitialized(output, false)?,
+                None,
+            ),
         };
 
-        let input_format = StreamFormat {
-            sample_rate,
-            sample_format: SampleFormat::F32,
-            flags: LinearPcmFlags::IS_FLOAT | LinearPcmFlags::IS_PACKED,
-            channels: input_channels,
-        };
         let output_format = StreamFormat {
             sample_rate,
             sample_format: SampleFormat::F32,
@@ -193,26 +209,41 @@ impl Stream {
                 | LinearPcmFlags::IS_NON_INTERLEAVED,
             channels: output_channels,
         };
-        input_unit
-            .set_stream_format(input_format, Scope::Output, Element::Input)
-            .context("setting input stream format")?;
         output_unit
-            .as_mut()
-            .unwrap_or(&mut input_unit)
             .set_stream_format(output_format, Scope::Input, Element::Output)
             .context("setting output stream format")?;
-        input_unit.initialize().context("initializing input unit")?;
-        if let Some(unit) = output_unit.as_mut() {
-            unit.initialize().context("initializing output unit")?;
+        if input.is_some() {
+            let input_format = StreamFormat {
+                sample_rate,
+                sample_format: SampleFormat::F32,
+                flags: LinearPcmFlags::IS_FLOAT | LinearPcmFlags::IS_PACKED,
+                channels: input_channels,
+            };
+            input_unit
+                .as_mut()
+                .unwrap_or(&mut output_unit)
+                .set_stream_format(input_format, Scope::Output, Element::Input)
+                .context("setting input stream format")?;
         }
+        if let Some(unit) = input_unit.as_mut() {
+            unit.initialize().context("initializing input unit")?;
+        }
+        output_unit
+            .initialize()
+            .context("initializing output unit")?;
 
         // Audio travels from the input callback to the render callback
         // through this ring. Capacity is generous so a late render never
         // drops input; latency is governed by how much is held back, not
-        // by capacity.
+        // by capacity. With no input nothing writes to it and the render
+        // callback reads silence.
         let capacity = (buffer_frames as usize * 16).max(MAX_BLOCK_FRAMES * 2);
         let (mut producer, mut consumer) = RingBuffer::<f32>::new(capacity);
-        let ring_prefill_frames = if duplex { 0 } else { buffer_frames };
+        let ring_prefill_frames = if duplex || input.is_none() {
+            0
+        } else {
+            buffer_frames
+        };
         for _ in 0..ring_prefill_frames {
             producer.push(0.0).expect("ring has room for the prefill");
         }
@@ -220,30 +251,35 @@ impl Stream {
         let stats = Arc::new(Stats::default());
 
         // --- input callback: real-time, see module docs ---
-        let input_stats = Arc::clone(&stats);
-        let channels = input_channels as usize;
-        input_unit.set_input_callback(move |args: Args<data::Interleaved<f32>>| {
-            let Args {
-                num_frames, data, ..
-            } = args;
-            input_stats.input_callbacks.fetch_add(1, Ordering::Relaxed);
-            let writable = num_frames.min(producer.slots());
-            if let Ok(chunk) = producer.write_chunk_uninit(writable) {
-                let samples = data
-                    .buffer
-                    .iter()
-                    .skip(input_channel)
-                    .step_by(channels)
-                    .copied();
-                chunk.fill_from_iter(samples);
-            }
-            if writable < num_frames {
-                input_stats
-                    .input_overruns
-                    .fetch_add((num_frames - writable) as u64, Ordering::Relaxed);
-            }
-            Ok(())
-        })?;
+        if input.is_some() {
+            let input_stats = Arc::clone(&stats);
+            let channels = input_channels as usize;
+            input_unit
+                .as_mut()
+                .unwrap_or(&mut output_unit)
+                .set_input_callback(move |args: Args<data::Interleaved<f32>>| {
+                    let Args {
+                        num_frames, data, ..
+                    } = args;
+                    input_stats.input_callbacks.fetch_add(1, Ordering::Relaxed);
+                    let writable = num_frames.min(producer.slots());
+                    if let Ok(chunk) = producer.write_chunk_uninit(writable) {
+                        let samples = data
+                            .buffer
+                            .iter()
+                            .skip(input_channel)
+                            .step_by(channels)
+                            .copied();
+                        chunk.fill_from_iter(samples);
+                    }
+                    if writable < num_frames {
+                        input_stats
+                            .input_overruns
+                            .fetch_add((num_frames - writable) as u64, Ordering::Relaxed);
+                    }
+                    Ok(())
+                })?;
+        }
 
         // --- render callback: real-time, see module docs ---
         let render_stats = Arc::clone(&stats);
@@ -251,6 +287,7 @@ impl Stream {
         let mut scratch_out = vec![0.0f32; MAX_BLOCK_FRAMES];
         let mut scratch_right = vec![0.0f32; MAX_BLOCK_FRAMES];
         let stereo = output_channels >= 2;
+        let has_input = input.is_some();
         let render = move |args: Args<data::NonInterleaved<f32>>| {
             let Args {
                 num_frames,
@@ -285,6 +322,9 @@ impl Stream {
             }
             if available < num_frames {
                 input[available..].fill(0.0);
+            }
+            // Output only: the input is silence, not a starved ring.
+            if has_input && available < num_frames {
                 render_stats
                     .output_underruns
                     .fetch_add((num_frames - available) as u64, Ordering::Relaxed);
@@ -305,19 +345,22 @@ impl Stream {
             Ok(())
         };
 
-        let units = match output_unit {
-            None => {
-                input_unit.set_render_callback(render)?;
-                input_unit.start().context("starting duplex unit")?;
-                Units::Duplex(input_unit)
+        output_unit.set_render_callback(render)?;
+        let units = match input_unit {
+            None if duplex => {
+                output_unit.start().context("starting duplex unit")?;
+                Units::Duplex(output_unit)
             }
-            Some(mut output) => {
-                output.set_render_callback(render)?;
-                input_unit.start().context("starting input unit")?;
-                output.start().context("starting output unit")?;
+            None => {
+                output_unit.start().context("starting output unit")?;
+                Units::Output(output_unit)
+            }
+            Some(mut input) => {
+                input.start().context("starting input unit")?;
+                output_unit.start().context("starting output unit")?;
                 Units::Split {
-                    input: input_unit,
-                    output,
+                    input,
+                    output: output_unit,
                 }
             }
         };
@@ -331,8 +374,10 @@ impl Stream {
                 input_channels,
                 output_channels,
                 duplex,
+                output_only: input.is_none(),
                 ring_prefill_frames,
-                input_latency_frames: device::reported_latency(input, true)
+                input_latency_frames: input
+                    .and_then(|input| device::reported_latency(input, true).ok())
                     .map_or(0, |(d, s)| d + s + buffer_frames),
                 output_latency_frames: device::reported_latency(output, false)
                     .map_or(0, |(d, s)| d + s + buffer_frames + ring_prefill_frames),
@@ -359,7 +404,7 @@ impl Stream {
 impl Drop for Stream {
     fn drop(&mut self) {
         match &mut self.units {
-            Units::Duplex(unit) => {
+            Units::Duplex(unit) | Units::Output(unit) => {
                 let _ = unit.stop();
             }
             Units::Split { input, output } => {
@@ -396,4 +441,74 @@ fn duplex_unit(device: DeviceId) -> Result<AudioUnit> {
     )
     .context("binding duplex unit to device")?;
     Ok(unit)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Opens the default output with no input and checks the render
+    /// callback runs on silence. Needs a real output device, so it is
+    /// run by hand: `cargo test -p cantina-engine stream -- --ignored`.
+    #[test]
+    #[ignore = "needs an audio output device"]
+    fn an_output_only_stream_renders_without_an_input() {
+        let output = device::default_output().expect("a default output device");
+        let heard = Arc::new(AtomicU64::new(0));
+        let loud = Arc::clone(&heard);
+        let stream = Stream::open(
+            StreamConfig {
+                input: None,
+                output,
+                sample_rate: device::nominal_sample_rate(output).unwrap(),
+                buffer_frames: 256,
+                input_channel: 0,
+            },
+            move |input: &[f32], output: &mut [f32]| {
+                if input.iter().any(|&s| s != 0.0) {
+                    loud.fetch_add(1, Ordering::Relaxed);
+                }
+                output.fill(0.0);
+            },
+        )
+        .unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        let info = stream.info().clone();
+        let stats = stream.stats();
+        assert!(info.output_only && !info.duplex);
+        assert_eq!(info.input_channels, 0);
+        assert_eq!(info.input_latency_frames, 0);
+        assert_eq!(info.ring_prefill_frames, 0);
+        assert!(stats.output_callbacks.load(Ordering::Relaxed) > 0);
+        assert_eq!(stats.input_callbacks.load(Ordering::Relaxed), 0);
+        assert_eq!(stats.output_underruns.load(Ordering::Relaxed), 0);
+        assert_eq!(heard.load(Ordering::Relaxed), 0, "the input is silence");
+    }
+
+    /// The default input and output still open as before, one unit or
+    /// two. Needs real devices, so it is run by hand.
+    #[test]
+    #[ignore = "needs audio input and output devices"]
+    fn a_stream_with_an_input_still_takes_it() {
+        let input = device::default_input().expect("a default input device");
+        let output = device::default_output().expect("a default output device");
+        let stream = Stream::open(
+            StreamConfig {
+                input: Some(input),
+                output,
+                sample_rate: device::nominal_sample_rate(output).unwrap(),
+                buffer_frames: 256,
+                input_channel: 0,
+            },
+            |_: &[f32], output: &mut [f32]| output.fill(0.0),
+        )
+        .unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        let info = stream.info();
+        assert!(!info.output_only);
+        assert!(info.input_channels > 0);
+        assert_eq!(info.duplex, input == output);
+        assert!(stream.stats().input_callbacks.load(Ordering::Relaxed) > 0);
+        assert!(stream.stats().output_callbacks.load(Ordering::Relaxed) > 0);
+    }
 }

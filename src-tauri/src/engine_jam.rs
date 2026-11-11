@@ -953,6 +953,9 @@ impl Engine {
             bail!("open a jam first");
         };
         let live = self.live.as_mut().context("start the engine first")?;
+        if live.input.is_none() {
+            bail!("there is no input to keep; the jam is running without one");
+        }
         let capture = live
             .capture
             .as_ref()

@@ -67,6 +67,8 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
     [status.grooves],
   );
   const rigs = status.rigs;
+  // Running with no input: the jam plays along with an amp in the room.
+  const noInput = status.running && status.inputName === null;
   const rolling = frame.playing || frame.countIn > 0;
 
   const [taps, setTaps] = useState<number[]>([]);
@@ -283,7 +285,11 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
         <Select
           id={`${ids}-rig`}
           label="Rig"
-          hint="What your input plays through"
+          hint={
+            noInput
+              ? "No input is open: play through your amp along with the jam"
+              : "What your input plays through"
+          }
           value={setup.rig ?? ""}
           onChange={(e) => change({ rig: e.target.value || null })}
         >
@@ -401,8 +407,12 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
           <Metronome metronome={status.metronome} onStatus={onStatus} onError={onError} />
           <Button
             onClick={() => report(jamKeep())}
-            disabled={!status.running}
-            title={`Keep the last ${jam.captureMinutes} minutes you played (Return)`}
+            disabled={!status.running || noInput}
+            title={
+              noInput
+                ? "Keep that needs an input; pick one in Settings"
+                : `Keep the last ${jam.captureMinutes} minutes you played (Return)`
+            }
             className="min-h-12"
           >
             <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-current">

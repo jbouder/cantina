@@ -93,6 +93,12 @@ The first time the engine starts, macOS asks whether Cantina may use the
 microphone. That is how macOS names every audio input, your interface
 included. Allow it, or Cantina hears nothing.
 
+No interface, or playing through an amp in the room? Choose **No input**.
+Cantina then opens only the output: the metronome, playback and
+[jams](/guides/jam/#with-your-amp) play, nothing is listened to, and macOS
+does not ask for the microphone. Recording needs an input. A Mac with no
+input device at all runs this way by itself and says so.
+
 The **Engine** key starts and stops the audio. Its light is on while audio
 is running. Your choices are remembered for next time.
 
