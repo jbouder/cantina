@@ -780,6 +780,11 @@ export interface ParamInfo {
 
 /** Which devices to open and how. `null` follows the system default. */
 export interface AudioSettings {
+  /**
+   * Run output only: no input device is opened, for playing along through
+   * an amp in the room. Recording and Keep that need an input.
+   */
+  noInput: boolean;
   inputUid: string | null;
   outputUid: string | null;
   sampleRate: number;
@@ -873,6 +878,7 @@ const mockDevices: AudioDevice[] = [
 ];
 
 const mockSettings: AudioSettings = {
+  noInput: false,
   inputUid: null,
   outputUid: null,
   sampleRate: 48000,
@@ -880,6 +886,7 @@ const mockSettings: AudioSettings = {
 };
 
 const mockParams = inTauri ? null : new URLSearchParams(window.location.search);
+if (mockParams?.has("noinput")) mockSettings.noInput = true;
 const MOCK_RATE = 48000;
 /** The stand-in assistant's fake provider. */
 const MOCK_ENDPOINT = "https://droids.example/v1";
@@ -1760,7 +1767,7 @@ function mockDevice(uid: string | null, input: boolean): AudioDevice | undefined
 }
 
 function mockStatus(): EngineStatus {
-  const i = mockDevice(mockSettings.inputUid, true);
+  const i = mockSettings.noInput ? undefined : mockDevice(mockSettings.inputUid, true);
   const o = mockDevice(mockSettings.outputUid, false);
   return {
     ...mock,
@@ -1808,6 +1815,7 @@ function mockStatus(): EngineStatus {
     inputUid: mockSettings.inputUid,
     outputUid: mockSettings.outputUid,
     inputName: mock.running ? (i?.name ?? null) : null,
+    latency: mockSettings.noInput ? { ...mock.latency, inputFrames: 0 } : mock.latency,
     outputName: mock.running ? (o?.name ?? null) : null,
   };
 }
@@ -2037,7 +2045,7 @@ export function routeLabel(status: EngineStatus): string {
     status.latency.compensationFrames > 0
       ? ` · comp ${ms(status.latency.compensationFrames, status.sampleRate)}`
       : "";
-  return `${status.inputName ?? "?"} → ${status.outputName ?? "?"} · ${status.sampleRate / 1000} kHz · ${status.bufferFrames} frames${comp}`;
+  return `${status.inputName ?? "No input"} → ${status.outputName ?? "?"} · ${status.sampleRate / 1000} kHz · ${status.bufferFrames} frames${comp}`;
 }
 
 export async function engineStatus(): Promise<EngineStatus> {
@@ -3428,6 +3436,9 @@ export async function jamKeep(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("jam_keep");
   if (!mockJam) throw new Error("open a jam first");
   if (!mock.running) throw new Error("start the engine first");
+  if (mockSettings.noInput) {
+    throw new Error("there is no input to keep; the jam is running without one");
+  }
   const n = Math.floor(Math.random() * 90) + 2;
   mockKept = {
     seconds: Math.min(mockCaptureMinutes * 60, 30 + mockTransport.position),
@@ -3758,6 +3769,9 @@ export async function transportRecord(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("transport_record");
   if (!mock.project.tracks.some((t) => t.armed)) throw new Error("arm a track before recording");
   if (mock.practice.speed < 1) throw new Error("set the practice speed back to 100% to record");
+  if (mock.running && mockSettings.noInput) {
+    throw new Error("there is no input to record; pick one in Settings");
+  }
   mockTransport.countIn = mock.countIn ? MOCK_COUNT_BEATS * mockBeatSeconds() : 0;
   mockTransport.recording = true;
   return mockStatus();
@@ -4339,8 +4353,9 @@ function openMeterChannel() {
     const anySolo = mock.project.tracks.some((t) => t.strip.solo);
     const meters = mock.running
       ? [
-          0.4 + 0.3 * Math.abs(Math.sin(t * 3.7)),
-          0.18 + 0.12 * Math.sin(t * 2.1),
+          // With no input the IN meter reads silence.
+          mockSettings.noInput ? 0 : 0.4 + 0.3 * Math.abs(Math.sin(t * 3.7)),
+          mockSettings.noInput ? 0 : 0.18 + 0.12 * Math.sin(t * 2.1),
           0.55 + 0.35 * Math.abs(Math.sin(t * 3.7 + 0.4)),
           0.3 + 0.15 * Math.sin(t * 2.1 + 0.4),
           ...mock.project.tracks.flatMap((track, i) => {

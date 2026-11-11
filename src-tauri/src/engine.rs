@@ -1266,9 +1266,10 @@ struct Live {
     /// The track the scope listens to; the master when it is gone.
     analysis_source: Option<TrackId>,
     analysis: Arc<PumpAnalysis>,
-    input: DeviceId,
+    /// `None` when the stream runs output only.
+    input: Option<DeviceId>,
     output: DeviceId,
-    input_name: String,
+    input_name: Option<String>,
     output_name: String,
     /// The capture rings on a jam's input, while a jam is open.
     capture: Option<LiveCapture>,
@@ -2691,7 +2692,7 @@ impl Engine {
             buffer_frames,
             input_uid: a.input_uid.clone(),
             output_uid: a.output_uid.clone(),
-            input_name: self.live.as_ref().map(|l| l.input_name.clone()),
+            input_name: self.live.as_ref().and_then(|l| l.input_name.clone()),
             output_name: self.live.as_ref().map(|l| l.output_name.clone()),
             error: self.last_error.clone(),
             notice: self.notice.clone(),
@@ -5272,6 +5273,9 @@ impl Engine {
         let Some(live) = &mut self.live else {
             bail!("start the engine before recording");
         };
+        if live.input.is_none() {
+            bail!("there is no input to record; pick one in Settings");
+        }
         if !self.recording.is_empty() {
             return Ok(self.status());
         }
@@ -5927,12 +5931,12 @@ impl Engine {
         let audio = &self.settings.audio;
         let (why, new_rate): (String, Option<f64>) = match event {
             DeviceEvent::DevicesChanged | DeviceEvent::DeviceGone(_) => {
-                let lost = [
-                    (live.input, &live.input_name),
-                    (live.output, &live.output_name),
-                ]
-                .into_iter()
-                .find(|(id, _)| !device::is_alive(*id));
+                let lost = live
+                    .input
+                    .zip(live.input_name.as_ref())
+                    .into_iter()
+                    .chain([(live.output, &live.output_name)])
+                    .find(|(id, _)| !device::is_alive(*id));
                 match lost {
                     Some((_, name)) => (format!("{name} was disconnected"), None),
                     None => return,
@@ -5940,13 +5944,12 @@ impl Engine {
             }
             DeviceEvent::SampleRateChanged(id, rate) => {
                 let current = live.stream.info().sample_rate;
-                if (id != live.input && id != live.output) || rate == current {
+                if (Some(id) != live.input && id != live.output) || rate == current {
                     return;
                 }
-                let name = if id == live.input {
-                    &live.input_name
-                } else {
-                    &live.output_name
+                let name = match &live.input_name {
+                    Some(name) if Some(id) == live.input => name,
+                    _ => &live.output_name,
                 };
                 (
                     format!("{name} changed to {rate} Hz outside Cantina"),
@@ -5954,7 +5957,12 @@ impl Engine {
                 )
             }
             DeviceEvent::DefaultInputChanged => {
-                if audio.input_uid.is_some() || device::default_input() == Some(live.input) {
+                // Output only by choice stays so; output only for want of
+                // a device opens the new default.
+                if audio.no_input
+                    || audio.input_uid.is_some()
+                    || (live.input.is_some() && device::default_input() == live.input)
+                {
                     return;
                 }
                 ("The system default input changed".to_string(), None)
@@ -6064,12 +6072,34 @@ impl Engine {
         }
     }
 
+    /// The input device to open: none when the settings say so, and none,
+    /// with a notice, when the Mac has no input at all, so playback and
+    /// jams still run.
+    fn resolve_input(audio: &AudioSettings) -> Result<(Option<DeviceId>, Option<String>)> {
+        if audio.no_input {
+            return Ok((None, None));
+        }
+        let default = device::default_input();
+        let saved = match &audio.input_uid {
+            Some(uid) => device::find_by_uid(uid)?.filter(|&id| device::is_alive(id)),
+            None => None,
+        };
+        if saved.is_none() && default.is_none() {
+            return Ok((
+                None,
+                Some("there is no input device; playing without one".into()),
+            ));
+        }
+        let (id, note) = Self::resolve(&audio.input_uid, default, "input")?;
+        Ok((Some(id), note))
+    }
+
     /// Opens a stream for the settings with an empty graph; `sync` then
     /// builds the project into it. Returns the stream and any fallback
     /// notice.
     fn open(&self) -> Result<(Live, Option<String>)> {
         let audio = &self.settings.audio;
-        let (input, in_note) = Self::resolve(&audio.input_uid, device::default_input(), "input")?;
+        let (input, in_note) = Self::resolve_input(audio)?;
         let (output, out_note) =
             Self::resolve(&audio.output_uid, device::default_output(), "output")?;
         let fallback = match (in_note, out_note) {
@@ -6115,7 +6145,8 @@ impl Engine {
         .context("opening the audio stream")?;
 
         let (tx, rx) = mpsc::channel();
-        let watcher = Watcher::new(tx, &[input, output])?;
+        let watched: Vec<DeviceId> = input.into_iter().chain([output]).collect();
+        let watcher = Watcher::new(tx, &watched)?;
         spawn_watcher_thread(self.app.clone(), rx);
         let pump_stop = Arc::new(AtomicBool::new(false));
         let meters: Meters = Arc::new(Mutex::new(vec![
@@ -6160,7 +6191,7 @@ impl Engine {
             analysis,
             input,
             output,
-            input_name: device::name(input)?,
+            input_name: input.map(device::name).transpose()?,
             output_name: device::name(output)?,
             capture: None,
             _watcher: watcher,

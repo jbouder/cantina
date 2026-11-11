@@ -51,7 +51,16 @@ back the next time you open it, tempo and all.
   are left out and named.
 
 The **IN** and **OUT** meters in the toolbar show your input and what
-comes out. The line along the bottom of the window lists the jam's keys:
+comes out.
+
+### With your amp
+
+You do not need to plug into the Mac to jam. Choose **No input** under
+**Input** in Settings, start the engine and play your guitar through your
+own amp while the Mac plays the drums and the backing. Nothing is
+listened to, so the microphone cannot pick up the amp and feed it back.
+The rig has nothing to play through and **Keep that** is off until you
+choose an input again. The line along the bottom of the window lists the jam's keys:
 Space, 1 to 6, the arrows, T and Return.
 
 ## Playing

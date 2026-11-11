@@ -9,7 +9,7 @@ The engine is the only layer that touches the audio device, and the only code th
 
 ## The stream
 
-`stream` opens a duplex CoreAudio stream from an input device to an output device. When they are the same device, one HAL output unit runs both directions in a single I/O cycle, so nothing is buffered between the callbacks. Two different devices run on separate clocks, so one block of input is held back and drift shows in the counters. `device` lists devices, sets sample rate and buffer size, and watches for hardware changes: a device plugged in or removed, a default changed, a rate changed under the stream. The shell rebuilds the graph on any of them.
+`stream` opens a duplex CoreAudio stream from an input device to an output device. When they are the same device, one HAL output unit runs both directions in a single I/O cycle, so nothing is buffered between the callbacks. Two different devices run on separate clocks, so one block of input is held back and drift shows in the counters. With no input device (the **No input** setting, or a Mac without one), one output unit runs alone and the graph's input is silence; the shell refuses to record and to keep a jam then. `device` lists devices, sets sample rate and buffer size, and watches for hardware changes: a device plugged in or removed, a default changed, a rate changed under the stream. The shell rebuilds the graph on any of them.
 
 ## The graph runtime
 

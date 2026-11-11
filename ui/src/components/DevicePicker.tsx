@@ -11,6 +11,8 @@ import {
 import { Select } from "./Select";
 
 const DEFAULT = "";
+/** The input choice that opens no input device at all. */
+const NONE = "none";
 
 type Props = {
   /** Called with the status the engine returns after a change. */
@@ -72,7 +74,7 @@ export function DevicePicker({ onStatusChange }: Props) {
 
   const inputs = devices.filter((d) => d.inputChannels > 0);
   const outputs = devices.filter((d) => d.outputChannels > 0);
-  const input = resolve(devices, settings.inputUid, true);
+  const input = settings.noInput ? undefined : resolve(devices, settings.inputUid, true);
   const output = resolve(devices, settings.outputUid, false);
   const chosen = [input, output].filter((d): d is AudioDevice => d !== undefined);
 
@@ -105,10 +107,22 @@ export function DevicePicker({ onStatusChange }: Props) {
       <Select
         id="audio-input"
         label="Input"
-        hint="Where the instrument comes in."
-        value={settings.inputUid ?? DEFAULT}
-        onChange={(e) => apply({ inputUid: e.target.value || null })}
+        hint={
+          settings.noInput
+            ? "Nothing comes in: play through your amp and the app plays along."
+            : "Where the instrument comes in."
+        }
+        value={settings.noInput ? NONE : (settings.inputUid ?? DEFAULT)}
+        onChange={(e) => {
+          const value = e.target.value;
+          apply(
+            value === NONE
+              ? { noInput: true }
+              : { noInput: false, inputUid: value === DEFAULT ? null : value },
+          );
+        }}
       >
+        <option value={NONE}>No input</option>
         <option value={DEFAULT}>System default ({defaultName(inputs, true) ?? "none"})</option>
         {inputs.map((d) => (
           <option key={d.uid} value={d.uid}>
