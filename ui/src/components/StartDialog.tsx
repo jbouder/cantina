@@ -15,8 +15,15 @@ import { Sheet } from "./Sheet";
 import { TextInput } from "./TextInput";
 
 type Props = {
-  /** The project the app opened at launch: the last one, or a new Untitled. */
+  /** The project open now: at launch the last one, or a new Untitled. */
   current: string;
+  /**
+   * Shown at launch, where closing it opens the most recent project;
+   * otherwise New project opened it, and closing it keeps `current`.
+   */
+  atLaunch: boolean;
+  /** Whether `current` has unsaved edits, which another project drops. */
+  dirty: boolean;
   /** The app's sample rate, the new project's default. */
   sampleRate: number;
   /** Whether a drum kit is installed, for "Guitar and drums". */
@@ -33,13 +40,16 @@ type Props = {
 const heading = "caption m-0";
 
 /**
- * What the app shows at launch: start a new project with its rate, tempo,
- * meter and tracks; open a recent one; or go straight into a jam. Escape
- * picks the most recent project, or the new Untitled the app opened when
- * there is none.
+ * What the app shows at launch and for New project: start a new project
+ * with its rate, tempo, meter and tracks; open a recent one; or go
+ * straight into a jam. At launch Escape picks the most recent project, or
+ * the new Untitled the app opened when there is none; from New project it
+ * keeps the open project.
  */
 export function StartDialog({
   current,
+  atLaunch,
+  dirty,
   sampleRate,
   hasKits,
   onStatus,
@@ -65,13 +75,16 @@ export function StartDialog({
       setError(String(e));
     });
   }, []);
-  // Return opens the most recent project: it has focus once the list is
-  // in. With nothing to reopen, the new project's name has it.
+  // At launch Return opens the most recent project: it has focus once the
+  // list is in. With nothing to reopen, or from New project, the new
+  // project's name has it.
   useEffect(() => {
     if (recent === null) return;
-    const first = document.querySelector<HTMLElement>("[data-start-recent]:not([aria-disabled])");
+    const first = atLaunch
+      ? document.querySelector<HTMLElement>("[data-start-recent]:not([aria-disabled])")
+      : null;
     (first ?? document.getElementById("start-name"))?.focus();
-  }, [recent]);
+  }, [recent, atLaunch]);
 
   const finish = useCallback(
     (action: Promise<EngineStatus>) =>
@@ -95,10 +108,10 @@ export function StartDialog({
 
   // Escape, the close button and the scrim: the default.
   const pickDefault = useCallback(() => {
-    const project = recent ? defaultProject(recent) : null;
+    const project = atLaunch && recent ? defaultProject(recent) : null;
     if (project === null) onClose();
     else open(project);
-  }, [recent, open, onClose]);
+  }, [atLaunch, recent, open, onClose]);
 
   const tempo = Number(bpm);
   const tempoOk = Number.isFinite(tempo) && tempo >= 20 && tempo <= 300;
@@ -116,7 +129,7 @@ export function StartDialog({
 
   return (
     <Sheet
-      title="Welcome to Cantina"
+      title={atLaunch ? "Welcome to Cantina" : "Start a project"}
       onClose={pickDefault}
       wide
       footer={
@@ -138,6 +151,11 @@ export function StartDialog({
       {error ? (
         <Lcd role="alert" error className="text-readout">
           {error}
+        </Lcd>
+      ) : null}
+      {dirty ? (
+        <Lcd role="status" className="text-readout">
+          {current} has unsaved edits. Another project drops them; save first to keep them.
         </Lcd>
       ) : null}
       <div className="grid gap-4 md:grid-cols-2">

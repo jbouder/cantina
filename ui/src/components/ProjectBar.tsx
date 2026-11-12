@@ -10,6 +10,10 @@ import { Lcd } from "./Lcd";
 
 type Props = {
   project: ProjectStatus;
+  /** Whether a new project can start now: not while recording. */
+  canStartNew: boolean;
+  /** File ▸ New Project: the start dialog, with every option. */
+  onNewProject: () => void;
   onOpenProjects: () => void;
   onOpenExport: () => void;
   onStatus: (status: EngineStatus) => void;
@@ -18,9 +22,17 @@ type Props = {
 
 /**
  * The project cluster in the toolbar under the title: the open project's name, whether
- * it has unsaved edits, Undo, Redo, Save, the picker and Export.
+ * it has unsaved edits, Undo, Redo, Save, New, the picker and Export.
  */
-export function ProjectBar({ project, onOpenProjects, onOpenExport, onStatus, onError }: Props) {
+export function ProjectBar({
+  project,
+  canStartNew,
+  onNewProject,
+  onOpenProjects,
+  onOpenExport,
+  onStatus,
+  onError,
+}: Props) {
   const run = (action: Promise<EngineStatus>) => action.then(onStatus, (e) => onError(String(e)));
   return (
     <>
@@ -61,6 +73,14 @@ export function ProjectBar({ project, onOpenProjects, onOpenExport, onStatus, on
       </Button>
       <Button title="Save (⌘S)" disabled={!project.dirty} onClick={() => run(projectSave())}>
         Save
+      </Button>
+      <Button
+        aria-haspopup="dialog"
+        title="New project (⌘N)"
+        disabled={!canStartNew}
+        onClick={onNewProject}
+      >
+        New…
       </Button>
       <Button aria-haspopup="dialog" onClick={onOpenProjects}>
         Projects…

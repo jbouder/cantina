@@ -10,8 +10,6 @@ type Props = {
   dirty: boolean;
   onClose: () => void;
   onStatus: (status: EngineStatus) => void;
-  /** Focus the new project's name, for File ▸ New Project. */
-  startNew?: boolean;
   /** A project to open, from File ▸ Open Recent: opened at once, or asked about when there are unsaved edits. */
   opening?: string | null;
 };
@@ -21,7 +19,7 @@ type Props = {
  * to start a new one. Opening a project with unsaved edits in the current
  * one needs a second click, since the edits are lost.
  */
-export function Projects({ current, dirty, onClose, onStatus, startNew, opening }: Props) {
+export function Projects({ current, dirty, onClose, onStatus, opening }: Props) {
   const [names, setNames] = useState<string[] | null>(null);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -30,10 +28,6 @@ export function Projects({ current, dirty, onClose, onStatus, startNew, opening 
   useEffect(() => {
     projectList().then(setNames, (e) => setError(String(e)));
   }, []);
-  // The sheet focuses its first control; New Project wants the name field.
-  useEffect(() => {
-    if (startNew) document.getElementById("new-project-name")?.focus();
-  }, [startNew]);
 
   const finish = (action: Promise<EngineStatus>) =>
     action.then(

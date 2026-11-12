@@ -205,11 +205,14 @@ export function App() {
     );
   }, []);
   // The start dialog: at launch unless Settings says to open the last
-  // project, once any crash recovery is settled. In a browser `?start`
-  // shows it (`?start=none` with no recent projects).
+  // project, once any crash recovery is settled, and again from New
+  // project, where closing it keeps the project open. In a browser
+  // `?start` shows it at launch (`?start=none` with no recent projects)
+  // and `?new` as New project opens it.
   const [startOpen, setStartOpen] = useState<boolean | null>(() =>
-    params ? params.has("start") : null,
+    params ? params.has("start") || params.has("new") : null,
   );
+  const [startAtLaunch, setStartAtLaunch] = useState(() => !params?.has("new"));
   const closeStart = useCallback(() => setStartOpen(false), []);
   useEffect(() => {
     if (startOpen === null && status) setStartOpen(!status.openLastAtLaunch);
@@ -218,11 +221,9 @@ export function App() {
     setProjectsOpen(false);
     setProjectsIntent({});
   }, []);
-  // Why the Projects sheet opened from the menu: New Project focuses the
-  // name, Open Recent asks before dropping unsaved edits.
-  const [projectsIntent, setProjectsIntent] = useState<{ startNew?: boolean; opening?: string }>(
-    {},
-  );
+  // Why the Projects sheet opened from the menu: Open Recent asks before
+  // dropping unsaved edits.
+  const [projectsIntent, setProjectsIntent] = useState<{ opening?: string }>({});
   // File ▸ Rename and File ▸ Duplicate.
   // In a browser `?rename` and `?duplicate` open the sheet, for screenshots.
   const [naming, setNaming] = useState<ProjectNameMode | null>(() =>
@@ -474,9 +475,9 @@ export function App() {
     newProject: {
       enabled: idle,
       run: () => {
-        setStartOpen(false);
-        setProjectsIntent({ startNew: true });
-        setProjectsOpen(true);
+        setProjectsOpen(false);
+        setStartAtLaunch(false);
+        setStartOpen(true);
       },
     },
     openProject: {
@@ -783,6 +784,8 @@ export function App() {
         status ? (
           <ProjectBar
             project={status.project}
+            canStartNew={idle}
+            onNewProject={() => bound.current.newProject.run()}
             onOpenProjects={() => setProjectsOpen(true)}
             onOpenExport={() => setExportOpen(true)}
             onStatus={setStatus}
@@ -1039,13 +1042,14 @@ export function App() {
           dirty={status.project.dirty}
           onClose={closeProjects}
           onStatus={setStatus}
-          startNew={projectsIntent.startNew ?? false}
           opening={projectsIntent.opening ?? null}
         />
       ) : null}
       {startOpen && status && !status.project.recovery && !jamming && !projectsOpen ? (
         <StartDialog
           current={status.project.name}
+          atLaunch={startAtLaunch}
+          dirty={status.project.dirty}
           sampleRate={status.sampleRate}
           hasKits={status.kits.length > 0}
           onStatus={setStatus}

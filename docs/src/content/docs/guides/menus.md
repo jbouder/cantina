@@ -27,7 +27,7 @@ add their own items when they arrive.
 
 | Item | Shortcut | What it does |
 | --- | --- | --- |
-| New Project… | ⌘N | Opens **Projects** with the name of a new project ready to type. The start dialog at launch also makes new projects, with a rate, tempo, meter and tracks. |
+| New Project… | ⌘N | Opens the start dialog, as the **New…** button does, with the name of a new project ready to type and its rate, tempo, meter and tracks; it also opens a recent project or a jam. Closing it keeps the open project, and it warns when another project would drop unsaved edits. |
 | Open… | ⌘O | Opens **Projects** to pick another project. |
 | Open Recent | | The last ten projects you had open, newest first. **Clear Menu** empties it. With unsaved edits, Cantina asks before dropping them. |
 | Close Window | ⌘W | Closes the window. |
