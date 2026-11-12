@@ -1,12 +1,12 @@
 ---
 name: cantina-author
-description: Write files for Cantina, the Mac guitar studio. Covers pedals (*.pedal.json effect graphs such as drives, fuzz, chorus, tremolo and delay), drum kit recipes (*.recipe.json, synthesized into a kit), drum patterns (*.pattern.json beats), rigs (*.rig.json, a chain of pedals with settings for a style), jams (*.jam.json, a groove, backing chords, tempo, key and rig to practice with) and projects (project.json). Checks each file with cantina-cli and renders it before putting it in the ~/Music/Cantina library, where the running app picks it up. Use when asked for a Cantina pedal, effect, tone, rig, beat, groove, drum pattern, drum kit, jam, backing track, chord progression or project, or to fix one that will not load.
+description: Write files for Cantina, the Mac guitar studio. Covers pedals (*.pedal.json effect graphs such as drives, fuzz, chorus, tremolo and delay), drum kit recipes (*.recipe.json, synthesized into a kit), drum patterns (*.pattern.json beats), rigs (*.rig.json, a chain of pedals with settings for a style), jams (*.jam.json, a groove, backing chords, tempo, key and rig to practice with), exercises (*.exercise.json, a riff, scale, technique or chord change to practice, with a tempo ladder, rig and groove) and projects (project.json). Checks each file with cantina-cli and renders it before putting it in the ~/Music/Cantina library, where the running app picks it up. Use when asked for a Cantina pedal, effect, tone, rig, beat, groove, drum pattern, drum kit, jam, backing track, chord progression, exercise, lick, riff to practice or project, or to fix one that will not load.
 ---
 
 # Authoring for Cantina
 
 Cantina reads everything as JSON: pedals, kits, kit recipes, patterns, rigs,
-jams and projects. Every format has a JSON Schema, and `cantina-cli` checks a file
+jams, exercises and projects. Every format has a JSON Schema, and `cantina-cli` checks a file
 the way the app does and renders it through the app's own processors. Do
 not hand a file over until `check` passes and `render` sounds sane by the
 numbers.
@@ -21,7 +21,8 @@ numbers.
    example in [examples/](examples/).
 2. **Draft** the file. Put `"$schema"` first so editors validate it:
    `https://cantina-docs.vibeproject.workers.dev/schemas/<format>.schema.json`,
-   where `<format>` is `pedal`, `kit`, `kit-recipe`, `pattern`, `rig`, `jam` or `project`.
+   where `<format>` is `pedal`, `kit`, `kit-recipe`, `pattern`, `rig`, `jam`,
+   `exercise` or `project`.
 3. **Check** it, and fix every problem it prints, then check again:
 
    ```sh
@@ -41,6 +42,7 @@ numbers.
    cantina-cli render pedal my-fuzz.pedal.json --set drive=40 --set level=-12
    cantina-cli render pattern half-time.pattern.json --kit <kit dir> --bpm 140
    cantina-cli render rig crunch.rig.json                    # its instrument's DI
+   cantina-cli render exercise gallop.exercise.json          # its phrase through its rig
    ```
 
    Then judge it against the design rules:
@@ -119,6 +121,36 @@ bars, `-` holds. `cantina-cli check` reads the progression and warns about
 anything not installed. Start from a stock jam in `jams/` or
 [examples/desert-blues.jam.json](examples/desert-blues.jam.json).
 
+## Exercises
+
+An exercise is something to practice: a phrase, what it `teaches`
+(`chord`, `change`, `scale`, `technique`, `riff`, `rhythm`), a `style`,
+`instructions`, a tempo ladder (`start`, `goal`, `step`), a count-in, a
+key, the rig it is heard through and a stock groove under it. The phrase
+is either `notes`, written exactly as a tab's notes (strings count from 1,
+the highest; frets from the capo; ticks, 960 a quarter note, with
+`palmMute`, `bend`, `hammerOn`, `harmonic` and the rest), or `chords`:
+shapes with a fret per string from the lowest string to the highest
+(`null` for one not played), optional `fingers` (1 index to 4 little), a
+`start` and a `length`, and a `strum` such as `"D-DU-UDU"` at
+`stepsPerBeat` 2 (`D` down, `U` up, `x` a muted scratch, `-` a miss).
+
+- Name a stock rig and a stock groove; `check` fails on one that is not
+  installed, and a ladder that never reaches the groove's tempos is a
+  warning.
+- Tempos are honest: the start is playable on the first day, the goal is
+  the tempo the music is at. The step is what a player can climb by,
+  usually 5 bpm.
+- Instructions say what the hands do, what to listen for and what goes
+  wrong, in two or three sentences.
+- `render exercise` plays the phrase on the tab voice at the start tempo
+  (`--bpm` for another, `--dry` without the rig); it should sit near the
+  rig's level, about -21 dBFS RMS.
+
+Start from [examples/e-to-a.exercise.json](examples/e-to-a.exercise.json)
+for chords or [examples/gallop.exercise.json](examples/gallop.exercise.json)
+for notes.
+
 ## Running the CLI
 
 In the Cantina repository: `cargo run -q -p cantina-cli -- <command>`.
@@ -137,6 +169,8 @@ Installed: `cantina-cli <command>` (`cargo install --path crates/cli`).
 | [half-time.pattern.json](examples/half-time.pattern.json) | A two-bar half-time beat: snare on 3, accents, ghost notes, open hat, light swing |
 | [crunch.rig.json](examples/crunch.rig.json) | A rig: a light overdrive into a mid-gain amp and a two-twelve, a choice by name, leveled with the amp |
 | [desert-blues.jam.json](examples/desert-blues.jam.json) | A jam: the stock shuffle at a slow tempo, a minor 12-bar in numerals on a bass through a stock rig |
+| [e-to-a.exercise.json](examples/e-to-a.exercise.json) | An exercise in chords: two shapes with fingers, a strum pattern, a beginner's tempo ladder over the rock groove |
+| [gallop.exercise.json](examples/gallop.exercise.json) | An exercise in notes: a palm-muted gallop and power chords through the heavy-metal rig |
 
 [fixtures/](fixtures/) holds one-line prompts and what was written for
 them; every example and fixture is checked and rendered in CI by

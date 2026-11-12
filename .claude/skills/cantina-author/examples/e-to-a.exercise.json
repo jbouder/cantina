@@ -1,0 +1,22 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "E to A",
+  "instrument": "guitar",
+  "teaches": "change",
+  "style": "Beginner",
+  "instructions": "Two bars of E, then two of A, strummed down, down, down-up. Keep the hand moving on the rests and lift only the fingers that change; if the A arrives late, slow down until it lands on the one.",
+  "key": { "tonic": "E", "mode": "major" },
+  "tempo": { "start": 70, "goal": 110, "step": 5 },
+  "countIn": 1,
+  "rig": "classic-rock",
+  "drums": { "kit": "rock", "groove": "Rock", "levelDb": -4 },
+  "phrase": {
+    "kind": "chords",
+    "chords": [
+      { "name": "E", "frets": [0, 2, 2, 1, 0, 0], "fingers": [0, 2, 3, 1, 0, 0], "start": 0, "length": 7680 },
+      { "name": "A", "frets": [null, 0, 2, 2, 2, 0], "fingers": [0, 0, 1, 2, 3, 0], "start": 7680, "length": 7680 }
+    ],
+    "strum": { "pattern": "D-D-D-DU", "stepsPerBeat": 2 }
+  }
+}

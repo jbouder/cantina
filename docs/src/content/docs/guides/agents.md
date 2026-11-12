@@ -1,9 +1,10 @@
 ---
 title: "Authoring with an agent"
-description: "Ask a coding agent for a pedal, a rig, a beat, a jam or a drum kit and get a file that loads: the cantina-author skill, the write-check-render-place loop, the library folders and example prompts."
+description: "Ask a coding agent for a pedal, a rig, a beat, a jam, an exercise or a drum kit and get a file that loads: the cantina-author skill, the write-check-render-place loop, the library folders and example prompts."
 ---
 
-Everything Cantina reads is JSON: pedals, rigs, jams, drum kits, patterns and projects.
+Everything Cantina reads is JSON: pedals, rigs, jams, exercises, drum kits,
+patterns and projects.
 A coding agent such as Claude Code can write any of them. Cantina gives it
 the three things it needs to get them right without you in the loop: a
 schema for every format, a command line tool that checks a file and
@@ -120,6 +121,10 @@ More that work well:
   it with the clean signal."*
 - *"A shuffle beat in triplets for the electronic kit."*
 - *"An 808-style kit with a long kick."*
+- *"An exercise for alternate picking a chromatic run, 60 to 140 bpm, over
+  the metal groove."* The agent writes an
+  [exercise](/reference/exercise-format/), checks it and renders it
+  through its rig.
 - *"Fix my pedal; it says will not load."* The agent runs `check` on the
   file and reads the reason.
 
@@ -146,12 +151,13 @@ version, all of which `render` measures:
 Nothing here needs an agent. The same references serve a person:
 
 - the [pedal format](/reference/pedal-format/), [kit format](/reference/kit-format/),
-  [rig format](/reference/rig-format/), [jam format](/reference/jam-format/)
-  and [pattern files](/guides/drums/#pattern-files);
+  [rig format](/reference/rig-format/), [jam format](/reference/jam-format/),
+  [exercise format](/reference/exercise-format/) and
+  [pattern files](/guides/drums/#pattern-files);
 - a generated page per schema: [pedal](/reference/schemas/pedal/),
   [kit](/reference/schemas/kit/), [kit recipe](/reference/schemas/kit-recipe/),
   [pattern](/reference/schemas/pattern/), [rig](/reference/schemas/rig/),
-  [jam](/reference/schemas/jam/) and
+  [jam](/reference/schemas/jam/), [exercise](/reference/schemas/exercise/) and
   [project](/reference/schemas/project/);
 - `cantina-cli check` and `render` from a terminal, and an editor that
   validates against the `"$schema"` as you type.

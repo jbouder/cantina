@@ -257,3 +257,104 @@ fn check_reads_jams_and_names_what_they_lack() {
         text(&out.stderr)
     );
 }
+
+#[test]
+fn check_rejects_an_exercise_that_cannot_be_played_as_written() {
+    let example = std::fs::read_to_string(
+        root().join(".claude/skills/cantina-author/examples/e-to-a.exercise.json"),
+    )
+    .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let check = |body: &str| {
+        let file = dir.path().join("x.exercise.json");
+        std::fs::write(&file, body).unwrap();
+        run(&["check", path(&file)])
+    };
+    let out = check(&example);
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
+    assert_eq!(
+        text(&out.stdout).trim(),
+        "ok: exercise \"E to A\": Beginner guitar, change; 2 chords over 4 bars, \
+         70 to 110 bpm by 5, through classic-rock over Rock on rock"
+    );
+    for (from, to, why) in [
+        (
+            r#""frets": [0, 2, 2, 1, 0, 0]"#,
+            r#""frets": [0, 2, 2, 1, 0, 25]"#,
+            "at /phrase/chords/0/frets/5: 25 is greater than the maximum of 24",
+        ),
+        (
+            r#""goal": 110"#,
+            r#""goal": 60"#,
+            "the goal tempo 60 is below the start tempo 70",
+        ),
+        (
+            r#""frets": [null, 0, 2, 2, 2, 0]"#,
+            r#""frets": [0, 2, 2, 2, 0]"#,
+            "has 5 strings; the guitar has 6",
+        ),
+        (
+            r#""rig": "classic-rock""#,
+            r#""rig": "nope""#,
+            "the rig \"nope\" is not installed",
+        ),
+        (
+            r#""groove": "Rock""#,
+            r#""groove": "Polka""#,
+            "no stock groove for the genre \"Polka\"",
+        ),
+    ] {
+        assert!(example.contains(from), "{from}");
+        let out = check(&example.replace(from, to));
+        assert_eq!(out.status.code(), Some(1), "{to}: {}", text(&out.stdout));
+        assert!(
+            text(&out.stderr).starts_with("invalid exercise:"),
+            "{}",
+            text(&out.stderr)
+        );
+        assert!(
+            text(&out.stderr).contains(why),
+            "{why}: {}",
+            text(&out.stderr)
+        );
+    }
+}
+
+#[test]
+fn render_exercise_plays_the_phrase_through_its_rig() {
+    let file = root().join(".claude/skills/cantina-author/examples/gallop.exercise.json");
+    let dir = tempfile::tempdir().unwrap();
+    let render = |extra: &[&str]| {
+        let out = dir.path().join("x.wav");
+        let mut args = vec![
+            "render",
+            "exercise",
+            path(&file),
+            "--json",
+            "-o",
+            path(&out),
+        ];
+        args.extend_from_slice(extra);
+        let o = run(&args);
+        assert_eq!(o.status.code(), Some(0), "{}", text(&o.stderr));
+        serde_json::from_slice::<serde_json::Value>(&o.stdout).unwrap()
+    };
+    let wet = render(&[]);
+    let dry = render(&["--dry"]);
+    // Two bars at the start tempo, 100 bpm, and a second to ring out.
+    let seconds = wet["seconds"].as_f64().unwrap();
+    assert!((seconds - 5.8).abs() < 0.01, "{wet}");
+    assert!(wet["latency"].as_u64().unwrap() > 0, "{wet}");
+    assert_eq!(dry["latency"], 0);
+    let rms = |v: &serde_json::Value| v["rmsDb"].as_f64().unwrap();
+    assert!(
+        rms(&wet) > rms(&dry) + 3.0,
+        "the amp adds gain: {wet} {dry}"
+    );
+    assert!(wet["peakDb"].as_f64().unwrap() < 0.0, "{wet}");
+    let faster = render(&["--bpm", "200", "--passes", "2"]);
+    assert!(
+        (faster["seconds"].as_f64().unwrap() - 5.8).abs() < 0.01,
+        "{faster}"
+    );
+}
