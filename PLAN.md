@@ -176,10 +176,14 @@ page.
 ### M20 Practice
 
 Exercises for chords, techniques, scales and rhythm: read one, hear it,
-play it slowed and looped, and let Cantina listen and say how you did.
-Built on what is there: the tab format and the tab voice (a tab through
-your rig, looped, at practice speed), the tuner's pitch tracker, Basic
-Pitch for chords, the jam's capture ring and its key and chord spelling.
+and play it looped through your rig at a tempo that climbs. Built on what
+is there: the tab format and the tab voice (a tab through your rig,
+looped), and jam mode's groove, rig and tempo changes on the bar line.
+
+Decided (2026-11-12): Cantina does not listen to what you play or grade
+it. Listening and scoring were dropped from the milestone; the tempo
+climbs by passes, and you judge whether a pass was clean. The log
+records the fastest whole pass played.
 
 - An exercise file format (`*.exercise.json`): a phrase in the tab
   format's terms or a sequence of chord shapes, instructions, a tempo
@@ -192,11 +196,7 @@ Pitch for chords, the jam's capture ring and its key and chord spelling.
 - A practice view, opened like Jam: pick an exercise, read it as a tab,
   hear it, slow it down, loop it, count in, play along through your rig.
 - Chord diagrams and a fretboard that lights the notes as they come.
-- Listening: what you play, heard off the audio thread; single notes
-  live from the pitch tracker, chords from Basic Pitch over each bar.
-- Scoring: each pass graded on notes and timing, shown on the tab as
-  you play and summarized after.
-- A tempo trainer that climbs after clean passes, and a practice log in
+- A tempo trainer that climbs every few passes, and a practice log in
   `~/Music/Cantina/Practice` with bests and streaks.
 - Courses (`*.course.json`): ordered exercises with goal tempos; the
   assistant reads the log and suggests the next one.
