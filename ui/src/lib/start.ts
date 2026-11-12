@@ -49,3 +49,16 @@ export function savedLabel(recent: RecentProject, now: number): string {
 export function defaultProject(recent: RecentProject[]): string | null {
   return recent.find((r) => !r.missing)?.name ?? null;
 }
+
+/**
+ * The name a new project starts with: `Untitled`, or the first of
+ * `Untitled 2`, `Untitled 3`… that no project in `taken` has. Names are
+ * compared without case, as the Mac's file system does.
+ */
+export function freeProjectName(taken: readonly string[]): string {
+  const used = new Set(taken.map((n) => n.toLowerCase()));
+  if (!used.has("untitled")) return "Untitled";
+  let n = 2;
+  while (used.has(`untitled ${n}`)) n += 1;
+  return `Untitled ${n}`;
+}

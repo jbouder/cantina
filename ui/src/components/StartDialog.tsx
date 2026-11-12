@@ -2,12 +2,20 @@ import { type FormEvent, useCallback, useEffect, useId, useState } from "react";
 import {
   type EngineStatus,
   type ProjectStart,
+  projectList,
   projectNew,
   projectOpen,
   projectRecent,
   type RecentProject,
 } from "../lib/engine";
-import { defaultProject, METERS, SAMPLE_RATES, STARTS, savedLabel } from "../lib/start";
+import {
+  defaultProject,
+  freeProjectName,
+  METERS,
+  SAMPLE_RATES,
+  STARTS,
+  savedLabel,
+} from "../lib/start";
 import { Button } from "./Button";
 import { Lcd } from "./Lcd";
 import { Select } from "./Select";
@@ -72,11 +80,32 @@ export function StartDialog({
       setError(String(e));
     });
   }, []);
-  // A new project comes first: its name has focus, so typing one and
-  // pressing Return creates it.
+  // A new project comes first: its name has focus, filled in with a free
+  // one and selected, so Return creates it and typing replaces it.
+  const [suggested, setSuggested] = useState<string | null>(null);
   useEffect(() => {
     document.getElementById("start-name")?.focus();
+    let live = true;
+    projectList().then(
+      (names) => {
+        if (live) setSuggested(freeProjectName(names));
+      },
+      // No list, no suggestion: the field stays empty to type in.
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
   }, []);
+  useEffect(() => {
+    if (suggested === null) return;
+    // Only into an empty field: never over a name already typed.
+    setName((typed) => typed || suggested);
+    const field = document.getElementById("start-name") as HTMLInputElement | null;
+    if (field && field.value === "" && document.activeElement === field) {
+      requestAnimationFrame(() => field.select());
+    }
+  }, [suggested]);
 
   const finish = useCallback(
     (action: Promise<EngineStatus>) =>

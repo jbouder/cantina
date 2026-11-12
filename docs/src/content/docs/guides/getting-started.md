@@ -59,7 +59,8 @@ Drag `Cantina.app` into Applications to keep it.
 
 Cantina opens with the start dialog, three ways in:
 
-- **New project**, first and with focus: a name, the sample rate, the
+- **New project**, first and with focus: a name (a free `Untitled`,
+  `Untitled 2`… is filled in and selected, so typing replaces it), the sample rate, the
   tempo, the time signature, and what to start with: one guitar track,
   guitar and bass, guitar and a drum track with a kit, or nothing. Type
   a name and press Return, or **Create**; the project is made as you
