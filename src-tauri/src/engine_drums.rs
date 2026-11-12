@@ -508,18 +508,27 @@ impl Engine {
         Some(next.min(end))
     }
 
-    /// Plays the part from the top of what it plays.
-    pub fn drum_design_play(&mut self) -> Result<EngineStatus> {
+    /// Plays the part from the top of what it plays; with `count_in`, and
+    /// count-in on in the settings, after a bar of clicks with the
+    /// timeline held, as recording does.
+    pub fn drum_design_play(&mut self, count_in: bool) -> Result<EngineStatus> {
         let Some(design) = &mut self.drum_design else {
             bail!("open the drum designer first");
         };
         design.rewind();
         self.sync()?;
+        let beats = u64::from(self.project.tempo.numerator.max(1));
+        let counting = count_in && self.settings.count_in;
         let Some(live) = &mut self.live else {
             bail!("start the engine before playing");
         };
         live.transport().locate(0);
-        live.transport().play();
+        if counting {
+            let sample_rate = live.stream.info().sample_rate;
+            live.transport().count_in_beats(sample_rate, beats);
+        } else {
+            live.transport().play();
+        }
         Ok(self.publish())
     }
 

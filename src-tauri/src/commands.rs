@@ -865,10 +865,14 @@ pub fn drum_design_plays(
     engine.lock().drum_design_plays(plays).map_err(fail)
 }
 
-/// Plays the designer's part from the top of its loop.
+/// Plays the designer's part from the top of its loop, after a count-in
+/// when asked for and on in the settings.
 #[tauri::command]
-pub fn drum_design_play(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
-    engine.lock().drum_design_play().map_err(fail)
+pub fn drum_design_play(
+    engine: State<'_, EngineState>,
+    count_in: bool,
+) -> Result<EngineStatus, String> {
+    engine.lock().drum_design_play(count_in).map_err(fail)
 }
 
 /// Stops the designer's part.

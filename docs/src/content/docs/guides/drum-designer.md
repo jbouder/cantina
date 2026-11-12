@@ -138,6 +138,30 @@ recipe when it has one), where every drum track's **Kit** list and
 `cantina-cli check` find it, and the part plays it from then on. The
 pads' settings are the [kit format](/reference/kit-format/)'s, version 2.
 
+## Playing a part in
+
+Some parts are played, not drawn. **Pads**, above the grid, opens the
+kit as pads: click one (harder toward its top), or click into the strip
+and press **A S D F G H J K L ;** and then **Z X C V B N** for the kit's
+pads in order, **⇧** for an accent at full strength.
+
+**Record** loops the section you are editing (from the next bar if
+something else is playing) and, from a stop, starts after a bar of
+count-in when **Count in** is on. What you play is:
+
+- **quantized** to the nearest step of the section's grid, a hit just
+  before the loop comes round going to its first step;
+- **compensated** for the output's latency: a hit counts where the beat
+  you heard was, not where the playhead had got to;
+- **overdubbed**: each hit is kept at the louder of what was there and
+  what you played, and nothing is taken away;
+- recorded into the **variation** that pass plays, when the section has
+  variations.
+
+Each pass round the loop goes in as one **take**, one step of the
+designer's history: **Undo take** (or ⌘Z) takes back the last. **Record**
+again stops, keeping what was played in the pass under way.
+
 ## The grid and the inspector
 
 Click a cell to put a hit there, or click a hit to take it away; drag

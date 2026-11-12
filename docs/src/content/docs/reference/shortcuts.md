@@ -132,6 +132,7 @@ In the drum designer, outside a text field or menu.
 | ⌫ | With a cell focused, clears it |
 | [ ] | With a cell focused, shifts every hit a step earlier or later |
 | ⌘Z ⇧⌘Z | Undo and redo in the designer, apart from the project |
+| A S D F G H J K L ; Z X C V B N | With the pads focused, play the kit's pads in order; ⇧ for an accent |
 | Esc | Back to the project, asking first if the part has changes |
 
 ## Jam
