@@ -113,6 +113,11 @@ impl Projects {
         self.root.join("Courses")
     }
 
+    /// The user's grooves: drum parts the drum designer saved.
+    pub fn grooves_dir(&self) -> PathBuf {
+        self.root.join("Grooves")
+    }
+
     pub fn list(&self) -> Result<Vec<String>> {
         cantina_project::list(&self.root)
             .with_context(|| format!("listing projects in {}", self.root.display()))

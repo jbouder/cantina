@@ -17,6 +17,8 @@ import {
   duplicateSection,
   gridPads,
   moveStep,
+  putGroove,
+  putInSection,
   removeSection,
   removeStep,
   renameSection,
@@ -35,8 +37,10 @@ import {
   drumDesignStop,
   type EngineStatus,
   type GrooveSection,
+  grooveFileRead,
   type MeterFrame,
   type PatternInfo,
+  patternFileRead,
   RESOLUTIONS,
 } from "../lib/engine";
 import {
@@ -70,8 +74,10 @@ import {
 } from "../lib/patternTools";
 import { Button } from "./Button";
 import { DesignLanes } from "./DesignLanes";
+import { DesignPalette } from "./DesignPalette";
 import { Field, Toggle } from "./Field";
 import { Lcd } from "./Lcd";
+import { SaveGrooveSheet } from "./SaveGrooveSheet";
 import { Select } from "./Select";
 import { Sheet } from "./Sheet";
 import { TextInput } from "./TextInput";
@@ -153,6 +159,13 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
   const [bar, setBar] = useState(0);
   const [copied, setCopied] = useState<ReturnType<typeof copyBar> | null>(null);
   const velocityDrag = useRef(false);
+  // The side panel, the save sheet, and the name of the groove last
+  // opened, to save it back under. In a browser `?palette` opens the palette.
+  const [panel, setPanel] = useState<"inspector" | "palette">(() =>
+    new URLSearchParams(window.location.search).has("palette") ? "palette" : "inspector",
+  );
+  const [saving, setSaving] = useState(false);
+  const [grooveName, setGrooveName] = useState("");
   const [stroke, setStroke] = useState<Stroke | null>(null);
   const strokeRef = useRef<Stroke | null>(null);
   const [leaving, setLeaving] = useState(false);
@@ -304,6 +317,51 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
   }, [leave, leaving, part, pick]);
 
   if (!design || !part || !section || !pattern || !base || !plays) return null;
+
+  /** A pattern file from the palette, into section `name`. */
+  const takePattern = (path: string, name: string) =>
+    patternFileRead(path).then(
+      (p) => commit(putInSection(part, name, p)),
+      (e) => onError(String(e)),
+    );
+  /** A whole stock genre: a section of each kind, in the project's meter where it can be. */
+  const takeGenre = (genre: string) => {
+    const all = status.grooves.filter((g) => g.genre === genre);
+    const kinds = [...new Set(all.map((g) => g.section))];
+    const picked = kinds.flatMap((kind) => {
+      const of = all.filter((g) => g.section === kind);
+      const fit = of.find(
+        (g) =>
+          g.timeSignature.numerator === tempo.numerator &&
+          g.timeSignature.denominator === tempo.denominator,
+      );
+      const g = fit ?? of[0];
+      return g ? [[kind, g.path] as const] : [];
+    });
+    Promise.all(picked.map(([, path]) => patternFileRead(path))).then(
+      (patterns) =>
+        commit(
+          putGroove(
+            part,
+            picked.map(([kind], i) => [kind, patterns[i] as PatternInfo]),
+          ),
+        ),
+      (e) => onError(String(e)),
+    );
+  };
+  /** One of the user's grooves, in place of the part; its kit when it is installed. */
+  const openGroove = (path: string) =>
+    grooveFileRead(path).then(
+      (g) => {
+        const kit = status.kits.some((k) => k.id === g.kit) ? g.kit : part.kit;
+        commit({ kit, sections: g.sections, order: g.order });
+        setSelected(g.sections[0]?.name ?? "");
+        setSelectedStep(null);
+        setVariant(0);
+        setGrooveName(g.name);
+      },
+      (e) => onError(String(e)),
+    );
 
   /** One step of history: the pattern the grid shows, replaced. */
   const edit = (next: PatternInfo) =>
@@ -527,6 +585,14 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
         </Button>
         <Button
           tight
+          onClick={() => setSaving(true)}
+          title="Save the whole part as a groove in your library, for the palette and for jams"
+        >
+          <span className="@4xl:inline hidden">Save as groove…</span>
+          <span className="@4xl:hidden">Save…</span>
+        </Button>
+        <Button
+          tight
           onClick={leave}
           title={`Back to ${status.project.name}; the part reaches it only when placed`}
         >
@@ -561,6 +627,7 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
           commit(addStep(part, section.name));
           setSelectedStep(part.order.length);
         }}
+        onDropPattern={(name, path) => takePattern(path, name)}
       />
 
       <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)] gap-3">
@@ -828,10 +895,41 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
         </div>
 
         <aside
-          aria-label="Inspector"
+          aria-label={panel === "palette" ? "Palette" : "Inspector"}
           className="surface-panel scroll-area grid min-h-0 content-start gap-3 p-3"
         >
-          {orderStep && selectedStep !== null ? (
+          <div role="tablist" aria-label="Side panel" className="flex gap-0.5">
+            <Button
+              role="tab"
+              aria-selected={panel === "inspector"}
+              className="flex-1"
+              onClick={() => setPanel("inspector")}
+            >
+              Inspector
+            </Button>
+            <Button
+              role="tab"
+              aria-selected={panel === "palette"}
+              className="flex-1"
+              onClick={() => setPanel("palette")}
+              title="The stock grooves, your grooves and your patterns"
+            >
+              Palette
+            </Button>
+          </div>
+          {panel === "palette" ? (
+            <DesignPalette
+              grooves={status.grooves}
+              mine={status.library.grooves}
+              patterns={status.library.patterns}
+              meter={tempo}
+              editing={section.name}
+              onUsePattern={(path) => takePattern(path, section.name)}
+              onUseGenre={takeGenre}
+              onOpenGroove={openGroove}
+            />
+          ) : null}
+          {panel === "inspector" && orderStep && selectedStep !== null ? (
             <>
               <h3 className="caption m-0">Step {selectedStep + 1} of the order</h3>
               <Select
@@ -943,237 +1041,253 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
               </span>
             </>
           ) : null}
-          <h3 className="caption m-0">Section</h3>
-          <TextInput
-            key={section.name}
-            id={`${ids}-name`}
-            label="Name"
-            defaultValue={section.name}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-            }}
-            onBlur={(e) => {
-              const to = e.currentTarget.value;
-              const next = renameSection(part, section.name, to);
-              if (next === part) {
-                e.currentTarget.value = section.name;
-                return;
-              }
-              const renamed = next.sections[part.sections.indexOf(section)]?.name ?? to;
-              // The loop follows the section it was playing.
-              const follow =
-                plays.kind === "section" && plays.name === section.name
-                  ? () => drumDesignPlays({ kind: "section", name: renamed })
-                  : undefined;
-              commit(next, follow);
-              setSelected(renamed);
-            }}
-          />
-          <Select
-            id={`${ids}-kind`}
-            label="Kind"
-            hint="What part of the song it is"
-            value={section.kind ?? ""}
-            onChange={(e) =>
-              commit(
-                withSection(part, section.name, (s) => ({
-                  ...s,
-                  kind: (e.target.value || undefined) as GrooveSection | undefined,
-                })),
-              )
-            }
-          >
-            <option value="">Your own</option>
-            {SECTION_KINDS.map((k) => (
-              <option key={k.kind} value={k.kind}>
-                {k.label}
-              </option>
-            ))}
-          </Select>
-          <Select
-            id={`${ids}-length`}
-            label="Length"
-            hint={`${lengthLabel(pattern, tempo)} of ${RESOLUTIONS.find((r) => r.stepsPerBeat === pattern.stepsPerBeat)?.label ?? ""} steps`}
-            value={pattern.length % perBar === 0 ? barsLong : ""}
-            onChange={(e) => editAll((p) => resizePattern(p, Number(e.target.value) * perBar))}
-          >
-            {pattern.length % perBar === 0 ? null : (
-              <option value="">{pattern.length} steps</option>
-            )}
-            {lengthOptions.map((b) => (
-              <option key={b} value={b}>
-                {b} bar{b === 1 ? "" : "s"}
-              </option>
-            ))}
-          </Select>
-          <Field
-            label="Swing"
-            hint={`${Math.round(pattern.swing * 100)}%`}
-            htmlFor={`${ids}-swing`}
-          >
-            <input
-              id={`${ids}-swing`}
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={pattern.swing}
-              onChange={(e) => editAll((p) => ({ ...p, swing: Number(e.target.value) }))}
-              className="w-full"
-            />
-          </Field>
-          {(["timing", "velocity"] as const).map((k) => {
-            const h = pattern.humanize ?? { timing: 0, velocity: 0 };
-            return (
+          {panel === "inspector" ? (
+            <>
+              <h3 className="caption m-0">Section</h3>
+              <TextInput
+                key={section.name}
+                id={`${ids}-name`}
+                label="Name"
+                defaultValue={section.name}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                }}
+                onBlur={(e) => {
+                  const to = e.currentTarget.value;
+                  const next = renameSection(part, section.name, to);
+                  if (next === part) {
+                    e.currentTarget.value = section.name;
+                    return;
+                  }
+                  const renamed = next.sections[part.sections.indexOf(section)]?.name ?? to;
+                  // The loop follows the section it was playing.
+                  const follow =
+                    plays.kind === "section" && plays.name === section.name
+                      ? () => drumDesignPlays({ kind: "section", name: renamed })
+                      : undefined;
+                  commit(next, follow);
+                  setSelected(renamed);
+                }}
+              />
+              <Select
+                id={`${ids}-kind`}
+                label="Kind"
+                hint="What part of the song it is"
+                value={section.kind ?? ""}
+                onChange={(e) =>
+                  commit(
+                    withSection(part, section.name, (s) => ({
+                      ...s,
+                      kind: (e.target.value || undefined) as GrooveSection | undefined,
+                    })),
+                  )
+                }
+              >
+                <option value="">Your own</option>
+                {SECTION_KINDS.map((k) => (
+                  <option key={k.kind} value={k.kind}>
+                    {k.label}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                id={`${ids}-length`}
+                label="Length"
+                hint={`${lengthLabel(pattern, tempo)} of ${RESOLUTIONS.find((r) => r.stepsPerBeat === pattern.stepsPerBeat)?.label ?? ""} steps`}
+                value={pattern.length % perBar === 0 ? barsLong : ""}
+                onChange={(e) => editAll((p) => resizePattern(p, Number(e.target.value) * perBar))}
+              >
+                {pattern.length % perBar === 0 ? null : (
+                  <option value="">{pattern.length} steps</option>
+                )}
+                {lengthOptions.map((b) => (
+                  <option key={b} value={b}>
+                    {b} bar{b === 1 ? "" : "s"}
+                  </option>
+                ))}
+              </Select>
               <Field
-                key={k}
-                label={k === "timing" ? "Humanize timing" : "Humanize velocity"}
-                hint={`${Math.round(h[k] * 100)}%`}
-                htmlFor={`${ids}-humanize-${k}`}
+                label="Swing"
+                hint={`${Math.round(pattern.swing * 100)}%`}
+                htmlFor={`${ids}-swing`}
               >
                 <input
-                  id={`${ids}-humanize-${k}`}
+                  id={`${ids}-swing`}
                   type="range"
                   min={0}
                   max={1}
                   step={0.05}
-                  value={h[k]}
-                  onChange={(e) =>
-                    editAll((p) =>
-                      withPatternFeel(p, {
-                        ...(p.humanize ?? { timing: 0, velocity: 0 }),
-                        [k]: Number(e.target.value),
-                      }),
-                    )
-                  }
+                  value={pattern.swing}
+                  onChange={(e) => editAll((p) => ({ ...p, swing: Number(e.target.value) }))}
                   className="w-full"
                 />
               </Field>
-            );
-          })}
-          {section.variations?.length ? (
-            <Select
-              id={`${ids}-vary`}
-              label="Variations"
-              hint={
-                section.vary === "chain"
-                  ? "One after another, a pass each"
-                  : "A between each of the others"
-              }
-              value={section.vary ?? "alternate"}
-              onChange={(e) =>
-                commit(
-                  withSection(part, section.name, (s) => ({
-                    ...s,
-                    vary: e.target.value as "alternate" | "chain",
-                  })),
-                )
-              }
-            >
-              <option value="alternate">
-                Alternate:{" "}
-                {passes({ ...section, vary: "alternate" })
-                  .map((i) => VARIATIONS[i])
-                  .join(" ")}
-              </option>
-              <option value="chain">
-                Chain:{" "}
-                {passes({ ...section, vary: "chain" })
-                  .map((i) => VARIATIONS[i])
-                  .join(" ")}
-              </option>
-            </Select>
-          ) : null}
-          <Select
-            id={`${ids}-fill`}
-            label="Fill"
-            hint="Another section's first bar, played in its place"
-            value={section.fill?.section ?? ""}
-            onChange={(e) => {
-              const fill = e.target.value;
-              commit(
-                setFill(
-                  part,
-                  section.name,
-                  fill
-                    ? {
-                        section: fill,
-                        every: section.fill?.every ?? 4,
-                        atEnd: section.fill?.atEnd ?? false,
+              {(["timing", "velocity"] as const).map((k) => {
+                const h = pattern.humanize ?? { timing: 0, velocity: 0 };
+                return (
+                  <Field
+                    key={k}
+                    label={k === "timing" ? "Humanize timing" : "Humanize velocity"}
+                    hint={`${Math.round(h[k] * 100)}%`}
+                    htmlFor={`${ids}-humanize-${k}`}
+                  >
+                    <input
+                      id={`${ids}-humanize-${k}`}
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={h[k]}
+                      onChange={(e) =>
+                        editAll((p) =>
+                          withPatternFeel(p, {
+                            ...(p.humanize ?? { timing: 0, velocity: 0 }),
+                            [k]: Number(e.target.value),
+                          }),
+                        )
                       }
-                    : null,
-                ),
-              );
-            }}
-          >
-            <option value="">None</option>
-            {part.sections
-              .filter((s) => s.name !== section.name)
-              .map((s) => (
-                <option key={s.name} value={s.name}>
-                  {s.name}
-                </option>
-              ))}
-          </Select>
-          {section.fill ? (
-            <>
-              <Select
-                id={`${ids}-every`}
-                label="Every"
-                hint="The last bar of every so many"
-                value={section.fill.every}
-                onChange={(e) => {
-                  const fill = section.fill;
-                  if (fill) {
-                    commit(setFill(part, section.name, { ...fill, every: Number(e.target.value) }));
+                      className="w-full"
+                    />
+                  </Field>
+                );
+              })}
+              {section.variations?.length ? (
+                <Select
+                  id={`${ids}-vary`}
+                  label="Variations"
+                  hint={
+                    section.vary === "chain"
+                      ? "One after another, a pass each"
+                      : "A between each of the others"
                   }
+                  value={section.vary ?? "alternate"}
+                  onChange={(e) =>
+                    commit(
+                      withSection(part, section.name, (s) => ({
+                        ...s,
+                        vary: e.target.value as "alternate" | "chain",
+                      })),
+                    )
+                  }
+                >
+                  <option value="alternate">
+                    Alternate:{" "}
+                    {passes({ ...section, vary: "alternate" })
+                      .map((i) => VARIATIONS[i])
+                      .join(" ")}
+                  </option>
+                  <option value="chain">
+                    Chain:{" "}
+                    {passes({ ...section, vary: "chain" })
+                      .map((i) => VARIATIONS[i])
+                      .join(" ")}
+                  </option>
+                </Select>
+              ) : null}
+              <Select
+                id={`${ids}-fill`}
+                label="Fill"
+                hint="Another section's first bar, played in its place"
+                value={section.fill?.section ?? ""}
+                onChange={(e) => {
+                  const fill = e.target.value;
+                  commit(
+                    setFill(
+                      part,
+                      section.name,
+                      fill
+                        ? {
+                            section: fill,
+                            every: section.fill?.every ?? 4,
+                            atEnd: section.fill?.atEnd ?? false,
+                          }
+                        : null,
+                    ),
+                  );
                 }}
               >
-                {FILL_EVERY.map((n) => (
-                  <option key={n} value={n}>
-                    {n === 0 ? "Never" : `${n} bars`}
-                  </option>
-                ))}
+                <option value="">None</option>
+                {part.sections
+                  .filter((s) => s.name !== section.name)
+                  .map((s) => (
+                    <option key={s.name} value={s.name}>
+                      {s.name}
+                    </option>
+                  ))}
               </Select>
-              <Toggle
-                id={`${ids}-at-end`}
-                label="At its end"
-                hint="Its last bar in each step of the order"
-                checked={section.fill.atEnd}
-                onChange={(atEnd) => {
-                  const fill = section.fill;
-                  if (fill) commit(setFill(part, section.name, { ...fill, atEnd }));
-                }}
-              />
+              {section.fill ? (
+                <>
+                  <Select
+                    id={`${ids}-every`}
+                    label="Every"
+                    hint="The last bar of every so many"
+                    value={section.fill.every}
+                    onChange={(e) => {
+                      const fill = section.fill;
+                      if (fill) {
+                        commit(
+                          setFill(part, section.name, { ...fill, every: Number(e.target.value) }),
+                        );
+                      }
+                    }}
+                  >
+                    {FILL_EVERY.map((n) => (
+                      <option key={n} value={n}>
+                        {n === 0 ? "Never" : `${n} bars`}
+                      </option>
+                    ))}
+                  </Select>
+                  <Toggle
+                    id={`${ids}-at-end`}
+                    label="At its end"
+                    hint="Its last bar in each step of the order"
+                    checked={section.fill.atEnd}
+                    onChange={(atEnd) => {
+                      const fill = section.fill;
+                      if (fill) commit(setFill(part, section.name, { ...fill, atEnd }));
+                    }}
+                  />
+                </>
+              ) : null}
+              <span className="flex flex-wrap gap-1">
+                <Button
+                  onClick={() => {
+                    const [next, name] = duplicateSection(part, section.name);
+                    commit(next);
+                    setSelected(name);
+                  }}
+                >
+                  Duplicate
+                </Button>
+                <Button
+                  tier="quiet"
+                  disabled={part.sections.length < 2}
+                  title={`Remove ${section.name}, its steps in the order and fills from it`}
+                  onClick={() => {
+                    const i = part.sections.indexOf(section);
+                    const next = removeSection(part, section.name);
+                    commit(next);
+                    setSelected(next.sections[Math.max(0, i - 1)]?.name ?? "");
+                    setSelectedStep(null);
+                  }}
+                >
+                  Remove section
+                </Button>
+              </span>
             </>
           ) : null}
-          <span className="flex flex-wrap gap-1">
-            <Button
-              onClick={() => {
-                const [next, name] = duplicateSection(part, section.name);
-                commit(next);
-                setSelected(name);
-              }}
-            >
-              Duplicate
-            </Button>
-            <Button
-              tier="quiet"
-              disabled={part.sections.length < 2}
-              title={`Remove ${section.name}, its steps in the order and fills from it`}
-              onClick={() => {
-                const i = part.sections.indexOf(section);
-                const next = removeSection(part, section.name);
-                commit(next);
-                setSelected(next.sections[Math.max(0, i - 1)]?.name ?? "");
-                setSelectedStep(null);
-              }}
-            >
-              Remove section
-            </Button>
-          </span>
         </aside>
       </div>
+
+      {saving ? (
+        <SaveGrooveSheet
+          name={grooveName}
+          mine={status.library.grooves.map((g) => g.name)}
+          onClose={() => setSaving(false)}
+          onStatus={onStatus}
+          onError={onError}
+        />
+      ) : null}
 
       {leaving ? (
         <Sheet

@@ -1593,6 +1593,7 @@ pub(crate) mod fake {
                     jams: "/nonexistent/Jams".into(),
                     exercises: "/nonexistent/Exercises".into(),
                     courses: "/nonexistent/Courses".into(),
+                    grooves: "/nonexistent/Grooves".into(),
                 },
                 |l| l.folders.clone(),
             )

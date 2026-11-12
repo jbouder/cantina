@@ -524,6 +524,111 @@ One exercise of a course, and the tempo to reach on it.
 | `goal` | yes | number (≥ 30, ≤ 300) | The tempo a whole pass must be played at before the next step, in beats per minute, 30 to 300. |
 | `note` |  | string | A line on why it comes here, shown with the step. |
 
+## Cantina groove (`groove`)
+
+A whole drum part, as the drum designer saves it: sections (intro, verse, chorus, bridge, fill, ending or your own), each with a pattern, a fill and variations B to D; the order they play in; the kit; and the tempo and time signature it was made at. Section names are unique: the order and fills name sections by them.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `description` |  | string | A line on it. |
+| `genre` |  | string | The genre it belongs to, if any: `Rock`, `Funk`… |
+| `kit` | yes | string (not empty) | The kit it plays, by id. |
+| `name` | yes | string (not empty) | Shown in the palette and the jam's groove picker. |
+| `order` |  | array of `OrderStep` | The song: sections by name, each repeated a number of times. Default `[]`. |
+| `sections` | yes | array of `PartSection` (at least 1) | The sections, in the order the designer lists them. |
+| `tempo` | yes | number (≥ 20, ≤ 400) | The tempo it was made at, in beats per minute, 20 to 400. |
+| `timeSignature` | yes | `Meter` | The time signature it was made in. |
+| `version` | yes | integer (≥ 1, ≤ 1) | The format's version, 1. |
+
+Where it goes: `*.groove.json` in `~/Music/Cantina/Grooves/`, checked by `cantina-cli`. Schema: `https://cantina-docs.vibeproject.workers.dev/schemas/groove.schema.json`.
+
+### `Humanize`
+
+How far hits stray, like a drummer's hands: up to ±48 ticks (a sixty-fourth of a bar of 4/4) late or early at a `timing` of 1, and up to ±30% in velocity at a `velocity` of 1. Each pass of a pattern is a little different, and the same every time it plays.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `timing` |  | number (≥ 0, ≤ 1) | 0 is on the grid, 1 the most. Default `0`. |
+| `velocity` |  | number (≥ 0, ≤ 1) | 0 is as written, 1 the most. Default `0`. |
+
+### `Meter`
+
+A time signature, as a groove states it.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `denominator` | yes | `2`, `4`, `8`, `16` | The note value of a beat: 4 for quarter notes, 8 for eighths. |
+| `numerator` | yes | integer (≥ 1, ≤ 16) | Beats in a bar. |
+
+### `OrderStep`
+
+One step of a part's order: a section, played through so many times.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `section` | yes | string | The section, by name. |
+| `times` | yes | integer (≥ 1, ≤ 64) | Passes of its pattern, 1 to `MAX_REPEAT`. |
+
+### `PartSection`
+
+A section of a part: a name, the kind of section it is when it is one of the usual ones, and its pattern.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `fill` |  | `SectionFill` | Another section's first bar played as a fill. |
+| `kind` |  | `Section` | Intro, verse, chorus, bridge, fill or ending; none for a section of your own. |
+| `name` | yes | string (not empty) | Unique within the part; the order refers to the section by it. |
+| `pattern` | yes | `Pattern` | What it plays, looped for as long as it lasts. |
+| `variations` |  | array of `Pattern` (at most 3) | Variations B, C and D of the pattern (which is A), at most three, each with its steps and resolution. |
+| `vary` |  | `Vary` | How the variations take turns, pass by pass. |
+
+### `Pattern`
+
+A step sequencer pattern: a grid of pads against steps, with a velocity per cell. Patterns belong to the project and refer to pads by the ids the kit format uses (`kick`, `snare`, `hh-closed`…), so a pattern plays on any drum track whose kit has those pads.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `humanize` |  | `Humanize` | How far the hits stray from the grid and from their velocity, for the whole pattern; a row can have its own. |
+| `length` | yes | integer (≥ 1, ≤ 128) | Steps in the pattern, which loops after the last. |
+| `name` | yes | string (not empty) | Shown in the pattern picker. |
+| `rows` |  | array of `PatternRow` | One row per pad that has hits. Default `[]`. |
+| `seed` |  | integer (≥ 0) | Seeds the humanizing and the chance of each step, so the pattern plays the same way every time; change it for another take. |
+| `stepsPerBeat` | yes | `1`, `2`, `3`, `4`, `6`, `8` | Steps per quarter note: 2 for eighths, 4 for sixteenths, 8 for thirty-seconds; 3 and 6 for triplets. |
+| `swing` | yes | number (≥ 0, ≤ 1) | 0 is straight; 1 delays every second step by a third of a step, a triplet feel. |
+
+### `PatternRow`
+
+One pad's steps. `steps` holds exactly the pattern's length of velocities from 0 (no hit) to 1.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `humanize` |  | `Humanize` | This row's own humanizing, instead of the pattern's. |
+| `marks` |  | array of `StepMark` | Steps that play by chance, ratchet or flam, in step order. |
+| `pad` | yes | string (not empty) | The pad's id in the kit format. |
+| `steps` | yes | array of number (≥ 0, ≤ 1) | Velocity per step, 0 for no hit. |
+| `swing` |  | number (≥ 0, ≤ 1) | This row's own swing, 0 to 1, instead of the pattern's. |
+
+### `SectionFill`
+
+When a section plays a fill: every few bars, at its end, or both, as a pattern clip's fill does.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `atEnd` |  | boolean | The section's last bar in the order is a fill. Default `false`. |
+| `every` |  | integer (≥ 0, ≤ 64) | The last bar of every this many is a fill; 0 for none. Default `0`. |
+| `section` | yes | string | The section whose first bar is the fill. |
+
+### `StepMark`
+
+What a step does beyond its velocity: whether it plays, how many times, and with a grace note before it.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `chance` |  | number (≥ 0, ≤ 1) | The chance it plays on a pass, 0 to 1. |
+| `flam` |  | boolean | A soft grace note just before it. |
+| `ratchet` |  | integer (≥ 1, ≤ 4) | Hits in the step, evenly spaced: 1, or 2 to 4 for a ratchet. |
+| `step` | yes | integer (≥ 0) | The step, from 0. |
+
 ## Cantina practice log (`practice-log`)
 
 What was practiced, day by day: one entry per exercise per day with the fastest tempo a whole pass was played at and the minutes played. Cantina writes it; it is never part of a project.

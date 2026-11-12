@@ -396,3 +396,79 @@ fn check_reads_courses_and_names_the_exercises_they_lack() {
         "{err}"
     );
 }
+
+#[test]
+fn check_reads_grooves_and_a_jam_that_plays_one() {
+    let example = root().join(".claude/skills/cantina-author/examples/late-train.groove.json");
+    let out = run(&["check", path(&example)]);
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
+    let said = text(&out.stdout);
+    assert!(said.starts_with("ok: groove \"Late train\""), "{said}");
+    assert!(!said.contains("warning"), "{said}");
+
+    // The user's grooves are looked for in $HOME/Music/Cantina/Grooves.
+    let home = tempfile::tempdir().unwrap();
+    let grooves = home.path().join("Music/Cantina/Grooves");
+    std::fs::create_dir_all(&grooves).unwrap();
+    let text_of = |kit: &str, pad: &str| {
+        std::fs::read_to_string(&example)
+            .unwrap()
+            .replace("\"kit\": \"rock\"", &format!("\"kit\": \"{kit}\""))
+            .replace("\"tom-lo\"", &format!("\"{pad}\""))
+    };
+    std::fs::write(
+        grooves.join("late-train.groove.json"),
+        text_of("rock", "tom-lo"),
+    )
+    .unwrap();
+    let odd = home.path().join("odd.groove.json");
+    std::fs::write(&odd, text_of("nope", "tom-lo")).unwrap();
+    let out = run(&["check", path(&odd)]);
+    assert_eq!(out.status.code(), Some(0));
+    assert!(
+        text(&out.stdout).contains("the kit \"nope\" is not installed"),
+        "{}",
+        text(&out.stdout)
+    );
+    std::fs::write(&odd, text_of("rock", "gong")).unwrap();
+    let out = run(&["check", path(&odd)]);
+    assert!(
+        text(&out.stdout).contains("section \"Fill\" plays \"gong\""),
+        "{}",
+        text(&out.stdout)
+    );
+    std::fs::write(
+        &odd,
+        r#"{"version":1,"name":"Odd","tempo":100,
+        "timeSignature":{"numerator":4,"denominator":4},"kit":"rock",
+        "sections":[],"order":[]}"#,
+    )
+    .unwrap();
+    let out = run(&["check", path(&odd)]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(
+        text(&out.stderr).contains("less than 1 item"),
+        "{}",
+        text(&out.stderr)
+    );
+
+    let jam = home.path().join("x.jam.json");
+    std::fs::write(
+        &jam,
+        r#"{"version":1,"name":"X","drums":{"groove":"Late train","kit":"rock"},
+            "tempo":118,"timeSignature":{"numerator":4,"denominator":4},
+            "key":{"tonic":"E","mode":"minor"}}"#,
+    )
+    .unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_cantina-cli"))
+        .args(["check", path(&jam)])
+        .env("HOME", home.path())
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
+    assert!(
+        !text(&out.stdout).contains("warning"),
+        "{}",
+        text(&out.stdout)
+    );
+}

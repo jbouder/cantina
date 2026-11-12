@@ -1,12 +1,12 @@
 ---
 name: cantina-author
-description: Write files for Cantina, the Mac guitar studio. Covers pedals (*.pedal.json effect graphs such as drives, fuzz, chorus, tremolo and delay), drum kit recipes (*.recipe.json, synthesized into a kit), drum patterns (*.pattern.json beats), rigs (*.rig.json, a chain of pedals with settings for a style), jams (*.jam.json, a groove, backing chords, tempo, key and rig to practice with), exercises (*.exercise.json, a riff, scale, technique or chord change to practice, with a tempo ladder, rig and groove), courses (*.course.json, exercises in order with goal tempos) and projects (project.json). Checks each file with cantina-cli and renders it before putting it in the ~/Music/Cantina library, where the running app picks it up. Use when asked for a Cantina pedal, effect, tone, rig, beat, groove, drum pattern, drum kit, jam, backing track, chord progression, exercise, lick, riff to practice, practice course or lesson plan, or project, or to fix one that will not load.
+description: Write files for Cantina, the Mac guitar studio. Covers pedals (*.pedal.json effect graphs such as drives, fuzz, chorus, tremolo and delay), drum kit recipes (*.recipe.json, synthesized into a kit), drum patterns (*.pattern.json beats), rigs (*.rig.json, a chain of pedals with settings for a style), jams (*.jam.json, a groove, backing chords, tempo, key and rig to practice with), exercises (*.exercise.json, a riff, scale, technique or chord change to practice, with a tempo ladder, rig and groove), courses (*.course.json, exercises in order with goal tempos), grooves (*.groove.json, a whole drum part: sections, their order, fills and variations) and projects (project.json). Checks each file with cantina-cli and renders it before putting it in the ~/Music/Cantina library, where the running app picks it up. Use when asked for a Cantina pedal, effect, tone, rig, beat, groove, drum pattern, drum part, song's drums, drum kit, jam, backing track, chord progression, exercise, lick, riff to practice, practice course or lesson plan, or project, or to fix one that will not load.
 ---
 
 # Authoring for Cantina
 
 Cantina reads everything as JSON: pedals, kits, kit recipes, patterns, rigs,
-jams, exercises, courses and projects. Every format has a JSON Schema, and `cantina-cli` checks a file
+jams, exercises, courses, grooves and projects. Every format has a JSON Schema, and `cantina-cli` checks a file
 the way the app does and renders it through the app's own processors. Do
 not hand a file over until `check` passes and `render` sounds sane by the
 numbers.
@@ -22,7 +22,7 @@ numbers.
 2. **Draft** the file. Put `"$schema"` first so editors validate it:
    `https://cantina-docs.vibeproject.workers.dev/schemas/<format>.schema.json`,
    where `<format>` is `pedal`, `kit`, `kit-recipe`, `pattern`, `rig`, `jam`,
-   `exercise`, `course` or `project`.
+   `exercise`, `course`, `groove` or `project`.
 3. **Check** it, and fix every problem it prints, then check again:
 
    ```sh
@@ -67,13 +67,14 @@ numbers.
    | Jam | `~/Music/Cantina/Jams/<id>.jam.json` |
    | Exercise | `~/Music/Cantina/Exercises/<id>.exercise.json` |
    | Course | `~/Music/Cantina/Courses/<id>.course.json` |
+   | Groove | `~/Music/Cantina/Grooves/<id>.groove.json` |
    | Project | `~/Music/Cantina/<Name>.cantina/project.json` |
 
    Then tell the person where it is and what to do in the app: a pedal is in
    the pedal picker under *Your pedals*; a kit in a drum track's **Kit**
    list; a pattern in the **Pattern** menu under *Import from the library*;
    a rig in the **Rigs** picker on an audio track's pedalboard; a jam in
-   the Jam view's **Jams** list; an exercise in the Practice view's list; a course in its **Course** list.
+   the Jam view's **Jams** list; an exercise in the Practice view's list; a course in its **Course** list; a groove in the drum designer's **Palette** under *Your grooves*, and in the Jam view's **Groove** list.
 
 ## Kits
 
@@ -166,6 +167,20 @@ the exercise's tempo ladder. Order steps from what the next one builds on,
 and set goals a little short of each exercise's own goal early on. Start
 from [examples/bass-foundations.course.json](examples/bass-foundations.course.json).
 
+## Grooves
+
+A groove is a whole drum part: `sections` (each a unique `name`, an
+optional `kind` of `intro`, `verse`, `chorus`, `bridge`, `fill` or
+`ending`, a `pattern` written as a pattern file is, an optional `fill`
+naming another section, and up to three `variations` with the pattern's
+steps), an `order` of `{ "section", "times" }`, the `kit`, and the `tempo`
+and `timeSignature` it was made at. Write it when asked for a song's drums
+rather than one beat: a verse, a chorus, a fill every 4 or 8 bars, an
+intro and an ending, arranged in the order. `check` warns about a kit not
+installed, pads the kit lacks and sections that are not whole bars. A jam
+can play it by naming it in `drums.groove`. Start from
+[examples/late-train.groove.json](examples/late-train.groove.json).
+
 ## Running the CLI
 
 In the Cantina repository: `cargo run -q -p cantina-cli -- <command>`.
@@ -187,6 +202,7 @@ Installed: `cantina-cli <command>` (`cargo install --path crates/cli`).
 | [e-to-a.exercise.json](examples/e-to-a.exercise.json) | An exercise in chords: two shapes with fingers, a strum pattern, a beginner's tempo ladder over the rock groove |
 | [gallop.exercise.json](examples/gallop.exercise.json) | An exercise in notes: a palm-muted gallop and power chords through the heavy-metal rig |
 | [bass-foundations.course.json](examples/bass-foundations.course.json) | A course: five bass exercises in order, each with a goal tempo and a note |
+| [late-train.groove.json](examples/late-train.groove.json) | A groove: a rock part with an intro, a verse that answers itself on variation B, a chorus on the ride, fills and an ending, in a song's order |
 
 [fixtures/](fixtures/) holds one-line prompts and what was written for
 them; every example and fixture is checked and rendered in CI by

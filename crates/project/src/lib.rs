@@ -12,6 +12,7 @@ mod drum_part;
 mod exercise;
 mod file;
 mod fill;
+mod groove_file;
 mod history;
 mod jam;
 mod journal;
@@ -43,6 +44,9 @@ pub use file::{
     EXTENSION, PEDALS_DIR, PLUGINS_DIR, PROJECT_FILE,
 };
 pub use fill::generate_fill;
+pub use groove_file::{
+    groove_file_from_json, groove_file_to_json, GrooveFile, GROOVE_SUFFIX, GROOVE_VERSION,
+};
 pub use history::{History, UNDO_LIMIT};
 pub use jam::{
     jam_file_name, jam_from_json, jam_to_json, pitch_class, section_name, Backing, Jam, JamDrums,

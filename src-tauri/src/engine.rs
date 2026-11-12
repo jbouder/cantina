@@ -2619,6 +2619,7 @@ impl Engine {
             jams: projects.jams_dir(),
             exercises: projects.exercises_dir(),
             courses: projects.courses_dir(),
+            grooves: projects.grooves_dir(),
         };
         // The folders are where files written outside the app go, so they
         // exist from the first launch.
@@ -3469,6 +3470,18 @@ impl Engine {
         self.recovery = None;
         self.journal.clear()?;
         Ok(self.publish())
+    }
+
+    /// A pattern file, a stock groove's or the library's, as the drum
+    /// designer's palette puts it in a section. Its id is 0.
+    pub fn pattern_file_read(&self, path: &str) -> Result<Pattern> {
+        let text = std::fs::read_to_string(path).with_context(|| format!("reading {path}"))?;
+        cantina_project::pattern_from_json(&text).map_err(|e| anyhow!("{path}: {e}"))
+    }
+
+    /// A groove file of the user's, as the drum designer opens it.
+    pub fn groove_file_read(&self, path: &str) -> Result<cantina_project::GrooveFile> {
+        crate::grooves::read(Path::new(path))
     }
 
     /// Makes the live graph follow a command that was just applied.

@@ -38,10 +38,11 @@ recipe (`*.recipe.json`), a pattern (`*.pattern.json`), a tab
 (`*.tab.json`), a [rig](/reference/rig-format/) (`*.rig.json`), a
 [jam](/reference/jam-format/) (`*.jam.json`), an
 [exercise](/reference/exercise-format/) (`*.exercise.json`), a
-[course](/reference/course-format/) (`*.course.json`) or a project
+[course](/reference/course-format/) (`*.course.json`), a
+[groove](/reference/groove-format/) (`*.groove.json`) or a project
 (a folder with `project.json`). The format comes from the name, then a
 `$schema` field, then the keys;
-`--as pedal|kit|kit-recipe|pattern|tab|rig|jam|exercise|course|project`
+`--as pedal|kit|kit-recipe|pattern|tab|rig|jam|exercise|course|groove|project`
 overrides it.
 
 First the file is checked against its [schema](/schemas/pedal.schema.json),
@@ -96,6 +97,12 @@ Then the rules beyond the schema, the ones the app enforces:
   (in `~/Music/Cantina/Exercises`, then the stock ones) or is for the
   other instrument fails it; a goal outside the exercise's tempo ladder
   is a warning.
+- **Groove**: its version, name, tempo, time signature and part: unique
+  section names, valid patterns, variations with their A's steps, and an
+  order and fills that name sections it has. A kit that is not installed,
+  a pad the kit lacks, a section that is not whole bars, an empty order and
+  a groove no section of which can be a jam's verse are warnings. The
+  summary names the sections, steps and bars.
 - **Project**: every pedal in a chain is a stock pedal, a plugin, or a
   designed pedal whose `pedals/<id>.pedal.json` is in the project and
   compiles; each drum track's kit is found (in `--kits`, then

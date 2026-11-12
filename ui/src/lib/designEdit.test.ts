@@ -5,6 +5,8 @@ import {
   duplicateSection,
   gridPads,
   moveStep,
+  putGroove,
+  putInSection,
   removeSection,
   removeStep,
   renameSection,
@@ -13,6 +15,7 @@ import {
   withPattern,
 } from "./designEdit";
 import { type DrumPart, emptyPattern, fillBars, orderBars } from "./drumPart";
+import type { PatternInfo } from "./engine";
 
 function part(): DrumPart {
   return {
@@ -127,5 +130,53 @@ describe("the order", () => {
     const atEnd = setFill(longer, "Verse", { section: "Fill", every: 0, atEnd: true });
     expect(fillBars(atEnd, 3840)).toEqual([7]);
     expect(fillBars(setFill(longer, "Verse", null), 3840)).toEqual([]);
+  });
+});
+
+describe("the palette", () => {
+  const groovePattern = (name: string, length = 16): PatternInfo => ({
+    ...emptyPattern(name),
+    length,
+    rows: [{ pad: "kick", steps: Array(length).fill(0).fill(1, 0, 1) }],
+  });
+  it("puts a pattern in a section, renamed to it, dropping variations that no longer fit", () => {
+    const p = {
+      ...part(),
+      sections: part().sections.map((s, i) =>
+        i === 0 ? { ...s, variations: [emptyPattern("Verse B")] } : s,
+      ),
+    };
+    const kept = putInSection(p, "Verse", groovePattern("Rock verse"));
+    expect(kept.sections[0]?.pattern.name).toBe("Verse");
+    expect(kept.sections[0]?.pattern.rows[0]?.pad).toBe("kick");
+    expect(kept.sections[0]?.variations).toHaveLength(1);
+    const longer = putInSection(p, "Verse", groovePattern("Rock verse", 32));
+    expect(longer.sections[0]?.variations).toBeUndefined();
+  });
+  it("fills every section from a whole groove", () => {
+    const empty: DrumPart = {
+      kit: "rock",
+      sections: [{ name: "Verse", kind: "verse", pattern: emptyPattern("Verse") }],
+      order: [],
+    };
+    const next = putGroove(empty, [
+      ["intro", groovePattern("Rock intro")],
+      ["verse", groovePattern("Rock verse")],
+      ["chorus", groovePattern("Rock chorus")],
+      ["fill", groovePattern("Rock fill")],
+    ]);
+    expect(next.sections.map((s) => s.name)).toEqual(["Verse", "Intro", "Chorus", "Fill"]);
+    expect(next.sections[0]?.pattern.rows).toHaveLength(1);
+    expect(next.order.map((o) => `${o.section}×${o.times}`)).toEqual([
+      "Intro×1",
+      "Verse×4",
+      "Chorus×4",
+      "Verse×4",
+      "Chorus×4",
+      "Chorus×4",
+    ]);
+    expect(next.sections[0]?.fill).toEqual({ section: "Fill", every: 4, atEnd: false });
+    // An order already there is kept.
+    expect(putGroove(part(), [["chorus", groovePattern("x")]]).order).toEqual(part().order);
   });
 });

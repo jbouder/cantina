@@ -118,6 +118,7 @@ pub fn check(path: &Path, options: &CheckOptions) -> Result<Report, Failure> {
         Format::Jam => check_jam(&text, options, &mut warnings),
         Format::Exercise => check_exercise(&text, options, &mut warnings),
         Format::Course => check_course(&text, &mut warnings),
+        Format::Groove => check_groove(&text, options, &mut warnings),
     }
     .map_err(fail)?;
     Ok(Report {
@@ -266,8 +267,28 @@ fn check_jam(
     let mut sections: Vec<Section> = jam.drums.patterns.keys().copied().collect();
     if let Some(genre) = &jam.drums.groove {
         let mut found = stock_grooves(genre);
-        if found.is_empty() {
-            let problem = format!("there is no stock groove for the genre {genre:?}");
+        // Not a stock genre: one of the user's grooves, by name.
+        let mine = if found.is_empty() {
+            user_groove(genre)
+        } else {
+            None
+        };
+        if let Some(g) = &mine {
+            if g.time_signature != jam.time_signature {
+                warnings.push(format!(
+                    "your groove {genre:?} is in {}/{}; the jam plays it in that",
+                    g.time_signature.numerator, g.time_signature.denominator
+                ));
+            }
+            for (k, _) in g.jam_patterns() {
+                if !sections.contains(&k) {
+                    sections.push(k);
+                }
+            }
+        } else if found.is_empty() {
+            let problem = format!(
+                "there is no stock groove for the genre {genre:?}, nor a groove of yours called that"
+            );
             if jam.drums.patterns.is_empty() {
                 return Err(vec![problem]);
             }
@@ -275,7 +296,7 @@ fn check_jam(
         }
         // As the app does: the genre's grooves in the jam's meter.
         found.retain(|g| g.time_signature == jam.time_signature);
-        if found.is_empty() && jam.drums.patterns.is_empty() {
+        if found.is_empty() && jam.drums.patterns.is_empty() && mine.is_none() {
             return Err(vec![format!(
                 "the {genre} grooves are not in {}/{}",
                 jam.time_signature.numerator, jam.time_signature.denominator
@@ -588,6 +609,92 @@ fn check_course(text: &str, warnings: &mut Vec<String>) -> Result<String, Vec<St
         },
         course.steps.len()
     ))
+}
+
+fn check_groove(
+    text: &str,
+    options: &CheckOptions,
+    warnings: &mut Vec<String>,
+) -> Result<String, Vec<String>> {
+    let groove = cantina_project::groove_file_from_json(text).map_err(|e| vec![e])?;
+    let part = &groove.part;
+    let kits = crate::kit_roots(&options.kit_roots);
+    match kits
+        .iter()
+        .map(|r| r.join(&part.kit))
+        .find(|d| d.join(cantina_engine::kit::KIT_FILE).is_file())
+    {
+        None => warnings.push(format!(
+            "the kit {:?} is not installed; the app plays the track's kit, or the first it has",
+            part.kit
+        )),
+        Some(dir) => {
+            if let Ok((kit, _)) = cantina_engine::kit::load(&dir) {
+                for s in &part.sections {
+                    for (i, p) in std::iter::once(&s.pattern).chain(&s.variations).enumerate() {
+                        for row in &p.rows {
+                            if !kit.pads.iter().any(|pad| pad.id == row.pad) {
+                                warnings.push(format!(
+                                    "section {:?}{} plays {:?}, which the kit {:?} has no pad for",
+                                    s.name,
+                                    if i == 0 {
+                                        String::new()
+                                    } else {
+                                        format!(" variation {}", (b'A' + i as u8) as char)
+                                    },
+                                    row.pad,
+                                    part.kit
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let bar = groove.bar_ticks();
+    for s in &part.sections {
+        if s.pattern.ticks() % bar != 0 {
+            warnings.push(format!(
+                "section {:?} is not a whole number of {}/{} bars; a jam leaves it out",
+                s.name, groove.time_signature.numerator, groove.time_signature.denominator
+            ));
+        }
+    }
+    if part.order.is_empty() {
+        warnings.push("the order is empty: the part has nothing to place".into());
+    }
+    if !groove
+        .jam_patterns()
+        .iter()
+        .any(|(k, _)| *k == cantina_project::Section::Verse)
+    {
+        warnings.push("no section can be a jam's verse, so a jam cannot play it".into());
+    }
+    let bars = part.order_bars(bar);
+    Ok(format!(
+        "groove {:?}: {} sections, {} steps in the order, {bars} bars at {} bpm in {}/{}",
+        groove.name,
+        part.sections.len(),
+        part.order.len(),
+        groove.tempo,
+        groove.time_signature.numerator,
+        groove.time_signature.denominator
+    ))
+}
+
+/// A groove of the user's called `name`, in `~/Music/Cantina/Grooves`.
+fn user_groove(name: &str) -> Option<cantina_project::GrooveFile> {
+    crate::groove_file_dirs()
+        .iter()
+        .flat_map(|d| entries(d))
+        .filter(|p| {
+            p.to_string_lossy()
+                .ends_with(cantina_project::GROOVE_SUFFIX)
+        })
+        .filter_map(|p| std::fs::read_to_string(p).ok())
+        .filter_map(|t| cantina_project::groove_file_from_json(&t).ok())
+        .find(|g| g.name == name)
 }
 
 /// The entries of a folder, sorted; none when it cannot be read.

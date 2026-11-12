@@ -577,8 +577,25 @@ impl Engine {
                 .iter()
                 .filter(|g| &g.groove.genre == genre)
                 .collect();
-            if grooves.is_empty() && setup.drums.patterns.is_empty() {
-                bail!("there is no {genre} groove");
+            // Not a stock genre: one of the user's grooves, by name, its
+            // sections played by kind in its own time signature.
+            let mine = if grooves.is_empty() {
+                self.library_status
+                    .grooves
+                    .iter()
+                    .find(|g| &g.name == genre)
+                    .map(|g| crate::grooves::read(Path::new(&g.path)))
+                    .transpose()?
+            } else {
+                None
+            };
+            if let Some(g) = &mine {
+                setup.time_signature = g.time_signature;
+                for (section, pattern) in g.jam_patterns() {
+                    patterns.insert(section, pattern);
+                }
+            } else if grooves.is_empty() && setup.drums.patterns.is_empty() {
+                bail!("there is no {genre} groove, stock or yours");
             }
             if let Some(g) = grooves
                 .iter()

@@ -177,3 +177,80 @@ export function setFill(part: DrumPart, name: string, fill: SectionFill | null):
 function clampTimes(times: number): number {
   return Math.max(1, Math.min(MAX_REPEAT, Math.round(times)));
 }
+
+/**
+ * The part with section `name` playing `pattern` as its A, renamed to
+ * the section. Its variations go when they no longer have A's steps.
+ */
+export function putInSection(part: DrumPart, name: string, pattern: PatternInfo): DrumPart {
+  return withSection(part, name, (s) => {
+    const fits = (v: PatternInfo) =>
+      v.length === pattern.length && v.stepsPerBeat === pattern.stepsPerBeat;
+    const variations = (s.variations ?? []).filter(fits);
+    const { variations: _, ...rest } = s;
+    return {
+      ...rest,
+      pattern: { ...structuredClone(pattern), id: 1, name },
+      ...(variations.length > 0 ? { variations } : {}),
+    };
+  });
+}
+
+/** The order a whole groove starts with, by kind and passes, for those the part has. */
+const SONG: [GrooveSection, number][] = [
+  ["intro", 1],
+  ["verse", 4],
+  ["chorus", 4],
+  ["verse", 4],
+  ["chorus", 4],
+  ["bridge", 2],
+  ["chorus", 4],
+  ["ending", 1],
+];
+
+/**
+ * The part with a whole groove in it, a pattern per kind of section: each
+ * goes into the part's first section of its kind, or a new one named
+ * after the kind. An empty order becomes a song of what is there, and a
+ * verse or chorus with no fill takes the groove's fill every four bars.
+ */
+export function putGroove(part: DrumPart, groove: [GrooveSection, PatternInfo][]): DrumPart {
+  let out = part;
+  for (const [kind, pattern] of groove) {
+    const there = out.sections.find((s) => s.kind === kind);
+    if (there) {
+      out = putInSection(out, there.name, pattern);
+    } else {
+      const label = SECTION_KINDS.find((k) => k.kind === kind)?.label ?? "Section";
+      const name = uniqueName(
+        label,
+        out.sections.map((s) => s.name),
+      );
+      out = {
+        ...out,
+        sections: [
+          ...out.sections,
+          { name, kind, pattern: { ...structuredClone(pattern), id: 1, name } },
+        ],
+      };
+    }
+  }
+  const named = (kind: GrooveSection) => out.sections.find((s) => s.kind === kind)?.name;
+  if (out.order.length === 0) {
+    const order: OrderStep[] = [];
+    for (const [kind, times] of SONG) {
+      const name = named(kind);
+      if (name) order.push({ section: name, times });
+    }
+    out = { ...out, order };
+  }
+  const fill = groove.some(([k]) => k === "fill") ? named("fill") : undefined;
+  if (fill) {
+    for (const kind of ["verse", "chorus"] as const) {
+      const name = named(kind);
+      const s = out.sections.find((x) => x.name === name);
+      if (name && s && !s.fill) out = setFill(out, name, { section: fill, every: 4, atEnd: false });
+    }
+  }
+  return out;
+}

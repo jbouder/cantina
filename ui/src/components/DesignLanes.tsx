@@ -4,6 +4,7 @@ import { type DrumPart, fillBars, layout, orderBars, patternTicks } from "../lib
 import type { GrooveSection } from "../lib/engine";
 import { Button } from "./Button";
 import { ContextMenu } from "./ContextMenu";
+import { PATTERN_DRAG } from "./DesignPalette";
 import { Led } from "./Led";
 
 type Props = {
@@ -20,6 +21,8 @@ type Props = {
   onAddSection: (kind: GrooveSection | null) => void;
   onSelectStep: (step: number) => void;
   onAddStep: () => void;
+  /** A pattern file dropped from the palette onto a section. */
+  onDropPattern: (section: string, path: string) => void;
 };
 
 /** `4 bars`, `1 bar`, `6 beats` for a length in ticks. */
@@ -45,7 +48,9 @@ export function DesignLanes({
   onAddSection,
   onSelectStep,
   onAddStep,
+  onDropPattern,
 }: Props) {
+  const [over, setOver] = useState<string | null>(null);
   const addKey = useRef<HTMLButtonElement>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const spans = layout(part);
@@ -68,6 +73,21 @@ export function DesignLanes({
               aria-selected={s.name === editing}
               title={`${s.name}: ${barsLabel(patternTicks(s.pattern), barTicks)}${s.fill ? `, a fill from ${s.fill.section}` : ""}${i < 9 ? ` (${i + 1})` : ""}`}
               onClick={() => onEdit(s.name)}
+              onDragOver={(e) => {
+                if (!e.dataTransfer.types.includes(PATTERN_DRAG)) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "copy";
+                setOver(s.name);
+              }}
+              onDragLeave={() => setOver(null)}
+              onDrop={(e) => {
+                const path = e.dataTransfer.getData(PATTERN_DRAG);
+                setOver(null);
+                if (!path) return;
+                e.preventDefault();
+                onDropPattern(s.name, path);
+              }}
+              className={over === s.name ? "outline-2 outline-focus outline-solid" : ""}
             >
               <Led on={s.name === playingSection} label="Playing" />
               {s.name}

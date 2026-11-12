@@ -234,6 +234,17 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
                   {g}
                 </option>
               ))}
+              {status.library.grooves.length > 0 ? (
+                <optgroup label="Your grooves">
+                  {status.library.grooves
+                    .filter((g) => !genres.includes(g.name))
+                    .map((g) => (
+                      <option key={g.path} value={g.name}>
+                        {g.name}
+                      </option>
+                    ))}
+                </optgroup>
+              ) : null}
               <option value={PROJECT} disabled={patterns.length === 0}>
                 This project's patterns
               </option>

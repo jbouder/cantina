@@ -41,7 +41,8 @@ While a stream is open, a pump thread wakes 60 times a second, reads the meters,
 - **Jams** (`jams.rs`): the stock jams in the bundle's `jams/` and the user's in `~/Music/Cantina/Jams`; opening one sets the jam playing, saving writes the jam as it is.
 - **Exercises** (`exercises.rs`): the stock exercises in the bundle's `exercises/` and the user's in `~/Music/Cantina/Exercises`, listed by style, what they teach and name.
 - **Courses** (`courses.rs`): the stock courses in the bundle's `courses/` and the user's in `~/Music/Cantina/Courses`, each with its steps' bests and the next step from the practice log. The assistant's `get_practice` tool reads them and the log, and never writes.
-- **Library folders** (`library.rs`): `Pedals`, `Kits`, `Patterns`, `Rigs`, `Jams`, `Exercises` and `Courses` under `~/Music/Cantina`, watched twice a second and rescanned when they change.
+- **Grooves** (`grooves.rs`): the user's whole drum parts in `~/Music/Cantina/Grooves`, saved by the drum designer and listed in its palette and the jam's groove picker. A jam naming one plays its sections by kind (`GrooveFile::jam_patterns`). The stock grooves stay pattern files, found by `library::scan_grooves`.
+- **Library folders** (`library.rs`): `Pedals`, `Kits`, `Patterns`, `Rigs`, `Jams`, `Exercises`, `Courses` and `Grooves` under `~/Music/Cantina`, watched twice a second and rescanned when they change.
 - **Plugin editors**: native windows opened, ticked and closed on the main thread. See [hosting](/architecture/hosting/#editor-windows).
 - **The menu bar** (`menu.rs`): built from the action registry the UI shares. See [menus and shortcuts](/architecture/menus/).
 - **The assistant** (`assistant/`): the optional chat's provider requests and its key in the Keychain. See [assistant](/architecture/assistant/).

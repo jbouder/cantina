@@ -717,6 +717,39 @@ pub fn jam_tempo(engine: State<'_, EngineState>, bpm: f64) -> Result<EngineStatu
 
 // ----- the drum designer -----
 
+/// A pattern file, for the drum designer's palette.
+#[tauri::command]
+pub fn pattern_file_read(
+    engine: State<'_, EngineState>,
+    path: String,
+) -> Result<cantina_project::Pattern, String> {
+    engine.lock().pattern_file_read(&path).map_err(fail)
+}
+
+/// A groove file of the user's, for the drum designer to open.
+#[tauri::command]
+pub fn groove_file_read(
+    engine: State<'_, EngineState>,
+    path: String,
+) -> Result<cantina_project::GrooveFile, String> {
+    engine.lock().groove_file_read(&path).map_err(fail)
+}
+
+/// Saves the drum designer's part as a groove in the library.
+#[tauri::command]
+pub fn drum_design_save_groove(
+    engine: State<'_, EngineState>,
+    name: String,
+    genre: String,
+    description: String,
+    replace: bool,
+) -> Result<EngineStatus, String> {
+    engine
+        .lock()
+        .drum_design_save_groove(&name, &genre, &description, replace)
+        .map_err(fail)
+}
+
 /// Opens the drum designer on a drum track: a copy of its part is heard
 /// in place of the project.
 #[tauri::command]

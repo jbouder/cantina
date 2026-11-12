@@ -1,0 +1,574 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/groove.schema.json",
+  "version": 1,
+  "name": "Late train",
+  "genre": "Rock",
+  "description": "A driving rock part: a verse that answers itself on every other pass, a chorus on the ride, a fill every eight bars.",
+  "tempo": 118,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "kit": "rock",
+  "sections": [
+    {
+      "name": "Intro",
+      "kind": "intro",
+      "pattern": {
+        "name": "Intro",
+        "stepsPerBeat": 4,
+        "length": 16,
+        "swing": 0,
+        "rows": [
+          {
+            "pad": "kick",
+            "steps": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0.8,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "pad": "hh-closed",
+            "steps": [
+              0.6,
+              0,
+              0,
+              0,
+              0.6,
+              0,
+              0,
+              0,
+              0.6,
+              0,
+              0,
+              0,
+              0.6,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "pad": "crash",
+            "steps": [
+              0.8,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Verse",
+      "kind": "verse",
+      "pattern": {
+        "name": "Verse",
+        "stepsPerBeat": 4,
+        "length": 16,
+        "swing": 0,
+        "rows": [
+          {
+            "pad": "kick",
+            "steps": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0.9,
+              0,
+              0.6,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "pad": "snare",
+            "steps": [
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "pad": "hh-closed",
+            "steps": [
+              0.8,
+              0,
+              0.55,
+              0,
+              0.8,
+              0,
+              0.55,
+              0,
+              0.8,
+              0,
+              0.55,
+              0,
+              0.8,
+              0,
+              0.55,
+              0
+            ]
+          }
+        ]
+      },
+      "fill": {
+        "section": "Fill",
+        "every": 8,
+        "atEnd": false
+      },
+      "variations": [
+        {
+          "name": "Verse B",
+          "stepsPerBeat": 4,
+          "length": 16,
+          "swing": 0,
+          "rows": [
+            {
+              "pad": "kick",
+              "steps": [
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0.6,
+                0.9,
+                0,
+                0.6,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            {
+              "pad": "snare",
+              "steps": [
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
+                0,
+                0.3
+              ],
+              "marks": [
+                {
+                  "step": 12,
+                  "flam": true
+                }
+              ]
+            },
+            {
+              "pad": "hh-closed",
+              "steps": [
+                0.8,
+                0,
+                0.55,
+                0,
+                0.8,
+                0,
+                0.55,
+                0,
+                0.8,
+                0,
+                0.55,
+                0,
+                0.8,
+                0,
+                0.55,
+                0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Chorus",
+      "kind": "chorus",
+      "pattern": {
+        "name": "Chorus",
+        "stepsPerBeat": 4,
+        "length": 16,
+        "swing": 0,
+        "rows": [
+          {
+            "pad": "kick",
+            "steps": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0.7,
+              0,
+              0.9,
+              0,
+              0.7,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "pad": "snare",
+            "steps": [
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "pad": "crash",
+            "steps": [
+              0.9,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "pad": "ride",
+            "steps": [
+              0.7,
+              0,
+              0.7,
+              0,
+              0.7,
+              0,
+              0.7,
+              0,
+              0.7,
+              0,
+              0.7,
+              0,
+              0.7,
+              0,
+              0.7,
+              0
+            ]
+          }
+        ]
+      },
+      "fill": {
+        "section": "Fill",
+        "every": 0,
+        "atEnd": true
+      }
+    },
+    {
+      "name": "Fill",
+      "kind": "fill",
+      "pattern": {
+        "name": "Fill",
+        "stepsPerBeat": 4,
+        "length": 16,
+        "swing": 0,
+        "rows": [
+          {
+            "pad": "kick",
+            "steps": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "pad": "snare",
+            "steps": [
+              0,
+              0,
+              0,
+              0,
+              0.9,
+              0,
+              0.6,
+              0,
+              0.9,
+              0.5,
+              0.9,
+              0.6,
+              0,
+              0,
+              0,
+              0
+            ],
+            "marks": [
+              {
+                "step": 11,
+                "ratchet": 2
+              }
+            ]
+          },
+          {
+            "pad": "tom-hi",
+            "steps": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0.9,
+              0.7,
+              0,
+              0
+            ]
+          },
+          {
+            "pad": "tom-lo",
+            "steps": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0.9,
+              0.8
+            ]
+          },
+          {
+            "pad": "hh-closed",
+            "steps": [
+              0.7,
+              0,
+              0.5,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Ending",
+      "kind": "ending",
+      "pattern": {
+        "name": "Ending",
+        "stepsPerBeat": 4,
+        "length": 16,
+        "swing": 0,
+        "rows": [
+          {
+            "pad": "kick",
+            "steps": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "pad": "crash",
+            "steps": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "pad": "snare",
+            "steps": [
+              0.9,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "order": [
+    {
+      "section": "Intro",
+      "times": 2
+    },
+    {
+      "section": "Verse",
+      "times": 8
+    },
+    {
+      "section": "Chorus",
+      "times": 8
+    },
+    {
+      "section": "Verse",
+      "times": 8
+    },
+    {
+      "section": "Chorus",
+      "times": 8
+    },
+    {
+      "section": "Ending",
+      "times": 1
+    }
+  ]
+}
