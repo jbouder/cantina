@@ -4747,6 +4747,21 @@ impl Engine {
         Ok(self.publish())
     }
 
+    /// Moves a project to the Trash and drops it from the recent list.
+    /// The open project cannot go: open another one first.
+    pub fn project_delete(&mut self, name: &str) -> Result<EngineStatus> {
+        if name == self.project.name {
+            bail!("{name} is open: open another project before deleting it");
+        }
+        self.projects.trash(name)?;
+        let before = self.settings.recent_projects.len();
+        self.settings.recent_projects.retain(|n| n != name);
+        if self.settings.recent_projects.len() != before {
+            self.persist();
+        }
+        Ok(self.publish())
+    }
+
     /// Copies the open project, as it is now, to a new name and switches
     /// to the copy, as Save As does. The original stays as it was last
     /// saved, and keeps any unsaved edits in its journal for recovery.

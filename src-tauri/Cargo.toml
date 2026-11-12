@@ -26,6 +26,8 @@ cantina-engine.workspace = true
 cantina-hosting.workspace = true
 cantina-project.workspace = true
 objc2 = "0.6"
+# Deleting a project moves its folder to the Trash, where it can be put back.
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSFileManager", "NSURL", "NSString", "NSError"] }
 # The assistant's requests to its provider; the same build the updater uses.
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-no-provider", "system-proxy"] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }

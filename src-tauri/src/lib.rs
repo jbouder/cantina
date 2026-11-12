@@ -187,6 +187,7 @@ pub fn run() {
             commands::tab_pdf_write,
             commands::menu_state,
             commands::project_rename,
+            commands::project_delete,
             commands::project_duplicate,
             commands::reveal,
             commands::audio_import,

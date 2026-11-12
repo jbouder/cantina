@@ -176,7 +176,9 @@ With a track armed, **Record** (or R) counts in four beats, then starts the
 transport and records what comes in; **Stop** (or Space) ends the take, which lands on the track as a
 clip. Space plays from the playhead. **Save** (⌘S) writes the project to
 `~/Music/Cantina/`, **New…** (⌘N) brings back the start dialog for a new
-project, and **Projects…** (⌘O) opens another. The **File**
+project, and **Projects…** (⌘O) opens another. There **Delete**, clicked
+twice, moves a project other than the open one to the Trash, where Finder
+can put it back. The **File**
 menu also renames and duplicates projects, reopens recent ones and imports
 WAV files; [Menus](/guides/menus/) lists every item.
 

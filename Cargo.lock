@@ -377,6 +377,7 @@ dependencies = [
  "jsonschema",
  "muda",
  "objc2",
+ "objc2-foundation",
  "reqwest",
  "rustls",
  "security-framework",

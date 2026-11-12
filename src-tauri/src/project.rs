@@ -206,6 +206,17 @@ impl Projects {
         Ok((name, dir))
     }
 
+    /// Moves a project's folder to the Trash, where Finder can put it
+    /// back. Nothing in it is changed.
+    pub fn trash(&self, name: &str) -> Result<()> {
+        let name = check_name(name)?;
+        let dir = self.dir_for(&name);
+        if !dir.join(cantina_project::PROJECT_FILE).is_file() {
+            bail!("there is no project called {name}");
+        }
+        move_to_trash(&dir)
+    }
+
     /// The projects folder itself, which also holds the library folders.
     pub fn root(&self) -> &Path {
         &self.root
@@ -278,6 +289,22 @@ pub fn with_defaults(stored: &[f32], params: &[cantina_dsp::ParamInfo]) -> Vec<f
         .enumerate()
         .map(|(i, p)| stored.get(i).copied().unwrap_or(p.default))
         .collect()
+}
+
+/// Moves a file or folder to the user's Trash through the Finder's own
+/// file manager.
+fn move_to_trash(path: &Path) -> Result<()> {
+    use objc2_foundation::{NSFileManager, NSString, NSURL};
+    let url = NSURL::fileURLWithPath(&NSString::from_str(&path.to_string_lossy()));
+    NSFileManager::defaultManager()
+        .trashItemAtURL_resultingItemURL_error(&url, None)
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "moving {} to the Trash: {}",
+                path.display(),
+                e.localizedDescription()
+            )
+        })
 }
 
 /// Copies a project folder: everything in it but the journal, whose
@@ -383,6 +410,24 @@ mod tests {
         let (name, dir) = projects.free_dir(" Song 2 ").unwrap();
         assert_eq!(name, "Song 2");
         assert_eq!(dir, projects.dir_for("Song 2"));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn only_a_project_can_go_to_the_trash() {
+        // The move itself is the Finder's; this checks what is refused
+        // before it, without filling the Trash.
+        let root = std::env::temp_dir().join(format!("cantina-trash-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let projects = Projects::at(root.clone());
+        projects.create("Song", 48_000.0).unwrap();
+        assert!(projects.trash("Nothing here").is_err());
+        assert!(projects.trash("../Song").is_err());
+        assert!(projects.trash("").is_err());
+        // A folder without a project file is not a project.
+        std::fs::create_dir_all(projects.dir_for("Empty")).unwrap();
+        assert!(projects.trash("Empty").is_err());
+        assert!(projects.dir_for("Song").is_dir());
         std::fs::remove_dir_all(root).unwrap();
     }
 
