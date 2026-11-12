@@ -39,6 +39,12 @@ guides/fills.png|running&drums&beats&tab=clips&fill
 guides/grooves.png|running&drums&beats&grooves&split=180
 guides/pad-mixer.png|running&drums&beats&padmixer&split=180
 guides/pads.png|running&drums&beats&pads&split=180
+guides/drum-designer.png|running&drums&beats&fill&drumdesign=playing&position=5.2
+guides/drum-designer-tools.png|running&drums&beats&drumdesign&variations&variant=1&skin=hifi
+guides/drum-designer-palette.png|running&drums&beats&drumdesign&grooves&palette&skin=midnight
+guides/drum-designer-kit.png|running&drums&beats&kit=metal&drumdesign&workbench=open
+guides/drum-designer-pads.png|running&drums&beats&drumdesign=playing&pads&position=0.9&skin=neon
+guides/drum-designer-place.png|running&drums&beats&drumdesign&place&skin=toxic
 guides/perform.png|running&perform&board&scene=bars&chain=overdrive,chorus,tremolo,amp,cab
 guides/jam.png|running&jam
 guides/jam-playing.png|running&jam=playing&jambacking&position=9&skin=hifi

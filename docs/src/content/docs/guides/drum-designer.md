@@ -1,6 +1,6 @@
 ---
 title: "Drum designer"
-description: "Build a drum track's whole part in a window of its own: the kit's pads down one side, a large grid, an inspector and a transport that plays the part on loop."
+description: "Build a drum track's whole part in a window of its own: sections and an order, a large grid with ghost notes, rolls, flams and variations, a palette of grooves, a kit workbench, playing a part in on the pads, and placing it on the track as one undoable edit."
 ---
 
 The Beats tab is a strip under the timeline, and a drum part is a whole
@@ -39,11 +39,24 @@ track, the designer asks first: **Leave without placing** drops them.
 
 ## The transport
 
+![The drum designer playing the whole song: the sections and the order across the top, a verse with a fill every four bars, the grid lit at the playhead, and the inspector](../../../assets/guides/drum-designer.png)
+
 - **Loop section** plays the section you are editing round and round,
   long enough for its fill to come round.
 - **Whole song** plays the order from the top and loops at its end.
 - **Play** (Space) starts the loop from the top; Space again stops it.
   The readout shows the bar and beat, the tempo and the time signature.
+
+## The grid and the inspector
+
+Click a cell to put a hit there, or click a hit to take it away; drag
+across cells to paint or erase a run. With a cell focused, the arrows
+move and Space or Return toggles it. The column under the playhead lights
+while the section plays.
+
+The inspector sets the section's **name** (the order and fills follow a
+rename), its **kind** (intro, verse, chorus, bridge, fill, ending or your
+own), its **length** in bars, its **swing** and its **fill**.
 
 ## Sections and the order
 
@@ -82,123 +95,9 @@ Stopped, the change is where play starts next time.
 Edits to the sections and the order are part of the designer's history,
 so **⌘Z** takes them back like any other.
 
-## The palette and groove files
-
-**Palette**, beside **Inspector** at the top of the side panel, is where
-a part starts quickly.
-
-- **Stock grooves**, a genre at a time: each of the genre's sections with
-  its feel and the tempos it suits (and its time signature, when it is
-  not the project's). Drag one onto a section in the lane, or click it to
-  put it in the section you are editing; the section keeps its name.
-  **Use the whole … groove** puts every one of the genre's sections into
-  the part at once: each into the section of its kind, or a new one. An
-  empty order becomes a song of them (intro, verse, chorus, verse, chorus,
-  bridge, chorus, ending, of those there are), and a verse or chorus with
-  no fill takes the genre's fill every four bars.
-- **Your grooves**: parts you saved. **Open** puts one in place of the
-  part, its sections, order and kit (the track's kit stays when the
-  groove's is not installed).
-- **Your patterns**: the pattern files in Patterns in your Cantina folder,
-  to drag or click in the same way.
-
-All of it is part of the designer's history: **⌘Z** takes it back.
-
-**Save as groove…** in the toolbar writes the whole part (its sections
-with their patterns, fills and variations, the order and the kit, at the
-project's tempo and time signature) to
-`~/Music/Cantina/Grooves/<name>.groove.json`. It joins **Your grooves** in
-the palette, and the [Jam](/guides/jam/#setting-it-up) view's **Groove**
-list, where each of its sections plays by kind. The stock grooves stay as
-they are. The file is the [groove format](/reference/groove-format/):
-write one by hand or [with an agent](/guides/agents/), and
-`cantina-cli check` it.
-
-## The kit workbench
-
-**Kit**, the third tab of the side panel, is the kit's side of the part.
-Click any pad to hear it.
-
-**Change the kit** opens a copy of the part's kit to work on, heard as it
-changes; the kit's own folder is never touched. For the pad you clicked:
-
-- **Level**, **Pan**, **Tune** (±12 semitones) and **Decay** (how much of
-  each hit rings), each taking effect when you let go of the slider, and
-  its **Choke group**: a hit cuts the others in its group, the closed hat
-  silencing the open one.
-- **Samples**: **From a file…** puts a WAV file on the pad; **From a kit**
-  and **Use** put another kit's pad there, every velocity layer of it.
-- **Recipe**: a kit made from a recipe (the stock Metal, Jazz, Vintage
-  and others, or one you saved) shows the pad's **Pitch**, **Length**,
-  **Tone** and **Noise**; changing one synthesizes the kit again.
-
-**Reset** puts the kit back as it was. **Save as kit…** writes it to
-`~/Music/Cantina/Kits/<name>/` (its `kit.json`, every sample, and the
-recipe when it has one), where every drum track's **Kit** list and
-`cantina-cli check` find it, and the part plays it from then on. The
-pads' settings are the [kit format](/reference/kit-format/)'s, version 2.
-
-## Playing a part in
-
-Some parts are played, not drawn. **Pads**, above the grid, opens the
-kit as pads: click one (harder toward its top), or click into the strip
-and press **A S D F G H J K L ;** and then **Z X C V B N** for the kit's
-pads in order, **⇧** for an accent at full strength.
-
-**Record** loops the section you are editing (from the next bar if
-something else is playing) and, from a stop, starts after a bar of
-count-in when **Count in** is on. What you play is:
-
-- **quantized** to the nearest step of the section's grid, a hit just
-  before the loop comes round going to its first step;
-- **compensated** for the output's latency: a hit counts where the beat
-  you heard was, not where the playhead had got to;
-- **overdubbed**: each hit is kept at the louder of what was there and
-  what you played, and nothing is taken away;
-- recorded into the **variation** that pass plays, when the section has
-  variations.
-
-Each pass round the loop goes in as one **take**, one step of the
-designer's history: **Undo take** (or ⌘Z) takes back the last. **Record**
-again stops, keeping what was played in the pass under way.
-
-## Placing the part
-
-**Place**, the toolbar's one primary button, puts the part on the drum
-track you opened the designer from: a pattern for each section (named
-after the track and the section, with a whole round of its variations),
-a pattern clip for each step of the order with the section's fill, and
-the part's kit. Clips are in bars, so they stay on them whatever the
-tempo does.
-
-When the track already has clips, Place asks where:
-
-- **In place of the part placed before** takes out what the last Place
-  put there (its clips, and its patterns nothing else plays) and puts
-  the part where it started. The first time, it replaces the track's
-  clips, from the first of them.
-- **After the track's last clip** starts the part on the next bar line
-  after everything else on the track.
-
-It is one edit: **Edit ▸ Undo** in the project takes all of it back. The
-designer stays open, the part now the track's, and leaving no longer
-asks. Open the designer on the track later and it has the part as you
-placed it, sections, variations and all, ready to revise and place
-again. A kit changed in the workbench must be saved (or reset) first,
-since a placed part plays an installed kit.
-
-## The grid and the inspector
-
-Click a cell to put a hit there, or click a hit to take it away; drag
-across cells to paint or erase a run. With a cell focused, the arrows
-move and Space or Return toggles it. The column under the playhead lights
-while the section plays.
-
-The inspector sets the section's **name** (the order and fills follow a
-rename), its **kind** (intro, verse, chorus, bridge, fill, ending or your
-own), its **length** in bars, its **swing** and its **fill**.
-
 ## Pattern tools
+
+![Variation B of the verse in the Hi-fi skin: ghost snares, a flam, a ratchet on the hats, the bar tools above the grid and the kick's velocity lane below it](../../../assets/guides/drum-designer-tools.png)
 
 **Each hit** can be more than on or off. With a cell focused:
 
@@ -234,3 +133,116 @@ on the passes of the variation it shows.
 The designer keeps a history of its own: **⌘Z** and **⇧⌘Z**, or the
 arrows in its toolbar, step back and forward through your edits in the
 designer without touching the project's.
+
+## The palette and groove files
+
+![The palette in the Midnight skin: a genre's sections with their feel and tempos, Use the whole groove, and a groove of your own to open](../../../assets/guides/drum-designer-palette.png)
+
+**Palette**, beside **Inspector** at the top of the side panel, is where
+a part starts quickly.
+
+- **Stock grooves**, a genre at a time: each of the genre's sections with
+  its feel and the tempos it suits (and its time signature, when it is
+  not the project's). Drag one onto a section in the lane, or click it to
+  put it in the section you are editing; the section keeps its name.
+  **Use the whole … groove** puts every one of the genre's sections into
+  the part at once: each into the section of its kind, or a new one. An
+  empty order becomes a song of them (intro, verse, chorus, verse, chorus,
+  bridge, chorus, ending, of those there are), and a verse or chorus with
+  no fill takes the genre's fill every four bars.
+- **Your grooves**: parts you saved. **Open** puts one in place of the
+  part, its sections, order and kit (the track's kit stays when the
+  groove's is not installed).
+- **Your patterns**: the pattern files in Patterns in your Cantina folder,
+  to drag or click in the same way.
+
+All of it is part of the designer's history: **⌘Z** takes it back.
+
+**Save as groove…** in the toolbar writes the whole part (its sections
+with their patterns, fills and variations, the order and the kit, at the
+project's tempo and time signature) to
+`~/Music/Cantina/Grooves/<name>.groove.json`. It joins **Your grooves** in
+the palette, and the [Jam](/guides/jam/#setting-it-up) view's **Groove**
+list, where each of its sections plays by kind. The stock grooves stay as
+they are. The file is the [groove format](/reference/groove-format/):
+write one by hand or [with an agent](/guides/agents/), and
+`cantina-cli check` it.
+
+## The kit workbench
+
+![The kit workbench on the synthesized Metal kit: every pad to hear, and the kick's level, pan, tune, decay, choke group, samples and recipe](../../../assets/guides/drum-designer-kit.png)
+
+**Kit**, the third tab of the side panel, is the kit's side of the part.
+Click any pad to hear it.
+
+**Change the kit** opens a copy of the part's kit to work on, heard as it
+changes; the kit's own folder is never touched. For the pad you clicked:
+
+- **Level**, **Pan**, **Tune** (±12 semitones) and **Decay** (how much of
+  each hit rings), each taking effect when you let go of the slider, and
+  its **Choke group**: a hit cuts the others in its group, the closed hat
+  silencing the open one.
+- **Samples**: **From a file…** puts a WAV file on the pad; **From a kit**
+  and **Use** put another kit's pad there, every velocity layer of it.
+- **Recipe**: a kit made from a recipe (the stock Metal, Jazz, Vintage
+  and others, or one you saved) shows the pad's **Pitch**, **Length**,
+  **Tone** and **Noise**; changing one synthesizes the kit again.
+
+**Reset** puts the kit back as it was. **Save as kit…** writes it to
+`~/Music/Cantina/Kits/<name>/` (its `kit.json`, every sample, and the
+recipe when it has one), where every drum track's **Kit** list and
+`cantina-cli check` find it, and the part plays it from then on. The
+pads' settings are the [kit format](/reference/kit-format/)'s, version 2.
+
+## Playing a part in
+
+![The pads above the grid in the Neon skin, with Record and Undo take, while the song plays](../../../assets/guides/drum-designer-pads.png)
+
+Some parts are played, not drawn. **Pads**, above the grid, opens the
+kit as pads: click one (harder toward its top), or click into the strip
+and press **A S D F G H J K L ;** and then **Z X C V B N** for the kit's
+pads in order, **⇧** for an accent at full strength.
+
+**Record** loops the section you are editing (from the next bar if
+something else is playing) and, from a stop, starts after a bar of
+count-in when **Count in** is on. What you play is:
+
+- **quantized** to the nearest step of the section's grid, a hit just
+  before the loop comes round going to its first step;
+- **compensated** for the output's latency: a hit counts where the beat
+  you heard was, not where the playhead had got to;
+- **overdubbed**: each hit is kept at the louder of what was there and
+  what you played, and nothing is taken away;
+- recorded into the **variation** that pass plays, when the section has
+  variations.
+
+Each pass round the loop goes in as one **take**, one step of the
+designer's history: **Undo take** (or ⌘Z) takes back the last. **Record**
+again stops, keeping what was played in the pass under way.
+
+## Placing the part
+
+![The place sheet in the Toxic skin: in place of the track's clips, or after the last one](../../../assets/guides/drum-designer-place.png)
+
+**Place**, the toolbar's one primary button, puts the part on the drum
+track you opened the designer from: a pattern for each section (named
+after the track and the section, with a whole round of its variations),
+a pattern clip for each step of the order with the section's fill, and
+the part's kit. Clips are in bars, so they stay on them whatever the
+tempo does.
+
+When the track already has clips, Place asks where:
+
+- **In place of the part placed before** takes out what the last Place
+  put there (its clips, and its patterns nothing else plays) and puts
+  the part where it started. The first time, it replaces the track's
+  clips, from the first of them.
+- **After the track's last clip** starts the part on the next bar line
+  after everything else on the track.
+
+It is one edit: **Edit ▸ Undo** in the project takes all of it back. The
+designer stays open, the part now the track's, and leaving no longer
+asks. Open the designer on the track later and it has the part as you
+placed it, sections, variations and all, ready to revise and place
+again. A kit changed in the workbench must be saved (or reset) first,
+since a placed part plays an installed kit.
