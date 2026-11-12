@@ -121,6 +121,12 @@ left.
 playing along. **Page** wraps the bars into rows across the panel, for
 reading ahead; drag the panel's top edge up to see more rows.
 
+When two strings or more start together under the cursor (the playhead,
+or the caret while you edit), a chord box under the buttons on the left
+draws them, named when Cantina knows the chord: a power chord, a triad, a
+seventh, a slash chord. The [practice guide](/guides/practice/#chord-diagrams-and-the-fretboard)
+explains how to read one.
+
 ![The tab in Follow, the cursor on the playhead](../../../assets/guides/tab-follow.png)
 
 ![The tab in Page, wrapped into rows](../../../assets/guides/tab-page.png)

@@ -10,6 +10,7 @@ import {
   type UpdateInfo,
   updateCheck,
 } from "../lib/engine";
+import { useLeftHanded } from "../lib/handedness";
 import { useReduceFlashing } from "../lib/motion";
 import { SKINS, useSkin } from "../skins";
 import { AssistantSettings } from "./AssistantSettings";
@@ -134,6 +135,7 @@ export function Settings({
 }: Props) {
   const [skin, setSkin] = useSkin();
   const [reduceFlashing, setReduceFlashing] = useReduceFlashing();
+  const [leftHanded, setLeftHanded] = useLeftHanded();
   const { latency } = status;
   const choices = WARN_CHOICES.includes(latency.warnMs)
     ? WARN_CHOICES
@@ -212,6 +214,18 @@ export function Settings({
           hint="Stills the stage's flashes and the skin's beat pulse. Your system's reduce motion setting stills the pulse too."
           checked={reduceFlashing}
           onChange={setReduceFlashing}
+        />
+      </section>
+      <section aria-labelledby="fretboard-label" className="grid gap-2">
+        <h3 id="fretboard-label" className="caption m-0">
+          Fretboard
+        </h3>
+        <Toggle
+          id="left-handed"
+          label="Left-handed"
+          hint="Practice draws the neck with the nut on the right, as a left-handed player sees it."
+          checked={leftHanded}
+          onChange={setLeftHanded}
         />
       </section>
       <section aria-labelledby="launch-label" className="grid gap-2">
