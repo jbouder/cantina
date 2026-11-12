@@ -253,11 +253,31 @@ fn stock_track(id: TrackId, name: &str, first: u64) -> Track {
         track.chain.push(Pedal {
             id: PedalId(first + i as u64),
             spec: spec.to_string(),
-            values: values.to_vec(),
+            values: stock_values(spec, values),
             bypassed: false,
         });
     }
     track
+}
+
+/// A value for every parameter of the stock pedal `spec`: the given
+/// ones first, the pedal's defaults for the rest, so a knob added to a
+/// stock pedal later is still there to turn in a new project.
+fn stock_values(spec: &str, given: &[f32]) -> Vec<f32> {
+    match cantina_dsp::stock(spec) {
+        Some(pedal) => with_defaults(given, pedal.params()),
+        None => given.to_vec(),
+    }
+}
+
+/// One value per parameter in `params`: the stored ones first, each
+/// missing one at its parameter's default.
+pub fn with_defaults(stored: &[f32], params: &[cantina_dsp::ParamInfo]) -> Vec<f32> {
+    params
+        .iter()
+        .enumerate()
+        .map(|(i, p)| stored.get(i).copied().unwrap_or(p.default))
+        .collect()
 }
 
 /// Copies a project folder: everything in it but the journal, whose
@@ -303,6 +323,33 @@ fn check_name(name: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_new_projects_stock_pedals_store_every_knob() {
+        let project = Projects::fresh("Song", 48_000.0);
+        let chain = &project.tracks[0].chain;
+        assert_eq!(chain.len(), DEFAULT_CHAIN.len());
+        for (pedal, (spec, given)) in chain.iter().zip(DEFAULT_CHAIN) {
+            let stock = cantina_dsp::stock(spec).unwrap();
+            assert_eq!(pedal.values.len(), stock.params().len(), "{spec}");
+            assert_eq!(&pedal.values[..given.len()], *given, "{spec}");
+        }
+    }
+
+    #[test]
+    fn missing_values_take_their_defaults() {
+        let overdrive = cantina_dsp::stock("overdrive").unwrap();
+        let params = overdrive.params();
+        assert!(params.len() > 3);
+        let filled = with_defaults(&[20.0, 3000.0, -6.0], params);
+        assert_eq!(filled.len(), params.len());
+        assert_eq!(&filled[..3], &[20.0, 3000.0, -6.0]);
+        for (value, p) in filled[3..].iter().zip(&params[3..]) {
+            assert_eq!(*value, p.default, "{}", p.name);
+        }
+        // Never more values than parameters.
+        assert_eq!(with_defaults(&[1.0, 2.0], &params[..1]), vec![1.0]);
+    }
 
     #[test]
     fn a_copy_leaves_the_journal_behind() {
