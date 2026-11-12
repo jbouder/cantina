@@ -22,6 +22,7 @@ import { type AnalysisFrame, analysisOf, decodeFrame, encodeFrame } from "./fram
 import {
   type BrokenFile,
   brokenOf,
+  type GrooveInfo,
   type LibraryKind,
   type LibraryPattern,
   type LibraryStatus,
@@ -31,7 +32,7 @@ import { mockAnalysis, mockBeat } from "./mockAnalysis";
 import { addVariation, passes } from "./patternTools";
 import { sortTabNotes, tabPitch } from "./tabEdit";
 
-export type { BrokenFile, LibraryKind, LibraryPattern, LibraryStatus };
+export type { BrokenFile, GrooveInfo, LibraryKind, LibraryPattern, LibraryStatus };
 export { brokenOf, patternFileName };
 
 import {
@@ -1938,6 +1939,8 @@ const mock: EngineStatus = {
     jamsDir: "/Users/you/Music/Cantina/Jams",
     exercisesDir: "/Users/you/Music/Cantina/Exercises",
     coursesDir: "/Users/you/Music/Cantina/Courses",
+    groovesDir: "/Users/you/Music/Cantina/Grooves",
+    grooves: [],
     patterns: mockParams?.has("library")
       ? [
           {
@@ -3581,6 +3584,12 @@ function mockJamPatterns(setup: Jam): Partial<Record<GrooveSection, number>> {
   for (const g of mockGrooves.filter((g) => g.genre === setup.drums.groove)) {
     bars[g.section] = ((g.length / g.stepsPerBeat) * JAM_PPQ) / bar;
   }
+  // Not a stock genre: one of the user's grooves, by name, by kind of section.
+  const mine = mockUserGrooves.find((g) => g.file.name === setup.drums.groove)?.file;
+  for (const s of mine?.sections ?? []) {
+    if (!s.kind || bars[s.kind] !== undefined) continue;
+    bars[s.kind] = (patternTicks(s.pattern) * passes(s).length) / bar;
+  }
   for (const [section, p] of Object.entries(setup.drums.patterns ?? {})) {
     if (p) bars[section as GrooveSection] = ((p.length / p.stepsPerBeat) * JAM_PPQ) / bar;
   }
@@ -3931,6 +3940,8 @@ export async function jamSet(setup: Jam): Promise<EngineStatus> {
   const groove = mockGrooves.find((g) => g.genre === setup.drums.groove && g.section === "verse");
   const next = structuredClone(setup);
   if (groove) next.timeSignature = { ...groove.timeSignature };
+  const mine = mockUserGrooves.find((g) => g.file.name === setup.drums.groove)?.file;
+  if (!groove && mine) next.timeSignature = { ...mine.timeSignature };
   if (next.backing?.kind === "audio") next.tempo = next.backing.bpm;
   if (next.backing?.kind === "track") {
     const project = next.backing.project;
@@ -4263,6 +4274,114 @@ export async function practiceOptions(options: PracticeOptions): Promise<EngineS
 }
 
 // ----- the drum designer -----
+
+/** A groove file: a whole drum part. Mirrors `GrooveFile` in cantina-project. */
+export interface GrooveFile extends DrumPart {
+  version: number;
+  name: string;
+  genre?: string;
+  description?: string;
+  tempo: number;
+  timeSignature: { numerator: number; denominator: number };
+}
+
+/** The skill's example groove, which `?grooves` puts in the stand-in's library. */
+const EXAMPLE_GROOVES = import.meta.glob<GrooveFile>(
+  "../../../.claude/skills/cantina-author/examples/*.groove.json",
+  { eager: true, import: "default" },
+);
+
+/** The stand-in's groove files in `~/Music/Cantina/Grooves`. */
+const mockUserGrooves: { path: string; file: GrooveFile }[] = mockParams?.has("grooves")
+  ? Object.entries(EXAMPLE_GROOVES).map(([f, file]) => ({
+      path: `/Users/you/Music/Cantina/Grooves/${f.split("/").pop() ?? "groove.groove.json"}`,
+      file: structuredClone(file),
+    }))
+  : [];
+
+function mockGrooveInfo(path: string, g: GrooveFile): GrooveInfo {
+  const bar = (960 * 4 * g.timeSignature.numerator) / g.timeSignature.denominator;
+  const ticks = partLayout(g).reduce((end, s) => Math.max(end, s.start + s.length), 0);
+  return {
+    name: g.name,
+    genre: g.genre ?? "",
+    description: g.description ?? "",
+    path,
+    tempo: g.tempo,
+    timeSignature: { ...g.timeSignature },
+    kit: g.kit,
+    sections: g.sections.map((s) => ({ name: s.name, kind: s.kind ?? null })),
+    bars: Math.ceil(ticks / bar),
+  };
+}
+
+function mockSyncGrooves() {
+  mock.library.grooves = mockUserGrooves
+    .map((g) => mockGrooveInfo(g.path, g.file))
+    .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+}
+mockSyncGrooves();
+
+/** A pattern file, a stock groove's or the library's, for the designer's palette. Its id is 0. */
+export async function patternFileRead(path: string): Promise<PatternInfo> {
+  if (inTauri) return invoke<PatternInfo>("pattern_file_read", { path });
+  const g = mockGrooveFile(path);
+  if (g) {
+    return {
+      id: 0,
+      name: g.name,
+      stepsPerBeat: g.stepsPerBeat,
+      length: g.length,
+      swing: g.swing,
+      rows: structuredClone(g.rows),
+    };
+  }
+  const name = (path.split("/").pop() ?? "Pattern").replace(/\.pattern\.json$/, "");
+  return { ...mockPattern(0, name), id: 0 };
+}
+
+/** A groove file of the user's, for the designer to open. */
+export async function grooveFileRead(path: string): Promise<GrooveFile> {
+  if (inTauri) return invoke<GrooveFile>("groove_file_read", { path });
+  const g = mockUserGrooves.find((x) => x.path === path);
+  if (!g) throw new Error(`no groove at ${path}`);
+  return structuredClone(g.file);
+}
+
+/**
+ * Saves the designer's part to ~/Music/Cantina/Grooves as `name`, with the
+ * project's tempo and time signature, where the palette and the jam's
+ * groove picker find it.
+ */
+export async function drumDesignSaveGroove(
+  name: string,
+  genre: string,
+  description: string,
+  replace: boolean,
+): Promise<EngineStatus> {
+  if (inTauri) {
+    return invoke<EngineStatus>("drum_design_save_groove", { name, genre, description, replace });
+  }
+  if (!mockDesign) throw new Error("open the drum designer first");
+  if (!name.trim()) throw new Error("a groove needs a name");
+  const path = `/Users/you/Music/Cantina/Grooves/${rigSlug(name)}.groove.json`;
+  const at = mockUserGrooves.findIndex((g) => g.path === path);
+  if (at >= 0 && !replace) throw new Error(`you already have a groove called ${name.trim()}`);
+  const { numerator, denominator } = mock.project.tempo;
+  const file: GrooveFile = {
+    version: 1,
+    name: name.trim(),
+    ...(genre.trim() ? { genre: genre.trim() } : {}),
+    ...(description.trim() ? { description: description.trim() } : {}),
+    tempo: mock.project.tempo.bpm,
+    timeSignature: { numerator, denominator },
+    ...structuredClone(mockDesign.part),
+  };
+  if (at >= 0) mockUserGrooves[at] = { path, file };
+  else mockUserGrooves.push({ path, file });
+  mockSyncGrooves();
+  return mockStatus();
+}
 
 /** The stand-in's drum designer, as the shell keeps it. */
 let mockDesign: {

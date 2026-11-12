@@ -501,6 +501,47 @@ impl Engine {
         Ok(self.publish())
     }
 
+    /// Saves the designer's part to `~/Music/Cantina/Grooves` as `name`,
+    /// with the project's tempo and time signature, where the palette and
+    /// the jam's groove picker find it.
+    pub fn drum_design_save_groove(
+        &mut self,
+        name: &str,
+        genre: &str,
+        description: &str,
+        replace: bool,
+    ) -> Result<EngineStatus> {
+        let design = self
+            .drum_design
+            .as_ref()
+            .context("open the drum designer first")?;
+        let name = name.trim();
+        if name.is_empty() {
+            bail!("a groove needs a name");
+        }
+        let tempo = &self.project.tempo;
+        let groove = cantina_project::GrooveFile {
+            version: cantina_project::GROOVE_VERSION,
+            name: name.to_string(),
+            genre: genre.trim().to_string(),
+            description: description.trim().to_string(),
+            tempo: tempo.bpm,
+            time_signature: cantina_project::Meter {
+                numerator: tempo.numerator,
+                denominator: tempo.denominator,
+            },
+            part: design.part.clone(),
+        };
+        groove.validate().map_err(|e| anyhow!("{e}"))?;
+        let path = crate::grooves::path_for(&self.folders.grooves, name);
+        if path.exists() && !replace {
+            bail!("you already have a groove called {name}");
+        }
+        crate::grooves::write(&path, &groove)?;
+        self.library_status = self.folders.scan();
+        Ok(self.publish())
+    }
+
     /// Sends the designer's drum track its score after an edit that left
     /// the kit and the loop as they were.
     fn design_refresh(&mut self) -> Result<()> {

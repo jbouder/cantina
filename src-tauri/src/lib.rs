@@ -13,6 +13,7 @@ mod courses;
 mod engine;
 mod exercises;
 mod frame;
+mod grooves;
 mod jam;
 mod jams;
 mod library;
@@ -147,6 +148,9 @@ pub fn run() {
             commands::jam_save,
             commands::jam_load,
             commands::drum_design_open,
+            commands::pattern_file_read,
+            commands::groove_file_read,
+            commands::drum_design_save_groove,
             commands::drum_design_close,
             commands::drum_design_set,
             commands::drum_design_plays,

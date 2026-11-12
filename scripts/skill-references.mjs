@@ -133,6 +133,7 @@ function formats() {
     ["jam", "`*.jam.json`, checked by `cantina-cli`"],
     ["exercise", "`*.exercise.json`, checked and rendered by `cantina-cli`"],
     ["course", "`*.course.json` in `~/Music/Cantina/Courses/`, checked by `cantina-cli`"],
+    ["groove", "`*.groove.json` in `~/Music/Cantina/Grooves/`, checked by `cantina-cli`"],
     ["practice-log", "`~/Music/Cantina/Practice/log.json`, written by Cantina; read it, do not write it"],
     ["project", "`project.json` in a `Name.cantina/` folder"],
   ];

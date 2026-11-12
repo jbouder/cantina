@@ -12,7 +12,7 @@
 //! ```
 //!
 //! regenerates them all (pedal, kit, kit recipe, pattern, tab, rig, jam,
-//! exercise, practice log, course and project), and
+//! exercise, practice log, course, groove and project), and
 //! the same test fails when any is stale.
 
 use serde_json::{json, Value};
@@ -306,6 +306,56 @@ pub fn course() -> Value {
     s
 }
 
+/// The schema for a `<name>.groove.json`: a drum part as the drum
+/// designer saves it. Whether its kit is installed is left to
+/// `cantina-cli check`.
+pub fn groove() -> Value {
+    let mut s = schemars::schema_for!(crate::GrooveFile).to_value();
+    s["$id"] = json!(format!("{SITE}/groove.schema.json"));
+    s["title"] = json!("Cantina groove");
+    s["description"] = json!(
+        "A whole drum part, as the drum designer saves it: sections (intro, verse, chorus, \
+         bridge, fill, ending or your own), each with a pattern, a fill and variations B to D; \
+         the order they play in; the kit; and the tempo and time signature it was made at. \
+         Section names are unique: the order and fills name sections by them."
+    );
+    let props = &mut s["properties"];
+    props["$schema"] = json!({ "type": "string" });
+    props["version"]["minimum"] = json!(1);
+    props["version"]["maximum"] = json!(crate::GROOVE_VERSION);
+    props["name"]["minLength"] = json!(1);
+    props["tempo"]["minimum"] = json!(20);
+    props["tempo"]["maximum"] = json!(400);
+    props["kit"]["minLength"] = json!(1);
+    props["sections"]["minItems"] = json!(1);
+    let defs = &mut s["$defs"];
+    // A groove's patterns are written as pattern files are, without an id.
+    let pattern = &mut defs["Pattern"];
+    if let Some(p) = pattern["properties"].as_object_mut() {
+        p.remove("id");
+    }
+    if let Some(r) = pattern["required"].as_array_mut() {
+        r.retain(|r| r != "id");
+    }
+    if let Some(d) = defs.as_object_mut() {
+        d.remove("PatternId");
+    }
+    limit_pattern(&mut defs["Pattern"]);
+    limit_row(defs);
+    let meter = &mut defs["Meter"]["properties"];
+    meter["numerator"]["minimum"] = json!(1);
+    meter["numerator"]["maximum"] = json!(16);
+    meter["denominator"]["enum"] = json!([2, 4, 8, 16]);
+    defs["PartSection"]["properties"]["name"]["minLength"] = json!(1);
+    defs["PartSection"]["properties"]["variations"]["maxItems"] = json!(crate::MAX_VARIATIONS);
+    let times = &mut defs["OrderStep"]["properties"]["times"];
+    times["minimum"] = json!(1);
+    times["maximum"] = json!(crate::MAX_REPEAT);
+    defs["SectionFill"]["properties"]["every"]["maximum"] = json!(crate::MAX_REPEAT);
+    tidy(&mut s);
+    s
+}
+
 /// The schema for the practice log, `~/Music/Cantina/Practice/log.json`.
 pub fn practice_log() -> Value {
     let mut s = schemars::schema_for!(crate::PracticeLog).to_value();
@@ -441,7 +491,7 @@ mod tests {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
     }
 
-    fn all() -> [(&'static str, Value); 11] {
+    fn all() -> [(&'static str, Value); 12] {
         [
             ("pedal", cantina_dsp::schema::pedal()),
             ("kit", cantina_dsp::schema::kit()),
@@ -454,6 +504,7 @@ mod tests {
             ("exercise", exercise()),
             ("practice-log", practice_log()),
             ("course", course()),
+            ("groove", groove()),
         ]
     }
 
@@ -510,8 +561,20 @@ mod tests {
 
     #[test]
     fn schemas_every_stock_file_validates() {
-        let [pedal, kit, recipe, pattern_s, tab_s, project_s, rig_s, jam_s, exercise_s, log_s, course_s] =
+        let [pedal, kit, recipe, pattern_s, tab_s, project_s, rig_s, jam_s, exercise_s, log_s, course_s, groove_s] =
             all().map(|(_, s)| validator(&s));
+        // The stock grooves are pattern files; groove files are the
+        // user's, and the skill's example.
+        let grooves = files(
+            &root().join(".claude/skills/cantina-author"),
+            ".groove.json",
+        );
+        assert!(!grooves.is_empty(), "no example groove found");
+        for g in &grooves {
+            assert_valid(&groove_s, g);
+            crate::groove_file_from_json(&std::fs::read_to_string(g).unwrap())
+                .unwrap_or_else(|p| panic!("{}: {p}", g.display()));
+        }
         let mut courses = files(&root().join("courses"), ".course.json");
         courses.extend(files(
             &root().join(".claude/skills/cantina-author"),

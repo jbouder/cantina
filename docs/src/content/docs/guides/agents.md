@@ -93,6 +93,7 @@ The [command line](/reference/cli/) reference has every command and flag.
 | `~/Music/Cantina/Jams/` | `<id>.jam.json` | the Jam view's **Jams** list, under *Yours* |
 | `~/Music/Cantina/Exercises/` | `<id>.exercise.json` | the [Practice](/guides/practice/) view's exercise list, marked *yours* |
 | `~/Music/Cantina/Courses/` | `<id>.course.json` | the Practice view's **Course** list, marked *yours* |
+| `~/Music/Cantina/Grooves/` | `<id>.groove.json` | the drum designer's **Palette** under *Your grooves*, and the Jam view's **Groove** list |
 
 Cantina watches the seven folders while it runs. A file added or changed
 there appears within a second; a file that does not load is listed as

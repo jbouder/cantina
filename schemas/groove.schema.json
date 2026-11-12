@@ -1,0 +1,433 @@
+{
+  "$defs": {
+    "Humanize": {
+      "description": "How far hits stray, like a drummer's hands: up to ±48 ticks (a sixty-fourth of a bar of 4/4) late or early at a `timing` of 1, and up to ±30% in velocity at a `velocity` of 1. Each pass of a pattern is a little different, and the same every time it plays.",
+      "properties": {
+        "timing": {
+          "default": 0.0,
+          "description": "0 is on the grid, 1 the most.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "velocity": {
+          "default": 0.0,
+          "description": "0 is as written, 1 the most.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "Meter": {
+      "description": "A time signature, as a groove states it.",
+      "properties": {
+        "denominator": {
+          "description": "The note value of a beat: 4 for quarter notes, 8 for eighths.",
+          "enum": [
+            2,
+            4,
+            8,
+            16
+          ],
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "numerator": {
+          "description": "Beats in a bar.",
+          "format": "uint8",
+          "maximum": 16,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "type": "object"
+    },
+    "OrderStep": {
+      "description": "One step of a part's order: a section, played through so many times.",
+      "properties": {
+        "section": {
+          "description": "The section, by name.",
+          "type": "string"
+        },
+        "times": {
+          "description": "Passes of its pattern, 1 to `MAX_REPEAT`.",
+          "format": "uint16",
+          "maximum": 64,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "section",
+        "times"
+      ],
+      "type": "object"
+    },
+    "PartSection": {
+      "description": "A section of a part: a name, the kind of section it is when it is one of the usual ones, and its pattern.",
+      "properties": {
+        "fill": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SectionFill"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Another section's first bar played as a fill."
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Section"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Intro, verse, chorus, bridge, fill or ending; none for a section of your own."
+        },
+        "name": {
+          "description": "Unique within the part; the order refers to the section by it.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "pattern": {
+          "$ref": "#/$defs/Pattern",
+          "description": "What it plays, looped for as long as it lasts."
+        },
+        "variations": {
+          "description": "Variations B, C and D of the pattern (which is A), at most three, each with its steps and resolution.",
+          "items": {
+            "$ref": "#/$defs/Pattern"
+          },
+          "maxItems": 3,
+          "type": "array"
+        },
+        "vary": {
+          "$ref": "#/$defs/Vary",
+          "description": "How the variations take turns, pass by pass."
+        }
+      },
+      "required": [
+        "name",
+        "pattern"
+      ],
+      "type": "object"
+    },
+    "Pattern": {
+      "description": "A step sequencer pattern: a grid of pads against steps, with a velocity per cell. Patterns belong to the project and refer to pads by the ids the kit format uses (`kick`, `snare`, `hh-closed`…), so a pattern plays on any drum track whose kit has those pads.",
+      "properties": {
+        "humanize": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Humanize"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How far the hits stray from the grid and from their velocity, for the whole pattern; a row can have its own."
+        },
+        "length": {
+          "description": "Steps in the pattern, which loops after the last.",
+          "format": "uint16",
+          "maximum": 128,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "name": {
+          "description": "Shown in the pattern picker.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "rows": {
+          "default": [],
+          "description": "One row per pad that has hits.",
+          "items": {
+            "$ref": "#/$defs/PatternRow"
+          },
+          "type": "array"
+        },
+        "seed": {
+          "description": "Seeds the humanizing and the chance of each step, so the pattern plays the same way every time; change it for another take.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "stepsPerBeat": {
+          "description": "Steps per quarter note: 2 for eighths, 4 for sixteenths, 8 for thirty-seconds; 3 and 6 for triplets.",
+          "enum": [
+            1,
+            2,
+            3,
+            4,
+            6,
+            8
+          ],
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "swing": {
+          "description": "0 is straight; 1 delays every second step by a third of a step, a triplet feel.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "stepsPerBeat",
+        "length",
+        "swing"
+      ],
+      "type": "object"
+    },
+    "PatternRow": {
+      "description": "One pad's steps. `steps` holds exactly the pattern's length of velocities from 0 (no hit) to 1.",
+      "properties": {
+        "humanize": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Humanize"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "This row's own humanizing, instead of the pattern's."
+        },
+        "marks": {
+          "description": "Steps that play by chance, ratchet or flam, in step order.",
+          "items": {
+            "$ref": "#/$defs/StepMark"
+          },
+          "type": "array"
+        },
+        "pad": {
+          "description": "The pad's id in the kit format.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "steps": {
+          "description": "Velocity per step, 0 for no hit.",
+          "items": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "swing": {
+          "description": "This row's own swing, 0 to 1, instead of the pattern's.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "pad",
+        "steps"
+      ],
+      "type": "object"
+    },
+    "Section": {
+      "description": "The part of a song a groove is for.",
+      "oneOf": [
+        {
+          "const": "intro",
+          "description": "Before the song gets going.",
+          "type": "string"
+        },
+        {
+          "const": "verse",
+          "description": "The main groove.",
+          "type": "string"
+        },
+        {
+          "const": "chorus",
+          "description": "Bigger: the crash or ride opens up.",
+          "type": "string"
+        },
+        {
+          "const": "bridge",
+          "description": "Somewhere else for a while.",
+          "type": "string"
+        },
+        {
+          "const": "fill",
+          "description": "A bar that leads into the next section.",
+          "type": "string"
+        },
+        {
+          "const": "ending",
+          "description": "The last hit.",
+          "type": "string"
+        }
+      ]
+    },
+    "SectionFill": {
+      "description": "When a section plays a fill: every few bars, at its end, or both, as a pattern clip's fill does.",
+      "properties": {
+        "atEnd": {
+          "default": false,
+          "description": "The section's last bar in the order is a fill.",
+          "type": "boolean"
+        },
+        "every": {
+          "default": 0,
+          "description": "The last bar of every this many is a fill; 0 for none.",
+          "format": "uint16",
+          "maximum": 64,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "section": {
+          "description": "The section whose first bar is the fill.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "section"
+      ],
+      "type": "object"
+    },
+    "StepMark": {
+      "description": "What a step does beyond its velocity: whether it plays, how many times, and with a grace note before it.",
+      "properties": {
+        "chance": {
+          "description": "The chance it plays on a pass, 0 to 1.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "flam": {
+          "description": "A soft grace note just before it.",
+          "type": "boolean"
+        },
+        "ratchet": {
+          "description": "Hits in the step, evenly spaced: 1, or 2 to 4 for a ratchet.",
+          "format": "uint8",
+          "maximum": 4,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "step": {
+          "description": "The step, from 0.",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "step"
+      ],
+      "type": "object"
+    },
+    "Vary": {
+      "description": "How a section's variations take turns, one pass of the pattern each.",
+      "oneOf": [
+        {
+          "const": "alternate",
+          "description": "A between each of the others: A B A C A D.",
+          "type": "string"
+        },
+        {
+          "const": "chain",
+          "description": "One after another: A B C D.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "https://cantina-docs.vibeproject.workers.dev/schemas/groove.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A whole drum part, as the drum designer saves it: sections (intro, verse, chorus, bridge, fill, ending or your own), each with a pattern, a fill and variations B to D; the order they play in; the kit; and the tempo and time signature it was made at. Section names are unique: the order and fills name sections by them.",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "description": {
+      "description": "A line on it.",
+      "type": "string"
+    },
+    "genre": {
+      "description": "The genre it belongs to, if any: `Rock`, `Funk`…",
+      "type": "string"
+    },
+    "kit": {
+      "description": "The kit it plays, by id.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "name": {
+      "description": "Shown in the palette and the jam's groove picker.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "order": {
+      "default": [],
+      "description": "The song: sections by name, each repeated a number of times.",
+      "items": {
+        "$ref": "#/$defs/OrderStep"
+      },
+      "type": "array"
+    },
+    "sections": {
+      "description": "The sections, in the order the designer lists them.",
+      "items": {
+        "$ref": "#/$defs/PartSection"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "tempo": {
+      "description": "The tempo it was made at, in beats per minute, 20 to 400.",
+      "format": "double",
+      "maximum": 400,
+      "minimum": 20,
+      "type": "number"
+    },
+    "timeSignature": {
+      "$ref": "#/$defs/Meter",
+      "description": "The time signature it was made in."
+    },
+    "version": {
+      "description": "The format's version, 1.",
+      "format": "uint32",
+      "maximum": 1,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version",
+    "name",
+    "tempo",
+    "timeSignature",
+    "kit",
+    "sections"
+  ],
+  "title": "Cantina groove",
+  "type": "object"
+}

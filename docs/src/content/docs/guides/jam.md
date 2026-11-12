@@ -50,6 +50,10 @@ that** with how much it keeps.
   fill and ending. Or pick **This project's patterns** and choose a
   pattern of the open project for each section you want; the jam keeps
   its own copy, so editing the pattern later does not change the jam.
+  **Your grooves**, parts you saved from the
+  [drum designer](/guides/drum-designer/#the-palette-and-groove-files),
+  are listed after the stock genres: each section plays by its kind, in
+  the groove's own time signature.
 - **Kit**: the drum kit the groove plays on.
 - **Key**: the key a chord progression's numerals count from.
 - **Rig**: what your input plays through, any stock rig or one of your

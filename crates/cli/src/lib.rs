@@ -1,7 +1,7 @@
 //! `cantina-cli`: everything Cantina reads, checked, rendered and listed
 //! without the app, a window, a microphone or a person listening.
 //!
-//! - [`check()`] validates a pedal, kit, kit recipe, pattern, tab, rig, jam, exercise, course or project
+//! - [`check()`] validates a pedal, kit, kit recipe, pattern, tab, rig, jam, exercise, course, groove or project
 //!   against its JSON Schema and then against the rules the app enforces
 //!   beyond it, with messages that name the node, pad or row.
 //! - [`render`](mod@render) runs a pedal over a guitar DI, a tone or a WAV through the
@@ -61,11 +61,14 @@ pub enum Format {
     Exercise,
     /// A course, `<name>.course.json`: exercises in order, each to a tempo.
     Course,
+    /// A groove, `<name>.groove.json`: a whole drum part as the drum
+    /// designer saves it.
+    Groove,
 }
 
 impl Format {
     /// Every format.
-    pub const ALL: [Format; 10] = [
+    pub const ALL: [Format; 11] = [
         Format::Pedal,
         Format::Kit,
         Format::KitRecipe,
@@ -76,6 +79,7 @@ impl Format {
         Format::Jam,
         Format::Exercise,
         Format::Course,
+        Format::Groove,
     ];
 
     /// The name messages and schema files use.
@@ -91,6 +95,7 @@ impl Format {
             Format::Jam => "jam",
             Format::Exercise => "exercise",
             Format::Course => "course",
+            Format::Groove => "groove",
         }
     }
 
@@ -107,6 +112,7 @@ impl Format {
             Format::Jam => cantina_project::schema::jam(),
             Format::Exercise => cantina_project::schema::exercise(),
             Format::Course => cantina_project::schema::course(),
+            Format::Groove => cantina_project::schema::groove(),
         }
     }
 
@@ -141,6 +147,7 @@ impl Format {
             (".jam.json", Format::Jam),
             (".exercise.json", Format::Exercise),
             (".course.json", Format::Course),
+            (".groove.json", Format::Groove),
             ("kit.json", Format::Kit),
             ("project.json", Format::Project),
         ];
@@ -157,6 +164,7 @@ impl Format {
                 format!(
                     "cannot tell what {} is; name it *.pedal.json, *.pattern.json, *.tab.json, \
                      *.recipe.json, *.rig.json, *.jam.json, *.exercise.json, *.course.json, \
+                     *.groove.json, \
                      kit.json or project.json, or pass --as",
                     path.display()
                 )
@@ -187,6 +195,8 @@ impl Format {
             Some(Format::Pattern)
         } else if has("chain") && has("instrument") {
             Some(Format::Rig)
+        } else if has("sections") && has("order") {
+            Some(Format::Groove)
         } else if has("steps") && has("style") {
             Some(Format::Course)
         } else if has("phrase") {
@@ -235,6 +245,13 @@ pub fn exercise_dirs() -> Vec<PathBuf> {
     }
     roots.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../exercises"));
     roots
+}
+
+/// Where the user's groove files are: `~/Music/Cantina/Grooves`.
+pub fn groove_file_dirs() -> Vec<PathBuf> {
+    std::env::var_os("HOME")
+        .map(|home| vec![PathBuf::from(home).join("Music/Cantina/Grooves")])
+        .unwrap_or_default()
 }
 
 /// The stock grooves' folder in this repository, one folder per genre.

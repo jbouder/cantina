@@ -82,6 +82,38 @@ Stopped, the change is where play starts next time.
 Edits to the sections and the order are part of the designer's history,
 so **⌘Z** takes them back like any other.
 
+## The palette and groove files
+
+**Palette**, beside **Inspector** at the top of the side panel, is where
+a part starts quickly.
+
+- **Stock grooves**, a genre at a time: each of the genre's sections with
+  its feel and the tempos it suits (and its time signature, when it is
+  not the project's). Drag one onto a section in the lane, or click it to
+  put it in the section you are editing; the section keeps its name.
+  **Use the whole … groove** puts every one of the genre's sections into
+  the part at once: each into the section of its kind, or a new one. An
+  empty order becomes a song of them (intro, verse, chorus, verse, chorus,
+  bridge, chorus, ending, of those there are), and a verse or chorus with
+  no fill takes the genre's fill every four bars.
+- **Your grooves**: parts you saved. **Open** puts one in place of the
+  part, its sections, order and kit (the track's kit stays when the
+  groove's is not installed).
+- **Your patterns**: the pattern files in Patterns in your Cantina folder,
+  to drag or click in the same way.
+
+All of it is part of the designer's history: **⌘Z** takes it back.
+
+**Save as groove…** in the toolbar writes the whole part (its sections
+with their patterns, fills and variations, the order and the kit, at the
+project's tempo and time signature) to
+`~/Music/Cantina/Grooves/<name>.groove.json`. It joins **Your grooves** in
+the palette, and the [Jam](/guides/jam/#setting-it-up) view's **Groove**
+list, where each of its sections plays by kind. The stock grooves stay as
+they are. The file is the [groove format](/reference/groove-format/):
+write one by hand or [with an agent](/guides/agents/), and
+`cantina-cli check` it.
+
 ## The grid and the inspector
 
 Click a cell to put a hit there, or click a hit to take it away; drag
