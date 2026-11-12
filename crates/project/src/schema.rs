@@ -628,10 +628,10 @@ mod tests {
         let mut bad = log.clone();
         bad["days"][0]["date"] = json!("12/11/2026");
         assert!(!log_s.is_valid(&bad));
-        let v10 = root().join("crates/project/tests/fixtures/v10.json");
-        assert_valid(&project_s, &v10);
+        let v11 = root().join("crates/project/tests/fixtures/v11.json");
+        assert_valid(&project_s, &v11);
         // Each pattern in a project, without its id, is a pattern file.
-        let project: Value = serde_json::from_str(&std::fs::read_to_string(v10).unwrap()).unwrap();
+        let project: Value = serde_json::from_str(&std::fs::read_to_string(v11).unwrap()).unwrap();
         for mut p in project["patterns"].as_array().unwrap().clone() {
             p.as_object_mut().unwrap().remove("id");
             assert!(pattern_s.is_valid(&p), "{p}");
@@ -737,9 +737,9 @@ mod tests {
 
     #[test]
     fn schemas_files_that_name_their_schema_still_load() {
-        let text = std::fs::read_to_string(root().join("crates/project/tests/fixtures/v10.json"))
+        let text = std::fs::read_to_string(root().join("crates/project/tests/fixtures/v11.json"))
             .unwrap()
             .replacen('{', r#"{ "$schema": "x","#, 1);
-        crate::load_str(&text, Path::new("v10.json")).unwrap();
+        crate::load_str(&text, Path::new("v11.json")).unwrap();
     }
 }

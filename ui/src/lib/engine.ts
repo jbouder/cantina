@@ -144,7 +144,14 @@ export interface DrumDesignStatus {
   pads: PadInfo[];
   /** The kit in the workbench, while it is open. */
   kitEdit: KitEditStatus | null;
+  /** The track has a part the designer placed on it. */
+  placed: boolean;
+  /** Pattern clips on the track now. */
+  trackClips: number;
 }
+
+/** Where Place puts the part. Mirrors `PlaceMode` in cantina-project. */
+export type PlaceMode = "replace" | "append";
 
 /** A layer of a kit's pad. Mirrors `Layer` in cantina-dsp. */
 export interface KitLayer {
@@ -4517,6 +4524,8 @@ function mockDesignPlan(d: NonNullable<typeof mockDesign>): {
 function mockDesignStatus(d: NonNullable<typeof mockDesign>): DrumDesignStatus {
   const edit = mockKitEdit;
   return {
+    placed: mockPlaced.has(d.track),
+    trackClips: mock.project.tracks.find((t) => t.id === d.track)?.patternClips.length ?? 0,
     pads: edit
       ? edit.kit.pads.map((p) => ({ id: p.id, name: p.name }))
       : mockKitStatus(d.part.kit).pads,
@@ -4549,7 +4558,9 @@ export async function drumDesignOpen(track: number): Promise<EngineStatus> {
   if (mockTransport.recording) throw new Error("stop recording before designing drums");
   const t = mockTrack(track);
   if (!t.kit) throw new Error(`${t.name} is not a drum track`);
-  const part = partFromTrack(t.kit.id, t.patternClips, mock.project.patterns);
+  const part =
+    structuredClone(mockPlaced.get(track)?.part) ??
+    partFromTrack(t.kit.id, t.patternClips, mock.project.patterns);
   mockDesign = {
     track,
     part,
@@ -4687,6 +4698,83 @@ export async function drumDesignStop(): Promise<EngineStatus> {
   mockTransport.playing = false;
   mockTransport.position = 0;
   return mockStatus();
+}
+
+// ----- placing a part -----
+
+/** What the stand-in's designer placed, by track: as `PlacedPart` in cantina-project. */
+const mockPlaced = new Map<
+  number,
+  { part: DrumPart; start: number; clips: number[]; patterns: number[] }
+>();
+
+/**
+ * Places the designer's part on its track as one undoable edit: in place
+ * of what was placed before (or the track's clips, the first time), or
+ * after the track's last clip, on the next bar.
+ */
+export async function drumDesignPlace(mode: PlaceMode): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("drum_design_place", { mode });
+  if (!mockDesign) throw new Error("open the drum designer first");
+  const d = mockDesign;
+  const t = mockTrack(d.track);
+  const spans = partLayout(d.part);
+  if (spans.length === 0) throw new Error("the order is empty: there is nothing to place");
+  const bar = mockBarTicks();
+  const before = mockPlaced.get(d.track);
+  const replaced =
+    mode === "append"
+      ? []
+      : before
+        ? t.patternClips.filter((c) => before.clips.includes(c.id))
+        : [...t.patternClips];
+  const start =
+    mode === "append"
+      ? Math.ceil(Math.max(0, ...t.patternClips.map((c) => c.start + c.length)) / bar) * bar
+      : (before?.start ?? Math.min(...replaced.map((c) => c.start), Infinity));
+  const at = Number.isFinite(start) ? start : 0;
+  t.patternClips = t.patternClips.filter((c) => !replaced.some((r) => r.id === c.id));
+  if (before && mode === "replace") {
+    const played = new Set(
+      mock.project.tracks.flatMap((x) =>
+        x.patternClips.flatMap((c) => [c.pattern, ...(c.fill ? [c.fill.pattern] : [])]),
+      ),
+    );
+    mock.project.patterns = mock.project.patterns.filter(
+      (p) => !before.patterns.includes(p.id) || played.has(p.id),
+    );
+  }
+  const ids = d.part.sections.map((s) => {
+    const id = mockNextId++;
+    mock.project.patterns.push({
+      ...structuredClone(s.pattern),
+      id,
+      name: `${t.name} ${s.name}`,
+    });
+    return id;
+  });
+  const clips = spans.map((span) => {
+    const section = d.part.sections[span.section];
+    const fill = section?.fill;
+    const fillAt = fill ? d.part.sections.findIndex((x) => x.name === fill.section) : -1;
+    const id = mockNextId++;
+    t.patternClips.push({
+      id,
+      pattern: ids[span.section] ?? 0,
+      start: at + span.start,
+      offset: 0,
+      length: span.length,
+      ...(fill && fillAt >= 0
+        ? { fill: { pattern: ids[fillAt] ?? 0, every: fill.every, atEnd: fill.atEnd } }
+        : {}),
+    });
+    return id;
+  });
+  t.patternClips.sort((a, b) => a.start - b.start);
+  if (t.kit && t.kit.id !== d.part.kit) t.kit = mockKitStatus(d.part.kit);
+  mockPlaced.set(d.track, { part: structuredClone(d.part), start: at, clips, patterns: ids });
+  d.base = structuredClone(d.part);
+  return mockEdit("place drum part");
 }
 
 // ----- the kit workbench -----

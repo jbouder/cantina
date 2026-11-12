@@ -31,7 +31,7 @@ field's doc comment as its description; a file may name it in a
 
 ```json
 {
-  "version": 10,
+  "version": 11,
   "name": "Song",
   "sampleRate": 48000.0,
   "tempo": { "bpm": 120.0, "numerator": 4, "denominator": 4 },
@@ -75,6 +75,14 @@ field's doc comment as its description; a file may name it in a
   only allowed while the project has no audio.
 - **Drum tracks** carry a `kit` id and **`patterns`** on the project
   hold the step grids; see [drums](/architecture/drums/).
+- **`part`**, on a drum track, is what the
+  [drum designer](/guides/drum-designer/) last placed there: the part
+  itself (sections with their patterns, fills and variations, the order,
+  the kit), the tick it `start`s on, and the ids of the pattern `clips`
+  and `patterns` placing it made. The designer opens on it again, and a
+  second placing takes out exactly what the first put in. Version 11
+  added it; older drum tracks have none, and the designer reads their
+  part from their clips.
 - **Tabs** sit on the clip they describe, as `tab`. A tab's notes are
   in ticks (960 per quarter note) at the tempo it was written against,
   and its `origin` is the frame of the clip's file where tick 0 falls.
@@ -118,8 +126,13 @@ rename, move and arm tracks; insert, remove, move, trim and split clips;
 insert, remove and move pedals; set a parameter; set the tempo; set a
 drum track's kit; insert, remove, rename and edit patterns; replace a
 track whole (`BounceTrack`, what a bounce in place does, whose inverse
-carries the track as it was, chain and all); and `Batch`, several as one
-edit. `Command::apply` changes the project and
+carries the track as it was, chain and all); record a placed drum part
+(`SetTrackPart`); and `Batch`, several as one edit. Placing a part from
+the drum designer (`place_part` in `drum_part.rs`) is one `Batch`: the
+part recorded on the track, what is replaced taken out (the last
+placement's clips, and its patterns that nothing else plays), a pattern
+in for each section and a clip for each step of the order, and the kit
+when it changes. It is one step of undo, journaled like any edit. `Command::apply` changes the project and
 returns the inverse command, so undo is "apply the inverse" and redo is
 "apply the original". A command either applies completely or leaves the
 project untouched: a batch that fails part way reverts what it had done.

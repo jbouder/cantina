@@ -32,6 +32,7 @@ import { DEFAULT_VELOCITY, isBeatStart, lengthLabel, stepTicks, ticksAt } from "
 import {
   type DesignPlays,
   drumDesignAudition,
+  drumDesignPlace,
   drumDesignPlay,
   drumDesignPlays,
   drumDesignSet,
@@ -41,6 +42,7 @@ import {
   grooveFileRead,
   type MeterFrame,
   type PatternInfo,
+  type PlaceMode,
   patternFileRead,
   RESOLUTIONS,
 } from "../lib/engine";
@@ -171,6 +173,12 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
     return q.has("palette") ? "palette" : q.has("workbench") ? "kit" : "inspector";
   });
   const [saving, setSaving] = useState(false);
+  // The place sheet, and what it does: replace or append.
+  // In a browser `?place` opens the sheet, for screenshots.
+  const [placing, setPlacing] = useState(() =>
+    new URLSearchParams(window.location.search).has("place"),
+  );
+  const [placeMode, setPlaceMode] = useState<PlaceMode>("replace");
   // Playing a part in: the pads strip, recording, the take of the pass
   // under way, the pass it belongs to, and how deep the history was after
   // the last take went in (for Undo take). `?pads` opens the strip.
@@ -669,6 +677,17 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
           </svg>
         </Button>
         <Button
+          tier="primary"
+          disabled={part.order.length === 0}
+          onClick={() => {
+            if (design.trackClips === 0) report(drumDesignPlace("replace"));
+            else setPlacing(true);
+          }}
+          title={`Put the part on ${track?.name ?? "the track"} as clips, one edit you can undo in the project`}
+        >
+          Place
+        </Button>
+        <Button
           tight
           onClick={() => setSaving(true)}
           title="Save the whole part as a groove in your library, for the palette and for jams"
@@ -772,91 +791,94 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
             >
               Pads
             </Button>
-            <label className="flex shrink-0 items-center gap-2">
-              <span className="caption @2xl:inline hidden">Bar</span>
-              <span className="relative">
-                <select
-                  aria-label="Bar the bar tools work on"
-                  className="surface-field min-h-8 w-16 appearance-none py-0 pr-6 pl-2"
-                  value={barAt}
-                  onChange={(e) => setBar(Number(e.target.value))}
-                >
-                  {barOptions.map(({ b, key }) => (
-                    <option key={key} value={b}>
-                      {b + 1}
-                    </option>
-                  ))}
-                </select>
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 16 16"
-                  className="pointer-events-none absolute top-1/2 right-2 size-3 -translate-y-1/2 fill-field-fg"
-                >
-                  <path d="M2 5l6 6 6-6z" />
-                </svg>
-              </span>
-            </label>
-            <Button
-              tight
-              title={`Copy bar ${barAt + 1}, every pad`}
-              onClick={() =>
-                setCopied(
-                  copyBar(
-                    base,
-                    pads.map((p) => p.id),
-                    barAt,
-                    numerator,
-                  ),
-                )
-              }
-            >
-              Copy
-            </Button>
-            <Button
-              tight
-              disabled={!copied}
-              title={`Paste the copied bar over bar ${barAt + 1}`}
-              onClick={() => {
-                if (copied) edit(pasteBar(base, copied, barAt, numerator));
-              }}
-            >
-              Paste
-            </Button>
-            <Button
-              tight
-              disabled={pattern.length + barSteps(pattern, numerator) > 128}
-              title={`Play bar ${barAt + 1} twice: a copy goes in after it`}
-              onClick={() => {
-                const next = duplicateBar(base, barAt, numerator);
-                if (next) edit(next);
-              }}
-            >
-              <span className="@3xl:inline hidden">Duplicate</span>
-              <span className="@3xl:hidden">Dup</span>
-            </Button>
-            <Button
-              tight
-              title={`Clear bar ${barAt + 1}`}
-              onClick={() => edit(clearBar(base, barAt, numerator))}
-            >
-              Clear
-            </Button>
-            <Button
-              square
-              aria-label="Shift earlier"
-              title="Shift every hit a step earlier, round to the end ([)"
-              onClick={() => edit(shiftSteps(base, -1))}
-            >
-              ‹
-            </Button>
-            <Button
-              square
-              aria-label="Shift later"
-              title="Shift every hit a step later, round to the start (])"
-              onClick={() => edit(shiftSteps(base, 1))}
-            >
-              ›
-            </Button>
+            {/* The bar tools drop out of a narrow grid; [ and ] still shift. */}
+            <span className="@2xl:flex hidden shrink-0 items-center gap-2">
+              <label className="flex shrink-0 items-center gap-2">
+                <span className="caption @2xl:inline hidden">Bar</span>
+                <span className="relative">
+                  <select
+                    aria-label="Bar the bar tools work on"
+                    className="surface-field min-h-8 w-16 appearance-none py-0 pr-6 pl-2"
+                    value={barAt}
+                    onChange={(e) => setBar(Number(e.target.value))}
+                  >
+                    {barOptions.map(({ b, key }) => (
+                      <option key={key} value={b}>
+                        {b + 1}
+                      </option>
+                    ))}
+                  </select>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 16 16"
+                    className="pointer-events-none absolute top-1/2 right-2 size-3 -translate-y-1/2 fill-field-fg"
+                  >
+                    <path d="M2 5l6 6 6-6z" />
+                  </svg>
+                </span>
+              </label>
+              <Button
+                tight
+                title={`Copy bar ${barAt + 1}, every pad`}
+                onClick={() =>
+                  setCopied(
+                    copyBar(
+                      base,
+                      pads.map((p) => p.id),
+                      barAt,
+                      numerator,
+                    ),
+                  )
+                }
+              >
+                Copy
+              </Button>
+              <Button
+                tight
+                disabled={!copied}
+                title={`Paste the copied bar over bar ${barAt + 1}`}
+                onClick={() => {
+                  if (copied) edit(pasteBar(base, copied, barAt, numerator));
+                }}
+              >
+                Paste
+              </Button>
+              <Button
+                tight
+                disabled={pattern.length + barSteps(pattern, numerator) > 128}
+                title={`Play bar ${barAt + 1} twice: a copy goes in after it`}
+                onClick={() => {
+                  const next = duplicateBar(base, barAt, numerator);
+                  if (next) edit(next);
+                }}
+              >
+                <span className="@3xl:inline hidden">Duplicate</span>
+                <span className="@3xl:hidden">Dup</span>
+              </Button>
+              <Button
+                tight
+                title={`Clear bar ${barAt + 1}`}
+                onClick={() => edit(clearBar(base, barAt, numerator))}
+              >
+                Clear
+              </Button>
+              <Button
+                square
+                aria-label="Shift earlier"
+                title="Shift every hit a step earlier, round to the end ([)"
+                onClick={() => edit(shiftSteps(base, -1))}
+              >
+                ‹
+              </Button>
+              <Button
+                square
+                aria-label="Shift later"
+                title="Shift every hit a step later, round to the start (])"
+                onClick={() => edit(shiftSteps(base, 1))}
+              >
+                ›
+              </Button>
+            </span>
           </div>
           {padsOpen ? (
             <div className="grid gap-1">
@@ -1425,6 +1447,53 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
           ) : null}
         </aside>
       </div>
+
+      {placing ? (
+        <Sheet
+          title={`Place the part on ${track?.name ?? "the track"}`}
+          onClose={() => setPlacing(false)}
+          footer={
+            <>
+              <Button onClick={() => setPlacing(false)}>Cancel</Button>
+              <Button
+                tier="primary"
+                onClick={() => {
+                  setPlacing(false);
+                  report(drumDesignPlace(placeMode));
+                }}
+              >
+                Place
+              </Button>
+            </>
+          }
+        >
+          <div className="grid gap-3">
+            <p className="m-0 text-body">
+              The order goes on the track as clips, a pattern for each section, with the kit. It is
+              one edit: Undo in {status.project.name} takes all of it back.
+            </p>
+            <fieldset className="m-0 grid gap-2 border-0 p-0">
+              <legend className="caption mb-2">Where</legend>
+              <Button
+                aria-pressed={placeMode === "replace"}
+                onClick={() => setPlaceMode("replace")}
+                className="justify-start"
+              >
+                {design.placed
+                  ? "In place of the part placed before"
+                  : `In place of the track's ${design.trackClips} clip${design.trackClips === 1 ? "" : "s"}`}
+              </Button>
+              <Button
+                aria-pressed={placeMode === "append"}
+                onClick={() => setPlaceMode("append")}
+                className="justify-start"
+              >
+                After the track's last clip
+              </Button>
+            </fieldset>
+          </div>
+        </Sheet>
+      ) : null}
 
       {saving ? (
         <SaveGrooveSheet

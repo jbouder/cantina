@@ -382,6 +382,14 @@ pub enum Command {
         /// The track as it should be, by its id.
         track: Track,
     },
+    /// Records the part the drum designer placed on a drum track, or
+    /// forgets it with none.
+    SetTrackPart {
+        /// The drum track.
+        track: TrackId,
+        /// The part as placed.
+        part: Option<crate::drum_part::PlacedPart>,
+    },
     /// Several commands as one edit. Applied in order; the inverse
     /// reverts them in reverse.
     Batch {
@@ -452,6 +460,8 @@ impl Command {
             Command::SetPadMix { .. } => "change pad mix".into(),
             Command::SetPatternClipFill { fill: None, .. } => "remove fill".into(),
             Command::BounceTrack { track } => format!("bounce {}", track.name),
+            Command::SetTrackPart { part: Some(_), .. } => "place drum part".into(),
+            Command::SetTrackPart { part: None, .. } => "forget drum part".into(),
             Command::Batch { commands } => commands
                 .first()
                 .map_or_else(|| "edit".into(), Command::label),
@@ -1111,6 +1121,20 @@ impl Command {
                 clips.sort_by_key(|c| (c.start, c.id));
                 Ok(Command::Batch {
                     commands: vec![Command::RemovePatternClip { id: *new_id }, original],
+                })
+            }
+            Command::SetTrackPart { track, part } => {
+                let t = track_mut(project, *track)?;
+                if !t.is_drums() {
+                    return Err(CommandError::Invalid(format!(
+                        "{} is an audio track; a drum part goes on a drum track",
+                        t.name
+                    )));
+                }
+                let was = std::mem::replace(&mut t.part, part.clone());
+                Ok(Command::SetTrackPart {
+                    track: *track,
+                    part: was,
                 })
             }
             Command::Batch { commands } => {

@@ -31,8 +31,8 @@ pub use course::{
     course_file_name, course_from_json, Course, CourseStep, COURSE_SUFFIX, COURSE_VERSION,
 };
 pub use drum_part::{
-    kind_of, unique_name, DrumPart, OrderStep, PartSection, SectionFill, Span, Vary, MAX_REPEAT,
-    MAX_VARIATIONS,
+    kind_of, place_part, unique_name, DrumPart, OrderStep, PartSection, PlaceMode, PlacedPart,
+    SectionFill, Span, Vary, MAX_REPEAT, MAX_VARIATIONS,
 };
 pub use exercise::{
     exercise_file_name, exercise_from_json, exercise_to_json, ChordShape, Exercise, ExerciseDrums,

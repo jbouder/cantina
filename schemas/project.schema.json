@@ -81,6 +81,35 @@
       "minimum": 0,
       "type": "integer"
     },
+    "DrumPart": {
+      "description": "A drum part: a kit, its sections and the order they play in.",
+      "properties": {
+        "kit": {
+          "description": "The kit it plays, by id.",
+          "type": "string"
+        },
+        "order": {
+          "default": [],
+          "description": "The song: sections by name, each repeated a number of times.",
+          "items": {
+            "$ref": "#/$defs/OrderStep"
+          },
+          "type": "array"
+        },
+        "sections": {
+          "description": "The sections, in the order the designer lists them.",
+          "items": {
+            "$ref": "#/$defs/PartSection"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "kit",
+        "sections"
+      ],
+      "type": "object"
+    },
     "Fill": {
       "description": "When a pattern clip plays a fill: every few bars, at its end, or both. Bars count from the clip's start, at the project's time signature; a fill bar plays the first bar of the fill pattern.",
       "properties": {
@@ -216,6 +245,27 @@
       ],
       "type": "object"
     },
+    "OrderStep": {
+      "description": "One step of a part's order: a section, played through so many times.",
+      "properties": {
+        "section": {
+          "description": "The section, by name.",
+          "type": "string"
+        },
+        "times": {
+          "description": "Passes of its pattern, 1 to `MAX_REPEAT`.",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "section",
+        "times"
+      ],
+      "type": "object"
+    },
     "PadMix": {
       "description": "One pad's place in a drum track's mix.",
       "properties": {
@@ -249,6 +299,57 @@
           "type": "number"
         }
       },
+      "type": "object"
+    },
+    "PartSection": {
+      "description": "A section of a part: a name, the kind of section it is when it is one of the usual ones, and its pattern.",
+      "properties": {
+        "fill": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SectionFill"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Another section's first bar played as a fill."
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Section"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Intro, verse, chorus, bridge, fill or ending; none for a section of your own."
+        },
+        "name": {
+          "description": "Unique within the part; the order refers to the section by it.",
+          "type": "string"
+        },
+        "pattern": {
+          "$ref": "#/$defs/Pattern",
+          "description": "What it plays, looped for as long as it lasts."
+        },
+        "variations": {
+          "description": "Variations B, C and D of the pattern (which is A), at most three, each with its steps and resolution.",
+          "items": {
+            "$ref": "#/$defs/Pattern"
+          },
+          "type": "array"
+        },
+        "vary": {
+          "$ref": "#/$defs/Vary",
+          "description": "How the variations take turns, pass by pass."
+        }
+      },
+      "required": [
+        "name",
+        "pattern"
+      ],
       "type": "object"
     },
     "Pattern": {
@@ -477,6 +578,103 @@
       "format": "uint64",
       "minimum": 0,
       "type": "integer"
+    },
+    "PlacedPart": {
+      "description": "A part as the drum designer placed it on a drum track: the part itself, so the designer can open on it again, the tick it starts on, and what placing it put in the project, so placing again can take it back out.",
+      "properties": {
+        "clips": {
+          "description": "The pattern clips placing it made.",
+          "items": {
+            "$ref": "#/$defs/PatternClipId"
+          },
+          "type": "array"
+        },
+        "part": {
+          "$ref": "#/$defs/DrumPart",
+          "description": "The part as it was placed."
+        },
+        "patterns": {
+          "description": "The patterns placing it made: one per section.",
+          "items": {
+            "$ref": "#/$defs/PatternId"
+          },
+          "type": "array"
+        },
+        "start": {
+          "description": "The timeline tick it starts on.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "part",
+        "start",
+        "clips",
+        "patterns"
+      ],
+      "type": "object"
+    },
+    "Section": {
+      "description": "The part of a song a groove is for.",
+      "oneOf": [
+        {
+          "const": "intro",
+          "description": "Before the song gets going.",
+          "type": "string"
+        },
+        {
+          "const": "verse",
+          "description": "The main groove.",
+          "type": "string"
+        },
+        {
+          "const": "chorus",
+          "description": "Bigger: the crash or ride opens up.",
+          "type": "string"
+        },
+        {
+          "const": "bridge",
+          "description": "Somewhere else for a while.",
+          "type": "string"
+        },
+        {
+          "const": "fill",
+          "description": "A bar that leads into the next section.",
+          "type": "string"
+        },
+        {
+          "const": "ending",
+          "description": "The last hit.",
+          "type": "string"
+        }
+      ]
+    },
+    "SectionFill": {
+      "description": "When a section plays a fill: every few bars, at its end, or both, as a pattern clip's fill does.",
+      "properties": {
+        "atEnd": {
+          "default": false,
+          "description": "The section's last bar in the order is a fill.",
+          "type": "boolean"
+        },
+        "every": {
+          "default": 0,
+          "description": "The last bar of every this many is a fill; 0 for none.",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "section": {
+          "description": "The section whose first bar is the fill.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "section"
+      ],
+      "type": "object"
     },
     "StepMark": {
       "description": "What a step does beyond its velocity: whether it plays, how many times, and with a grace note before it.",
@@ -778,6 +976,17 @@
           "description": "A drum track's pad mixer, by pad id; a pad not here is as the kit has it.",
           "type": "object"
         },
+        "part": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlacedPart"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A drum track's part as the drum designer last placed it, so the designer opens on it again and a second placing knows what it put there. None until a part is placed."
+        },
         "patternClips": {
           "description": "Patterns on the timeline, for a drum track.",
           "items": {
@@ -807,6 +1016,21 @@
       "format": "uint64",
       "minimum": 0,
       "type": "integer"
+    },
+    "Vary": {
+      "description": "How a section's variations take turns, one pass of the pattern each.",
+      "oneOf": [
+        {
+          "const": "alternate",
+          "description": "A between each of the others: A B A C A D.",
+          "type": "string"
+        },
+        {
+          "const": "chain",
+          "description": "One after another: A B C D.",
+          "type": "string"
+        }
+      ]
     }
   },
   "$id": "https://cantina-docs.vibeproject.workers.dev/schemas/project.schema.json",
@@ -880,7 +1104,7 @@
       "type": "array"
     },
     "version": {
-      "const": 10,
+      "const": 11,
       "description": "The format version, `FORMAT_VERSION` when written; older files are upgraded on load.",
       "format": "uint32",
       "minimum": 0,

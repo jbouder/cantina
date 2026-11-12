@@ -276,6 +276,10 @@ fn migrate(from: u32, mut value: Value) -> Value {
         // 9 -> 10: the pad mixer. A drum track may carry `pads`; a
         // version 9 file has none, so every pad plays as its kit has it.
         9 => value,
+        // 10 -> 11: placed drum parts. A drum track may carry `part`, what
+        // the drum designer placed on it; a version 10 file has none, so
+        // the designer reads a track's part from its clips.
+        10 => value,
         _ => value,
     }
 }
@@ -626,6 +630,40 @@ mod tests {
             let err = bad.validate().unwrap_err();
             assert!(err.contains(says), "{err}");
         }
+    }
+
+    #[test]
+    fn a_version_11_file_has_a_placed_part_and_a_version_10_file_does_not() {
+        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+        let v11 = load_str(
+            &fs::read_to_string(fixtures.join("v11.json")).unwrap(),
+            Path::new("v11/project.json"),
+        )
+        .unwrap();
+        let drums = v11.tracks.iter().find(|t| t.is_drums()).unwrap();
+        let placed = drums.part.as_ref().unwrap();
+        assert_eq!(placed.clips, [crate::PatternClipId(8)]);
+        assert_eq!(placed.part.sections.len(), 2);
+        assert_eq!(placed.part.sections[0].variations.len(), 1);
+        assert_eq!(placed.part.sections[0].vary, crate::Vary::Chain);
+        // The designer opens on the part as placed, not as read off clips.
+        assert_eq!(crate::DrumPart::from_track(&v11, drums), placed.part);
+        let text = serde_json::to_string(&v11).unwrap();
+        assert_eq!(load_str(&text, Path::new("v11/project.json")).unwrap(), v11);
+
+        let v10 = load_str(
+            &fs::read_to_string(fixtures.join("v10.json")).unwrap(),
+            Path::new("v10/project.json"),
+        )
+        .unwrap();
+        assert_eq!(v10.version, FORMAT_VERSION);
+        assert!(v10.tracks.iter().all(|t| t.part.is_none()));
+        let json = serde_json::to_value(&v10).unwrap();
+        assert!(json["tracks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|t| t.get("part").is_none()));
     }
 
     #[test]

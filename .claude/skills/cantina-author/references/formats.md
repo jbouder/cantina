@@ -667,7 +667,7 @@ A whole project. Saved as `project.json` inside a `Name.cantina/` directory next
 | `sampleRate` | yes | number (> 0) | The rate every file in `audio/` is at, and the rate the engine must run at to play them. |
 | `tempo` |  | `Tempo` | Tempo and time signature. Default `{"bpm":120,"denominator":4,"numerator":4}`. |
 | `tracks` |  | array of `Track` | Tracks, top to bottom. Default `[]`. |
-| `version` | yes | exactly `10` | The format version, `FORMAT_VERSION` when written; older files are upgraded on load. |
+| `version` | yes | exactly `11` | The format version, `FORMAT_VERSION` when written; older files are upgraded on load. |
 
 Where it goes: `project.json` in a `Name.cantina/` folder. Schema: `https://cantina-docs.vibeproject.workers.dev/schemas/project.schema.json`.
 
@@ -693,6 +693,16 @@ A region of a file in `audio/` placed on the timeline. The file is never modifie
 | `offset` | yes | integer (≥ 0) | Frame into the file the clip starts from. |
 | `start` | yes | integer (≥ 0) | Timeline sample the clip starts at. |
 | `tab` |  | `Tab` | The tab of what the clip plays, anchored to its file so it stays on the notes when the clip moves or is trimmed. |
+
+### `DrumPart`
+
+A drum part: a kit, its sections and the order they play in.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `kit` | yes | string | The kit it plays, by id. |
+| `order` |  | array of `OrderStep` | The song: sections by name, each repeated a number of times. Default `[]`. |
+| `sections` | yes | array of `PartSection` | The sections, in the order the designer lists them. |
 
 ### `Fill`
 
@@ -735,6 +745,15 @@ A region of the timeline, in samples, that playback can loop over.
 | `on` | yes | boolean | True while playback loops. The region stays when it is off. |
 | `start` | yes | integer (≥ 0) | First sample of the loop. |
 
+### `OrderStep`
+
+One step of a part's order: a section, played through so many times.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `section` | yes | string | The section, by name. |
+| `times` | yes | integer (≥ 0) | Passes of its pattern, 1 to `MAX_REPEAT`. |
+
 ### `PadMix`
 
 One pad's place in a drum track's mix.
@@ -746,6 +765,19 @@ One pad's place in a drum track's mix.
 | `mute` |  | boolean | Silences the pad. Default `false`. |
 | `pan` |  | number | −1 left to 1 right, added to the kit's pan. Default `0`. |
 | `tune` |  | number | Semitones, −12 to 12. Default `0`. |
+
+### `PartSection`
+
+A section of a part: a name, the kind of section it is when it is one of the usual ones, and its pattern.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `fill` |  | `SectionFill` | Another section's first bar played as a fill. |
+| `kind` |  | `Section` | Intro, verse, chorus, bridge, fill or ending; none for a section of your own. |
+| `name` | yes | string | Unique within the part; the order refers to the section by it. |
+| `pattern` | yes | `Pattern` | What it plays, looped for as long as it lasts. |
+| `variations` |  | array of `Pattern` | Variations B, C and D of the pattern (which is A), at most three, each with its steps and resolution. |
+| `vary` |  | `Vary` | How the variations take turns, pass by pass. |
 
 ### `Pattern`
 
@@ -797,6 +829,27 @@ A pedal in a chain: the spec the engine builds it from (a stock name, `au:…` o
 | `id` | yes | `PedalId` | Unique within the project. |
 | `spec` | yes | string | What the engine builds: a stock name, `au:…` or `clap:…`. |
 | `values` | yes | array of number | One value per parameter, in the processor's order. |
+
+### `PlacedPart`
+
+A part as the drum designer placed it on a drum track: the part itself, so the designer can open on it again, the tick it starts on, and what placing it put in the project, so placing again can take it back out.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `clips` | yes | array of `PatternClipId` | The pattern clips placing it made. |
+| `part` | yes | `DrumPart` | The part as it was placed. |
+| `patterns` | yes | array of `PatternId` | The patterns placing it made: one per section. |
+| `start` | yes | integer (≥ 0) | The timeline tick it starts on. |
+
+### `SectionFill`
+
+When a section plays a fill: every few bars, at its end, or both, as a pattern clip's fill does.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `atEnd` |  | boolean | The section's last bar in the order is a fill. Default `false`. |
+| `every` |  | integer (≥ 0) | The last bar of every this many is a fill; 0 for none. Default `0`. |
+| `section` | yes | string | The section whose first bar is the fill. |
 
 ### `StepMark`
 
@@ -880,5 +933,6 @@ A track: an armed input with a chain of pedals, the clips or patterns it plays, 
 | `kit` |  | string (matching `^[^/\\]+$`) | The drum kit, by id, for a drum track. An audio track has none. A drum track plays patterns through its kit instead of audio from its input and clips. |
 | `name` | yes | string | Shown in the track header. |
 | `pads` |  | object | A drum track's pad mixer, by pad id; a pad not here is as the kit has it. |
+| `part` |  | `PlacedPart` | A drum track's part as the drum designer last placed it, so the designer opens on it again and a second placing knows what it put there. None until a part is placed. |
 | `patternClips` |  | array of `PatternClip` | Patterns on the timeline, for a drum track. |
 | `strip` |  | `Strip` | The track's mixer strip. Default `{"gainDb":0,"mute":false,"pan":0,"solo":false}`. |
