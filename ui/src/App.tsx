@@ -185,8 +185,8 @@ export function App() {
   // `?jam` opens it.
   const [jamming, setJamming] = useState(() => params?.has("jam") ?? false);
   // Practice: an exercise heard in place of the project. In a browser
-  // `?practice` opens it.
-  const [practicing, setPracticing] = useState(() => params?.has("practice") ?? false);
+  // `?exercise` opens it.
+  const [practicing, setPracticing] = useState(() => params?.has("exercise") ?? false);
   const perform = useCallback(() => {
     setStageOpen(false);
     setPerforming(true);
@@ -347,7 +347,7 @@ export function App() {
       jamOpen().then(setStatus, (e) => setError(String(e)));
       return;
     }
-    if (params?.has("practice")) {
+    if (params?.has("exercise")) {
       practiceOpen().then(setStatus, (e) => setError(String(e)));
       return;
     }

@@ -3966,8 +3966,8 @@ export async function practiceOpen(path?: string): Promise<EngineStatus> {
     rig: same?.rig ?? null,
   };
   mockJam = mockPracticeJam(mockPractice, same?.tempo ?? exercise.tempo.start);
-  // `?practice=playing` has it rolling in its second pass, for screenshots.
-  if (mockParams?.get("practice") === "playing" && !path) {
+  // `?exercise=playing` has it rolling in its second pass, for screenshots.
+  if (mockParams?.get("exercise") === "playing" && !path) {
     mockTransport.playing = true;
     mockTransport.position = Number(mockParams.get("position") ?? 6.5);
   }
