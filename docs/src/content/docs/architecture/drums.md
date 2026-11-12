@@ -250,3 +250,26 @@ A clip may also play a **fill** (version 8):
   is the ordinary `pattern_import`; dragging it onto the timeline adds
   it, then drops the new pattern through the same pointer-event drag the
   grid's place key uses (`pattern-drag.ts`).
+
+## The drum designer
+
+The [drum designer](/guides/drum-designer/) works on a **drum part**,
+`cantina_project::DrumPart`: a kit, **sections** (each a name, an
+optional kind from the groove sections, a pattern and an optional
+**fill**, another section's first bar every few bars or at its end) and
+an **order**, steps of a section played so many times. `DrumPart::from_track`
+reads one off a drum track's pattern clips; `layout` says where each step
+of the order falls in ticks.
+
+The part is session state, never in `project.json`. While the designer
+is open the shell holds it in `Engine::drum_design` (`engine_drums.rs`)
+and hears it the way it hears a jam: `heard_project` returns a project of
+the designer's making (one drum track with the source track's kit, pad
+mixes and fader, the sections' patterns, and a pattern clip per step of
+the order, or one clip for a section looped alone) in place of the open
+project, and the transport loops over it. An edit sends the whole part
+(`drum_design_set`); one that keeps the kit and the loop's length goes to
+the audio thread as a new score, anything else resyncs the graph. Project
+commands wait while it is open, as they do in a jam. Undo inside the
+designer is the UI's: a stack of parts in `DrumDesigner`, separate from
+the project's history.

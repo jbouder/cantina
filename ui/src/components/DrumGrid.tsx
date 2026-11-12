@@ -144,6 +144,8 @@ type Props = {
   /** Playhead, in seconds. */
   position: number;
   playing: boolean;
+  /** Opens the drum designer on this track. */
+  onDesign?: (() => void) | undefined;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
 };
@@ -188,6 +190,7 @@ export function DrumGrid({
   tempo,
   position,
   playing,
+  onDesign,
   onStatus,
   onError,
 }: Props) {
@@ -868,6 +871,14 @@ export function DrumGrid({
           </>
         ) : null}
         <span className="ml-auto flex shrink-0 items-center gap-1">
+          {onDesign ? (
+            <Button
+              onClick={onDesign}
+              title="Open the drum designer on this track: sections, an order and the whole window to build the part (⌘B)"
+            >
+              Design…
+            </Button>
+          ) : null}
           <Button
             aria-pressed={browsing}
             aria-expanded={browsing}

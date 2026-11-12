@@ -877,6 +877,9 @@ impl Engine {
         if !self.recording.is_empty() {
             bail!("stop recording before jamming");
         }
+        if self.drum_design.is_some() {
+            bail!("close the drum designer before jamming");
+        }
         let position = match &mut self.live {
             Some(live) => {
                 live.transport().stop();
@@ -1657,6 +1660,9 @@ impl Engine {
     pub fn practice_open(&mut self, path: Option<String>) -> Result<EngineStatus> {
         if !self.recording.is_empty() {
             bail!("stop recording before practicing");
+        }
+        if self.drum_design.is_some() {
+            bail!("close the drum designer before practicing");
         }
         let (practicing, tempo) = self.practicing(path)?;
         if self.jam.as_ref().is_some_and(|j| j.practice.is_some()) {

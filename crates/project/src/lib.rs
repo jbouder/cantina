@@ -8,6 +8,7 @@
 mod chords;
 mod command;
 mod course;
+mod drum_part;
 mod exercise;
 mod file;
 mod fill;
@@ -27,6 +28,9 @@ pub use chords::{parse_chord, parse_progression, Bar, Chord, Preset, PRESETS};
 pub use command::{Command, CommandError};
 pub use course::{
     course_file_name, course_from_json, Course, CourseStep, COURSE_SUFFIX, COURSE_VERSION,
+};
+pub use drum_part::{
+    kind_of, unique_name, DrumPart, OrderStep, PartSection, SectionFill, Span, MAX_REPEAT,
 };
 pub use exercise::{
     exercise_file_name, exercise_from_json, exercise_to_json, ChordShape, Exercise, ExerciseDrums,

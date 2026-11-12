@@ -57,6 +57,7 @@ without ⌘ do nothing while you are typing in a text field. The
 | --- | --- |
 | J | Jam |
 | E | Practice |
+| ⌘B | Drum Designer |
 | P | Performance Mode |
 | ⌘J | Assistant |
 | ⌘= | Zoom In |

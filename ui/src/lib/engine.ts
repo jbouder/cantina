@@ -16,6 +16,7 @@ import phaserDef from "../../../pedals/phaser.pedal.json";
 import tremoloDef from "../../../pedals/tremolo.pedal.json";
 import { ACTIONS, type ActionId, type ActionState } from "./actions";
 import { profileTrim } from "./calibrate";
+import { type DrumPart, partFromTrack, layout as partLayout, patternTicks } from "./drumPart";
 import { type Exercise, exerciseTab, loopTicks } from "./exercise";
 import { type AnalysisFrame, analysisOf, decodeFrame, encodeFrame } from "./frame";
 import {
@@ -104,6 +105,25 @@ export interface EngineStatus {
    * exercise's phrase as its backing, so `jam` is there too.
    */
   practicing: PracticeStatus | null;
+  /** The drum designer, while it is open. Session state: the part is not the project's until placed. */
+  drumDesign: DrumDesignStatus | null;
+}
+
+/** What the drum designer plays round and round. Mirrors `DesignPlays` in src-tauri. */
+export type DesignPlays = { kind: "section"; name: string } | { kind: "order" };
+
+/** The open drum designer. Mirrors `DrumDesignStatus` in src-tauri. */
+export interface DrumDesignStatus {
+  /** The drum track it was opened from. */
+  track: number;
+  part: DrumPart;
+  plays: DesignPlays;
+  /** The part differs from the track's: closing loses it. */
+  changed: boolean;
+  /** Ticks in a bar, at the project's time signature. */
+  barTicks: number;
+  /** Ticks the loop lasts. */
+  loopTicks: number;
 }
 
 /** The exercise being practiced. Mirrors `PracticeStatus` in src-tauri. */
@@ -1703,6 +1723,7 @@ const MOCK_DRUMS = 10;
 
 const mock: EngineStatus = {
   jam: null,
+  drumDesign: null,
   practicing: null,
   running: mockParams?.has("running") ?? false,
   sampleRate: MOCK_RATE,
@@ -1998,6 +2019,7 @@ function mockStatus(): EngineStatus {
     drumRows: structuredClone(mock.drumRows),
     jam: mockJam ? mockJamStatus(mockJam) : null,
     practicing: mockPractice && mockJam ? mockPracticeStatus(mockPractice, mockJam) : null,
+    drumDesign: mockDesign ? mockDesignStatus(mockDesign) : null,
     jams: mockJams(),
     exercises: mockExercises(),
     courses: mockCourses(),
@@ -4225,6 +4247,147 @@ export async function practiceOptions(options: PracticeOptions): Promise<EngineS
   return mockStatus();
 }
 
+// ----- the drum designer -----
+
+/** The stand-in's drum designer, as the shell keeps it. */
+let mockDesign: {
+  track: number;
+  part: DrumPart;
+  base: DrumPart;
+  plays: DesignPlays;
+  projectPosition: number;
+} | null = null;
+
+function mockBarTicks(): number {
+  const { numerator, denominator } = mock.project.tempo;
+  return ((960 * 4) / denominator) * numerator;
+}
+
+function mockDesignStatus(d: NonNullable<typeof mockDesign>): DrumDesignStatus {
+  const bar = mockBarTicks();
+  let loop = 0;
+  if (d.plays.kind === "order") {
+    const last = partLayout(d.part).at(-1);
+    loop = last ? last.start + last.length : 0;
+  } else {
+    const name = d.plays.name;
+    const section = d.part.sections.find((s) => s.name === name);
+    if (section) {
+      const ticks = Math.max(1, patternTicks(section.pattern));
+      const every = (section.fill?.every ?? 0) * bar;
+      loop = Math.ceil(Math.max(every, ticks) / ticks) * ticks;
+    }
+  }
+  return {
+    track: d.track,
+    part: structuredClone(d.part),
+    plays: { ...d.plays },
+    changed: JSON.stringify(d.part) !== JSON.stringify(d.base),
+    barTicks: bar,
+    loopTicks: loop,
+  };
+}
+
+/**
+ * Opens the drum designer on a drum track: a copy of its part is heard in
+ * place of the project, which stays as it is until the part is placed.
+ */
+export async function drumDesignOpen(track: number): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("drum_design_open", { track });
+  if (mockDesign?.track === track) return mockStatus();
+  if (mockDesign) throw new Error("the drum designer is open on another track");
+  if (mockJam) throw new Error("leave the jam before designing drums");
+  if (mockTransport.recording) throw new Error("stop recording before designing drums");
+  const t = mockTrack(track);
+  if (!t.kit) throw new Error(`${t.name} is not a drum track`);
+  const part = partFromTrack(t.kit.id, t.patternClips, mock.project.patterns);
+  mockDesign = {
+    track,
+    part,
+    base: structuredClone(part),
+    plays:
+      part.order.length > 0
+        ? { kind: "order" }
+        : { kind: "section", name: part.sections[0]?.name ?? "" },
+    projectPosition: mockTransport.position,
+  };
+  mock.audition = null;
+  mockTransport.playing = false;
+  mockTransport.position = 0;
+  // `?drumdesign=playing` has it rolling, for screenshots; `?position` says where.
+  if (mockParams?.get("drumdesign") === "playing") {
+    mockTransport.playing = true;
+    mockTransport.position = Number(mockParams.get("position") ?? 0.6);
+  }
+  return mockStatus();
+}
+
+/** Closes the drum designer: the project is heard again, its playhead where it was. */
+export async function drumDesignClose(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("drum_design_close");
+  if (mockDesign) {
+    mockTransport.playing = false;
+    mockTransport.position = mockDesign.projectPosition;
+    mockDesign = null;
+  }
+  return mockStatus();
+}
+
+/** Replaces the designer's part, heard at once. */
+export async function drumDesignSet(part: DrumPart): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("drum_design_set", { part });
+  if (!mockDesign) throw new Error("open the drum designer first");
+  if (part.sections.length === 0) throw new Error("the part has no sections");
+  const names = new Set(part.sections.map((s) => s.name));
+  if (names.size !== part.sections.length) throw new Error("two sections have the same name");
+  for (const [i, o] of part.order.entries()) {
+    if (!names.has(o.section)) {
+      throw new Error(
+        `step ${i + 1} of the order plays ${o.section}, which the part does not have`,
+      );
+    }
+  }
+  mockDesign.part = structuredClone(part);
+  const plays = mockDesign.plays;
+  const keep = plays.kind === "order" ? part.order.length > 0 : names.has(plays.name);
+  if (!keep) mockDesign.plays = { kind: "section", name: part.sections[0]?.name ?? "" };
+  return mockStatus();
+}
+
+/** Plays a section, or the whole order, on loop in the designer. */
+export async function drumDesignPlays(plays: DesignPlays): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("drum_design_plays", { plays });
+  if (!mockDesign) throw new Error("open the drum designer first");
+  if (plays.kind === "section" && !mockDesign.part.sections.some((s) => s.name === plays.name)) {
+    throw new Error(`the part has no section ${plays.name}`);
+  }
+  if (plays.kind === "order" && mockDesign.part.order.length === 0) {
+    throw new Error("the order is empty");
+  }
+  if (JSON.stringify(plays) !== JSON.stringify(mockDesign.plays)) {
+    mockDesign.plays = { ...plays };
+    mockTransport.position = 0;
+  }
+  return mockStatus();
+}
+
+/** Plays the designer's part from the top of its loop. */
+export async function drumDesignPlay(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("drum_design_play");
+  if (!mockDesign) throw new Error("open the drum designer first");
+  mockTransport.position = 0;
+  mockTransport.playing = true;
+  return mockStatus();
+}
+
+/** Stops the designer's part and goes back to the top. */
+export async function drumDesignStop(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("drum_design_stop");
+  mockTransport.playing = false;
+  mockTransport.position = 0;
+  return mockStatus();
+}
+
 // ----- the transport -----
 
 export async function transportPlay(): Promise<EngineStatus> {
@@ -4814,6 +4977,10 @@ function openMeterChannel() {
   window.setInterval(() => {
     t += 1 / 60;
     if (mockTransport.playing) mockTransport.position += mock.practice.speed / 60;
+    if (mockDesign && mockTransport.playing) {
+      const loop = mockDesignStatus(mockDesign).loopTicks * (60 / mock.project.tempo.bpm / 960);
+      if (loop > 0 && mockTransport.position >= loop) mockTransport.position %= loop;
+    }
     if (mockTransport.countIn > 0 && !mockParams?.has("countin")) {
       mockTransport.countIn = Math.max(0, mockTransport.countIn - 1 / 60);
       mockTransport.playing = mockTransport.countIn === 0;

@@ -183,6 +183,11 @@ export function duplicateRegion(pattern: PatternInfo, pads: string[], region: Re
 }
 
 /** The pattern at a new length: cut off, or padded with silence. */
+/** The pattern cut or padded with silence to `length` steps. */
+export function resizePattern(pattern: PatternInfo, length: number): PatternInfo {
+  return resize(pattern, Math.max(1, Math.min(MAX_STEPS, Math.round(length))));
+}
+
 function resize(pattern: PatternInfo, length: number): PatternInfo {
   let out: PatternInfo = { ...pattern, length };
   for (const r of pattern.rows) out = withCells(out, r.pad, cellsOf(pattern, r.pad, length));
