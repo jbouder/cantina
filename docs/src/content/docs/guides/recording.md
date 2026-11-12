@@ -11,9 +11,13 @@ is the transport, the track headers that make up the mixer, and the timeline.
 
 ## Tracks
 
-**Add guitar** adds an audio track with an empty pedalboard; **Add drums**
-adds a [drum track](/guides/drums/). Click a track's name to select it and
-show its editor below. The editor's header has the track's name, then its
+**+ Add track**, the dashed slot under the last track, adds one: a
+**Guitar track** is an audio track with an empty pedalboard, a **Drum
+track** a [drum track](/guides/drums/). Click a track's name to select it and
+show its editor below; double-click it to rename the track, drag it up or
+down to move the track, or right-click the header for **Rename…**,
+**Move up**, **Move down** and **Remove track** (undo brings a removed
+track back). The editor's header has the track's name, then its
 tabs: **Beats** on a drum track, **Pedalboard**, **Clips**, and **Tab** when
 a clip has one. Click the name to rename the track. The **⋯** key at the
 right opens the track's actions: rename, bounce, move up, move down and
@@ -22,9 +26,12 @@ the right shows how far.
 
 ## Record a take
 
-1. Arm the track: click the light beside its name, or choose **Track ▸ Arm for
-   Recording**. An armed track plays your input through its pedals.
-2. Press **Record**, R or **Transport ▸ Record**. The click counts in four beats, whether or not the
+1. Arm the track: click the record key beside its name (its light turns
+   red), or choose **Track ▸ Arm for Recording**. An armed track plays your
+   input through its pedals.
+2. Press **Record**, R or **Transport ▸ Record**. With the engine off,
+   Record starts it; with no track armed, it arms the selected one (or the
+   first guitar track), so one press goes from a new project to a take. The click counts in four beats, whether or not the
    metronome is on, and the clock shows the count. Then the transport rolls
    from the playhead and the take starts on that exact sample.
 3. Press **Stop** or Space. The take lands on the track as a clip. Stopping
@@ -117,7 +124,7 @@ projects and launches, and undo does not touch it.
 Each track header is a channel strip:
 
 - the name, which selects the track
-- the **arm** light, or a drum mark on a drum track
+- the **arm** key, or a drum mark on a drum track
 - **mute** and **solo**
 - a **gain** fader with its value in dB beside it, and a **pan** fader
   with its position (`C`, `L25`, `R10`)
@@ -127,16 +134,17 @@ The **Master** strip is pinned along the bottom of the arrangement and
 stays put while the tracks scroll. It has a mute, the overall gain and the
 output meter. Double-click a fader to reset it.
 
-The arrangement is as tall as its tracks, up to half the window, and the
-editor below takes the rest. Drag the divider to give the tracks less
-room; it never opens past the last track, so there is no empty space under
-them. A split you drag is kept for the session.
+The editor below the arrangement gets room for a pedal's controls, and the
+arrangement takes the rest of the window, its empty lanes waiting for more
+tracks. In a short window the arrangement still shows its tracks, up to
+half the window. Drag the divider to move the split either way; a split
+you drag is kept for the session.
 
 When the mix is done, [export it](/guides/mixdown/) to a WAV file.
 
 ## Projects
 
 A project is a folder in `~/Music/Cantina/` holding its takes, its settings
-and every edit. **Save** writes it, and **Projects…** opens another or
-starts a new one with a name of your choosing. If Cantina quits without saving, the next
+and every edit. **Save** (⌘S) writes it, and **Open…** (⌘O) opens another or
+starts a new one; both are also in the project menu under its name with a name of your choosing. If Cantina quits without saving, the next
 launch offers to restore the unsaved edits.

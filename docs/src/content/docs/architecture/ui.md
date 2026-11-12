@@ -29,7 +29,7 @@ A file's samples are reduced once, in a Web Worker (`peaks.worker.ts`), into min
 
 Edits are previewed on the canvas while dragging and become one command when the pointer is released.
 
-The arrangement's height comes from `splitHeight` in `ui/src/lib/timeline.ts`. With no split of the user's it is as tall as its tracks, up to half the body. A dragged split is kept but never goes past the tracks. The master strip is outside the scrolling tracks, pinned under them. In a browser `?tracks=<n>` gives the stand-in project n audio tracks.
+The arrangement's height comes from `splitHeight` in `ui/src/lib/timeline.ts`. With no split of the user's the editor gets `EDITOR_ROOM`, enough for a pedal's controls, and the arrangement the rest, but never less than its tracks up to half the body; the timeline's canvas fills the room, so the grid runs on under the last track. A dragged split is kept as long as each pane keeps its minimum. The master strip is outside the scrolling tracks, pinned under them. In a browser `?tracks=<n>` gives the stand-in project n audio tracks.
 
 ## The tab view
 
@@ -91,12 +91,12 @@ A canvas reads `--type-label` from the computed style instead of writing a size.
 | State | Attribute | Look |
 | --- | --- | --- |
 | On | `aria-pressed="true"` | Lit, from `--state-on`. A toggle such as Snap or Mute. |
-| Selected | `aria-selected`, `aria-checked`, `aria-current` | Filled, from `--state-selected`. The chosen one of several: a tab, a radio key, the open project. |
+| Selected | `aria-selected`, `aria-checked`, `aria-current` | Filled, from `--state-selected`. The chosen one of several: a radio key, the open project. A tab is the exception, below. |
 | Disabled | `disabled` | Flat and dim, from `--state-disabled`. Never brighter than a live key. |
 
 **Messages.** A notice, a warning, an error, the update prompt and the recovery question are toasts (`Toast` inside `Toasts`), stacked in the bottom right corner of the body. They sit over the work and out of the layout, so one arriving never moves the arrangement or the editor. Each has its own role for assistive tech: `status` for something to know, `alert` for an error, `alertdialog` for a question. A message with nothing to answer takes `onDismiss`; one that asks takes `actions`. Never add a full-width row above the content for a message.
 
-**Tabs and overflow.** Views of one thing are tabs: `role="tab"` buttons with the `tab` utility in a `tab-rule` tablist. The selected tab is filled from `--state-selected`. Actions are not tabs. An action used rarely goes in an overflow menu: a quiet square key with three dots that opens a `ContextMenu` under itself (`alignEnd`).
+**Tabs and overflow.** Views of one thing are tabs: `role="tab"` buttons with the `tab` utility in a `tab-rule` tablist. The selected tab is filled with the skin's on colors (`--state-on`, `--state-on-ink`), the accent of its lit switches, and the rule under the row, drawn under the selected tab too, is the skin's `--tab-rule`: the tab's ink, or its fill in a skin whose ink is dark (Neon). Actions are not tabs. An action used rarely goes in an overflow menu: a quiet square key with three dots that opens a `ContextMenu` under itself (`alignEnd`).
 
 **Parameters.** A pedal parameter is one line (`Fader`): a caption, the control, and for a fader its value in a small display. Cards are a fixed width and as tall as their knobs, so nothing is clipped.
 

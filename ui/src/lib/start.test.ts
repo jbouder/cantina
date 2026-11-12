@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RecentProject } from "./engine";
-import { defaultProject, savedLabel } from "./start";
+import { defaultProject, freeProjectName, savedLabel } from "./start";
 
 const NOW = Date.UTC(2026, 10, 9, 12);
 const at = (ago: number): RecentProject => ({ name: "A", saved: NOW - ago, missing: false });
@@ -27,5 +27,21 @@ describe("start dialog", () => {
     expect(defaultProject([gone, { ...at(1), name: "Song" }, at(2)])).toBe("Song");
     expect(defaultProject([gone])).toBeNull();
     expect(defaultProject([])).toBeNull();
+  });
+});
+
+describe("a new project's name", () => {
+  it("is Untitled when that is free", () => {
+    expect(freeProjectName([])).toBe("Untitled");
+    expect(freeProjectName(["Blues in A"])).toBe("Untitled");
+  });
+
+  it("takes the first free number after it", () => {
+    expect(freeProjectName(["Untitled"])).toBe("Untitled 2");
+    expect(freeProjectName(["Untitled", "Untitled 2", "Untitled 4"])).toBe("Untitled 3");
+  });
+
+  it("ignores case, as the file system does", () => {
+    expect(freeProjectName(["untitled", "UNTITLED 2"])).toBe("Untitled 3");
   });
 });

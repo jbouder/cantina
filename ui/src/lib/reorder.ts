@@ -21,3 +21,12 @@ export function dropIndex(x: number, spans: Span[]): number {
   });
   return best;
 }
+
+/**
+ * Where a row of `count` rows, each `height` tall, lands when dragged
+ * `dy` pixels from index `from`: the nearest row, kept in the list.
+ */
+export function rowDropIndex(from: number, dy: number, height: number, count: number): number {
+  if (count <= 0) return -1;
+  return Math.max(0, Math.min(count - 1, from + Math.round(dy / height)));
+}

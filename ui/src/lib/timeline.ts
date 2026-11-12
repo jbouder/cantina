@@ -92,6 +92,8 @@ export function musicalLabel(sample: number, grid: Grid): string {
 /** Fixed layout, in CSS pixels. */
 export const RULER_HEIGHT = 28;
 export const TRACK_HEIGHT = 60;
+/** The row of add-a-track slots under the last track header. */
+export const ADD_ROW_HEIGHT = 40;
 /** The master strip, pinned under the lanes. */
 export const MASTER_HEIGHT = 36;
 /** The transport strip above the lanes, and the gap under it. */
@@ -100,19 +102,33 @@ const STRIP_HEIGHT = 32 + 8;
 /**
  * How tall the arrangement is when it shows every track and nothing
  * else: the transport strip, the ruler, a lane per track (one when there
- * are none, for the empty project) and the master, inside the display's
- * border.
+ * are none, for the empty project), the slots that add a track and the
+ * master, inside the display's border.
  */
 export function arrangementHeight(tracks: number): number {
-  return STRIP_HEIGHT + RULER_HEIGHT + Math.max(1, tracks) * TRACK_HEIGHT + MASTER_HEIGHT + 2;
+  return (
+    STRIP_HEIGHT +
+    RULER_HEIGHT +
+    Math.max(1, tracks) * TRACK_HEIGHT +
+    ADD_ROW_HEIGHT +
+    MASTER_HEIGHT +
+    2
+  );
 }
 
 /**
+ * The room the editor under the arrangement wants: its tabs, the rig
+ * row and a pedal's controls, so a pedal shows whole without stretching
+ * to fill the window.
+ */
+export const EDITOR_ROOM = 430;
+
+/**
  * The arrangement's height in a body `body` pixels tall. With no split
- * of the user's (`null`) it is as tall as its tracks, up to half the
- * body, so the editor takes the spare room. A dragged split is kept, but
- * never past the tracks, where it would only show empty lanes, and never
- * so far that either pane has less than `minPane`.
+ * of the user's (`null`) the editor gets `EDITOR_ROOM` and the
+ * arrangement the rest, empty lanes and all, but never less than its
+ * tracks up to half the body. A dragged split is kept, but never so far
+ * that either pane has less than `minPane`.
  */
 export function splitHeight(
   split: number | null,
@@ -121,10 +137,11 @@ export function splitHeight(
   minPane: number,
 ): number {
   const room = Math.max(minPane, body - minPane);
-  const natural = arrangementHeight(tracks);
-  const wanted = split ?? Math.min(natural, Math.max(minPane, Math.round(body / 2)));
-  return Math.max(minPane, Math.min(wanted, natural, room));
+  const shown = Math.min(arrangementHeight(tracks), Math.round(body / 2));
+  const wanted = split ?? Math.max(body - EDITOR_ROOM, shown);
+  return Math.max(minPane, Math.min(wanted, room));
 }
+
 /** How close to a clip's edge a pointer counts as a trim handle. */
 export const EDGE_PX = 7;
 

@@ -2205,6 +2205,23 @@ export async function projectRename(name: string): Promise<EngineStatus> {
 }
 
 /**
+ * Moves a project, not the open one, to the Trash, where Finder can put
+ * it back, and drops it from the recent list.
+ */
+export async function projectDelete(name: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("project_delete", { name });
+  if (name === mock.project.name) {
+    throw new Error(`${name} is open: open another project before deleting it`);
+  }
+  const at = mockProjects.indexOf(name);
+  if (at < 0) throw new Error(`there is no project called ${name}`);
+  mockProjects.splice(at, 1);
+  const recent = mockRecent.findIndex((r) => r.name === name);
+  if (recent >= 0) mockRecent.splice(recent, 1);
+  return mockStatus();
+}
+
+/**
  * Copies the open project as it is now to a new name and switches to the
  * copy, as Save As does; the original stays as last saved.
  */

@@ -154,7 +154,7 @@ export function Settings({
             onClick={onToggleEngine}
             className="shrink-0"
           >
-            {busy ? "…" : status.running ? "Stop engine" : "Start engine"}
+            {busy ? "…" : status.running ? "Turn audio off" : "Turn audio on"}
           </Button>
         </div>
         <DevicePicker onStatusChange={onStatusChange} />

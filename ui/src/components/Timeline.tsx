@@ -37,12 +37,15 @@ import {
   type TrackStatus,
   trackAdd,
   trackAddDrums,
+  trackMove,
   transportLocate,
 } from "../lib/engine";
 import { setPatternDropTarget } from "../lib/pattern-drag";
 import { loadPeaks, peaksFor, usePeaksVersion } from "../lib/peakStore";
 import { columns } from "../lib/peaks";
+import { DRAG_THRESHOLD, rowDropIndex } from "../lib/reorder";
 import {
+  ADD_ROW_HEIGHT,
   canSplit,
   fitView,
   follow,
@@ -68,13 +71,27 @@ import {
   zoomAround,
 } from "../lib/timeline";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
-import { MasterHeader, TrackHeader } from "./TrackHeader";
+import { MasterHeader, type RowGrip, TrackHeader } from "./TrackHeader";
 
 /**
- * A small key in the ruler corner above the track headers, the height of
- * the header keys so it reads as part of the sidebar rather than the strip.
+ * The dashed slot under the last track header, as Add a pedal is at the
+ * end of a chain: where the next track goes. It opens a menu of the kinds.
  */
-const ADD_KEY = "button-standard min-h-6 shrink-0 border-0 px-2 font-bold text-label leading-none";
+const ADD_SLOT =
+  "flex w-full cursor-pointer items-center justify-center gap-1 rounded-control border-2 border-frame-hi border-dashed bg-transparent px-2 font-bold text-ink-dim text-label hover:border-ink hover:text-ink aria-expanded:border-ink aria-expanded:text-ink";
+
+/** A track header on its way to a new place. */
+type RowDrag = {
+  id: number;
+  from: number;
+  /** Where the press began, and how far it has gone, in px. */
+  y0: number;
+  dy: number;
+  /** Past the threshold: a drag, not a click. */
+  moved: boolean;
+  /** The index it would land at. */
+  over: number;
+};
 
 /** What the transport strip above the lanes can do to the view. */
 export interface TimelineControls {
@@ -217,6 +234,31 @@ export function Timeline({
   const canvas = useRef<HTMLCanvasElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
+  // A track header being dragged to a new place: which, from where, how
+  // far, and where it would land. The handlers read the ref, which is
+  // never a render behind.
+  const [rowDrag, setRowDragState] = useState<RowDrag | null>(null);
+  const rowDragRef = useRef<RowDrag | null>(null);
+  const setRowDrag = useCallback((d: RowDrag | null) => {
+    rowDragRef.current = d;
+    setRowDragState(d);
+  }, []);
+  // Escape puts a dragged header back.
+  const rowDragging = rowDrag?.moved ?? false;
+  useEffect(() => {
+    if (!rowDragging) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") setRowDrag(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [rowDragging, setRowDrag]);
+  // Where the Add track menu opens, under its slot; null when closed.
+  const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
+  // The lanes' scrolling viewport: the canvas is at least as tall, so the
+  // grid runs on through the empty room under the last track.
+  const lanesView = useRef<HTMLDivElement>(null);
+  const [viewHeight, setViewHeight] = useState(0);
   const [view, setView] = useState<View>(() => fitView(sampleRate * 30, 800));
   const [snapOn, setSnapOn] = useState(true);
   const [selectedClip, setSelectedClip] = useState<number | null>(null);
@@ -237,7 +279,7 @@ export function Timeline({
   );
 
   const grid = useMemo(() => gridFor(tempo, sampleRate, view.spp), [tempo, sampleRate, view.spp]);
-  const height = RULER_HEIGHT + Math.max(1, tracks.length) * TRACK_HEIGHT;
+  const height = Math.max(RULER_HEIGHT + Math.max(1, tracks.length) * TRACK_HEIGHT, viewHeight);
   const anySolo = tracks.some((t) => t.strip.solo);
   const playhead = position * sampleRate;
   // What each lane holds: audio clips in samples, or a drum track's
@@ -273,10 +315,15 @@ export function Timeline({
   useLayoutEffect(() => {
     const el = container.current;
     if (!el) return;
-    const measure = () => setWidth(Math.max(100, Math.floor(el.clientWidth)));
+    const lanes = lanesView.current;
+    const measure = () => {
+      setWidth(Math.max(100, Math.floor(el.clientWidth)));
+      if (lanes) setViewHeight(Math.floor(lanes.clientHeight));
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(el);
+    if (lanes) observer.observe(lanes);
     return () => observer.disconnect();
   }, []);
 
@@ -954,38 +1001,51 @@ export function Timeline({
           ? "cursor-grab"
           : "";
 
+  // A header's name row is its grip: a press that travels becomes a drag,
+  // dropped on the nearest row. Its keys are clicks, not grips.
+  const rowGrip = (id: number, index: number): RowGrip => ({
+    onPointerDown: (e) => {
+      if (e.button !== 0 || (e.target as Element).closest("[data-no-grip]")) return;
+      setRowDrag({ id, from: index, y0: e.clientY, dy: 0, moved: false, over: index });
+    },
+    onPointerMove: (e) => {
+      const d = rowDragRef.current;
+      if (d?.id !== id) return;
+      const dy = e.clientY - d.y0;
+      if (!d.moved && Math.abs(dy) <= DRAG_THRESHOLD) return;
+      if (!d.moved) e.currentTarget.setPointerCapture(e.pointerId);
+      const over = rowDropIndex(d.from, dy, TRACK_HEIGHT, tracks.length);
+      setRowDrag({ ...d, dy, moved: true, over });
+    },
+    onPointerUp: () => {
+      const d = rowDragRef.current;
+      if (d?.id !== id) return;
+      setRowDrag(null);
+      if (d.moved && d.over !== d.from) run(trackMove(d.id, d.over));
+    },
+    onPointerCancel: () => setRowDrag(null),
+  });
+
   return (
     <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-2">
       {strip(controls)}
       <div className="surface-lcd grid min-h-0 grid-rows-[minmax(0,1fr)_auto]">
         <div
+          ref={lanesView}
           className="grid min-h-0 content-start overflow-x-hidden overflow-y-auto"
           style={{ gridTemplateColumns: `${LABEL_WIDTH}px 1fr` }}
         >
           <div className="grid content-start">
-            <div className="flex items-center gap-1 px-1" style={{ height: RULER_HEIGHT }}>
-              <button
-                type="button"
-                onClick={() => run(trackAdd())}
-                title="A track that records your instrument through its pedalboard"
-                className={ADD_KEY}
-              >
-                Add guitar
-              </button>
-              <button
-                type="button"
-                onClick={() => run(trackAddDrums())}
-                disabled={!hasKits}
-                title={hasKits ? "A track that plays drum patterns" : "No drum kits are installed"}
-                className={ADD_KEY}
-              >
-                Add drums
-              </button>
-            </div>
+            <div style={{ height: RULER_HEIGHT }} />
             {tracks.map((t, i) => (
               <TrackHeader
                 key={t.id}
                 track={t}
+                index={i}
+                count={tracks.length}
+                offset={rowDrag?.moved && rowDrag.id === t.id ? rowDrag.dy : null}
+                dropTarget={rowDrag?.moved === true && rowDrag.over === i && rowDrag.id !== t.id}
+                grip={rowGrip(t.id, i)}
                 selected={t.id === selectedTrack}
                 silenced={t.strip.mute || (anySolo && !t.strip.solo)}
                 level={levels[i] ?? SILENT}
@@ -994,6 +1054,46 @@ export function Timeline({
                 onError={onError}
               />
             ))}
+            <div className="flex p-1" style={{ height: ADD_ROW_HEIGHT }}>
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={addMenu !== null}
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setAddMenu(addMenu ? null : { x: r.left, y: r.bottom + 2 });
+                }}
+                title="Add a guitar track or a drum track"
+                className={ADD_SLOT}
+              >
+                <span aria-hidden="true" className="font-lcd">
+                  +
+                </span>
+                Add track
+                <svg aria-hidden="true" viewBox="0 0 16 16" className="size-2.5 fill-current">
+                  <path d="M3 6l5 5 5-5z" />
+                </svg>
+              </button>
+              {addMenu ? (
+                <ContextMenu
+                  label="Add a track"
+                  x={addMenu.x}
+                  y={addMenu.y}
+                  onClose={() => setAddMenu(null)}
+                  items={[
+                    {
+                      label: "Guitar track",
+                      onSelect: () => run(trackAdd()),
+                    },
+                    {
+                      label: hasKits ? "Drum track" : "Drum track (no kits installed)",
+                      disabled: !hasKits,
+                      onSelect: () => run(trackAddDrums()),
+                    },
+                  ]}
+                />
+              ) : null}
+            </div>
           </div>
           <div ref={container} className="min-w-0">
             <canvas

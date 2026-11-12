@@ -11,7 +11,7 @@ the project's tempo, or the jam's while jamming, so scenes pulse in time.
 
 ## The stage sheet
 
-The stage key, the screen beside **Engine**, or **View ▸ Stage** opens a sheet with the scene, a scene
+The stage key, the screen at the top right, or **View ▸ Stage** opens a sheet with the scene, a scene
 picker, and **Listens to**: the master, or one track's post-fader signal.
 The scene is remembered for next time and shared by every place the
 stage is drawn.

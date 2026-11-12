@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { type FormEvent, type PointerEvent, useEffect, useId, useRef, useState } from "react";
 import {
   type EngineStatus,
   type Level,
@@ -9,8 +9,12 @@ import {
   stripSolo,
   type TrackStatus,
   trackArm,
+  trackMove,
+  trackRemove,
+  trackRename,
 } from "../lib/engine";
 import { MASTER_HEIGHT, TRACK_HEIGHT } from "../lib/timeline";
+import { ContextMenu } from "./ContextMenu";
 import { Led } from "./Led";
 import { Meter } from "./Meter";
 
@@ -45,8 +49,24 @@ function SoloGlyph() {
   );
 }
 
+/** The pointer handlers that let a header be dragged to a new place. */
+export type RowGrip = {
+  onPointerDown: (e: PointerEvent<HTMLDivElement>) => void;
+  onPointerMove: (e: PointerEvent<HTMLDivElement>) => void;
+  onPointerUp: (e: PointerEvent<HTMLDivElement>) => void;
+  onPointerCancel: () => void;
+};
+
 type Props = {
   track: TrackStatus;
+  /** Its place among the tracks, and how many there are, for Move up and down. */
+  index: number;
+  count: number;
+  /** While it is dragged: how far it has moved, in px; null otherwise. */
+  offset: number | null;
+  /** True where a dragged header would land. */
+  dropTarget: boolean;
+  grip: RowGrip;
   selected: boolean;
   /** True when the strip is silent, by its own mute or someone's solo. */
   silenced: boolean;
@@ -59,12 +79,18 @@ type Props = {
 
 /**
  * A track's header beside its lane, in two rows: the name (click to
- * select) with arm or the kit mark, mute and solo; then the strip's gain
- * and pan, each a fader with its value beside it. A thin post-fader meter
- * runs along the bottom edge.
+ * select, double-click to rename) with arm or the kit mark, mute and
+ * solo; then the strip's gain and pan, each a fader with its value
+ * beside it. A thin post-fader meter runs along the bottom edge. Drag the
+ * name row to move the track; right-click for Rename, Move and Remove.
  */
 export function TrackHeader({
   track,
+  index,
+  count,
+  offset,
+  dropTarget,
+  grip,
   selected,
   silenced,
   level,
@@ -73,20 +99,72 @@ export function TrackHeader({
   onError,
 }: Props) {
   const run = (action: Promise<EngineStatus>) => action.then(onStatus, (e) => onError(String(e)));
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(track.name);
+  const nameId = useId();
+  const rename = (e?: FormEvent) => {
+    e?.preventDefault();
+    setEditing(false);
+    const next = name.trim();
+    if (next && next !== track.name) run(trackRename(track.id, next));
+    else setName(track.name);
+  };
+  const startRename = () => {
+    setName(track.name);
+    setEditing(true);
+  };
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a shortcut; every action in its menu is also in the editor's track menu and Track in the menu bar
     <div
-      style={{ height: TRACK_HEIGHT }}
-      className={`relative grid content-center gap-0.5 border-tl-grid border-b px-2 pb-1 ${selected ? "bg-tl-lane" : ""} ${silenced ? "opacity-70" : ""}`}
+      style={{
+        height: TRACK_HEIGHT,
+        ...(offset === null ? {} : { transform: `translateY(${offset}px)` }),
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setMenu({ x: e.clientX, y: e.clientY });
+      }}
+      className={`relative grid content-center gap-0.5 border-tl-grid border-b px-2 pb-1 ${selected ? "bg-tl-lane" : ""} ${silenced ? "opacity-70" : ""} ${offset === null ? "" : "z-10 bg-tl-lane shadow-lg"} ${dropTarget ? "outline-2 outline-focus -outline-offset-2" : ""}`}
     >
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          aria-pressed={selected}
-          onClick={onSelect}
-          className="min-h-6 min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-left font-bold text-body text-lcd-fg"
-        >
-          {track.name}
-        </button>
+      <div
+        className={`flex touch-none select-none items-center gap-1 ${offset === null ? "" : "cursor-grabbing"}`}
+        {...(editing ? {} : grip)}
+      >
+        {editing ? (
+          <form onSubmit={rename} className="flex min-w-0 flex-1">
+            <label htmlFor={nameId} className="sr-only">
+              Track name
+            </label>
+            <input
+              id={nameId}
+              // biome-ignore lint/a11y/noAutofocus: the field appears on request, in place of the name
+              autoFocus
+              className="surface-field min-h-6 min-w-0 flex-1 px-1"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onFocus={(e) => e.currentTarget.select()}
+              onBlur={() => rename()}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setName(track.name);
+                  setEditing(false);
+                }
+              }}
+            />
+          </form>
+        ) : (
+          <button
+            type="button"
+            aria-pressed={selected}
+            title="Click to select, double-click to rename, drag to move"
+            onClick={onSelect}
+            onDoubleClick={startRename}
+            className="min-h-6 min-w-0 flex-1 cursor-grab truncate border-0 bg-transparent p-0 text-left font-bold text-body text-lcd-fg"
+          >
+            {track.name}
+          </button>
+        )}
         {track.kit ? (
           <span
             role="img"
@@ -101,17 +179,23 @@ export function TrackHeader({
         ) : (
           <button
             type="button"
+            data-no-grip
             aria-pressed={track.armed}
             aria-label={`Arm ${track.name}`}
-            title="Arm for recording"
+            title={
+              track.armed
+                ? `${track.name} is armed: Record takes it. Click to disarm`
+                : `Arm ${track.name} for recording`
+            }
             onClick={() => run(trackArm(track.id, !track.armed))}
-            className="grid size-6 shrink-0 place-items-center border-0 bg-transparent p-0"
+            className={KEY}
           >
             <Led on={track.recording || track.armed} tone="record" label="Armed" />
           </button>
         )}
         <button
           type="button"
+          data-no-grip
           aria-pressed={track.strip.mute}
           aria-label={`${track.strip.mute ? "Unmute" : "Mute"} ${track.name}`}
           title={`${track.strip.mute ? "Unmute" : "Mute"} ${track.name}`}
@@ -122,6 +206,7 @@ export function TrackHeader({
         </button>
         <button
           type="button"
+          data-no-grip
           aria-pressed={track.strip.solo}
           aria-label={`${track.strip.solo ? "Unsolo" : "Solo"} ${track.name}`}
           title={
@@ -135,6 +220,34 @@ export function TrackHeader({
           <SoloGlyph />
         </button>
       </div>
+      {menu ? (
+        <ContextMenu
+          label={`${track.name} actions`}
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            { label: "Rename…", onSelect: startRename },
+            {
+              label: "Move up",
+              separated: true,
+              disabled: index === 0,
+              onSelect: () => run(trackMove(track.id, index - 1)),
+            },
+            {
+              label: "Move down",
+              disabled: index === count - 1,
+              onSelect: () => run(trackMove(track.id, index + 1)),
+            },
+            {
+              label: "Remove track",
+              separated: true,
+              disabled: track.recording,
+              onSelect: () => run(trackRemove(track.id)),
+            },
+          ]}
+        />
+      ) : null}
       <StripControls
         name={track.name}
         strip={track.strip}

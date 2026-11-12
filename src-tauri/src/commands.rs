@@ -1095,6 +1095,15 @@ pub fn menu_state(app: tauri::AppHandle, items: Vec<crate::menu::ItemState>) -> 
     crate::menu::apply(&app, &items).map_err(|e| e.to_string())
 }
 
+/// Moves a project, not the open one, to the Trash.
+#[tauri::command]
+pub fn project_delete(
+    engine: State<'_, EngineState>,
+    name: String,
+) -> Result<EngineStatus, String> {
+    engine.lock().project_delete(&name).map_err(fail)
+}
+
 #[tauri::command]
 pub fn project_rename(
     engine: State<'_, EngineState>,

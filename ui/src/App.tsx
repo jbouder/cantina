@@ -22,7 +22,7 @@ import { StageView } from "./components/StageView";
 import { StartDialog } from "./components/StartDialog";
 import { Timeline, type TimelineEdit, type TimelineEditState } from "./components/Timeline";
 import { Toasts } from "./components/Toast";
-import { Transport, transportNote } from "./components/Transport";
+import { Transport } from "./components/Transport";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { Window } from "./components/Window";
 import {
@@ -87,9 +87,10 @@ import {
   type UpdateInfo,
   updateCheck,
 } from "./lib/engine";
+import { nextStep, trackToArm } from "./lib/next-step";
 import { readoutsByPedal } from "./lib/readouts";
 import { openStageWindow } from "./lib/stage";
-import { arrangementHeight, samplesPerTick, splitHeight } from "./lib/timeline";
+import { samplesPerTick, splitHeight } from "./lib/timeline";
 import { SKINS, type SkinId, useSkin } from "./skins";
 
 const IDLE: MeterFrame = {
@@ -205,11 +206,14 @@ export function App() {
     );
   }, []);
   // The start dialog: at launch unless Settings says to open the last
-  // project, once any crash recovery is settled. In a browser `?start`
-  // shows it (`?start=none` with no recent projects).
+  // project, once any crash recovery is settled, and again from New
+  // project, where closing it keeps the project open. In a browser
+  // `?start` shows it at launch (`?start=none` with no recent projects)
+  // and `?new` as New project opens it.
   const [startOpen, setStartOpen] = useState<boolean | null>(() =>
-    params ? params.has("start") : null,
+    params ? params.has("start") || params.has("new") : null,
   );
+  const [startAtLaunch, setStartAtLaunch] = useState(() => !params?.has("new"));
   const closeStart = useCallback(() => setStartOpen(false), []);
   useEffect(() => {
     if (startOpen === null && status) setStartOpen(!status.openLastAtLaunch);
@@ -218,11 +222,9 @@ export function App() {
     setProjectsOpen(false);
     setProjectsIntent({});
   }, []);
-  // Why the Projects sheet opened from the menu: New Project focuses the
-  // name, Open Recent asks before dropping unsaved edits.
-  const [projectsIntent, setProjectsIntent] = useState<{ startNew?: boolean; opening?: string }>(
-    {},
-  );
+  // Why the Projects sheet opened from the menu: Open Recent asks before
+  // dropping unsaved edits.
+  const [projectsIntent, setProjectsIntent] = useState<{ opening?: string }>({});
   // File ▸ Rename and File ▸ Duplicate.
   // In a browser `?rename` and `?duplicate` open the sheet, for screenshots.
   const [naming, setNaming] = useState<ProjectNameMode | null>(() =>
@@ -295,17 +297,19 @@ export function App() {
   // session remembers it. In a browser `?tab=<beats|pedalboard|clips>`
   // opens the editor on a tab, so screenshots can show each.
   const [split, setSplit] = useState(() => loadSplit());
-  const body = useRef<HTMLDivElement>(null);
+  // A state, not a ref: the body mounts only once the engine reports, and
+  // measuring has to start then.
+  const [body, setBody] = useState<HTMLDivElement | null>(null);
   const [bodyHeight, setBodyHeight] = useState(720);
   useEffect(() => {
-    const el = body.current;
+    const el = body;
     if (!el) return;
     const measure = () => setBodyHeight(el.clientHeight);
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [body]);
   const changeSplit = useCallback((value: number) => {
     setSplit(value);
     try {
@@ -409,6 +413,32 @@ export function App() {
   const readouts = useMemo(() => readoutsByPedal(tracks, frame.readouts), [tracks, frame.readouts]);
   const selected = tracks.find((t) => t.id === selectedTrack) ?? tracks[0] ?? null;
   dropTarget.current = selected?.id ?? null;
+  // Record from wherever the player is: the engine started if it is off,
+  // a track armed if none is (the selected one, or the first that takes
+  // audio), then the count-in. Each step shows as it lands.
+  const recordNow = useCallback(async () => {
+    let s = status;
+    if (!s || busy) return;
+    setError(null);
+    try {
+      if (!s.running) {
+        setBusy(true);
+        s = await engineStart();
+        setStatus(s);
+      }
+      if (!s.project.tracks.some((t) => t.armed && !t.kit)) {
+        const target = trackToArm(s.project.tracks, selectedTrack);
+        if (!target) throw new Error("Add a guitar track to record");
+        s = await trackArm(target.id, true);
+        setStatus(s);
+      }
+      setStatus(await transportRecord());
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [status, busy, selectedTrack]);
   const designed =
     designing === null
       ? null
@@ -420,7 +450,7 @@ export function App() {
   // Messages the player dismissed that the engine still reports: each
   // stays hidden until its text changes.
   const [hidden, setHidden] = useState<{ latency?: string; problem?: string }>({});
-  // As tall as its tracks unless the user dragged it; see `splitHeight`.
+  // The editor's room and the rest, unless the user dragged it; see `splitHeight`.
   const trackCount = status?.project.tracks.length ?? 0;
   const arrangeHeight = splitHeight(split, trackCount, bodyHeight, MIN_PANE);
   // The transport flags in the frame are fresher than the last status push.
@@ -472,9 +502,9 @@ export function App() {
     newProject: {
       enabled: idle,
       run: () => {
-        setStartOpen(false);
-        setProjectsIntent({ startNew: true });
-        setProjectsOpen(true);
+        setProjectsOpen(false);
+        setStartAtLaunch(false);
+        setStartOpen(true);
       },
     },
     openProject: {
@@ -578,8 +608,8 @@ export function App() {
       },
     },
     record: {
-      enabled: running && !jamming && !rolling && tracks.some((t) => t.armed && !t.kit),
-      run: () => report(transportRecord()),
+      enabled: has && !jamming && !rolling && !busy && tracks.some((t) => !t.kit),
+      run: () => void recordNow(),
     },
     countIn: {
       enabled: has,
@@ -781,8 +811,7 @@ export function App() {
         status ? (
           <ProjectBar
             project={status.project}
-            onOpenProjects={() => setProjectsOpen(true)}
-            onOpenExport={() => setExportOpen(true)}
+            actions={bindings}
             onStatus={setStatus}
             onError={setError}
           />
@@ -844,7 +873,37 @@ export function App() {
         status && jamming
           ? `Space plays · 1 to 6 change section at the next bar · ↑ ↓ tempo · T taps it · Return keeps your playing. Jamming never edits ${status.project.name}.`
           : status && transport
-            ? transportNote(transport, status.project.tracks, frame.countIn)
+            ? (() => {
+                const step = nextStep(
+                  transport,
+                  status.project.tracks,
+                  frame.countIn,
+                  running,
+                  selected?.id ?? null,
+                );
+                const action = step.action;
+                return (
+                  <span className="flex items-center gap-2">
+                    <span className="min-w-0 truncate">{step.text}</span>
+                    {action?.kind === "start" ? (
+                      <Button tier="quiet" disabled={busy} onClick={toggle}>
+                        Turn audio on
+                      </Button>
+                    ) : action?.kind === "arm" ? (
+                      <Button
+                        tier="quiet"
+                        onClick={() =>
+                          trackArm(action.track.id, true).then(setStatus, (e) =>
+                            setError(String(e)),
+                          )
+                        }
+                      >
+                        Arm {action.track.name}
+                      </Button>
+                    ) : null}
+                  </span>
+                );
+              })()
             : null
       }
       meters={
@@ -905,7 +964,7 @@ export function App() {
             />
           ) : status && transport ? (
             <div
-              ref={body}
+              ref={setBody}
               className="grid min-h-0 flex-1"
               style={{ gridTemplateRows: `${arrangeHeight}px auto minmax(0, 1fr)` }}
             >
@@ -934,6 +993,7 @@ export function App() {
                       countIn={frame.countIn}
                       auditioning={status.audition !== null}
                       timeline={controls}
+                      onRecord={() => void recordNow()}
                       onStatus={setStatus}
                       onError={setError}
                     />
@@ -949,10 +1009,7 @@ export function App() {
               <Divider
                 value={arrangeHeight}
                 min={MIN_PANE}
-                max={Math.max(
-                  MIN_PANE,
-                  Math.min(arrangementHeight(trackCount), bodyHeight - MIN_PANE),
-                )}
+                max={Math.max(MIN_PANE, bodyHeight - MIN_PANE)}
                 onChange={changeSplit}
               />
               {selected ? (
@@ -1040,22 +1097,18 @@ export function App() {
           dirty={status.project.dirty}
           onClose={closeProjects}
           onStatus={setStatus}
-          startNew={projectsIntent.startNew ?? false}
           opening={projectsIntent.opening ?? null}
         />
       ) : null}
       {startOpen && status && !status.project.recovery && !jamming && !projectsOpen ? (
         <StartDialog
           current={status.project.name}
+          atLaunch={startAtLaunch}
+          dirty={status.project.dirty}
           sampleRate={status.sampleRate}
           hasKits={status.kits.length > 0}
           onStatus={setStatus}
           onClose={closeStart}
-          onBrowse={() => {
-            setStartOpen(false);
-            setProjectsIntent({});
-            setProjectsOpen(true);
-          }}
           onJam={() => {
             setStartOpen(false);
             openJam();

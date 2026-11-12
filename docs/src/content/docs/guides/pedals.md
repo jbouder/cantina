@@ -30,8 +30,9 @@ chain as rig…** there keeps a chain you built for other projects.
 
 A card shows every knob at once, one to a line: the name, the fader and
 its value. A pedal with more than six knobs gets a card two columns wide.
-A chain too long for the window scrolls sideways, with a bar under it, and
-**Add a pedal** stays at the right.
+**Add a pedal** sits right after the last pedal, as wide as a card. A
+chain too long for the window scrolls sideways, with a bar under it, and
+**Add a pedal** scrolls with it, at the end.
 
 Hover a pedal's name to see where it comes from: a stock pedal built into
 Cantina, a stock pedal written in the

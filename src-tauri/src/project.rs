@@ -206,6 +206,17 @@ impl Projects {
         Ok((name, dir))
     }
 
+    /// Moves a project's folder to the Trash, where Finder can put it
+    /// back. Nothing in it is changed.
+    pub fn trash(&self, name: &str) -> Result<()> {
+        let name = check_name(name)?;
+        let dir = self.dir_for(&name);
+        if !dir.join(cantina_project::PROJECT_FILE).is_file() {
+            bail!("there is no project called {name}");
+        }
+        move_to_trash(&dir)
+    }
+
     /// The projects folder itself, which also holds the library folders.
     pub fn root(&self) -> &Path {
         &self.root
@@ -253,11 +264,47 @@ fn stock_track(id: TrackId, name: &str, first: u64) -> Track {
         track.chain.push(Pedal {
             id: PedalId(first + i as u64),
             spec: spec.to_string(),
-            values: values.to_vec(),
+            values: stock_values(spec, values),
             bypassed: false,
         });
     }
     track
+}
+
+/// A value for every parameter of the stock pedal `spec`: the given
+/// ones first, the pedal's defaults for the rest, so a knob added to a
+/// stock pedal later is still there to turn in a new project.
+fn stock_values(spec: &str, given: &[f32]) -> Vec<f32> {
+    match cantina_dsp::stock(spec) {
+        Some(pedal) => with_defaults(given, pedal.params()),
+        None => given.to_vec(),
+    }
+}
+
+/// One value per parameter in `params`: the stored ones first, each
+/// missing one at its parameter's default.
+pub fn with_defaults(stored: &[f32], params: &[cantina_dsp::ParamInfo]) -> Vec<f32> {
+    params
+        .iter()
+        .enumerate()
+        .map(|(i, p)| stored.get(i).copied().unwrap_or(p.default))
+        .collect()
+}
+
+/// Moves a file or folder to the user's Trash through the Finder's own
+/// file manager.
+fn move_to_trash(path: &Path) -> Result<()> {
+    use objc2_foundation::{NSFileManager, NSString, NSURL};
+    let url = NSURL::fileURLWithPath(&NSString::from_str(&path.to_string_lossy()));
+    NSFileManager::defaultManager()
+        .trashItemAtURL_resultingItemURL_error(&url, None)
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "moving {} to the Trash: {}",
+                path.display(),
+                e.localizedDescription()
+            )
+        })
 }
 
 /// Copies a project folder: everything in it but the journal, whose
@@ -305,6 +352,33 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_new_projects_stock_pedals_store_every_knob() {
+        let project = Projects::fresh("Song", 48_000.0);
+        let chain = &project.tracks[0].chain;
+        assert_eq!(chain.len(), DEFAULT_CHAIN.len());
+        for (pedal, (spec, given)) in chain.iter().zip(DEFAULT_CHAIN) {
+            let stock = cantina_dsp::stock(spec).unwrap();
+            assert_eq!(pedal.values.len(), stock.params().len(), "{spec}");
+            assert_eq!(&pedal.values[..given.len()], *given, "{spec}");
+        }
+    }
+
+    #[test]
+    fn missing_values_take_their_defaults() {
+        let overdrive = cantina_dsp::stock("overdrive").unwrap();
+        let params = overdrive.params();
+        assert!(params.len() > 3);
+        let filled = with_defaults(&[20.0, 3000.0, -6.0], params);
+        assert_eq!(filled.len(), params.len());
+        assert_eq!(&filled[..3], &[20.0, 3000.0, -6.0]);
+        for (value, p) in filled[3..].iter().zip(&params[3..]) {
+            assert_eq!(*value, p.default, "{}", p.name);
+        }
+        // Never more values than parameters.
+        assert_eq!(with_defaults(&[1.0, 2.0], &params[..1]), vec![1.0]);
+    }
+
+    #[test]
     fn a_copy_leaves_the_journal_behind() {
         let root = std::env::temp_dir().join(format!("cantina-copy-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
@@ -336,6 +410,24 @@ mod tests {
         let (name, dir) = projects.free_dir(" Song 2 ").unwrap();
         assert_eq!(name, "Song 2");
         assert_eq!(dir, projects.dir_for("Song 2"));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn only_a_project_can_go_to_the_trash() {
+        // The move itself is the Finder's; this checks what is refused
+        // before it, without filling the Trash.
+        let root = std::env::temp_dir().join(format!("cantina-trash-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let projects = Projects::at(root.clone());
+        projects.create("Song", 48_000.0).unwrap();
+        assert!(projects.trash("Nothing here").is_err());
+        assert!(projects.trash("../Song").is_err());
+        assert!(projects.trash("").is_err());
+        // A folder without a project file is not a project.
+        std::fs::create_dir_all(projects.dir_for("Empty")).unwrap();
+        assert!(projects.trash("Empty").is_err());
+        assert!(projects.dir_for("Song").is_dir());
         std::fs::remove_dir_all(root).unwrap();
     }
 

@@ -368,8 +368,9 @@
 
 /*
  * A tab: one of several views of the same thing, sitting on the rule its
- * tablist draws. Unselected it is plain text; selected it is filled with
- * the selection color, so it reads as chosen in every skin.
+ * tablist draws. Unselected it is plain text; selected it takes the
+ * skin's on colors, the accent its lit switches wear (Snap, Engine), so
+ * the editor's tabs belong to the skin rather than to the selection blue.
  */
 @utility tab {
   color: var(--ink-dim);
@@ -381,14 +382,20 @@
     background: var(--quiet-hover-bg);
   }
   &[aria-selected="true"] {
-    color: var(--state-selected-ink);
-    background: var(--state-selected);
+    color: var(--state-on-ink);
+    background: var(--state-on);
+    /* The rule runs on under the tab, which would otherwise cover it. */
+    box-shadow: inset 0 -2px 0 var(--tab-rule);
   }
 }
 
-/* The rule a row of tabs sits on, in the selection color. */
+/*
+ * The rule a row of tabs sits on, in the skin's `--tab-rule` (the
+ * selected tab's ink, or its fill where the ink is dark), drawn under the
+ * selected tab too, so the line runs unbroken.
+ */
 @utility tab-rule {
-  box-shadow: inset 0 -2px 0 var(--state-selected);
+  box-shadow: inset 0 -2px 0 var(--tab-rule);
 }
 
 /*

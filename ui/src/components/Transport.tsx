@@ -8,7 +8,6 @@ import {
   type TransportStatus,
   tempoSet,
   transportPlay,
-  transportRecord,
   transportStop,
 } from "../lib/engine";
 import { Button } from "./Button";
@@ -31,26 +30,11 @@ type Props = {
   auditioning: boolean;
   /** The timeline's view: snap, zoom and the bar readout. */
   timeline: TimelineControls;
+  /** Record, starting the engine and arming a track first if need be. */
+  onRecord: () => void;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
 };
-
-/**
- * The one status line: what the transport is doing or waiting for. It
- * lives at the bottom of the window, not in the header.
- */
-export function transportNote(
-  transport: TransportStatus,
-  tracks: TrackStatus[],
-  countIn: number,
-): string {
-  const armed = tracks.filter((t) => t.armed && !t.kit);
-  const names = armed.map((t) => t.name).join(", ");
-  if (countIn > 0) return "Counting in…";
-  if (transport.recording) return `Recording ${names}…`;
-  if (armed.length === 0) return "Arm a track to record";
-  return `${names} armed`;
-}
 
 /** A key's caption, dropped when the strip is too narrow for it. */
 const WIDE = "@5xl:inline hidden";
@@ -73,12 +57,12 @@ export function Transport({
   countIn,
   auditioning,
   timeline,
+  onRecord,
   onStatus,
   onError,
 }: Props) {
   const run = (action: Promise<EngineStatus>) => action.then(onStatus, (e) => onError(String(e)));
   const rolling = transport.playing || transport.recording;
-  const armed = tracks.filter((t) => t.armed && !t.kit);
   const hasClips =
     auditioning ||
     metronome.on ||
@@ -107,9 +91,13 @@ export function Transport({
             tier="primary"
             aria-label="Record"
             aria-pressed={transport.recording}
-            disabled={!running || armed.length === 0 || rolling}
-            onClick={() => run(transportRecord())}
-            title="Record after a four-beat count-in (R)"
+            disabled={rolling || !tracks.some((t) => !t.kit)}
+            onClick={onRecord}
+            title={
+              tracks.some((t) => !t.kit)
+                ? "Record after a four-beat count-in (R); starts the engine and arms a track if needed"
+                : "Add a guitar track to record"
+            }
             tight
           >
             <Led on={recording} tone="record" label="Recording" />

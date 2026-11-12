@@ -59,19 +59,24 @@ Drag `Cantina.app` into Applications to keep it.
 
 Cantina opens with the start dialog, three ways in:
 
+- **New project**, first and with focus: a name (a free `Untitled`,
+  `Untitled 2`… is filled in and selected, so typing replaces it), the sample rate, the
+  tempo, the time signature, and what to start with: one guitar track,
+  guitar and bass, guitar and a drum track with a kit, or nothing. Type
+  a name and press Return, or **Create**; the project is made as you
+  asked in one step, with nothing to undo.
 - **Open a recent project**: the projects you had open lately, newest
-  first, each with when it was last saved. Return opens the one with
-  focus. A project moved or deleted since stays in the list and says
-  so. **Open…** lists every project in `~/Music/Cantina`.
-- **New project**: a name, the sample rate, the tempo, the time
-  signature, and what to start with: one guitar track, guitar and bass,
-  guitar and a drum track with a kit, or nothing. The project is made as
-  you asked in one step, with nothing to undo.
-- **Jam session**: straight into [jam mode](/guides/jam/), drums and a
-  backing to play over with nothing to set up.
+  first, each with when it was last saved. A project moved or deleted
+  since stays in the list and says so. **Open…** (⌘O), in the project
+  menu, lists every project in `~/Music/Cantina`.
+- **Jam session**, the button at the bottom left: straight into
+  [jam mode](/guides/jam/), drums and a backing to play over with nothing
+  to set up.
 
 Escape (or the close key) takes the most recent project, or the new
-`Untitled` project Cantina makes the first time. If the last session
+`Untitled` project Cantina makes the first time. **New project…**
+(⌘N) brings the same dialog back later; there Escape or **Cancel** keeps
+the project you have open. If the last session
 quit without saving, Cantina offers to recover those edits first, and
 the dialog follows.
 
@@ -99,8 +104,8 @@ Cantina then opens only the output: the metronome, playback and
 does not ask for the microphone. Recording needs an input. A Mac with no
 input device at all runs this way by itself and says so.
 
-The **Engine** key starts and stops the audio. Its light is on while audio
-is running. Your choices are remembered for next time.
+The **Audio** key turns the audio on and off: it reads **Audio on** with
+its light lit while audio is running, **Audio off** otherwise. Your choices are remembered for next time.
 
 ## Tell Cantina what you play
 
@@ -127,20 +132,24 @@ The rest of Settings holds the **Skin**, **Motion** (Reduce flashing),
 ## Arm a track and play
 
 A new project with one guitar track (`Untitled`, the first time) opens
-with a track whose chain is a gain into an overdrive. Click the round light beside the track's name to
-arm it; it turns red. An armed track plays your input through its pedals,
+with a track whose chain is a gain into an overdrive. Click the record key beside the track's name to
+arm it; its light turns red. An armed track plays your input through its pedals,
 so strum: the **IN** meter moves, and you hear the overdrive.
 
 ![The studio with the guitar track armed, two takes on the timeline and its pedalboard below](../../../assets/guides/studio.png)
 
-The header is two rows. The top one holds the project (its name, undo,
-redo, **Save**, **Projects…**, **Export…**), the **IN** and **OUT** meters
-in the middle, and the engine, jam, stage and settings keys at the right.
+The header is two rows. The top one holds the project at the left: its
+name, which opens the project menu (**New project…**, **Open…**, **Save**,
+**Rename…**, **Duplicate…**, **Export mixdown…**, **Show in Finder**, all
+also in **File**), then undo and redo; then at the right the **IN** and
+**OUT** meters beside the **Audio** key and the jam, stage and settings keys.
 The second is the transport: record, play, stop, the clock, the tempo, the
 metronome, and snap and zoom for the timeline. In a narrow window the keys
 keep their glyphs and drop their captions; hover one for its name and
 shortcut. The line along the bottom of the window says what the transport
-is waiting for, such as *Arm a track to record* or *Guitar armed*.
+is waiting for, or the next step to recording with a key to take it:
+*Audio is off* with **Turn audio on**, *No track armed* with **Arm
+Guitar**, then *Guitar armed · press Record or R*.
 
 Nothing moving on the **IN** meter means nothing is reaching Cantina; see
 [Troubleshooting](/guides/troubleshooting/).
@@ -167,10 +176,14 @@ undone with the arrows next to the project name, or ⌘Z. The
 
 ## Record
 
-With a track armed, **Record** (or R) counts in four beats, then starts the
+**Record** (or R) starts the engine and arms a track if it has to, counts in four beats, then starts the
 transport and records what comes in; **Stop** (or Space) ends the take, which lands on the track as a
 clip. Space plays from the playhead. **Save** (⌘S) writes the project to
-`~/Music/Cantina/`, and **Projects…** (⌘O) opens another. The **File**
+`~/Music/Cantina/`, **New project…** (⌘N) brings back the start dialog for a new
+project, and **Open…** (⌘O) opens another; all three are in the project menu
+under the project's name. There **Delete**, clicked
+twice, moves a project other than the open one to the Trash, where Finder
+can put it back. The **File**
 menu also renames and duplicates projects, reopens recent ones and imports
 WAV files; [Menus](/guides/menus/) lists every item.
 

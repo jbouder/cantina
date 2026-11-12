@@ -82,6 +82,8 @@
   --state-on-shadow: inset 0 2px 4px rgb(0 0 0 / 0.6), 0 0 0 2px #2e4a00;
   --state-selected: #ffd400;
   --state-selected-ink: #111100;
+  /* The line under a row of tabs, and under the selected one. */
+  --tab-rule: var(--state-on-ink);
   --state-selected-shadow: 0 0 0 2px #1a2c00;
   --state-disabled: #86b81a;
   --state-disabled-ink: #2e4a00;

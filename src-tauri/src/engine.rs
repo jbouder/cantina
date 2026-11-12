@@ -2640,6 +2640,7 @@ impl Engine {
         engine.adopt_sample_rate();
         engine.remember_project();
         engine.read_journal();
+        engine.learn_kinds();
         engine.plugin_states = read_plugin_states(&engine.project_dir);
         // For measuring the UI's cost of the frame stream without audio:
         // a pump of synthetic levels with no stream behind it.
@@ -4746,6 +4747,21 @@ impl Engine {
         Ok(self.publish())
     }
 
+    /// Moves a project to the Trash and drops it from the recent list.
+    /// The open project cannot go: open another one first.
+    pub fn project_delete(&mut self, name: &str) -> Result<EngineStatus> {
+        if name == self.project.name {
+            bail!("{name} is open: open another project before deleting it");
+        }
+        self.projects.trash(name)?;
+        let before = self.settings.recent_projects.len();
+        self.settings.recent_projects.retain(|n| n != name);
+        if self.settings.recent_projects.len() != before {
+            self.persist();
+        }
+        Ok(self.publish())
+    }
+
     /// Copies the open project, as it is now, to a new name and switches
     /// to the copy, as Save As does. The original stays as it was last
     /// saved, and keeps any unsaved edits in its journal for recovery.
@@ -4883,6 +4899,7 @@ impl Engine {
         self.history.clear();
         self.remember_project();
         self.read_journal();
+        self.learn_kinds();
         if self.adopt_sample_rate() {
             self.rebuild(None);
             Ok(())
@@ -4891,6 +4908,23 @@ impl Engine {
                 live.set_tempo_map(tempo_map(&self.project.tempo));
             }
             self.sync()
+        }
+    }
+
+    /// Learns what every pedal in the project is, so its card shows its
+    /// name and knobs while the engine is stopped too: otherwise only a
+    /// pedal the running graph built is known. One that cannot be built,
+    /// a plugin no longer installed, stays unknown; the graph says why
+    /// when it tries.
+    fn learn_kinds(&mut self) {
+        let specs: Vec<String> = self
+            .project
+            .tracks
+            .iter()
+            .flat_map(|t| t.chain.iter().map(|p| p.spec.clone()))
+            .collect();
+        for spec in specs {
+            let _ = self.catalog.get(&spec, &mut self.irs, &self.designs);
         }
     }
 
@@ -5572,12 +5606,20 @@ impl Engine {
             .pedal(id)
             .with_context(|| format!("no pedal {id}"))?;
         let spec = pedal.spec.clone();
+        let stored = pedal.values.clone();
         let kind = self.catalog.get(&spec, &mut self.irs, &self.designs)?;
         let info = kind
             .params
             .get(param)
             .with_context(|| format!("{} has no parameter {param}", kind.name))?;
         let value = info.clamp(value);
+        // A pedal saved before its kind gained knobs stores fewer values
+        // than it has: the missing ones play at their defaults, so storing
+        // those changes nothing heard, and the knob then has a value to set.
+        if param >= stored.len() {
+            let values = crate::project::with_defaults(&stored, &kind.params);
+            self.apply_quietly(Command::SetPedalValues { id, values })?;
+        }
         self.apply_quietly(Command::SetParam {
             pedal: id,
             param,
@@ -6809,6 +6851,26 @@ mod tests {
         let json = serde_json::to_value(PatternClipInfo::of(&clip)).unwrap();
         assert_eq!(json["fill"]["every"], 4);
         assert_eq!(json["fill"]["atEnd"], true);
+    }
+
+    #[test]
+    fn a_pedal_is_described_with_its_knobs_once_its_kind_is_learned() {
+        let pedal = Pedal {
+            id: PedalId(2),
+            spec: "overdrive".into(),
+            values: vec![20.0, 3000.0, -6.0],
+            bypassed: false,
+        };
+        let mut catalog = Catalog::default();
+        // Unknown, the card would have the spec for a name and no knobs:
+        // what a new project showed with the engine stopped.
+        assert!(catalog.describe(&pedal).params.is_empty());
+        catalog
+            .get("overdrive", &mut Irs::default(), &Designs::default())
+            .unwrap();
+        let info = catalog.describe(&pedal);
+        assert_eq!(info.name, "Overdrive");
+        assert_eq!(info.params.len(), 6);
     }
 
     #[test]

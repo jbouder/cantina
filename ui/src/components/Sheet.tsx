@@ -31,20 +31,22 @@ export function Sheet({ title, onClose, wide = false, side = false, footer, chil
   const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
 
+  // Focus moves in once, on open: a new `onClose` must not pull it back
+  // to the first control, nor hand it to the opener.
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     const first = panel.current?.querySelector<HTMLElement>(
       "button, [href], input, select, [tabindex]:not([tabindex='-1'])",
     );
     first?.focus();
+    return () => opener?.focus();
+  }, []);
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      opener?.focus();
-    };
+    return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   return (
