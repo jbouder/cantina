@@ -22,7 +22,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Validate a pedal, kit, kit recipe, pattern, tab, rig or project against its
+    /// Validate a pedal, kit, kit recipe, pattern, tab, rig, jam, exercise or project against its
     /// schema and the rules the app enforces beyond it.
     Check {
         /// A file, or a kit or project folder.
@@ -42,7 +42,7 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Render a pedal, a rig or a pattern offline to a WAV and print its levels.
+    /// Render a pedal, a rig, a pattern or an exercise offline to a WAV and print its levels.
     #[command(subcommand)]
     Render(RenderCommand),
     /// Print the pedal node catalog: every kind, its fields, ranges and rules.
@@ -123,6 +123,27 @@ enum RenderCommand {
         #[arg(long, default_value_t = 2)]
         passes: u32,
         /// Seconds after the last pass for hits to ring out.
+        #[arg(long, default_value_t = 1.0)]
+        tail: f64,
+        #[command(flatten)]
+        output: OutputArgs,
+    },
+    /// Play an exercise's phrase on the tab voice through its rig.
+    Exercise {
+        /// The `*.exercise.json`.
+        file: PathBuf,
+        /// Tempo; the exercise's start tempo when missing.
+        #[arg(long)]
+        bpm: Option<f64>,
+        /// Times through the loop.
+        #[arg(long, default_value_t = 1)]
+        passes: u32,
+        /// Play it dry, without its rig.
+        #[arg(long)]
+        dry: bool,
+        #[command(flatten)]
+        roots: RootArgs,
+        /// Seconds after the last pass for notes and the rig's tails to ring out.
         #[arg(long, default_value_t = 1.0)]
         tail: f64,
         #[command(flatten)]
@@ -368,6 +389,78 @@ fn run(command: Command) -> anyhow::Result<i32> {
                 eprintln!("warning: the kit has no pad {pad:?}; its row is silent");
             }
             finish(&file, &output, render::RATE, &out, 0)
+        }
+        Command::Render(RenderCommand::Exercise {
+            file,
+            bpm,
+            passes,
+            dry,
+            roots,
+            tail,
+            output,
+        }) => {
+            let text = std::fs::read_to_string(&file)?;
+            let exercise = match cantina_project::exercise_from_json(&text) {
+                Ok(e) => e,
+                Err(problems) => {
+                    eprintln!("invalid exercise: {}", file.display());
+                    for p in problems {
+                        eprintln!("  {p}");
+                    }
+                    return Ok(EXIT_INVALID);
+                }
+            };
+            let bpm = bpm.unwrap_or(exercise.tempo.start);
+            if !(bpm.is_finite() && bpm > 0.0) {
+                eprintln!("error: --bpm must be above 0");
+                return Ok(EXIT_USAGE);
+            }
+            let phrase = render::render_phrase(&exercise, bpm, passes, tail);
+            let rig = match (&exercise.rig, dry) {
+                (Some(id), false) => Some(id),
+                _ => None,
+            };
+            let Some(id) = rig else {
+                return finish(&file, &output, render::RATE, &[phrase], 0);
+            };
+            let Some(path) = cantina_cli::rig_dirs()
+                .into_iter()
+                .map(|d| d.join(cantina_project::rig_file_name(id)))
+                .find(|p| p.is_file())
+            else {
+                eprintln!(
+                    "invalid exercise: {}\n  the rig {id:?} is not installed",
+                    file.display()
+                );
+                return Ok(EXIT_INVALID);
+            };
+            let rig = match cantina_project::rig_from_json(&std::fs::read_to_string(&path)?) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("invalid rig: {}", path.display());
+                    for p in e.problems() {
+                        eprintln!("  {p}");
+                    }
+                    return Ok(EXIT_INVALID);
+                }
+            };
+            let roots = RigRoots::with_defaults(&roots.irs, &roots.pedals);
+            let mut built = match cantina_cli::rig::build(&rig, &roots, 1) {
+                Ok(b) => b,
+                Err(problems) => {
+                    eprintln!("invalid rig: {}", path.display());
+                    for p in problems {
+                        eprintln!("  {p}");
+                    }
+                    return Ok(EXIT_INVALID);
+                }
+            };
+            for m in &built.missing {
+                eprintln!("warning: {m}");
+            }
+            let (out, latency) =
+                cantina_cli::rig::render(&rig, &mut built, render::RATE, &[phrase], 0, bpm);
+            finish(&file, &output, render::RATE, &out, latency)
         }
         Command::Kinds { json } => {
             if json {

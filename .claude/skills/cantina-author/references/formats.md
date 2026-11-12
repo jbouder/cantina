@@ -384,6 +384,121 @@ What a step does beyond its velocity: whether it plays, how many times, and with
 | `ratchet` |  | integer (≥ 1, ≤ 4) | Hits in the step, evenly spaced: 1, or 2 to 4 for a ratchet. |
 | `step` | yes | integer (≥ 0) | The step, from 0. |
 
+## Cantina exercise (`exercise`)
+
+Something to practice: a phrase to play (notes in the tab format's terms, or chord shapes with a strum), what it teaches, a style, instructions, a tempo ladder from a start to a goal, a count-in, a key, the rig it is heard through (named by its file less `.rig.json`) and a stock groove to play it over (named by its genre).
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `bars` |  | integer (≥ 1) | Bars in one pass of the loop; left out, every bar the phrase reaches. |
+| `capo` |  | integer (≥ 0, ≤ 23) | The fret the capo is at; 0 for none. |
+| `countIn` |  | integer (≥ 0, ≤ 4) | Bars of click before the first pass, 0 to 4. Default `1`. |
+| `drums` |  | `ExerciseDrums` | The drums it is played over; none is the click alone. |
+| `instructions` | yes | string (not empty) | What to do, what to listen for and what goes wrong: a sentence or a few. |
+| `instrument` | yes | `Instrument` | Guitar or bass. |
+| `key` | yes | `Key` | The key it is in. |
+| `name` | yes | string (not empty) | Shown in the exercise list. |
+| `phrase` | yes | `Phrase` | What to play. |
+| `rig` |  | string (not empty) | The rig it is heard through, the example and your input both, by its file's name less `.rig.json`; none is dry. |
+| `style` | yes | string (not empty) | The style it is for: `Metal`, `Blues`, `Beginner`… |
+| `teaches` | yes | `Teaches` | What it teaches, which the list sorts by. |
+| `tempo` | yes | `TempoLadder` | Where to start, the goal and the step between. |
+| `timeSignature` |  | `Meter` | The meter it is counted in. Default `{"denominator":4,"numerator":4}`. |
+| `tuning` |  | array of integer (≥ 0, ≤ 127) (at least 4, at most 8) | The open strings from the lowest to the highest, as MIDI notes; left out, standard tuning for six strings, or four on a bass. |
+| `version` | yes | integer (≥ 1, ≤ 1) | The format version, 1. |
+
+Where it goes: `*.exercise.json`, checked and rendered by `cantina-cli`. Schema: `https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json`.
+
+### `Bend`
+
+A bend: the string pushed up by `semitones` after the note starts.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `release` |  | boolean | Let back down to the fretted pitch before the note ends. |
+| `semitones` | yes | number (> 0, ≤ 4) | How far up, in semitones: 1 is a half step, 2 a whole step. |
+
+### `ChordShape`
+
+A chord shape held for a while.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `fingers` |  | array of integer (≥ 0, ≤ 4) | Which finger holds each string, in the same order: 1 the index to 4 the little finger, 0 for none. |
+| `frets` | yes | array of integer (≥ 0, ≤ 24) (at least 4, at most 8) | A fret per string, from the lowest string to the highest as the tuning lists them, counted from the capo; `null` for a string not played, 0 for an open one. |
+| `length` | yes | integer (≥ 1) | Ticks it is held. |
+| `name` | yes | string (not empty) | What it is called: `E`, `Am`, `G/B`. |
+| `start` | yes | integer (≥ 0) | Ticks from the start of the loop, 960 per quarter note. |
+
+### `ExerciseDrums`
+
+The drums an exercise is played over.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `groove` | yes | string (not empty) | A stock groove, by its genre (`Rock`, `Heavy metal`); its verse plays under the exercise. |
+| `kit` | yes | string (not empty) | The kit, by id. |
+| `levelDb` |  | number (≥ -60, ≤ 12) | The drums' level in decibels, −60 to 12. Default `0`. |
+
+### `Key`
+
+A key: its tonic and whether it is major or minor.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `mode` | yes | `Mode` | Major or minor. |
+| `tonic` | yes | string (matching `^[A-Ga-g][#b♯♭]*$`) | A note name: `A`, `F#`, `Bb`. |
+
+### `Meter`
+
+A time signature, as a groove states it.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `denominator` | yes | `2`, `4`, `8`, `16` | The note value of a beat: 4 for quarter notes, 8 for eighths. |
+| `numerator` | yes | integer (≥ 1, ≤ 16) | Beats in a bar. |
+
+### `Strum`
+
+A strumming pattern, repeated for as long as each chord lasts.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `pattern` | yes | string (matching `^[DUx\- ]*[DUx][DUx\- ]*$`) | One character a step: `D` a downstroke, `U` an upstroke, `x` a muted scratch, `-` no stroke (the hand still moves). Spaces are ignored, for reading. |
+| `stepsPerBeat` | yes | `1`, `2`, `3`, `4`, `6`, `8` | Steps in a beat: 2 for eighths, 4 for sixteenths. |
+
+### `TabNote`
+
+One note: where it is played, when, and how.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `bend` |  | `Bend` | A bend up, and whether it comes back down. |
+| `dead` |  | boolean | A dead note: the string muted by the fretting hand, a click with no pitch. Written as an x. |
+| `fret` | yes | integer (≥ 0, ≤ 24) | The fret, counted from the capo; 0 is the open string. |
+| `hammerOn` |  | boolean | Sounded by hammering onto the fret from the note before. |
+| `harmonic` |  | boolean | A natural harmonic, touched over the fret rather than pressed. |
+| `length` | yes | integer (≥ 1) | Ticks long. |
+| `letRing` |  | boolean | Left ringing past its length, into the notes after it. |
+| `palmMute` |  | boolean | Damped with the picking hand at the bridge. |
+| `pullOff` |  | boolean | Sounded by pulling off to this fret from the note before. |
+| `slide` |  | boolean | Slides into the next note on the same string. |
+| `start` | yes | integer (≥ 0) | Ticks from the start of the tab, 960 per quarter note. |
+| `string` | yes | integer (≥ 1, ≤ 8) | The string, 1 for the highest-pitched. |
+| `tap` |  | boolean | Tapped with the picking hand. |
+| `velocity` |  | number (≥ 0, ≤ 1) | How hard it was played, 0 to 1. |
+| `vibrato` |  | boolean | Vibrato with the fretting hand. |
+
+### `TempoLadder`
+
+The tempos an exercise climbs through, in beats per minute.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `goal` | yes | number (≥ 30, ≤ 300) | The goal: the tempo the music it is for is at. |
+| `start` | yes | number (≥ 30, ≤ 300) | Where to start: playable the first day. |
+| `step` | yes | number (> 0) | How far each step up goes. |
+
 ## Cantina project (`project`)
 
 A whole project. Saved as `project.json` inside a `Name.cantina/` directory next to `audio/`, `plugins/` and `pedals/`.

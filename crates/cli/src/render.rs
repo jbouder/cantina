@@ -6,7 +6,9 @@
 //! transport rolling at the given tempo so synced modulation moves. A
 //! pattern plays on the engine's `Sequencer`, which drives the same
 //! `Sampler` a drum track does, under a tempo map, for a number of passes
-//! plus a tail for the last hits to ring out.
+//! plus a tail for the last hits to ring out. An exercise's phrase plays
+//! on the tab voice's plucked strings ([`cantina_dsp::Pluck`]), as the
+//! practice view plays it, for the rig to take.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -16,7 +18,7 @@ use cantina_dsp::{compile, Buffer, PedalDef, Processor, Transport, MAX_CHANNELS}
 use cantina_engine::{
     BlockContext, Node, PatternData, Placement, Sequencer, TempoMap, TimeSignature,
 };
-use cantina_project::Pattern;
+use cantina_project::{Exercise, Pattern, PPQ};
 use serde::Serialize;
 
 /// The block size renders run in, the app's usual buffer.
@@ -78,6 +80,8 @@ pub struct Stats {
     pub channels: usize,
     /// The rate rendered at.
     pub sample_rate: f64,
+    /// How long the render is, in seconds.
+    pub seconds: f64,
     /// The loudest sample, in dBFS.
     pub peak_db: f32,
     /// The level over the whole render, in dBFS.
@@ -116,10 +120,12 @@ impl Stats {
         let n = n.max(1) as f64;
         let db = |x: f32| 20.0 * x.max(1e-10).log10();
         let peak_db = db(peak);
+        let frames = channels.first().map_or(0, Vec::len);
         Stats {
-            frames: channels.first().map_or(0, Vec::len),
+            frames,
             channels: channels.len(),
             sample_rate,
+            seconds: frames as f64 / sample_rate,
             peak_db,
             rms_db: db((squares / n).sqrt() as f32),
             dc_offset: (sum / n) as f32,
@@ -302,6 +308,58 @@ pub fn render_pattern(
         start = end;
     }
     Ok((out, missing))
+}
+
+/// Plays an exercise's phrase on the tab voice's strings at `bpm` for
+/// `passes` passes of its loop, plus `ring_seconds` for the last notes
+/// to die away. Mono, dry: the rig comes after.
+pub fn render_phrase(exercise: &Exercise, bpm: f64, passes: u32, ring_seconds: f64) -> Vec<f32> {
+    let instrument = match exercise.instrument {
+        cantina_project::Instrument::Guitar => cantina_dsp::pluck::Instrument::Guitar,
+        cantina_project::Instrument::Bass => cantina_dsp::pluck::Instrument::Bass,
+    };
+    let frames_per_tick = 60.0 / (bpm * f64::from(PPQ)) * RATE;
+    let at = |ticks: u64| (ticks as f64 * frames_per_tick).round() as usize;
+    let period = exercise.loop_ticks();
+    let passes = u64::from(passes.max(1));
+    let mut notes: Vec<(usize, cantina_dsp::PluckNote)> = Vec::new();
+    for pass in 0..passes {
+        for s in exercise.sounded() {
+            notes.push((
+                at(pass * period + s.start),
+                cantina_dsp::PluckNote {
+                    string: s.string,
+                    pitch: s.pitch,
+                    velocity: s.velocity,
+                    length: at(s.length).max(1) as u32,
+                    bend: s.bend,
+                    release: s.release,
+                    vibrato: s.vibrato,
+                    palm_mute: s.palm_mute,
+                    dead: s.dead,
+                    harmonic: s.harmonic,
+                },
+            ));
+        }
+    }
+    notes.sort_by_key(|(frame, _)| *frame);
+    let frames = at(passes * period) + (ring_seconds.max(0.0) * RATE) as usize;
+    let mut pluck = cantina_dsp::Pluck::new(instrument);
+    pluck.prepare(RATE, BLOCK);
+    let mut out = vec![0.0f32; frames];
+    let mut next = 0;
+    let mut start = 0;
+    while start < frames {
+        let end = (start + BLOCK).min(frames);
+        while next < notes.len() && notes[next].0 < end {
+            pluck.play(notes[next].1, notes[next].0.saturating_sub(start));
+            next += 1;
+        }
+        let mut lanes: [&mut [f32]; 1] = [&mut out[start..end]];
+        pluck.process(&mut Buffer::new(&mut lanes));
+        start = end;
+    }
+    out
 }
 
 /// Reads a WAV as channels and its rate.

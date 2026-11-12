@@ -116,6 +116,7 @@ pub fn check(path: &Path, options: &CheckOptions) -> Result<Report, Failure> {
         Format::Project => check_project(&text, &file, options, &mut warnings),
         Format::Rig => check_rig(&text, options, &mut warnings),
         Format::Jam => check_jam(&text, options, &mut warnings),
+        Format::Exercise => check_exercise(&text, options, &mut warnings),
     }
     .map_err(fail)?;
     Ok(Report {
@@ -132,13 +133,14 @@ pub fn schema_problems(format: Format, value: &Value) -> Vec<String> {
     let schema = format.schema();
     let validator =
         jsonschema::draft202012::new(&schema).expect("the generated schemas are valid schemas");
-    let mut problems: Vec<(String, String)> = validator
-        .iter_errors(value)
-        .map(|e| {
-            let at = e.instance_path().to_string();
-            (at, e.to_string())
-        })
-        .collect();
+    let mut problems: Vec<(String, String)> = Vec::new();
+    for e in validator.iter_errors(value) {
+        let at = e.instance_path().to_string();
+        match tagged_branch(&schema, e.schema_path().to_string().as_str(), value, &at) {
+            Some(inner) => problems.extend(inner),
+            None => problems.push((at, e.to_string())),
+        }
+    }
     // A node's fields are checked under an if/then per kind, which the
     // validator also reports as the enclosing failure; keep the specific.
     problems.sort_by(|a, b| a.0.cmp(&b.0));
@@ -150,6 +152,36 @@ pub fn schema_problems(format: Format, value: &Value) -> Vec<String> {
             format!("at {at}: {what}{}", hint(value, &at))
         })
         .collect()
+}
+
+/// A `oneOf` of objects told apart by a `kind` field (a jam's backing,
+/// an exercise's phrase) fails as a whole, which says nothing useful.
+/// When the value names a `kind` one branch has, the problems are that
+/// branch's instead, at their own pointers.
+fn tagged_branch(
+    schema: &Value,
+    schema_path: &str,
+    value: &Value,
+    at: &str,
+) -> Option<Vec<(String, String)>> {
+    if !schema_path.ends_with("/oneOf") {
+        return None;
+    }
+    let instance = value.pointer(at)?;
+    let kind = instance.get("kind")?.as_str()?;
+    let branches = schema.pointer(schema_path.trim_start_matches('#'))?;
+    let branch = branches
+        .as_array()?
+        .iter()
+        .find(|b| b.pointer("/properties/kind/const").and_then(Value::as_str) == Some(kind))?;
+    let mut sub = branch.clone();
+    sub["$defs"] = schema.get("$defs").cloned().unwrap_or(Value::Null);
+    let validator = jsonschema::draft202012::new(&sub).ok()?;
+    let inner: Vec<(String, String)> = validator
+        .iter_errors(instance)
+        .map(|e| (format!("{at}{}", e.instance_path()), e.to_string()))
+        .collect();
+    (!inner.is_empty()).then_some(inner)
 }
 
 /// For a problem inside a pedal node, which node it is, by id and kind.
@@ -232,19 +264,7 @@ fn check_jam(
     let jam = cantina_project::jam_from_json(text)?;
     let mut sections: Vec<Section> = jam.drums.patterns.keys().copied().collect();
     if let Some(genre) = &jam.drums.groove {
-        let mut found = Vec::new();
-        for folder in entries(&crate::groove_dir()) {
-            for file in entries(&folder) {
-                let Ok(text) = std::fs::read_to_string(&file) else {
-                    continue;
-                };
-                if let Ok((_, Some(g))) = groove_from_json(&text) {
-                    if &g.genre == genre {
-                        found.push(g);
-                    }
-                }
-            }
-        }
+        let mut found = stock_grooves(genre);
         if found.is_empty() {
             let problem = format!("there is no stock groove for the genre {genre:?}");
             if jam.drums.patterns.is_empty() {
@@ -305,12 +325,7 @@ fn check_jam(
     }
     let roots = crate::rig::RigRoots::with_defaults(&options.ir_roots, &options.pedal_roots);
     let mut rig = |id: &str, what: &str| {
-        let file = cantina_project::rig_file_name(id);
-        let Some(path) = crate::rig_dirs()
-            .into_iter()
-            .map(|d| d.join(&file))
-            .find(|p| p.is_file())
-        else {
+        let Some(path) = find_rig(id) else {
             warnings.push(format!(
                 "{what} rig {id:?} is not installed; the app leaves it out"
             ));
@@ -373,6 +388,152 @@ fn check_jam(
             cantina_project::Mode::Minor => "minor",
         },
         sections.len(),
+    ))
+}
+
+/// The stock grooves of a genre, every section of it.
+fn stock_grooves(genre: &str) -> Vec<cantina_project::Groove> {
+    let mut found = Vec::new();
+    for folder in entries(&crate::groove_dir()) {
+        for file in entries(&folder) {
+            let Ok(text) = std::fs::read_to_string(&file) else {
+                continue;
+            };
+            if let Ok((_, Some(g))) = groove_from_json(&text) {
+                if g.genre == genre {
+                    found.push(g);
+                }
+            }
+        }
+    }
+    found
+}
+
+/// Where the rig with this id is: the user's, then the stock one.
+fn find_rig(id: &str) -> Option<PathBuf> {
+    let file = cantina_project::rig_file_name(id);
+    crate::rig_dirs()
+        .into_iter()
+        .map(|d| d.join(&file))
+        .find(|p| p.is_file())
+}
+
+/// An exercise: its rules, then what it names. Unlike a jam's, a rig or
+/// groove that is not there fails it, since an exercise heard through
+/// the wrong sound teaches the wrong thing; a kit that is not installed
+/// is a warning, as the app plays the first kit it has.
+fn check_exercise(
+    text: &str,
+    options: &CheckOptions,
+    warnings: &mut Vec<String>,
+) -> Result<String, Vec<String>> {
+    use cantina_project::{Instrument, Phrase};
+    let ex = cantina_project::exercise_from_json(text)?;
+    let instrument = |i: Instrument| match i {
+        Instrument::Guitar => "guitar",
+        Instrument::Bass => "bass",
+    };
+    let mut problems = Vec::new();
+    if let Some(id) = &ex.rig {
+        match find_rig(id) {
+            None => problems.push(format!(
+                "the rig {id:?} is not installed, in ~/Music/Cantina/Rigs or among the stock rigs"
+            )),
+            Some(path) => {
+                let roots =
+                    crate::rig::RigRoots::with_defaults(&options.ir_roots, &options.pedal_roots);
+                let read = std::fs::read_to_string(&path)
+                    .map_err(|e| vec![e.to_string()])
+                    .and_then(|t| cantina_project::rig_from_json(&t).map_err(|e| e.problems()));
+                match read.and_then(|r| crate::rig::build(&r, &roots, 2).map(|b| (r, b))) {
+                    Ok((rig, mut built)) => {
+                        warnings.append(&mut built.missing);
+                        if rig.instrument != ex.instrument {
+                            warnings.push(format!(
+                                "the rig {id:?} is for a {}; the exercise is for a {}",
+                                instrument(rig.instrument),
+                                instrument(ex.instrument)
+                            ));
+                        }
+                    }
+                    Err(p) => {
+                        problems.push(format!("the rig {id:?} does not build: {}", p.join("; ")))
+                    }
+                }
+            }
+        }
+    }
+    if let Some(drums) = &ex.drums {
+        let mut found = stock_grooves(&drums.groove);
+        if found.is_empty() {
+            problems.push(format!(
+                "there is no stock groove for the genre {:?}",
+                drums.groove
+            ));
+        } else {
+            found.retain(|g| g.time_signature == ex.time_signature);
+            match found
+                .iter()
+                .find(|g| g.section == cantina_project::Section::Verse)
+                .or(found.first())
+            {
+                None => problems.push(format!(
+                    "the {} grooves are not in {}/{}",
+                    drums.groove, ex.time_signature.numerator, ex.time_signature.denominator
+                )),
+                Some(g) => {
+                    if ex.tempo.goal < g.tempo.min || ex.tempo.start > g.tempo.max {
+                        warnings.push(format!(
+                            "the tempos {} to {} bpm never reach the {} to {} bpm the {} groove suits",
+                            ex.tempo.start, ex.tempo.goal, g.tempo.min, g.tempo.max, drums.groove
+                        ));
+                    }
+                }
+            }
+        }
+        let installed = crate::kit_roots(&options.kit_roots).iter().any(|r| {
+            r.join(&drums.kit)
+                .join(cantina_engine::kit::KIT_FILE)
+                .is_file()
+        });
+        if !installed {
+            warnings.push(format!(
+                "the kit {:?} is not installed; the app plays the first kit it has",
+                drums.kit
+            ));
+        }
+    }
+    if !problems.is_empty() {
+        return Err(problems);
+    }
+    let bars = ex.loop_ticks() / ex.bar_ticks().max(1);
+    let what = match &ex.phrase {
+        Phrase::Notes { notes } => format!("{} notes", notes.len()),
+        Phrase::Chords { chords, .. } => format!(
+            "{} {}",
+            chords.len(),
+            if chords.len() == 1 { "chord" } else { "chords" }
+        ),
+    };
+    let ladder = if ex.tempo.goal > ex.tempo.start {
+        format!(
+            "{} to {} bpm by {}",
+            ex.tempo.start, ex.tempo.goal, ex.tempo.step
+        )
+    } else {
+        format!("{} bpm", ex.tempo.start)
+    };
+    let through = ex.rig.as_deref().unwrap_or("no rig");
+    let over = ex.drums.as_ref().map_or("the click".to_string(), |d| {
+        format!("{} on {}", d.groove, d.kit)
+    });
+    Ok(format!(
+        "exercise {:?}: {} {}, {}; {what} over {bars} {}, {ladder}, through {through} over {over}",
+        ex.name,
+        ex.style,
+        instrument(ex.instrument),
+        ex.teaches.name(),
+        if bars == 1 { "bar" } else { "bars" },
     ))
 }
 

@@ -7,6 +7,7 @@
 
 mod chords;
 mod command;
+mod exercise;
 mod file;
 mod fill;
 mod history;
@@ -22,6 +23,11 @@ pub mod tab_export;
 
 pub use chords::{parse_chord, parse_progression, Bar, Chord, Preset, PRESETS};
 pub use command::{Command, CommandError};
+pub use exercise::{
+    exercise_file_name, exercise_from_json, exercise_to_json, ChordShape, Exercise, ExerciseDrums,
+    Phrase, Sounded, Strum, Teaches, TempoLadder, EXERCISE_SUFFIX, EXERCISE_VERSION, FRETBOARD,
+    MAX_COUNT_IN, STRUM_STEPS, STRUM_TICKS,
+};
 pub use file::{
     audio_dir, create_layout, dir_for, list, load, load_str, save, LoadError, SaveError, AUDIO_DIR,
     EXTENSION, PEDALS_DIR, PLUGINS_DIR, PROJECT_FILE,

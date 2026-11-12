@@ -34,7 +34,7 @@ decisions and the milestones; the architecture lives on the docs site, in
   are one mechanism), the versioned file format with migrations
   (`file.rs`), pattern files.
 - `crates/cli` — `cantina-cli`: `check` (every format, jams too), `render` (pedals, rigs,
-  patterns), `kinds`, `schema`, `synth-kit`; `rig.rs` builds a rig's chain
+  patterns, exercises), `kinds`, `schema`, `synth-kit`; `rig.rs` builds a rig's chain
   for the CLI and the app. The binary is `cantina-cli` because the app's is `cantina`.
 - `crates/clap-fixture` — a tiny CLAP plugin the hosting tests load.
 - `src-tauri/` — the shell. `engine.rs` owns the engine and the open
@@ -63,7 +63,7 @@ decisions and the milestones; the architecture lives on the docs site, in
   hand-written ground truth for the transcription reference takes. Third-party audio is credited in
   each folder's `CREDITS.md`.
 - `schemas/` — JSON Schemas for pedals, kits, kit recipes, patterns, tabs,
-  rigs, jams and projects, generated from the Rust types. Do not hand-edit.
+  rigs, jams, exercises and projects, generated from the Rust types. Do not hand-edit.
 - `.claude/skills/cantina-author/` — the skill for writing Cantina files.
   `references/formats.md` and `references/node-catalog.md` are generated
   by `scripts/skill-references.mjs`; do not hand-edit them.

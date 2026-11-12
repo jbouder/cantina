@@ -1,0 +1,560 @@
+{
+  "$defs": {
+    "Bend": {
+      "description": "A bend: the string pushed up by `semitones` after the note starts.",
+      "properties": {
+        "release": {
+          "description": "Let back down to the fretted pitch before the note ends.",
+          "type": "boolean"
+        },
+        "semitones": {
+          "description": "How far up, in semitones: 1 is a half step, 2 a whole step.",
+          "exclusiveMinimum": 0,
+          "format": "float",
+          "maximum": 4.0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "semitones"
+      ],
+      "type": "object"
+    },
+    "ChordShape": {
+      "description": "A chord shape held for a while.",
+      "properties": {
+        "fingers": {
+          "description": "Which finger holds each string, in the same order: 1 the index to 4 the little finger, 0 for none.",
+          "items": {
+            "format": "uint8",
+            "maximum": 4,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "frets": {
+          "description": "A fret per string, from the lowest string to the highest as the tuning lists them, counted from the capo; `null` for a string not played, 0 for an open one.",
+          "items": {
+            "format": "uint8",
+            "maximum": 24,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "maxItems": 8,
+          "minItems": 4,
+          "type": "array"
+        },
+        "length": {
+          "description": "Ticks it is held.",
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "name": {
+          "description": "What it is called: `E`, `Am`, `G/B`.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "start": {
+          "description": "Ticks from the start of the loop, 960 per quarter note.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "frets",
+        "start",
+        "length"
+      ],
+      "type": "object"
+    },
+    "ExerciseDrums": {
+      "description": "The drums an exercise is played over.",
+      "properties": {
+        "groove": {
+          "description": "A stock groove, by its genre (`Rock`, `Heavy metal`); its verse plays under the exercise.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "kit": {
+          "description": "The kit, by id.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "levelDb": {
+          "default": 0.0,
+          "description": "The drums' level in decibels, −60 to 12.",
+          "format": "float",
+          "maximum": 12,
+          "minimum": -60,
+          "type": "number"
+        }
+      },
+      "required": [
+        "kit",
+        "groove"
+      ],
+      "type": "object"
+    },
+    "Instrument": {
+      "description": "What the tab is for. It sets how many strings it may have.",
+      "oneOf": [
+        {
+          "const": "guitar",
+          "description": "A guitar: 6, 7 or 8 strings.",
+          "type": "string"
+        },
+        {
+          "const": "bass",
+          "description": "A bass: 4, 5 or 6 strings.",
+          "type": "string"
+        }
+      ]
+    },
+    "Key": {
+      "description": "A key: its tonic and whether it is major or minor.",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/Mode",
+          "description": "Major or minor."
+        },
+        "tonic": {
+          "description": "A note name: `A`, `F#`, `Bb`.",
+          "pattern": "^[A-Ga-g][#b♯♭]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tonic",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "Meter": {
+      "description": "A time signature, as a groove states it.",
+      "properties": {
+        "denominator": {
+          "description": "The note value of a beat: 4 for quarter notes, 8 for eighths.",
+          "enum": [
+            2,
+            4,
+            8,
+            16
+          ],
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "numerator": {
+          "description": "Beats in a bar.",
+          "format": "uint8",
+          "maximum": 16,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "type": "object"
+    },
+    "Mode": {
+      "description": "Major or minor.",
+      "oneOf": [
+        {
+          "const": "major",
+          "description": "Ionian.",
+          "type": "string"
+        },
+        {
+          "const": "minor",
+          "description": "Natural minor.",
+          "type": "string"
+        }
+      ]
+    },
+    "Phrase": {
+      "description": "What to play: notes, as a tab has them, or chord shapes.",
+      "oneOf": [
+        {
+          "description": "Notes on strings and frets, as a tab's.",
+          "properties": {
+            "kind": {
+              "const": "notes",
+              "type": "string"
+            },
+            "notes": {
+              "description": "The notes, in any order.",
+              "items": {
+                "$ref": "#/$defs/TabNote"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "kind",
+            "notes"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Chord shapes, each held for a while and strummed.",
+          "properties": {
+            "chords": {
+              "description": "The shapes, in any order.",
+              "items": {
+                "$ref": "#/$defs/ChordShape"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "chords",
+              "type": "string"
+            },
+            "strum": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Strum"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How each chord is strummed while it lasts; left out, it is struck once and rings."
+            }
+          },
+          "required": [
+            "kind",
+            "chords"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Strum": {
+      "description": "A strumming pattern, repeated for as long as each chord lasts.",
+      "properties": {
+        "pattern": {
+          "description": "One character a step: `D` a downstroke, `U` an upstroke, `x` a muted scratch, `-` no stroke (the hand still moves). Spaces are ignored, for reading.",
+          "pattern": "^[DUx\\- ]*[DUx][DUx\\- ]*$",
+          "type": "string"
+        },
+        "stepsPerBeat": {
+          "description": "Steps in a beat: 2 for eighths, 4 for sixteenths.",
+          "enum": [
+            1,
+            2,
+            3,
+            4,
+            6,
+            8
+          ],
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "pattern",
+        "stepsPerBeat"
+      ],
+      "type": "object"
+    },
+    "TabNote": {
+      "description": "One note: where it is played, when, and how.",
+      "properties": {
+        "bend": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bend"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A bend up, and whether it comes back down."
+        },
+        "dead": {
+          "description": "A dead note: the string muted by the fretting hand, a click with no pitch. Written as an x.",
+          "type": "boolean"
+        },
+        "fret": {
+          "description": "The fret, counted from the capo; 0 is the open string.",
+          "format": "uint8",
+          "maximum": 24,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hammerOn": {
+          "description": "Sounded by hammering onto the fret from the note before.",
+          "type": "boolean"
+        },
+        "harmonic": {
+          "description": "A natural harmonic, touched over the fret rather than pressed.",
+          "type": "boolean"
+        },
+        "length": {
+          "description": "Ticks long.",
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "letRing": {
+          "description": "Left ringing past its length, into the notes after it.",
+          "type": "boolean"
+        },
+        "palmMute": {
+          "description": "Damped with the picking hand at the bridge.",
+          "type": "boolean"
+        },
+        "pullOff": {
+          "description": "Sounded by pulling off to this fret from the note before.",
+          "type": "boolean"
+        },
+        "slide": {
+          "description": "Slides into the next note on the same string.",
+          "type": "boolean"
+        },
+        "start": {
+          "description": "Ticks from the start of the tab, 960 per quarter note.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "string": {
+          "description": "The string, 1 for the highest-pitched.",
+          "format": "uint8",
+          "maximum": 8,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "tap": {
+          "description": "Tapped with the picking hand.",
+          "type": "boolean"
+        },
+        "velocity": {
+          "description": "How hard it was played, 0 to 1.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "vibrato": {
+          "description": "Vibrato with the fretting hand.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "string",
+        "fret",
+        "start",
+        "length"
+      ],
+      "type": "object"
+    },
+    "Teaches": {
+      "description": "What an exercise teaches.",
+      "oneOf": [
+        {
+          "const": "chord",
+          "description": "A chord shape.",
+          "type": "string"
+        },
+        {
+          "const": "change",
+          "description": "Moving between chords.",
+          "type": "string"
+        },
+        {
+          "const": "scale",
+          "description": "A scale or arpeggio as a shape on the neck.",
+          "type": "string"
+        },
+        {
+          "const": "technique",
+          "description": "A technique of either hand: picking, bends, legato, harmonics.",
+          "type": "string"
+        },
+        {
+          "const": "riff",
+          "description": "A riff to learn.",
+          "type": "string"
+        },
+        {
+          "const": "rhythm",
+          "description": "Time and feel: strumming, muting, subdivisions.",
+          "type": "string"
+        }
+      ]
+    },
+    "TempoLadder": {
+      "description": "The tempos an exercise climbs through, in beats per minute.",
+      "properties": {
+        "goal": {
+          "description": "The goal: the tempo the music it is for is at.",
+          "format": "double",
+          "maximum": 300.0,
+          "minimum": 30.0,
+          "type": "number"
+        },
+        "start": {
+          "description": "Where to start: playable the first day.",
+          "format": "double",
+          "maximum": 300.0,
+          "minimum": 30.0,
+          "type": "number"
+        },
+        "step": {
+          "description": "How far each step up goes.",
+          "exclusiveMinimum": 0,
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "start",
+        "goal",
+        "step"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Something to practice: a phrase to play (notes in the tab format's terms, or chord shapes with a strum), what it teaches, a style, instructions, a tempo ladder from a start to a goal, a count-in, a key, the rig it is heard through (named by its file less `.rig.json`) and a stock groove to play it over (named by its genre).",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "bars": {
+      "description": "Bars in one pass of the loop; left out, every bar the phrase reaches.",
+      "format": "uint32",
+      "minimum": 1,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "capo": {
+      "description": "The fret the capo is at; 0 for none.",
+      "format": "uint8",
+      "maximum": 23,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "countIn": {
+      "default": 1,
+      "description": "Bars of click before the first pass, 0 to 4.",
+      "format": "uint8",
+      "maximum": 4,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "drums": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExerciseDrums"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The drums it is played over; none is the click alone."
+    },
+    "instructions": {
+      "description": "What to do, what to listen for and what goes wrong: a sentence or a few.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "instrument": {
+      "$ref": "#/$defs/Instrument",
+      "description": "Guitar or bass."
+    },
+    "key": {
+      "$ref": "#/$defs/Key",
+      "description": "The key it is in."
+    },
+    "name": {
+      "description": "Shown in the exercise list.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "phrase": {
+      "$ref": "#/$defs/Phrase",
+      "description": "What to play."
+    },
+    "rig": {
+      "description": "The rig it is heard through, the example and your input both, by its file's name less `.rig.json`; none is dry.",
+      "minLength": 1,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "style": {
+      "description": "The style it is for: `Metal`, `Blues`, `Beginner`…",
+      "minLength": 1,
+      "type": "string"
+    },
+    "teaches": {
+      "$ref": "#/$defs/Teaches",
+      "description": "What it teaches, which the list sorts by."
+    },
+    "tempo": {
+      "$ref": "#/$defs/TempoLadder",
+      "description": "Where to start, the goal and the step between."
+    },
+    "timeSignature": {
+      "$ref": "#/$defs/Meter",
+      "default": {
+        "denominator": 4,
+        "numerator": 4
+      },
+      "description": "The meter it is counted in."
+    },
+    "tuning": {
+      "description": "The open strings from the lowest to the highest, as MIDI notes; left out, standard tuning for six strings, or four on a bass.",
+      "items": {
+        "format": "uint8",
+        "maximum": 127,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "maxItems": 8,
+      "minItems": 4,
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "version": {
+      "description": "The format version, 1.",
+      "format": "uint32",
+      "maximum": 1,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version",
+    "name",
+    "instrument",
+    "teaches",
+    "style",
+    "instructions",
+    "key",
+    "tempo",
+    "phrase"
+  ],
+  "title": "Cantina exercise",
+  "type": "object"
+}

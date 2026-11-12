@@ -1,14 +1,15 @@
 //! `cantina-cli`: everything Cantina reads, checked, rendered and listed
 //! without the app, a window, a microphone or a person listening.
 //!
-//! - [`check()`] validates a pedal, kit, kit recipe, pattern, tab, rig, jam or project
+//! - [`check()`] validates a pedal, kit, kit recipe, pattern, tab, rig, jam, exercise or project
 //!   against its JSON Schema and then against the rules the app enforces
 //!   beyond it, with messages that name the node, pad or row.
 //! - [`render`](mod@render) runs a pedal over a guitar DI, a tone or a WAV through the
 //!   same compiled processor the app builds, or plays a pattern through a
 //!   kit on the app's own sequencer and sampler, and measures the result.
 //!   A rig plays a guitar or bass DI through its chain, built as the app
-//!   builds it ([`rig`](mod@rig)).
+//!   builds it ([`rig`](mod@rig)), and an exercise plays its phrase on the
+//!   tab voice's plucked strings through its rig.
 //! - [`synth`](mod@synth) turns a kit recipe into a kit folder.
 //! - [`kinds_table`] and [`Format::schema`] print the node catalog and
 //!   the schemas.
@@ -55,11 +56,14 @@ pub enum Format {
     Rig,
     /// A jam, `<name>.jam.json`: drums, a backing and a rig to practice with.
     Jam,
+    /// An exercise, `<name>.exercise.json`: a phrase to practice, its
+    /// tempos, rig and groove.
+    Exercise,
 }
 
 impl Format {
     /// Every format.
-    pub const ALL: [Format; 8] = [
+    pub const ALL: [Format; 9] = [
         Format::Pedal,
         Format::Kit,
         Format::KitRecipe,
@@ -68,6 +72,7 @@ impl Format {
         Format::Project,
         Format::Rig,
         Format::Jam,
+        Format::Exercise,
     ];
 
     /// The name messages and schema files use.
@@ -81,6 +86,7 @@ impl Format {
             Format::Project => "project",
             Format::Rig => "rig",
             Format::Jam => "jam",
+            Format::Exercise => "exercise",
         }
     }
 
@@ -95,6 +101,7 @@ impl Format {
             Format::Project => cantina_project::schema::project(),
             Format::Rig => cantina_project::schema::rig(),
             Format::Jam => cantina_project::schema::jam(),
+            Format::Exercise => cantina_project::schema::exercise(),
         }
     }
 
@@ -127,6 +134,7 @@ impl Format {
             (".recipe.json", Format::KitRecipe),
             (".rig.json", Format::Rig),
             (".jam.json", Format::Jam),
+            (".exercise.json", Format::Exercise),
             ("kit.json", Format::Kit),
             ("project.json", Format::Project),
         ];
@@ -142,7 +150,8 @@ impl Format {
             .ok_or_else(|| {
                 format!(
                     "cannot tell what {} is; name it *.pedal.json, *.pattern.json, *.tab.json, \
-                     *.recipe.json, *.rig.json, *.jam.json, kit.json or project.json, or pass --as",
+                     *.recipe.json, *.rig.json, *.jam.json, *.exercise.json, kit.json or \
+                     project.json, or pass --as",
                     path.display()
                 )
             })
@@ -172,6 +181,8 @@ impl Format {
             Some(Format::Pattern)
         } else if has("chain") && has("instrument") {
             Some(Format::Rig)
+        } else if has("phrase") {
+            Some(Format::Exercise)
         } else if has("drums") && has("tempo") {
             Some(Format::Jam)
         } else if has("tuning") {
@@ -317,6 +328,10 @@ mod tests {
         assert_eq!(
             Format::sniff(&json!({"instrument": "bass", "chain": []})),
             Some(Format::Rig)
+        );
+        assert_eq!(
+            Format::sniff(&json!({"phrase": {}, "drums": {}, "tempo": {}})),
+            Some(Format::Exercise)
         );
         assert_eq!(Format::sniff(&json!({"what": 1})), None);
     }

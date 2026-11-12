@@ -1,0 +1,17 @@
+---
+title: "Exercise schema"
+description: "Every field of a .exercise.json exercise, generated from exercise.schema.json."
+---
+
+import Schema from '../../../../components/Schema.astro';
+
+Something to practice, as a file of its own, `<id>.exercise.json`. See
+the [exercise format](/reference/exercise-format/) for how its phrase,
+strum, rig and groove are written.
+
+This page is generated from the schema when the site is built. The schema
+cannot say which rigs, grooves and kits are installed or whether each
+chord has a fret for every string;
+[`cantina-cli check`](/reference/cli/#check) does.
+
+<Schema name="exercise" />

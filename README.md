@@ -168,6 +168,7 @@ everything, in three parts:
   [pedal](https://cantina-docs.vibeproject.workers.dev/reference/pedal-format/),
   [rig](https://cantina-docs.vibeproject.workers.dev/reference/rig-format/),
   [jam](https://cantina-docs.vibeproject.workers.dev/reference/jam-format/),
+  [exercise](https://cantina-docs.vibeproject.workers.dev/reference/exercise-format/),
   [kit](https://cantina-docs.vibeproject.workers.dev/reference/kit-format/) and
   [tab](https://cantina-docs.vibeproject.workers.dev/reference/tab-format/)
   formats and their schemas, the

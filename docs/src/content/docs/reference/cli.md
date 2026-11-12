@@ -1,11 +1,12 @@
 ---
 title: "Command line"
-description: "cantina-cli checks, renders and lists everything Cantina reads, without the app: pedals, kits, kit recipes, patterns, tabs, rigs, jams and projects."
+description: "cantina-cli checks, renders and lists everything Cantina reads, without the app: pedals, kits, kit recipes, patterns, tabs, rigs, jams, exercises and projects."
 ---
 
 `cantina-cli` proves a file works without a window, a microphone or anyone
 listening. It checks a file against its schema and the app's rules, renders
-a pedal, a rig or a pattern through the same processors the app builds, and
+a pedal, a rig, a pattern or an exercise through the same processors the
+app builds, and
 prints the node catalog and the schemas. It is built from `crates/cli` in
 the repository:
 
@@ -35,14 +36,17 @@ cantina-cli check <file or folder> [--as <format>] [--kit <dir>] [--kits <dir>].
 Validates a pedal (`*.pedal.json`), a kit (a folder with `kit.json`), a kit
 recipe (`*.recipe.json`), a pattern (`*.pattern.json`), a tab
 (`*.tab.json`), a [rig](/reference/rig-format/) (`*.rig.json`), a
-[jam](/reference/jam-format/) (`*.jam.json`) or a project (a folder with
-`project.json`). The format comes from the name, then a `$schema` field,
-then the keys; `--as pedal|kit|kit-recipe|pattern|tab|rig|jam|project`
+[jam](/reference/jam-format/) (`*.jam.json`), an
+[exercise](/reference/exercise-format/) (`*.exercise.json`) or a project
+(a folder with `project.json`). The format comes from the name, then a
+`$schema` field, then the keys;
+`--as pedal|kit|kit-recipe|pattern|tab|rig|jam|exercise|project`
 overrides it.
 
 First the file is checked against its [schema](/schemas/pedal.schema.json),
 with each problem at its JSON pointer and, inside a pedal, the node's id
-and kind:
+and kind. Inside a jam's backing or an exercise's phrase, the problems
+are those of the `kind` it names:
 
 ```text
 invalid pedal: bad.pedal.json
@@ -76,6 +80,16 @@ Then the rules beyond the schema, the ones the app enforces:
   audio file that is not installed, and a pattern pad the kit lacks are
   warnings. Its rigs are built as `check` builds a rig. The summary names
   the groove, kit, tempo, key, sections and backing.
+- **Exercise**: its tempo ladder climbs (the goal not below the start,
+  the step above 0 and no more than the distance), its count-in, meter,
+  key and tuning are ones Cantina plays, every note and chord fret is on
+  a 24-fret neck above the capo, every chord has a fret or `null` for
+  each string, and its strum reads. A rig or groove that is not installed
+  fails it, unlike a jam; its rig is built as `check` builds a rig. A kit
+  that is not installed, a rig for the other instrument and a tempo
+  ladder that never reaches the groove's range are warnings. The summary
+  names the style, instrument, what it teaches, the phrase, the ladder,
+  the rig and the groove.
 - **Project**: every pedal in a chain is a stock pedal, a plugin, or a
   designed pedal whose `pedals/<id>.pedal.json` is in the project and
   compiles; each drum track's kit is found (in `--kits`, then
@@ -116,7 +130,10 @@ ok
 
 A peak above 0 dBFS is runaway gain; a DC offset beyond a few thousandths
 is an asymmetric curve without a high-pass after it; silence or samples
-that are not numbers fail the render with status 1.
+that are not numbers fail the render with status 1. `--json` prints the
+same numbers on stdout as `frames`, `channels`, `sampleRate`, `seconds`,
+`peakDb`, `rmsDb`, `dcOffset`, `clipped`, `nonFinite`, `silent`,
+`latency` and the `file` written.
 
 Each stock pedal rendered this way matches the golden files the dsp crate
 is tested against, so the CLI hears what the app plays.
@@ -150,6 +167,20 @@ Plays a pattern through a kit on the app's own sequencer and sampler, in
 same numbers. Rows for pads the kit lacks are left out, as the app does,
 with a warning naming them.
 
+## render exercise
+
+```sh
+cantina-cli render exercise <file> [--bpm <start>] [--passes 1] [--dry]
+    [--irs <dir>]... [--pedals <dir>]... [--tail 1] [-o out.wav] [--json]
+```
+
+Plays an exercise's phrase on the plucked strings that play tabs in the
+app, its chords strummed as written, for a number of passes of its loop
+at its start tempo or `--bpm`, then through its rig (`--dry` leaves the
+rig out) with a tail for the notes and the rig to ring. The numbers are
+the same as for a pedal; through a stock rig a phrase sits near -21 dBFS
+RMS, as the rigs' DI does.
+
 ## synth-kit
 
 ```sh
@@ -164,7 +195,7 @@ the result. The same recipe always writes the same bytes.
 
 ```sh
 cantina-cli kinds [--json]
-cantina-cli schema <pedal|kit|kit-recipe|pattern|tab|rig|project>
+cantina-cli schema <pedal|kit|kit-recipe|pattern|tab|rig|jam|exercise|project>
 ```
 
 `kinds` prints the pedal node catalog: every kind, its fields with ranges,

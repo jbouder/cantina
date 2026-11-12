@@ -11,7 +11,8 @@
 //! UPDATE_SCHEMAS=1 cargo test -p cantina-project schemas
 //! ```
 //!
-//! regenerates them all (pedal, kit, kit recipe, pattern, tab, rig and project), and
+//! regenerates them all (pedal, kit, kit recipe, pattern, tab, rig, jam,
+//! exercise and project), and
 //! the same test fails when any is stale.
 
 use serde_json::{json, Value};
@@ -211,6 +212,72 @@ pub fn jam() -> Value {
     s
 }
 
+/// The schema for a `<name>.exercise.json`: something to practice.
+/// Whether its rig, groove and kit are installed, and each chord's
+/// string count against the tuning, are left to `cantina-cli check`.
+pub fn exercise() -> Value {
+    let mut s = schemars::schema_for!(crate::Exercise).to_value();
+    s["$id"] = json!(format!("{SITE}/exercise.schema.json"));
+    s["title"] = json!("Cantina exercise");
+    s["description"] = json!(
+        "Something to practice: a phrase to play (notes in the tab format's terms, or chord \
+         shapes with a strum), what it teaches, a style, instructions, a tempo ladder from a \
+         start to a goal, a count-in, a key, the rig it is heard through (named by its file \
+         less `.rig.json`) and a stock groove to play it over (named by its genre)."
+    );
+    let (slow, fast) = crate::JAM_TEMPO;
+    let fretboard = crate::FRETBOARD;
+    let props = &mut s["properties"];
+    props["$schema"] = json!({ "type": "string" });
+    props["version"]["minimum"] = json!(1);
+    props["version"]["maximum"] = json!(crate::EXERCISE_VERSION);
+    for field in ["name", "style", "instructions"] {
+        props[field]["minLength"] = json!(1);
+    }
+    props["countIn"]["maximum"] = json!(crate::MAX_COUNT_IN);
+    props["capo"]["maximum"] = json!(fretboard - 1);
+    props["bars"]["minimum"] = json!(1);
+    props["rig"]["minLength"] = json!(1);
+    let tuning = &mut props["tuning"];
+    tuning["minItems"] = json!(4);
+    tuning["maxItems"] = json!(8);
+    tuning["items"]["maximum"] = json!(127);
+    let defs = &mut s["$defs"];
+    let ladder = &mut defs["TempoLadder"]["properties"];
+    for field in ["start", "goal"] {
+        ladder[field]["minimum"] = json!(slow);
+        ladder[field]["maximum"] = json!(fast);
+    }
+    ladder["step"]["exclusiveMinimum"] = json!(0);
+    defs["Key"]["properties"]["tonic"]["pattern"] = json!("^[A-Ga-g][#b♯♭]*$");
+    let meter = &mut defs["Meter"]["properties"];
+    meter["numerator"]["minimum"] = json!(1);
+    meter["numerator"]["maximum"] = json!(16);
+    meter["denominator"]["enum"] = json!([2, 4, 8, 16]);
+    let drums = &mut defs["ExerciseDrums"]["properties"];
+    drums["kit"]["minLength"] = json!(1);
+    drums["groove"]["minLength"] = json!(1);
+    drums["levelDb"]["minimum"] = json!(-60);
+    drums["levelDb"]["maximum"] = json!(12);
+    let chord = &mut defs["ChordShape"]["properties"];
+    chord["name"]["minLength"] = json!(1);
+    chord["frets"]["minItems"] = json!(4);
+    chord["frets"]["maxItems"] = json!(8);
+    chord["frets"]["items"]["maximum"] = json!(fretboard);
+    chord["fingers"]["items"]["maximum"] = json!(4);
+    chord["length"]["minimum"] = json!(1);
+    let strum = &mut defs["Strum"]["properties"];
+    strum["pattern"]["pattern"] = json!("^[DUx\\- ]*[DUx][DUx\\- ]*$");
+    strum["stepsPerBeat"]["enum"] = json!(crate::STRUM_STEPS);
+    limit_tab_defs(defs);
+    defs["TabNote"]["properties"]["fret"]["maximum"] = json!(fretboard);
+    if let Some(d) = defs.as_object_mut() {
+        d.remove("HeardNote");
+    }
+    tidy(&mut s);
+    s
+}
+
 /// A usable tempo and time signature.
 fn limit_tempo(defs: &mut Value) {
     let t = &mut defs["Tempo"]["properties"];
@@ -242,7 +309,10 @@ fn limit_tab_defs(defs: &mut Value) {
     let bend = &mut defs["Bend"]["properties"];
     bend["semitones"]["exclusiveMinimum"] = json!(0);
     bend["semitones"]["maximum"] = json!(MAX_BEND);
-    let heard = &mut defs["HeardNote"]["properties"];
+    let Some(heard) = defs.get_mut("HeardNote") else {
+        return;
+    };
+    let heard = &mut heard["properties"];
     heard["pitch"]["maximum"] = json!(127);
     heard["onset"]["minimum"] = json!(0);
     heard["length"]["exclusiveMinimum"] = json!(0);
@@ -319,7 +389,7 @@ mod tests {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
     }
 
-    fn all() -> [(&'static str, Value); 8] {
+    fn all() -> [(&'static str, Value); 9] {
         [
             ("pedal", cantina_dsp::schema::pedal()),
             ("kit", cantina_dsp::schema::kit()),
@@ -329,6 +399,7 @@ mod tests {
             ("project", project()),
             ("rig", rig()),
             ("jam", jam()),
+            ("exercise", exercise()),
         ]
     }
 
@@ -368,7 +439,10 @@ mod tests {
 
     fn files(dir: &Path, suffix: &str) -> Vec<PathBuf> {
         let mut out = Vec::new();
-        for entry in std::fs::read_dir(dir).unwrap() {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return out;
+        };
+        for entry in entries {
             let path = entry.unwrap().path();
             if path.is_dir() {
                 out.extend(files(&path, suffix));
@@ -382,7 +456,7 @@ mod tests {
 
     #[test]
     fn schemas_every_stock_file_validates() {
-        let [pedal, kit, recipe, pattern_s, tab_s, project_s, rig_s, jam_s] =
+        let [pedal, kit, recipe, pattern_s, tab_s, project_s, rig_s, jam_s, exercise_s] =
             all().map(|(_, s)| validator(&s));
         let pedals = files(&root().join("pedals"), ".pedal.json");
         assert!(!pedals.is_empty(), "no stock pedals found");
@@ -406,6 +480,17 @@ mod tests {
             assert_valid(&jam_s, j);
             crate::jam_from_json(&std::fs::read_to_string(j).unwrap())
                 .unwrap_or_else(|e| panic!("{}: {e:?}", j.display()));
+        }
+        let mut exercises = files(&root().join("exercises"), ".exercise.json");
+        exercises.extend(files(
+            &root().join(".claude/skills/cantina-author"),
+            ".exercise.json",
+        ));
+        assert!(!exercises.is_empty(), "no exercises found");
+        for e in &exercises {
+            assert_valid(&exercise_s, e);
+            crate::exercise_from_json(&std::fs::read_to_string(e).unwrap())
+                .unwrap_or_else(|p| panic!("{}: {p:?}", e.display()));
         }
         let v10 = root().join("crates/project/tests/fixtures/v10.json");
         assert_valid(&project_s, &v10);
@@ -474,6 +559,43 @@ mod tests {
             *t.pointer_mut(pointer).unwrap() = bad;
             assert!(!v.is_valid(&t), "{pointer} accepted {t}");
             assert!(crate::tab_from_json(&t.to_string()).is_err(), "{pointer}");
+        }
+    }
+
+    #[test]
+    fn schemas_catch_what_exercise_validate_catches() {
+        let v = validator(&exercise());
+        let good = json!({ "version": 1, "name": "E", "instrument": "guitar",
+            "teaches": "chord", "style": "Beginner", "instructions": "Strum it.",
+            "key": { "tonic": "E", "mode": "major" },
+            "tempo": { "start": 60, "goal": 90, "step": 5 }, "countIn": 1,
+            "drums": { "kit": "rock", "groove": "Rock", "levelDb": 0 },
+            "phrase": { "kind": "chords", "chords": [{ "name": "E",
+                "frets": [0, 2, 2, 1, 0, null], "start": 0, "length": 3840 }],
+                "strum": { "pattern": "D-DU", "stepsPerBeat": 2 } } });
+        assert!(v.is_valid(&good));
+        crate::exercise_from_json(&good.to_string()).unwrap();
+        for (pointer, bad) in [
+            ("/teaches", json!("sight-reading")),
+            ("/name", json!("")),
+            ("/tempo/start", json!(10)),
+            ("/tempo/step", json!(0)),
+            ("/countIn", json!(9)),
+            ("/key/tonic", json!("H")),
+            ("/phrase/chords/0/frets/1", json!(25)),
+            ("/phrase/chords/0/length", json!(0)),
+            ("/phrase/strum/pattern", json!("DZ")),
+            ("/phrase/strum/pattern", json!("--")),
+            ("/phrase/strum/stepsPerBeat", json!(5)),
+            ("/drums/levelDb", json!(20)),
+        ] {
+            let mut e = good.clone();
+            *e.pointer_mut(pointer).unwrap() = bad;
+            assert!(!v.is_valid(&e), "{pointer} accepted {e}");
+            assert!(
+                crate::exercise_from_json(&e.to_string()).is_err(),
+                "{pointer}"
+            );
         }
     }
 

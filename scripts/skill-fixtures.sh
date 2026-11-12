@@ -11,6 +11,8 @@
 # Kit recipes: check, synthesize and check the kit that comes out.
 # Rigs: check, then render over their instrument's DI, judged as pedals are.
 # Jams: check, with no warnings: every groove, kit and rig they name is stock.
+# Exercises: check, with no warnings, then render through their rig,
+# judged as pedals are.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -29,10 +31,12 @@ fail() {
 while IFS= read -r file; do
   rel="${file#"$root"/}"
   case "$file" in
-    *.pedal.json | *.rig.json)
-      "$cli" check "$file" >/dev/null || { fail "$rel" "check"; continue; }
+    *.pedal.json | *.rig.json | *.exercise.json)
+      out="$("$cli" check "$file")" || { fail "$rel" "check"; continue; }
+      if grep -q "^warning" <<<"$out"; then fail "$rel" "warnings: $out"; continue; fi
       case "$file" in
         *.rig.json) what=(render rig "$file") ;;
+        *.exercise.json) what=(render exercise "$file") ;;
         *) what=(render pedal "$file" --di) ;;
       esac
       if ! out="$("$cli" "${what[@]}" --json -o "$work/out.wav")"; then
