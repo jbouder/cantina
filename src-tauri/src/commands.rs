@@ -715,6 +715,57 @@ pub fn jam_tempo(engine: State<'_, EngineState>, bpm: f64) -> Result<EngineStatu
     engine.lock().jam_tempo(bpm).map_err(fail)
 }
 
+// ----- the drum designer -----
+
+/// Opens the drum designer on a drum track: a copy of its part is heard
+/// in place of the project.
+#[tauri::command]
+pub fn drum_design_open(
+    engine: State<'_, EngineState>,
+    track: u64,
+) -> Result<EngineStatus, String> {
+    engine
+        .lock()
+        .drum_design_open(cantina_project::TrackId(track))
+        .map_err(fail)
+}
+
+/// Closes the drum designer: the project is heard again.
+#[tauri::command]
+pub fn drum_design_close(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().drum_design_close().map_err(fail)
+}
+
+/// Replaces the designer's part.
+#[tauri::command]
+pub fn drum_design_set(
+    engine: State<'_, EngineState>,
+    part: cantina_project::DrumPart,
+) -> Result<EngineStatus, String> {
+    engine.lock().drum_design_set(part).map_err(fail)
+}
+
+/// Plays a section, or the whole order, on loop in the designer.
+#[tauri::command]
+pub fn drum_design_plays(
+    engine: State<'_, EngineState>,
+    plays: crate::engine::DesignPlays,
+) -> Result<EngineStatus, String> {
+    engine.lock().drum_design_plays(plays).map_err(fail)
+}
+
+/// Plays the designer's part from the top of its loop.
+#[tauri::command]
+pub fn drum_design_play(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().drum_design_play().map_err(fail)
+}
+
+/// Stops the designer's part.
+#[tauri::command]
+pub fn drum_design_stop(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().drum_design_stop().map_err(fail)
+}
+
 /// Replaces a track's chain with a rig's, as one undoable edit.
 #[tauri::command]
 pub fn rig_apply(

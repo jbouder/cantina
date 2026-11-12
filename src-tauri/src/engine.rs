@@ -66,6 +66,11 @@ use jam_engine::JamSession;
 pub use jam_engine::PracticeOptions;
 pub use jam_engine::{JamStatus, JamTrackInfo, KeepInto};
 
+#[path = "engine_drums.rs"]
+mod drums_engine;
+use drums_engine::DrumDesign;
+pub use drums_engine::{DesignPlays, DrumDesignStatus};
+
 /// Event name for status pushes to the UI.
 pub const STATUS_EVENT: &str = "engine://status";
 
@@ -143,6 +148,9 @@ pub struct EngineStatus {
     /// The exercise, while practice is open. Practice is jam mode with an
     /// exercise's phrase for the backing, so `jam` is there too.
     pub practicing: Option<jam_engine::PracticeStatus>,
+    /// The drum designer, while it is open. Session state: the part is
+    /// not the project's until it is placed.
+    pub drum_design: Option<DrumDesignStatus>,
 }
 
 /// A rig heard on a track's live input in place of its chain. Mirrors
@@ -2354,6 +2362,9 @@ pub struct Engine {
     drum_rows: RowMixes,
     /// The jam heard in place of the project while jam mode is open.
     jam: Option<JamSession>,
+    /// The part heard in place of the project while the drum designer
+    /// is open.
+    drum_design: Option<DrumDesign>,
     recording: Vec<Recording>,
     last_error: Option<String>,
     notice: Option<String>,
@@ -2664,6 +2675,7 @@ impl Engine {
             rig_audition: None,
             drum_rows: RowMixes::new(),
             jam: None,
+            drum_design: None,
             recording: Vec::new(),
             last_error,
             notice: None,
@@ -2840,6 +2852,7 @@ impl Engine {
                 .collect(),
             jam: self.jam_status(),
             practicing: self.practice_status(),
+            drum_design: self.design_status(),
         }
     }
 
@@ -3462,8 +3475,9 @@ impl Engine {
     /// Parameter and arm changes go over the queue; everything else
     /// resyncs the structure.
     fn react(&mut self, command: &Command) -> Result<()> {
-        // A jam is heard in place of the project; edits wait for it to close.
-        if self.jam.is_some() {
+        // A jam or the drum designer is heard in place of the project;
+        // edits wait for it to close.
+        if self.jam.is_some() || self.drum_design.is_some() {
             return Ok(());
         }
         let Some(live) = &mut self.live else {
@@ -3545,18 +3559,24 @@ impl Engine {
         let scores = self.jam_scores();
         let voices = self.jam_voices();
         let jam_map = self.jam_tempo_map();
+        let design_loop = self.design_loop();
+        let designing = self.drum_design.is_some();
         let Some(live) = &mut self.live else {
             return Ok(());
         };
-        // The loop, when it is on, wraps the transport; a jam never loops.
-        let looping = self
-            .project
-            .loop_region
-            .filter(|r| r.on && jam_map.is_none())
-            .map(|r| LoopRange {
-                start: r.start,
-                end: r.end,
-            });
+        // The loop, when it is on, wraps the transport; a jam never loops,
+        // and the drum designer loops its part.
+        let looping = if designing {
+            design_loop
+        } else {
+            self.project
+                .loop_region
+                .filter(|r| r.on && jam_map.is_none())
+                .map(|r| LoopRange {
+                    start: r.start,
+                    end: r.end,
+                })
+        };
         if live.transport().loop_range() != looping {
             live.transport().set_loop(looping);
         }
@@ -3595,7 +3615,7 @@ impl Engine {
 
     /// Sends every drum track its score after a pattern edit.
     fn refresh_scores(&mut self) -> Result<()> {
-        if self.jam.is_some() {
+        if self.jam.is_some() || self.drum_design.is_some() {
             return Ok(());
         }
         let Some(live) = &mut self.live else {
@@ -3636,6 +3656,9 @@ impl Engine {
     fn heard_project(&self) -> Option<Project> {
         if self.jam.is_some() {
             return self.jam_project();
+        }
+        if self.drum_design.is_some() {
+            return self.design_project();
         }
         let a = self.rig_audition.as_ref().filter(|a| a.hearing_rig)?;
         let mut project = self.project.clone();
@@ -5336,6 +5359,9 @@ impl Engine {
             .collect();
         if self.jam.is_some() {
             bail!("leave the jam before recording");
+        }
+        if self.drum_design.is_some() {
+            bail!("close the drum designer before recording");
         }
         if armed.is_empty() {
             bail!("arm a track before recording");

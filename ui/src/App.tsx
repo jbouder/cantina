@@ -4,6 +4,7 @@ import { Button } from "./components/Button";
 import { Designer } from "./components/Designer";
 import { Divider } from "./components/Divider";
 import { Droid } from "./components/Droid";
+import { type DesignerHandle, DrumDesigner } from "./components/DrumDesigner";
 import { Editor, isEditorTab } from "./components/Editor";
 import { EngineControl } from "./components/EngineControl";
 import { ExportSheet } from "./components/ExportSheet";
@@ -46,6 +47,8 @@ import {
   countInSet,
   designerNew,
   dismissNotice,
+  drumDesignClose,
+  drumDesignOpen,
   type EngineStatus,
   engineStart,
   engineStatus,
@@ -351,6 +354,11 @@ export function App() {
       practiceOpen().then(setStatus, (e) => setError(String(e)));
       return;
     }
+    // `?drumdesign` (with `?drums`) opens the drum designer on the drum track.
+    if (params?.has("drumdesign")) {
+      drumDesignOpen(10).then(setStatus, (e) => setError(String(e)));
+      return;
+    }
     engineStatus().then(setStatus, (e) => setError(String(e)));
   }, []);
 
@@ -492,6 +500,18 @@ export function App() {
     [],
   );
   const rolling = frame.playing || frame.recording;
+  // The drum designer: the engine says whether it is open.
+  const drumDesigning = status?.drumDesign != null;
+  const designerHandle = useRef<DesignerHandle | null>(null);
+  const openDrumDesigner = useCallback((track: number) => {
+    setStageOpen(false);
+    setPerforming(false);
+    setDesigning(null);
+    drumDesignOpen(track).then(setStatus, (e) => setError(String(e)));
+  }, []);
+  const closeDrumDesigner = useCallback(() => {
+    drumDesignClose().then(setStatus, (e) => setError(String(e)));
+  }, []);
   const hasClips =
     status !== null &&
     (status.audition !== null ||
@@ -595,19 +615,38 @@ export function App() {
     revealProject: { enabled: has, run: () => reveal("project").catch(failed) },
     revealLibrary: { enabled: has, run: () => reveal("library").catch(failed) },
     // In a text field ⌘Z is the field's own undo.
+    // In the drum designer, ⌘Z steps through the designer's own history.
     undo: {
-      enabled: typing || (status?.project.undoLabel ?? null) !== null,
-      label: typing ? "Undo" : editTitle("Undo", status?.project.undoLabel ?? null),
+      enabled:
+        typing ||
+        (drumDesigning
+          ? (designerHandle.current?.canUndo ?? false)
+          : (status?.project.undoLabel ?? null) !== null),
+      label: typing
+        ? "Undo"
+        : drumDesigning
+          ? "Undo in the Designer"
+          : editTitle("Undo", status?.project.undoLabel ?? null),
       run: () => {
         if (isTyping(document.activeElement)) document.execCommand("undo");
+        else if (drumDesigning) designerHandle.current?.undo();
         else report(projectUndo());
       },
     },
     redo: {
-      enabled: typing || (status?.project.redoLabel ?? null) !== null,
-      label: typing ? "Redo" : editTitle("Redo", status?.project.redoLabel ?? null),
+      enabled:
+        typing ||
+        (drumDesigning
+          ? (designerHandle.current?.canRedo ?? false)
+          : (status?.project.redoLabel ?? null) !== null),
+      label: typing
+        ? "Redo"
+        : drumDesigning
+          ? "Redo in the Designer"
+          : editTitle("Redo", status?.project.redoLabel ?? null),
       run: () => {
         if (isTyping(document.activeElement)) document.execCommand("redo");
+        else if (drumDesigning) designerHandle.current?.redo();
         else report(projectRedo());
       },
     },
@@ -625,15 +664,24 @@ export function App() {
       run: () => timelineEdit.current?.splitAtPlayhead(),
     },
     play: {
-      enabled: running && (jamming || practicing || rolling || hasClips),
+      enabled: running && (drumDesigning || jamming || practicing || rolling || hasClips),
       label: rolling || frame.countIn > 0 ? "Stop" : "Play",
       run: () => {
-        if (jamming || practicing) report(rolling || frame.countIn > 0 ? jamStop() : jamPlay());
+        if (drumDesigning) designerHandle.current?.togglePlay();
+        else if (jamming || practicing)
+          report(rolling || frame.countIn > 0 ? jamStop() : jamPlay());
         else report(rolling ? transportStop() : transportPlay());
       },
     },
     record: {
-      enabled: has && !jamming && !practicing && !rolling && !busy && tracks.some((t) => !t.kit),
+      enabled:
+        has &&
+        !drumDesigning &&
+        !jamming &&
+        !practicing &&
+        !rolling &&
+        !busy &&
+        tracks.some((t) => !t.kit),
       run: () => void recordNow(),
     },
     countIn: {
@@ -743,10 +791,11 @@ export function App() {
         setPerforming(false);
         setDesigning(null);
         if (jamming || practicing) leaveJam();
+        if (drumDesigning) designerHandle.current?.leave();
       },
     },
     jam: {
-      enabled: has && !frame.recording,
+      enabled: has && !frame.recording && !drumDesigning,
       checked: jamming,
       run: () => {
         setStartOpen(false);
@@ -755,7 +804,7 @@ export function App() {
       },
     },
     practice: {
-      enabled: has && !frame.recording,
+      enabled: has && !frame.recording && !drumDesigning,
       checked: practicing,
       run: () => {
         setStartOpen(false);
@@ -770,6 +819,24 @@ export function App() {
         if (!selected) return;
         const designed = selected.chain.find((p) => p.spec.startsWith("pedal:"));
         design(designed?.id ?? null, selected.id);
+      },
+    },
+    // The selected drum track, or the first one.
+    drumDesigner: {
+      enabled:
+        has &&
+        !frame.recording &&
+        (drumDesigning || tracks.some((t) => t.kit)) &&
+        !jamming &&
+        !practicing,
+      checked: drumDesigning,
+      run: () => {
+        if (drumDesigning) {
+          designerHandle.current?.leave();
+          return;
+        }
+        const drums = selected?.kit ? selected : tracks.find((t) => t.kit);
+        if (drums) openDrumDesigner(drums.id);
       },
     },
     stage: { enabled: has, run: () => setStageOpen(true) },
@@ -877,7 +944,7 @@ export function App() {
             aria-label="Jam"
             title="Jam (J)"
             aria-pressed={jamming}
-            disabled={!status || frame.recording}
+            disabled={!status || frame.recording || drumDesigning}
             onClick={() => (jamming ? leaveJam() : openJam())}
             square
           >
@@ -912,43 +979,45 @@ export function App() {
         </>
       }
       status={
-        status && practicing
-          ? `Space plays · ↑ ↓ climb the tempo ladder · L loops · G turns the groove on or off. Practice never edits ${status.project.name}.`
-          : status && jamming
-            ? `Space plays · 1 to 6 change section at the next bar · ↑ ↓ tempo · T taps it · Return keeps your playing. Jamming never edits ${status.project.name}.`
-            : status && transport
-              ? (() => {
-                  const step = nextStep(
-                    transport,
-                    status.project.tracks,
-                    frame.countIn,
-                    running,
-                    selected?.id ?? null,
-                  );
-                  const action = step.action;
-                  return (
-                    <span className="flex items-center gap-2">
-                      <span className="min-w-0 truncate">{step.text}</span>
-                      {action?.kind === "start" ? (
-                        <Button tier="quiet" disabled={busy} onClick={toggle}>
-                          Turn audio on
-                        </Button>
-                      ) : action?.kind === "arm" ? (
-                        <Button
-                          tier="quiet"
-                          onClick={() =>
-                            trackArm(action.track.id, true).then(setStatus, (e) =>
-                              setError(String(e)),
-                            )
-                          }
-                        >
-                          Arm {action.track.name}
-                        </Button>
-                      ) : null}
-                    </span>
-                  );
-                })()
-              : null
+        status && drumDesigning
+          ? `Space plays the loop · ⌘Z undoes in the designer. Nothing reaches ${status.project.name} until the part is placed.`
+          : status && practicing
+            ? `Space plays · ↑ ↓ climb the tempo ladder · L loops · G turns the groove on or off. Practice never edits ${status.project.name}.`
+            : status && jamming
+              ? `Space plays · 1 to 6 change section at the next bar · ↑ ↓ tempo · T taps it · Return keeps your playing. Jamming never edits ${status.project.name}.`
+              : status && transport
+                ? (() => {
+                    const step = nextStep(
+                      transport,
+                      status.project.tracks,
+                      frame.countIn,
+                      running,
+                      selected?.id ?? null,
+                    );
+                    const action = step.action;
+                    return (
+                      <span className="flex items-center gap-2">
+                        <span className="min-w-0 truncate">{step.text}</span>
+                        {action?.kind === "start" ? (
+                          <Button tier="quiet" disabled={busy} onClick={toggle}>
+                            Turn audio on
+                          </Button>
+                        ) : action?.kind === "arm" ? (
+                          <Button
+                            tier="quiet"
+                            onClick={() =>
+                              trackArm(action.track.id, true).then(setStatus, (e) =>
+                                setError(String(e)),
+                              )
+                            }
+                          >
+                            Arm {action.track.name}
+                          </Button>
+                        ) : null}
+                      </span>
+                    );
+                  })()
+                : null
       }
       meters={
         metersShown ? (
@@ -996,7 +1065,16 @@ export function App() {
             ) : null}
           </Toasts>
 
-          {status && practicing ? (
+          {status && drumDesigning ? (
+            <DrumDesigner
+              status={status}
+              frame={frame}
+              handle={designerHandle}
+              onClose={closeDrumDesigner}
+              onStatus={setStatus}
+              onError={setError}
+            />
+          ) : status && practicing ? (
             <PracticeView
               status={status}
               frame={frame}
@@ -1094,6 +1172,7 @@ export function App() {
                   renameRequest={renameRequest}
                   onAdd={() => setPickerOpen(true)}
                   onDesign={(pedal) => design(pedal, selected.id)}
+                  onDesignDrums={openDrumDesigner}
                   onStatus={setStatus}
                   onError={setError}
                 />

@@ -158,6 +158,11 @@
     "designer": {
       "label": "Pedal Designer"
     },
+    "drumDesigner": {
+      "label": "Drum Designer",
+      "accelerator": "CmdOrCtrl+B",
+      "checkable": true
+    },
     "stage": {
       "label": "Stage"
     },
@@ -322,6 +327,7 @@
         "jam",
         "practice",
         "designer",
+        "drumDesigner",
         "stage",
         "perform",
         "assistant",

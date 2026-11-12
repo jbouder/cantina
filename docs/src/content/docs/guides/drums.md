@@ -7,6 +7,9 @@ A drum track plays **patterns**, step grids, through a **kit** of drum
 sounds. You place a pattern on the timeline as a clip, and it follows the
 tempo.
 
+For a whole song's part, with sections and an order, open the
+[drum designer](/guides/drum-designer/): **Design…** in the Beats tab.
+
 The quick way to a beat:
 
 1. **+ Add track ▸ Drum track**, and pick a **kit** to suit the song.

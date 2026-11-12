@@ -94,6 +94,8 @@ type Props = {
   /** Opens the picker, which adds at the end of the chain. */
   onAdd: () => void;
   onDesign: (pedal: number) => void;
+  /** Opens the drum designer on a drum track. */
+  onDesignDrums?: ((track: number) => void) | undefined;
   onStatus: (status: EngineStatus) => void;
   onError: (message: string) => void;
 };
@@ -132,6 +134,7 @@ export function Editor({
   renameRequest = 0,
   onAdd,
   onDesign,
+  onDesignDrums,
   onStatus,
   onError,
 }: Props) {
@@ -362,6 +365,7 @@ export function Editor({
             tempo={tempo}
             position={position}
             playing={playing}
+            onDesign={onDesignDrums ? () => onDesignDrums(track.id) : undefined}
             onStatus={onStatus}
             onError={onError}
           />
