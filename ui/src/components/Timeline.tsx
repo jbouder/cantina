@@ -72,11 +72,11 @@ import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { MasterHeader, TrackHeader } from "./TrackHeader";
 
 /**
- * A dashed slot under the last track header, as Add a pedal is at the end
- * of a chain: where the next track goes.
+ * The dashed slot under the last track header, as Add a pedal is at the
+ * end of a chain: where the next track goes. It opens a menu of the kinds.
  */
 const ADD_SLOT =
-  "flex cursor-pointer items-center justify-center gap-1 rounded-control border-2 border-frame-hi border-dashed bg-transparent px-2 font-bold text-ink-dim text-label hover:border-ink hover:text-ink disabled:cursor-default disabled:opacity-50 disabled:hover:border-frame-hi disabled:hover:text-ink-dim";
+  "flex w-full cursor-pointer items-center justify-center gap-1 rounded-control border-2 border-frame-hi border-dashed bg-transparent px-2 font-bold text-ink-dim text-label hover:border-ink hover:text-ink aria-expanded:border-ink aria-expanded:text-ink";
 
 /** What the transport strip above the lanes can do to the view. */
 export interface TimelineControls {
@@ -219,6 +219,8 @@ export function Timeline({
   const canvas = useRef<HTMLCanvasElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
+  // Where the Add track menu opens, under its slot; null when closed.
+  const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
   // The lanes' scrolling viewport: the canvas is at least as tall, so the
   // grid runs on through the empty room under the last track.
   const lanesView = useRef<HTMLDivElement>(null);
@@ -988,30 +990,45 @@ export function Timeline({
                 onError={onError}
               />
             ))}
-            <div className="grid grid-cols-2 gap-1 p-1" style={{ height: ADD_ROW_HEIGHT }}>
+            <div className="flex p-1" style={{ height: ADD_ROW_HEIGHT }}>
               <button
                 type="button"
-                onClick={() => run(trackAdd())}
-                title="A track that records your instrument through its pedalboard"
+                aria-haspopup="menu"
+                aria-expanded={addMenu !== null}
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setAddMenu(addMenu ? null : { x: r.left, y: r.bottom + 2 });
+                }}
+                title="Add a guitar track or a drum track"
                 className={ADD_SLOT}
               >
                 <span aria-hidden="true" className="font-lcd">
                   +
                 </span>
-                Add guitar
+                Add track
+                <svg aria-hidden="true" viewBox="0 0 16 16" className="size-2.5 fill-current">
+                  <path d="M3 6l5 5 5-5z" />
+                </svg>
               </button>
-              <button
-                type="button"
-                onClick={() => run(trackAddDrums())}
-                disabled={!hasKits}
-                title={hasKits ? "A track that plays drum patterns" : "No drum kits are installed"}
-                className={ADD_SLOT}
-              >
-                <span aria-hidden="true" className="font-lcd">
-                  +
-                </span>
-                Add drums
-              </button>
+              {addMenu ? (
+                <ContextMenu
+                  label="Add a track"
+                  x={addMenu.x}
+                  y={addMenu.y}
+                  onClose={() => setAddMenu(null)}
+                  items={[
+                    {
+                      label: "Guitar track",
+                      onSelect: () => run(trackAdd()),
+                    },
+                    {
+                      label: hasKits ? "Drum track" : "Drum track (no kits installed)",
+                      disabled: !hasKits,
+                      onSelect: () => run(trackAddDrums()),
+                    },
+                  ]}
+                />
+              ) : null}
             </div>
           </div>
           <div ref={container} className="min-w-0">
