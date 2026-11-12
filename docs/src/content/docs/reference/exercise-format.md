@@ -185,6 +185,27 @@ beginner can start at and a goal worth reaching.
 | Octaves (bass) | technique | Funk | 80 to 116 | `bass-funk` | Funk |
 | Walking blues in A (bass) | riff | Blues | 70 to 130 | `bass-clean` | Blues shuffle |
 | Root and fifth (bass) | rhythm | Beginner | 70 to 120 | `bass-clean` | Rock |
+| Power chords up the neck | change | Metal | 80 to 160 | `heavy-metal` | Heavy metal |
+| A harmonic minor | scale | Metal | 60 to 140 | `heavy-metal` | Heavy metal |
+| E Phrygian dominant | scale | Metal | 60 to 140 | `heavy-metal` | Heavy metal |
+| A legato run | technique | Metal | 60 to 140 | `heavy-metal` | Heavy metal |
+| Downpicking endurance | technique | Metal | 120 to 210 | `thrash` | Thrash |
+| Five-string sweeps | technique | Metal | 50 to 110 | `heavy-metal` | Half-time |
+| Natural harmonics at 12, 7 and 5 | technique | Metal | 60 to 100 | `heavy-metal` | Half-time |
+| Pinch harmonics | technique | Metal | 60 to 120 | `heavy-metal` | Half-time |
+| Three-string sweeps | technique | Metal | 60 to 120 | `heavy-metal` | Half-time |
+| Tremolo picking | technique | Metal | 100 to 180 | `thrash` | Thrash |
+| Two-hand tapping | technique | Metal | 70 to 130 | `heavy-metal` | Heavy metal |
+| A pedal-tone riff | riff | Metal | 100 to 170 | `heavy-metal` | Heavy metal |
+| A thrash riff with string skips | riff | Metal | 120 to 200 | `thrash` | Thrash |
+| Downpicked power chords | riff | Metal | 110 to 180 | `heavy-metal` | Heavy metal |
+| A breakdown with space, drop C | rhythm | Metal | 70 to 100 | `metalcore` | Half-time |
+| Chugs and open accents, drop D | rhythm | Metal | 100 to 160 | `metalcore` | Metalcore |
+| Djent syncopation, drop C | rhythm | Metal | 90 to 140 | `djent` | Djent |
+| Gallops | rhythm | Metal | 100 to 180 | `heavy-metal` | Heavy metal |
+| Reverse gallops | rhythm | Metal | 100 to 170 | `heavy-metal` | Heavy metal |
+| A pick-played metalcore line (bass), drop D | riff | Metal | 100 to 160 | `bass-metal` | Metalcore |
+| Locking a gallop with the kick (bass) | rhythm | Metal | 100 to 170 | `bass-metal` | Heavy metal |
 
 ## Checking and hearing one
 

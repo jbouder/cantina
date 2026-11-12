@@ -1,0 +1,68 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Pinch harmonics",
+  "instrument": "guitar",
+  "teaches": "technique",
+  "style": "Metal",
+  "instructions": "Long notes on the D and G strings, each picked as a pinch harmonic: choke up on the pick so the side of the thumb grazes the string just after the pick does, picking a little toward the neck pickup. Add wide vibrato and listen for the squeal an octave or two above the note; move the picking spot until it speaks.",
+  "key": {
+    "tonic": "E",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 120,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "heavy-metal",
+  "drums": {
+    "kit": "metal",
+    "groove": "Half-time",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 4,
+        "fret": 9,
+        "start": 0,
+        "length": 1920,
+        "vibrato": true
+      },
+      {
+        "string": 3,
+        "fret": 7,
+        "start": 1920,
+        "length": 1920,
+        "bend": {
+          "semitones": 2
+        },
+        "vibrato": true
+      },
+      {
+        "string": 4,
+        "fret": 7,
+        "start": 3840,
+        "length": 960,
+        "vibrato": true
+      },
+      {
+        "string": 4,
+        "fret": 9,
+        "start": 4800,
+        "length": 960,
+        "vibrato": true
+      },
+      {
+        "string": 3,
+        "fret": 9,
+        "start": 5760,
+        "length": 1920,
+        "vibrato": true
+      }
+    ]
+  }
+}

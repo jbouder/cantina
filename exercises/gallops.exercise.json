@@ -1,0 +1,324 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Gallops",
+  "instrument": "guitar",
+  "teaches": "rhythm",
+  "style": "Metal",
+  "instructions": "An eighth and two sixteenths on every beat, on the low E, G5, A5 and G5. Pick down, down-up, keep the palm on the bridge, and make the gallop even: the two sixteenths fit exactly in the second half of the beat, not rushed into it.",
+  "key": {
+    "tonic": "E",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 100,
+    "goal": 180,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "heavy-metal",
+  "drums": {
+    "kit": "metal",
+    "groove": "Heavy metal",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 0,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 480,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 720,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 960,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 960,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 1440,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 1440,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 1680,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 1680,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 5,
+        "start": 1920,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 7,
+        "start": 1920,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 5,
+        "start": 2400,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 7,
+        "start": 2400,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 5,
+        "start": 2640,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 7,
+        "start": 2640,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 2880,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 2880,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 3360,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 3360,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 3600,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 3600,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 3840,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 4320,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 4560,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 4800,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 4800,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 5280,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 5280,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 5520,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 5520,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 5,
+        "start": 5760,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 7,
+        "start": 5760,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 5,
+        "start": 6240,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 7,
+        "start": 6240,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 5,
+        "start": 6480,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 7,
+        "start": 6480,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 6720,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 6720,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 7200,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 7200,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 7440,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 7440,
+        "length": 240,
+        "palmMute": true
+      }
+    ]
+  }
+}

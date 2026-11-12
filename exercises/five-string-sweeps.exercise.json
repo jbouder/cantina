@@ -1,0 +1,298 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Five-string sweeps",
+  "instrument": "guitar",
+  "teaches": "technique",
+  "style": "Metal",
+  "instructions": "Am, Dm, Am and E arpeggios across five strings, up with one downstroke and down with one upstroke, two beats each. Roll the fingertip across the two notes at the same fret instead of letting them ring, and mute behind with the picking hand; clean beats fast, so start slow.",
+  "key": {
+    "tonic": "A",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 50,
+    "goal": 110,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "heavy-metal",
+  "drums": {
+    "kit": "metal",
+    "groove": "Half-time",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 5,
+        "fret": 12,
+        "start": 0,
+        "length": 160
+      },
+      {
+        "string": 4,
+        "fret": 14,
+        "start": 160,
+        "length": 160
+      },
+      {
+        "string": 3,
+        "fret": 14,
+        "start": 320,
+        "length": 160
+      },
+      {
+        "string": 2,
+        "fret": 13,
+        "start": 480,
+        "length": 160
+      },
+      {
+        "string": 1,
+        "fret": 12,
+        "start": 640,
+        "length": 160
+      },
+      {
+        "string": 1,
+        "fret": 17,
+        "start": 800,
+        "length": 160
+      },
+      {
+        "string": 1,
+        "fret": 12,
+        "start": 960,
+        "length": 160,
+        "pullOff": true
+      },
+      {
+        "string": 2,
+        "fret": 13,
+        "start": 1120,
+        "length": 160
+      },
+      {
+        "string": 3,
+        "fret": 14,
+        "start": 1280,
+        "length": 160
+      },
+      {
+        "string": 4,
+        "fret": 14,
+        "start": 1440,
+        "length": 160
+      },
+      {
+        "string": 5,
+        "fret": 12,
+        "start": 1600,
+        "length": 320
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 1920,
+        "length": 160
+      },
+      {
+        "string": 4,
+        "fret": 7,
+        "start": 2080,
+        "length": 160
+      },
+      {
+        "string": 3,
+        "fret": 7,
+        "start": 2240,
+        "length": 160
+      },
+      {
+        "string": 2,
+        "fret": 6,
+        "start": 2400,
+        "length": 160
+      },
+      {
+        "string": 1,
+        "fret": 5,
+        "start": 2560,
+        "length": 160
+      },
+      {
+        "string": 1,
+        "fret": 10,
+        "start": 2720,
+        "length": 160
+      },
+      {
+        "string": 1,
+        "fret": 5,
+        "start": 2880,
+        "length": 160,
+        "pullOff": true
+      },
+      {
+        "string": 2,
+        "fret": 6,
+        "start": 3040,
+        "length": 160
+      },
+      {
+        "string": 3,
+        "fret": 7,
+        "start": 3200,
+        "length": 160
+      },
+      {
+        "string": 4,
+        "fret": 7,
+        "start": 3360,
+        "length": 160
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 3520,
+        "length": 320
+      },
+      {
+        "string": 5,
+        "fret": 12,
+        "start": 3840,
+        "length": 160
+      },
+      {
+        "string": 4,
+        "fret": 14,
+        "start": 4000,
+        "length": 160
+      },
+      {
+        "string": 3,
+        "fret": 14,
+        "start": 4160,
+        "length": 160
+      },
+      {
+        "string": 2,
+        "fret": 13,
+        "start": 4320,
+        "length": 160
+      },
+      {
+        "string": 1,
+        "fret": 12,
+        "start": 4480,
+        "length": 160
+      },
+      {
+        "string": 1,
+        "fret": 17,
+        "start": 4640,
+        "length": 160
+      },
+      {
+        "string": 1,
+        "fret": 12,
+        "start": 4800,
+        "length": 160,
+        "pullOff": true
+      },
+      {
+        "string": 2,
+        "fret": 13,
+        "start": 4960,
+        "length": 160
+      },
+      {
+        "string": 3,
+        "fret": 14,
+        "start": 5120,
+        "length": 160
+      },
+      {
+        "string": 4,
+        "fret": 14,
+        "start": 5280,
+        "length": 160
+      },
+      {
+        "string": 5,
+        "fret": 12,
+        "start": 5440,
+        "length": 320
+      },
+      {
+        "string": 5,
+        "fret": 7,
+        "start": 5760,
+        "length": 160
+      },
+      {
+        "string": 4,
+        "fret": 9,
+        "start": 5920,
+        "length": 160
+      },
+      {
+        "string": 3,
+        "fret": 9,
+        "start": 6080,
+        "length": 160
+      },
+      {
+        "string": 2,
+        "fret": 9,
+        "start": 6240,
+        "length": 160
+      },
+      {
+        "string": 1,
+        "fret": 7,
+        "start": 6400,
+        "length": 160
+      },
+      {
+        "string": 1,
+        "fret": 12,
+        "start": 6560,
+        "length": 160
+      },
+      {
+        "string": 1,
+        "fret": 7,
+        "start": 6720,
+        "length": 160,
+        "pullOff": true
+      },
+      {
+        "string": 2,
+        "fret": 9,
+        "start": 6880,
+        "length": 160
+      },
+      {
+        "string": 3,
+        "fret": 9,
+        "start": 7040,
+        "length": 160
+      },
+      {
+        "string": 4,
+        "fret": 9,
+        "start": 7200,
+        "length": 160
+      },
+      {
+        "string": 5,
+        "fret": 7,
+        "start": 7360,
+        "length": 320
+      }
+    ]
+  }
+}

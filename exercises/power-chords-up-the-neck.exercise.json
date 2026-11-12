@@ -1,0 +1,126 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Power chords up the neck",
+  "instrument": "guitar",
+  "teaches": "change",
+  "style": "Metal",
+  "instructions": "G5, A5, C5 and D5 up the low E string, then D5, C5, A5 and E5 back across the A string. Keep the first and third fingers locked in the shape and move the arm; mute the strings above with the underside of the first finger so only two notes sound.",
+  "key": {
+    "tonic": "E",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 80,
+    "goal": 160,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "heavy-metal",
+  "drums": {
+    "kit": "metal",
+    "groove": "Heavy metal",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 0,
+        "length": 920
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 0,
+        "length": 920
+      },
+      {
+        "string": 6,
+        "fret": 5,
+        "start": 960,
+        "length": 920
+      },
+      {
+        "string": 5,
+        "fret": 7,
+        "start": 960,
+        "length": 920
+      },
+      {
+        "string": 6,
+        "fret": 8,
+        "start": 1920,
+        "length": 920
+      },
+      {
+        "string": 5,
+        "fret": 10,
+        "start": 1920,
+        "length": 920
+      },
+      {
+        "string": 6,
+        "fret": 10,
+        "start": 2880,
+        "length": 920
+      },
+      {
+        "string": 5,
+        "fret": 12,
+        "start": 2880,
+        "length": 920
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 3840,
+        "length": 920
+      },
+      {
+        "string": 4,
+        "fret": 7,
+        "start": 3840,
+        "length": 920
+      },
+      {
+        "string": 5,
+        "fret": 3,
+        "start": 4800,
+        "length": 920
+      },
+      {
+        "string": 4,
+        "fret": 5,
+        "start": 4800,
+        "length": 920
+      },
+      {
+        "string": 5,
+        "fret": 0,
+        "start": 5760,
+        "length": 920
+      },
+      {
+        "string": 4,
+        "fret": 2,
+        "start": 5760,
+        "length": 920
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 6720,
+        "length": 920
+      },
+      {
+        "string": 5,
+        "fret": 2,
+        "start": 6720,
+        "length": 920
+      }
+    ]
+  }
+}

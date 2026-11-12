@@ -1,0 +1,204 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "A harmonic minor",
+  "instrument": "guitar",
+  "teaches": "scale",
+  "style": "Metal",
+  "instructions": "Two octaves of A harmonic minor at the fifth fret: natural minor with the G raised to G sharp, which leaves a gap of three frets between F and G sharp. Up and down in eighths, one finger per fret with a stretch for the gap; listen for the leading tone pulling up to A.",
+  "key": {
+    "tonic": "A",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 140,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "heavy-metal",
+  "drums": {
+    "kit": "metal",
+    "groove": "Heavy metal",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 6,
+        "fret": 5,
+        "start": 0,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 7,
+        "start": 480,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 8,
+        "start": 960,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 1440,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 7,
+        "start": 1920,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 8,
+        "start": 2400,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 6,
+        "start": 2880,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 7,
+        "start": 3360,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 3840,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 5,
+        "start": 4320,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 7,
+        "start": 4800,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 5,
+        "start": 5280,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 6,
+        "start": 5760,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 9,
+        "start": 6240,
+        "length": 480
+      },
+      {
+        "string": 1,
+        "fret": 5,
+        "start": 6720,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 9,
+        "start": 7200,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 6,
+        "start": 7680,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 5,
+        "start": 8160,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 7,
+        "start": 8640,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 5,
+        "start": 9120,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 9600,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 7,
+        "start": 10080,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 6,
+        "start": 10560,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 8,
+        "start": 11040,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 7,
+        "start": 11520,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 12000,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 8,
+        "start": 12480,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 7,
+        "start": 12960,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 5,
+        "start": 13440,
+        "length": 1920
+      }
+    ]
+  }
+}

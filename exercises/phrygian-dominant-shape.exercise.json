@@ -1,0 +1,204 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "E Phrygian dominant",
+  "instrument": "guitar",
+  "teaches": "scale",
+  "style": "Metal",
+  "instructions": "Two octaves of E Phrygian dominant in open position, the fifth mode of A harmonic minor: E, F, G sharp, A, B, C, D. Up and down in eighths. The half step from E to F and the jump to G sharp are the sound; land on them deliberately.",
+  "key": {
+    "tonic": "E",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 140,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "heavy-metal",
+  "drums": {
+    "kit": "metal",
+    "groove": "Heavy metal",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 0,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 1,
+        "start": 480,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 4,
+        "start": 960,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 0,
+        "start": 1440,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 2,
+        "start": 1920,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 3,
+        "start": 2400,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 2880,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 2,
+        "start": 3360,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 3,
+        "start": 3840,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 1,
+        "start": 4320,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 2,
+        "start": 4800,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 0,
+        "start": 5280,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 1,
+        "start": 5760,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 3,
+        "start": 6240,
+        "length": 480
+      },
+      {
+        "string": 1,
+        "fret": 0,
+        "start": 6720,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 3,
+        "start": 7200,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 1,
+        "start": 7680,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 0,
+        "start": 8160,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 2,
+        "start": 8640,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 1,
+        "start": 9120,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 3,
+        "start": 9600,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 2,
+        "start": 10080,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 10560,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 3,
+        "start": 11040,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 2,
+        "start": 11520,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 0,
+        "start": 12000,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 4,
+        "start": 12480,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 1,
+        "start": 12960,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 13440,
+        "length": 1920
+      }
+    ]
+  }
+}

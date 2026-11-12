@@ -1,0 +1,180 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Reverse gallops",
+  "instrument": "guitar",
+  "teaches": "rhythm",
+  "style": "Metal",
+  "instructions": "Two sixteenths then an eighth on the palm-muted low E, three times, then an F5 or a G5 on beat four. Pick down-up, down; the eighth falls on the off-beat, so feel it pushing toward the next beat rather than resting.",
+  "key": {
+    "tonic": "E",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 100,
+    "goal": 170,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "heavy-metal",
+  "drums": {
+    "kit": "metal",
+    "groove": "Heavy metal",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 0,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 240,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 480,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 960,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 1200,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 1440,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 1920,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 2160,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 2400,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 1,
+        "start": 2880,
+        "length": 960
+      },
+      {
+        "string": 5,
+        "fret": 3,
+        "start": 2880,
+        "length": 960
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 3840,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 4080,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 4320,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 4800,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 5040,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 5280,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 5760,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 6000,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 6240,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 6720,
+        "length": 960
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 6720,
+        "length": 960
+      }
+    ]
+  }
+}

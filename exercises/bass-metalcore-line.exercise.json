@@ -1,0 +1,132 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "A pick-played metalcore line",
+  "instrument": "bass",
+  "teaches": "riff",
+  "style": "Metal",
+  "instructions": "In drop D: eighths on the low D with a lift to F, G and A, two bars, all downstrokes with a pick. Mute with the picking hand's palm lightly so the notes stay tight, and follow the guitar's chugs, not the snare.",
+  "key": {
+    "tonic": "D",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 100,
+    "goal": 160,
+    "step": 5
+  },
+  "countIn": 1,
+  "tuning": [
+    26,
+    33,
+    38,
+    43
+  ],
+  "rig": "bass-metal",
+  "drums": {
+    "kit": "metal-triggered",
+    "groove": "Metalcore",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 0,
+        "length": 450
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 480,
+        "length": 450
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 960,
+        "length": 450
+      },
+      {
+        "string": 4,
+        "fret": 3,
+        "start": 1440,
+        "length": 450
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 1920,
+        "length": 450
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 2400,
+        "length": 450
+      },
+      {
+        "string": 4,
+        "fret": 5,
+        "start": 2880,
+        "length": 450
+      },
+      {
+        "string": 4,
+        "fret": 3,
+        "start": 3360,
+        "length": 450
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 3840,
+        "length": 450
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 4320,
+        "length": 450
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 4800,
+        "length": 450
+      },
+      {
+        "string": 4,
+        "fret": 3,
+        "start": 5280,
+        "length": 450
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 5760,
+        "length": 450
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 6240,
+        "length": 450
+      },
+      {
+        "string": 4,
+        "fret": 7,
+        "start": 6720,
+        "length": 450
+      },
+      {
+        "string": 4,
+        "fret": 5,
+        "start": 7200,
+        "length": 450
+      }
+    ]
+  }
+}

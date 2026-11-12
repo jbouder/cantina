@@ -1,0 +1,134 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "A thrash riff with string skips",
+  "instrument": "guitar",
+  "teaches": "riff",
+  "style": "Metal",
+  "instructions": "The palm-muted low E between notes on the D and G strings, skipping the strings in between. Alternate pick: down on the E, up on the skip. The pick travels past a string without touching it, so aim it, and keep the unplayed strings muted with the fretting hand.",
+  "key": {
+    "tonic": "E",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 120,
+    "goal": 200,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "thrash",
+  "drums": {
+    "kit": "metal",
+    "groove": "Thrash",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 0,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 4,
+        "fret": 2,
+        "start": 480,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 960,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 4,
+        "fret": 3,
+        "start": 1440,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 1920,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 4,
+        "fret": 5,
+        "start": 2400,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 2880,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 4,
+        "fret": 3,
+        "start": 3360,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 3840,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 3,
+        "fret": 2,
+        "start": 4320,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 4800,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 5280,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 5760,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 3,
+        "fret": 5,
+        "start": 6240,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 6720,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 7200,
+        "length": 480
+      }
+    ]
+  }
+}
