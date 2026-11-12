@@ -10,6 +10,7 @@
 mod assistant;
 mod commands;
 mod engine;
+mod exercises;
 mod frame;
 mod jam;
 mod jams;

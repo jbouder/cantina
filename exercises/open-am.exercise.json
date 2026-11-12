@@ -1,0 +1,55 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Open Am",
+  "instrument": "guitar",
+  "teaches": "chord",
+  "style": "Beginner",
+  "instructions": "The E shape moved over a string: finger 1 on the B at the first fret, 2 and 3 on the D and G at the second. Leave the low E out and let the high E ring. Strum four downstrokes a bar, then pick each string alone to find the one that does not ring.",
+  "key": {
+    "tonic": "A",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 100,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "country",
+  "drums": {
+    "kit": "rock",
+    "groove": "Half-time",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "chords",
+    "chords": [
+      {
+        "name": "Am",
+        "frets": [
+          null,
+          0,
+          2,
+          2,
+          1,
+          0
+        ],
+        "fingers": [
+          0,
+          0,
+          2,
+          3,
+          1,
+          0
+        ],
+        "start": 0,
+        "length": 7680
+      }
+    ],
+    "strum": {
+      "pattern": "D",
+      "stepsPerBeat": 1
+    }
+  }
+}

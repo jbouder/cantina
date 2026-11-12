@@ -86,6 +86,8 @@ export interface EngineStatus {
   rigs: RigInfo[];
   /** Every jam the Jam view offers: the stock ones, then the user's. */
   jams: JamInfo[];
+  /** Every exercise the practice view offers: the stock ones, then the user's. */
+  exercises: ExerciseInfo[];
   /** The rig heard on a track in place of its chain. Session state, never saved. */
   rigAudition: RigAudition | null;
   /** What the player plays through, and the trim it gives rigs. An app setting. */
@@ -111,6 +113,27 @@ export interface JamInfo {
   tempo: number;
   /** `A minor`. */
   key: string;
+}
+
+/** What an exercise teaches. Mirrors `Teaches` in cantina-project. */
+export type Teaches = "chord" | "change" | "scale" | "technique" | "riff" | "rhythm";
+
+/** An exercise the practice view offers. Mirrors `ExerciseInfo` in src-tauri. */
+export interface ExerciseInfo {
+  name: string;
+  instrument: Instrument;
+  teaches: Teaches;
+  style: string;
+  /** Ships with Cantina: read-only. */
+  stock: boolean;
+  /** The file, which names the exercise. */
+  path: string;
+  /** `A minor`. */
+  key: string;
+  /** The tempo ladder, in beats per minute. */
+  start: number;
+  goal: number;
+  step: number;
 }
 
 /** A key: its tonic and whether it is major or minor. Mirrors `Key` in cantina-project. */
@@ -1349,6 +1372,45 @@ function mockJams(): JamInfo[] {
   return [...stock.sort(by), ...mockUserJams.map((j) => j.info).sort(by)];
 }
 
+/** An exercise file as the stand-in reads it: what the list shows. */
+interface ExerciseFile {
+  name: string;
+  instrument: Instrument;
+  teaches: Teaches;
+  style: string;
+  key: JamKey;
+  tempo: { start: number; goal: number; step: number };
+}
+
+/** The stock exercises, read from the repository's `exercises/` at build time. */
+const EXERCISE_FILES = import.meta.glob<ExerciseFile>("../../../exercises/*.exercise.json", {
+  eager: true,
+  import: "default",
+});
+
+function mockExercises(): ExerciseInfo[] {
+  const lower = (s: string) => s.toLowerCase();
+  return Object.entries(EXERCISE_FILES)
+    .map(([file, e]) => ({
+      name: e.name,
+      instrument: e.instrument,
+      teaches: e.teaches,
+      style: e.style,
+      stock: true,
+      path: `/Applications/Cantina.app/Contents/Resources/${file.replace(/^(\.\.\/)+/, "")}`,
+      key: `${e.key.tonic} ${e.key.mode}`,
+      start: e.tempo.start,
+      goal: e.tempo.goal,
+      step: e.tempo.step,
+    }))
+    .sort(
+      (a, b) =>
+        lower(a.style).localeCompare(lower(b.style)) ||
+        a.teaches.localeCompare(b.teaches) ||
+        lower(a.name).localeCompare(lower(b.name)),
+    );
+}
+
 /** A rig file as the stand-in reads it. */
 interface RigFile {
   version: number;
@@ -1655,6 +1717,7 @@ const mock: EngineStatus = {
   grooves: [],
   rigs: [],
   jams: [],
+  exercises: [],
   // `?rigaudition` hears the Metalcore rig on the guitar track, for screenshots.
   // `?calibrated=-12` starts the profile calibrated at that peak, for screenshots.
   instrumentProfile: (() => {
@@ -1710,6 +1773,7 @@ const mock: EngineStatus = {
     patternsDir: "/Users/you/Music/Cantina/Patterns",
     rigsDir: "/Users/you/Music/Cantina/Rigs",
     jamsDir: "/Users/you/Music/Cantina/Jams",
+    exercisesDir: "/Users/you/Music/Cantina/Exercises",
     patterns: mockParams?.has("library")
       ? [
           {
@@ -1806,6 +1870,7 @@ function mockStatus(): EngineStatus {
     drumRows: structuredClone(mock.drumRows),
     jam: mockJam ? mockJamStatus(mockJam) : null,
     jams: mockJams(),
+    exercises: mockExercises(),
     metronome: { ...mock.metronome, sounds: [...mock.metronome.sounds] },
     countIn: mock.countIn,
     openLastAtLaunch: mock.openLastAtLaunch,

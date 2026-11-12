@@ -123,6 +123,9 @@ pub struct EngineStatus {
     pub rigs: Vec<crate::rigs::RigInfo>,
     /// Every jam the Jam view offers: the stock ones, then the user's.
     pub jams: Vec<crate::jams::JamInfo>,
+    /// Every exercise the practice view offers: the stock ones, then the
+    /// user's.
+    pub exercises: Vec<crate::exercises::ExerciseInfo>,
     /// The rig being heard on a track in place of its chain, if one is.
     /// Session state, not part of the project.
     pub rig_audition: Option<RigAuditionStatus>,
@@ -2331,6 +2334,8 @@ pub struct Engine {
     stock_rigs: Vec<crate::rigs::RigInfo>,
     /// The stock jams, found once at launch.
     stock_jams: Vec<crate::jams::JamInfo>,
+    /// The stock exercises, found once at launch.
+    stock_exercises: Vec<crate::exercises::ExerciseInfo>,
     /// A rig heard on a track in place of its chain.
     rig_audition: Option<RigAudition>,
     /// Rows muted or soloed on drum tracks, for listening while editing.
@@ -2585,6 +2590,7 @@ impl Engine {
             patterns: projects.patterns_dir(),
             rigs: projects.rigs_dir(),
             jams: projects.jams_dir(),
+            exercises: projects.exercises_dir(),
         };
         // The folders are where files written outside the app go, so they
         // exist from the first launch.
@@ -2595,6 +2601,7 @@ impl Engine {
         let grooves = library::scan_grooves(&groove_roots(&app));
         let stock_rigs = crate::rigs::scan_stock(&rig_roots(&app));
         let stock_jams = crate::jams::scan_stock(&jam_roots(&app));
+        let stock_exercises = crate::exercises::scan_stock(&exercise_roots(&app));
         let mut engine = Self {
             app,
             live: None,
@@ -2623,6 +2630,7 @@ impl Engine {
             grooves,
             stock_rigs,
             stock_jams,
+            stock_exercises,
             rig_audition: None,
             drum_rows: RowMixes::new(),
             jam: None,
@@ -2780,6 +2788,12 @@ impl Engine {
                 .stock_jams
                 .iter()
                 .chain(&self.library_status.jams)
+                .cloned()
+                .collect(),
+            exercises: self
+                .stock_exercises
+                .iter()
+                .chain(&self.library_status.exercises)
                 .cloned()
                 .collect(),
             instrument_profile: InstrumentProfileStatus {
@@ -6368,6 +6382,26 @@ fn jam_roots(app: &AppHandle) -> Vec<PathBuf> {
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("..")
                 .join("jams"),
+        );
+    }
+    roots
+}
+
+/// Where the stock exercises are: the bundle's `exercises/`, and the
+/// repository's in a debug build.
+fn exercise_roots(app: &AppHandle) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Some(extra) = std::env::var_os("CANTINA_EXERCISES") {
+        roots.extend(std::env::split_paths(&extra));
+    }
+    if let Ok(resources) = app.path().resource_dir() {
+        roots.push(resources.join("exercises"));
+    }
+    if cfg!(debug_assertions) {
+        roots.push(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("exercises"),
         );
     }
     roots

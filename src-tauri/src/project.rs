@@ -103,6 +103,11 @@ impl Projects {
         self.root.join("Jams")
     }
 
+    /// The user's exercises.
+    pub fn exercises_dir(&self) -> PathBuf {
+        self.root.join("Exercises")
+    }
+
     pub fn list(&self) -> Result<Vec<String>> {
         cantina_project::list(&self.root)
             .with_context(|| format!("listing projects in {}", self.root.display()))

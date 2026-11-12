@@ -55,11 +55,12 @@ decisions and the milestones; the architecture lives on the docs site, in
 - `packages/scenes` — `@cantina/scenes`, the visualizer scenes, shared
   with music-visualizer. `packages/skins` — `@cantina/skins`, the six
   skins' shared palette.
-- `pedals/`, `kits/`, `irs/`, `recipes/`, `rigs/`, `jams/` — stock pedals
-  (JSON), drum kits, cabinet impulse responses, kit recipes, rigs (chains
-  of stock pedals for a style, `*.rig.json`), jams (a stock groove, a
-  backing progression, a tempo, a key and rigs to practice with,
-  `*.jam.json`). `takes/` holds the
+- `pedals/`, `kits/`, `irs/`, `recipes/`, `rigs/`, `jams/`, `exercises/` —
+  stock pedals (JSON), drum kits, cabinet impulse responses, kit recipes,
+  rigs (chains of stock pedals for a style, `*.rig.json`), jams (a stock
+  groove, a backing progression, a tempo, a key and rigs to practice
+  with, `*.jam.json`), exercises (a phrase to practice with a tempo
+  ladder, a rig and a groove, `*.exercise.json`). `takes/` holds the
   hand-written ground truth for the transcription reference takes. Third-party audio is credited in
   each folder's `CREDITS.md`.
 - `schemas/` — JSON Schemas for pedals, kits, kit recipes, patterns, tabs,

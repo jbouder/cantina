@@ -1,0 +1,118 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Am, Dm and E",
+  "instrument": "guitar",
+  "teaches": "change",
+  "style": "Beginner",
+  "instructions": "One bar each, a minor i, iv, V and home. Am to E is one finger off and the shape moved across; Dm is the stretch. Make every change by the last upstroke of the bar.",
+  "key": {
+    "tonic": "A",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 110,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "country",
+  "drums": {
+    "kit": "rock",
+    "groove": "Half-time",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "chords",
+    "chords": [
+      {
+        "name": "Am",
+        "frets": [
+          null,
+          0,
+          2,
+          2,
+          1,
+          0
+        ],
+        "fingers": [
+          0,
+          0,
+          2,
+          3,
+          1,
+          0
+        ],
+        "start": 0,
+        "length": 3840
+      },
+      {
+        "name": "Dm",
+        "frets": [
+          null,
+          null,
+          0,
+          2,
+          3,
+          1
+        ],
+        "fingers": [
+          0,
+          0,
+          0,
+          2,
+          3,
+          1
+        ],
+        "start": 3840,
+        "length": 3840
+      },
+      {
+        "name": "E",
+        "frets": [
+          0,
+          2,
+          2,
+          1,
+          0,
+          0
+        ],
+        "fingers": [
+          0,
+          2,
+          3,
+          1,
+          0,
+          0
+        ],
+        "start": 7680,
+        "length": 3840
+      },
+      {
+        "name": "Am",
+        "frets": [
+          null,
+          0,
+          2,
+          2,
+          1,
+          0
+        ],
+        "fingers": [
+          0,
+          0,
+          2,
+          3,
+          1,
+          0
+        ],
+        "start": 11520,
+        "length": 3840
+      }
+    ],
+    "strum": {
+      "pattern": "D-D-D-DU",
+      "stepsPerBeat": 2
+    }
+  }
+}

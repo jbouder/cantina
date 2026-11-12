@@ -34,7 +34,8 @@
       "../pedals/": "pedals/",
       "../patterns/": "patterns/",
       "../rigs/": "rigs/",
-      "../jams/": "jams/"
+      "../jams/": "jams/",
+      "../exercises/": "exercises/"
     },
     "icon": [
       "icons/32x32.png",

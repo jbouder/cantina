@@ -203,7 +203,7 @@ cargo run -q -p cantina-cli -- render pedals/fuzz.pedal.json
 | `src-tauri/` | The Tauri 2 shell joining the engine to the UI |
 | `ui/` | The React UI, its skins and the stand-in engine |
 | `packages/` | `@cantina/scenes` (the visualizer) and `@cantina/skins` (the token system) |
-| `pedals/`, `rigs/`, `jams/` | Stock pedals, rigs and jams |
+| `pedals/`, `rigs/`, `jams/`, `exercises/` | Stock pedals, rigs, jams and exercises |
 | `kits/`, `recipes/`, `patterns/`, `irs/` | Stock drum kits, kit recipes, grooves and impulse responses |
 | `schemas/` | JSON Schemas for every file format, generated from the Rust types |
 | `docs/` | The documentation site (Astro and Starlight) |

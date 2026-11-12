@@ -1,0 +1,118 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Em, C, G and D",
+  "instrument": "guitar",
+  "teaches": "change",
+  "style": "Beginner",
+  "instructions": "One bar each of the four chords pop is made of. Em to C moves two fingers over a string; C to G is the long reach, so lift early and land all three at once.",
+  "key": {
+    "tonic": "E",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 110,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "country",
+  "drums": {
+    "kit": "rock",
+    "groove": "Half-time",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "chords",
+    "chords": [
+      {
+        "name": "Em",
+        "frets": [
+          0,
+          2,
+          2,
+          0,
+          0,
+          0
+        ],
+        "fingers": [
+          0,
+          2,
+          3,
+          0,
+          0,
+          0
+        ],
+        "start": 0,
+        "length": 3840
+      },
+      {
+        "name": "C",
+        "frets": [
+          null,
+          3,
+          2,
+          0,
+          1,
+          0
+        ],
+        "fingers": [
+          0,
+          3,
+          2,
+          0,
+          1,
+          0
+        ],
+        "start": 3840,
+        "length": 3840
+      },
+      {
+        "name": "G",
+        "frets": [
+          3,
+          2,
+          0,
+          0,
+          0,
+          3
+        ],
+        "fingers": [
+          2,
+          1,
+          0,
+          0,
+          0,
+          3
+        ],
+        "start": 7680,
+        "length": 3840
+      },
+      {
+        "name": "D",
+        "frets": [
+          null,
+          null,
+          0,
+          2,
+          3,
+          2
+        ],
+        "fingers": [
+          0,
+          0,
+          0,
+          1,
+          3,
+          2
+        ],
+        "start": 11520,
+        "length": 3840
+      }
+    ],
+    "strum": {
+      "pattern": "D-DU-UDU",
+      "stepsPerBeat": 2
+    }
+  }
+}

@@ -1,0 +1,192 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "A blues scale",
+  "instrument": "guitar",
+  "teaches": "scale",
+  "style": "Blues",
+  "instructions": "Minor pentatonic box 1 with the flat fifth added on the A and G strings: E flat, the blue note. Up and down in eighths; let the blue note pass on the way to the next one, it is a color, not a place to rest.",
+  "key": {
+    "tonic": "A",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 130,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "blues",
+  "drums": {
+    "kit": "vintage",
+    "groove": "Blues shuffle",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 6,
+        "fret": 5,
+        "start": 0,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 8,
+        "start": 480,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 960,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 6,
+        "start": 1440,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 7,
+        "start": 1920,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 5,
+        "start": 2400,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 7,
+        "start": 2880,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 5,
+        "start": 3360,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 7,
+        "start": 3840,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 8,
+        "start": 4320,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 5,
+        "start": 4800,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 8,
+        "start": 5280,
+        "length": 480
+      },
+      {
+        "string": 1,
+        "fret": 5,
+        "start": 5760,
+        "length": 480
+      },
+      {
+        "string": 1,
+        "fret": 8,
+        "start": 6240,
+        "length": 480
+      },
+      {
+        "string": 1,
+        "fret": 5,
+        "start": 6720,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 8,
+        "start": 7200,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 5,
+        "start": 7680,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 8,
+        "start": 8160,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 7,
+        "start": 8640,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 5,
+        "start": 9120,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 7,
+        "start": 9600,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 5,
+        "start": 10080,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 7,
+        "start": 10560,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 6,
+        "start": 11040,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 11520,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 8,
+        "start": 12000,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 5,
+        "start": 12480,
+        "length": 2400
+      }
+    ]
+  }
+}

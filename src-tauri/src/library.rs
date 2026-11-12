@@ -1,5 +1,5 @@
 //! The library folders under `~/Music/Cantina`: `Pedals`, `Kits`,
-//! `Patterns` and `Rigs`, the documented places for files written outside the app,
+//! `Patterns`, `Rigs`, `Jams` and `Exercises`, the documented places for files written outside the app,
 //! by hand or by a coding agent.
 //!
 //! A watcher thread looks at the folders twice a second and, when what is
@@ -35,6 +35,7 @@ pub enum Kind {
     Pattern,
     Rig,
     Jam,
+    Exercise,
 }
 
 /// A library file that does not load. Mirrors `BrokenFile` in the UI.
@@ -70,6 +71,7 @@ pub struct LibraryStatus {
     pub patterns_dir: String,
     pub rigs_dir: String,
     pub jams_dir: String,
+    pub exercises_dir: String,
     /// The patterns in `Patterns`, by name.
     pub patterns: Vec<LibraryPattern>,
     /// The rigs in `Rigs`; the status lists them with the stock ones.
@@ -78,11 +80,15 @@ pub struct LibraryStatus {
     /// The jams in `Jams`; the status lists them with the stock ones.
     #[serde(skip)]
     pub jams: Vec<crate::jams::JamInfo>,
-    /// Files in any of the four that do not load.
+    /// The exercises in `Exercises`; the status lists them with the
+    /// stock ones.
+    #[serde(skip)]
+    pub exercises: Vec<crate::exercises::ExerciseInfo>,
+    /// Files in any of the folders that do not load.
     pub broken: Vec<BrokenFile>,
 }
 
-/// The four folders.
+/// The library folders.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Folders {
     pub pedals: PathBuf,
@@ -90,16 +96,18 @@ pub struct Folders {
     pub patterns: PathBuf,
     pub rigs: PathBuf,
     pub jams: PathBuf,
+    pub exercises: PathBuf,
 }
 
 impl Folders {
-    pub fn all(&self) -> [&Path; 5] {
+    pub fn all(&self) -> [&Path; 6] {
         [
             &self.pedals,
             &self.kits,
             &self.patterns,
             &self.rigs,
             &self.jams,
+            &self.exercises,
         ]
     }
 
@@ -111,6 +119,7 @@ impl Folders {
         let patterns = scan_patterns(&self.patterns, &mut broken);
         let rigs = crate::rigs::scan_user(&self.rigs, &mut broken);
         let jams = crate::jams::scan_user(&self.jams, &mut broken);
+        let exercises = crate::exercises::scan_user(&self.exercises, &mut broken);
         broken.sort_by_key(|b| b.name.to_lowercase());
         LibraryStatus {
             pedals_dir: self.pedals.display().to_string(),
@@ -118,9 +127,11 @@ impl Folders {
             patterns_dir: self.patterns.display().to_string(),
             rigs_dir: self.rigs.display().to_string(),
             jams_dir: self.jams.display().to_string(),
+            exercises_dir: self.exercises.display().to_string(),
             patterns,
             rigs,
             jams,
+            exercises,
             broken,
         }
     }
@@ -368,6 +379,7 @@ mod tests {
             patterns: root.join("Patterns"),
             rigs: root.join("Rigs"),
             jams: root.join("Jams"),
+            exercises: root.join("Exercises"),
         };
         for d in f.all() {
             std::fs::create_dir_all(d).unwrap();

@@ -1,0 +1,126 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Octaves",
+  "instrument": "bass",
+  "teaches": "technique",
+  "style": "Funk",
+  "instructions": "Eighth notes jumping between a root and its octave two strings up and two frets over: E, G, A, then D to turn it round. The first finger plays the root, the third or fourth the octave; mute the string between them with the side of the first finger.",
+  "key": {
+    "tonic": "E",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 80,
+    "goal": 116,
+    "step": 4
+  },
+  "countIn": 1,
+  "rig": "bass-funk",
+  "drums": {
+    "kit": "vintage",
+    "groove": "Funk",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 0,
+        "length": 440
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 480,
+        "length": 440
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 960,
+        "length": 440
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 1440,
+        "length": 440
+      },
+      {
+        "string": 4,
+        "fret": 3,
+        "start": 1920,
+        "length": 440
+      },
+      {
+        "string": 2,
+        "fret": 5,
+        "start": 2400,
+        "length": 440
+      },
+      {
+        "string": 4,
+        "fret": 5,
+        "start": 2880,
+        "length": 440
+      },
+      {
+        "string": 2,
+        "fret": 7,
+        "start": 3360,
+        "length": 440
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 3840,
+        "length": 440
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 4320,
+        "length": 440
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 4800,
+        "length": 440
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 5280,
+        "length": 440
+      },
+      {
+        "string": 4,
+        "fret": 3,
+        "start": 5760,
+        "length": 440
+      },
+      {
+        "string": 2,
+        "fret": 5,
+        "start": 6240,
+        "length": 440
+      },
+      {
+        "string": 3,
+        "fret": 5,
+        "start": 6720,
+        "length": 440
+      },
+      {
+        "string": 1,
+        "fret": 7,
+        "start": 7200,
+        "length": 440
+      }
+    ]
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "E to A",
+  "instrument": "guitar",
+  "teaches": "change",
+  "style": "Beginner",
+  "instructions": "Two bars of E, two of A. Keep fingers 2 and 3 in the same shape as they move over a string, and land the A on the one; slow down until it arrives on time.",
+  "key": {
+    "tonic": "E",
+    "mode": "major"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 110,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "country",
+  "drums": {
+    "kit": "rock",
+    "groove": "Half-time",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "chords",
+    "chords": [
+      {
+        "name": "E",
+        "frets": [
+          0,
+          2,
+          2,
+          1,
+          0,
+          0
+        ],
+        "fingers": [
+          0,
+          2,
+          3,
+          1,
+          0,
+          0
+        ],
+        "start": 0,
+        "length": 7680
+      },
+      {
+        "name": "A",
+        "frets": [
+          null,
+          0,
+          2,
+          2,
+          2,
+          0
+        ],
+        "fingers": [
+          0,
+          0,
+          1,
+          2,
+          3,
+          0
+        ],
+        "start": 7680,
+        "length": 7680
+      }
+    ],
+    "strum": {
+      "pattern": "D-D-D-DU",
+      "stepsPerBeat": 2
+    }
+  }
+}

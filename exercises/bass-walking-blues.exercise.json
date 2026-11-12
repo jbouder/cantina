@@ -1,0 +1,318 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Walking blues in A",
+  "instrument": "bass",
+  "teaches": "riff",
+  "style": "Blues",
+  "instructions": "The 12-bar in A on a walk: root, third, fifth, sixth, then the flat seventh and back down, a note a beat. Each chord's shape is the same, moved to its root. Lean into beats two and four with the drums' snare.",
+  "key": {
+    "tonic": "A",
+    "mode": "major"
+  },
+  "tempo": {
+    "start": 70,
+    "goal": 130,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "bass-clean",
+  "drums": {
+    "kit": "vintage",
+    "groove": "Blues shuffle",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 3,
+        "fret": 0,
+        "start": 0,
+        "length": 920
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 960,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 1920,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 4,
+        "start": 2880,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 5,
+        "start": 3840,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 4,
+        "start": 4800,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 5760,
+        "length": 920
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 6720,
+        "length": 920
+      },
+      {
+        "string": 3,
+        "fret": 0,
+        "start": 7680,
+        "length": 920
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 8640,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 9600,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 4,
+        "start": 10560,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 5,
+        "start": 11520,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 4,
+        "start": 12480,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 13440,
+        "length": 920
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 14400,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 0,
+        "start": 15360,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 4,
+        "start": 16320,
+        "length": 920
+      },
+      {
+        "string": 1,
+        "fret": 2,
+        "start": 17280,
+        "length": 920
+      },
+      {
+        "string": 1,
+        "fret": 4,
+        "start": 18240,
+        "length": 920
+      },
+      {
+        "string": 1,
+        "fret": 5,
+        "start": 19200,
+        "length": 920
+      },
+      {
+        "string": 1,
+        "fret": 4,
+        "start": 20160,
+        "length": 920
+      },
+      {
+        "string": 1,
+        "fret": 2,
+        "start": 21120,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 4,
+        "start": 22080,
+        "length": 920
+      },
+      {
+        "string": 3,
+        "fret": 0,
+        "start": 23040,
+        "length": 920
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 24000,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 24960,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 4,
+        "start": 25920,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 5,
+        "start": 26880,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 4,
+        "start": 27840,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 28800,
+        "length": 920
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 29760,
+        "length": 920
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 30720,
+        "length": 920
+      },
+      {
+        "string": 4,
+        "fret": 4,
+        "start": 31680,
+        "length": 920
+      },
+      {
+        "string": 3,
+        "fret": 2,
+        "start": 32640,
+        "length": 920
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 33600,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 0,
+        "start": 34560,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 4,
+        "start": 35520,
+        "length": 920
+      },
+      {
+        "string": 1,
+        "fret": 2,
+        "start": 36480,
+        "length": 920
+      },
+      {
+        "string": 1,
+        "fret": 4,
+        "start": 37440,
+        "length": 920
+      },
+      {
+        "string": 3,
+        "fret": 0,
+        "start": 38400,
+        "length": 920
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 39360,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 40320,
+        "length": 920
+      },
+      {
+        "string": 2,
+        "fret": 4,
+        "start": 41280,
+        "length": 920
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 42240,
+        "length": 920
+      },
+      {
+        "string": 4,
+        "fret": 4,
+        "start": 43200,
+        "length": 920
+      },
+      {
+        "string": 3,
+        "fret": 2,
+        "start": 44160,
+        "length": 920
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 45120,
+        "length": 920
+      }
+    ]
+  }
+}
