@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dropIndex } from "./reorder";
+import { dropIndex, rowDropIndex } from "./reorder";
 
 // Three 100 px cards with 10 px gaps: centers at 50, 160 and 270.
 const row = [
@@ -27,5 +27,20 @@ describe("dropIndex", () => {
 
   it("has nowhere to land in an empty row", () => {
     expect(dropIndex(10, [])).toBe(-1);
+  });
+});
+
+describe("a dragged row", () => {
+  it("lands on the nearest row, past the middle of the next", () => {
+    expect(rowDropIndex(1, 0, 60, 4)).toBe(1);
+    expect(rowDropIndex(1, 29, 60, 4)).toBe(1);
+    expect(rowDropIndex(1, 31, 60, 4)).toBe(2);
+    expect(rowDropIndex(1, -31, 60, 4)).toBe(0);
+  });
+
+  it("stays in the list", () => {
+    expect(rowDropIndex(0, -500, 60, 4)).toBe(0);
+    expect(rowDropIndex(3, 500, 60, 4)).toBe(3);
+    expect(rowDropIndex(0, 0, 60, 0)).toBe(-1);
   });
 });

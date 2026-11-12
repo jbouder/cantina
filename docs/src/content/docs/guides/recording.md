@@ -14,7 +14,10 @@ is the transport, the track headers that make up the mixer, and the timeline.
 **+ Add track**, the dashed slot under the last track, adds one: a
 **Guitar track** is an audio track with an empty pedalboard, a **Drum
 track** a [drum track](/guides/drums/). Click a track's name to select it and
-show its editor below. The editor's header has the track's name, then its
+show its editor below; double-click it to rename the track, drag it up or
+down to move the track, or right-click the header for **Rename…**,
+**Move up**, **Move down** and **Remove track** (undo brings a removed
+track back). The editor's header has the track's name, then its
 tabs: **Beats** on a drum track, **Pedalboard**, **Clips**, and **Tab** when
 a clip has one. Click the name to rename the track. The **⋯** key at the
 right opens the track's actions: rename, bounce, move up, move down and

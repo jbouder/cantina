@@ -37,11 +37,13 @@ import {
   type TrackStatus,
   trackAdd,
   trackAddDrums,
+  trackMove,
   transportLocate,
 } from "../lib/engine";
 import { setPatternDropTarget } from "../lib/pattern-drag";
 import { loadPeaks, peaksFor, usePeaksVersion } from "../lib/peakStore";
 import { columns } from "../lib/peaks";
+import { DRAG_THRESHOLD, rowDropIndex } from "../lib/reorder";
 import {
   ADD_ROW_HEIGHT,
   canSplit,
@@ -69,7 +71,7 @@ import {
   zoomAround,
 } from "../lib/timeline";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
-import { MasterHeader, TrackHeader } from "./TrackHeader";
+import { MasterHeader, type RowGrip, TrackHeader } from "./TrackHeader";
 
 /**
  * The dashed slot under the last track header, as Add a pedal is at the
@@ -77,6 +79,19 @@ import { MasterHeader, TrackHeader } from "./TrackHeader";
  */
 const ADD_SLOT =
   "flex w-full cursor-pointer items-center justify-center gap-1 rounded-control border-2 border-frame-hi border-dashed bg-transparent px-2 font-bold text-ink-dim text-label hover:border-ink hover:text-ink aria-expanded:border-ink aria-expanded:text-ink";
+
+/** A track header on its way to a new place. */
+type RowDrag = {
+  id: number;
+  from: number;
+  /** Where the press began, and how far it has gone, in px. */
+  y0: number;
+  dy: number;
+  /** Past the threshold: a drag, not a click. */
+  moved: boolean;
+  /** The index it would land at. */
+  over: number;
+};
 
 /** What the transport strip above the lanes can do to the view. */
 export interface TimelineControls {
@@ -219,6 +234,25 @@ export function Timeline({
   const canvas = useRef<HTMLCanvasElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
+  // A track header being dragged to a new place: which, from where, how
+  // far, and where it would land. The handlers read the ref, which is
+  // never a render behind.
+  const [rowDrag, setRowDragState] = useState<RowDrag | null>(null);
+  const rowDragRef = useRef<RowDrag | null>(null);
+  const setRowDrag = useCallback((d: RowDrag | null) => {
+    rowDragRef.current = d;
+    setRowDragState(d);
+  }, []);
+  // Escape puts a dragged header back.
+  const rowDragging = rowDrag?.moved ?? false;
+  useEffect(() => {
+    if (!rowDragging) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") setRowDrag(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [rowDragging, setRowDrag]);
   // Where the Add track menu opens, under its slot; null when closed.
   const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
   // The lanes' scrolling viewport: the canvas is at least as tall, so the
@@ -967,6 +1001,31 @@ export function Timeline({
           ? "cursor-grab"
           : "";
 
+  // A header's name row is its grip: a press that travels becomes a drag,
+  // dropped on the nearest row. Its keys are clicks, not grips.
+  const rowGrip = (id: number, index: number): RowGrip => ({
+    onPointerDown: (e) => {
+      if (e.button !== 0 || (e.target as Element).closest("[data-no-grip]")) return;
+      setRowDrag({ id, from: index, y0: e.clientY, dy: 0, moved: false, over: index });
+    },
+    onPointerMove: (e) => {
+      const d = rowDragRef.current;
+      if (d?.id !== id) return;
+      const dy = e.clientY - d.y0;
+      if (!d.moved && Math.abs(dy) <= DRAG_THRESHOLD) return;
+      if (!d.moved) e.currentTarget.setPointerCapture(e.pointerId);
+      const over = rowDropIndex(d.from, dy, TRACK_HEIGHT, tracks.length);
+      setRowDrag({ ...d, dy, moved: true, over });
+    },
+    onPointerUp: () => {
+      const d = rowDragRef.current;
+      if (d?.id !== id) return;
+      setRowDrag(null);
+      if (d.moved && d.over !== d.from) run(trackMove(d.id, d.over));
+    },
+    onPointerCancel: () => setRowDrag(null),
+  });
+
   return (
     <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-2">
       {strip(controls)}
@@ -982,6 +1041,11 @@ export function Timeline({
               <TrackHeader
                 key={t.id}
                 track={t}
+                index={i}
+                count={tracks.length}
+                offset={rowDrag?.moved && rowDrag.id === t.id ? rowDrag.dy : null}
+                dropTarget={rowDrag?.moved === true && rowDrag.over === i && rowDrag.id !== t.id}
+                grip={rowGrip(t.id, i)}
                 selected={t.id === selectedTrack}
                 silenced={t.strip.mute || (anySolo && !t.strip.solo)}
                 level={levels[i] ?? SILENT}
