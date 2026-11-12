@@ -3904,6 +3904,15 @@ export async function jamOpen(): Promise<EngineStatus> {
         levelDb: -2,
       };
     }
+    // `?jamgroove=<name>` plays one of the stand-in's grooves (with `?grooves`).
+    const named = mockParams?.get("jamgroove");
+    const mine = mockUserGrooves.find((g) => g.file.name === named)?.file;
+    if (mine) {
+      mockJam.setup.drums = { ...mockJam.setup.drums, groove: mine.name, patterns: {} };
+      mockJam.setup.timeSignature = { ...mine.timeSignature };
+      mockJam.setup.tempo = mine.tempo;
+      mockJamRestart(mockJam);
+    }
     // `?jam=playing` has it rolling with a chorus and a new tempo coming,
     // for screenshots; `?position` says where.
     if (mockParams?.get("jam") === "playing") {
