@@ -1,0 +1,214 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Chugs and open accents",
+  "instrument": "guitar",
+  "teaches": "rhythm",
+  "style": "Metal",
+  "instructions": "In drop D: pairs of palm-muted sixteenths on the low D, then an open chord at the end of the bar, D5 then F5 with one finger across three strings. The chugs stop dead, so lift the fretting hand a hair between them; the accent rings, so lift the palm for it.",
+  "key": {
+    "tonic": "D",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 100,
+    "goal": 160,
+    "step": 5
+  },
+  "countIn": 1,
+  "tuning": [
+    38,
+    45,
+    50,
+    55,
+    59,
+    64
+  ],
+  "rig": "metalcore",
+  "drums": {
+    "kit": "metal-triggered",
+    "groove": "Metalcore",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 0,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 240,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 720,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 960,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 1440,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 1680,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 2160,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 2400,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 2880,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 3120,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 3360,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 0,
+        "start": 3360,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 3360,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 3840,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 4080,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 4560,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 4800,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 5280,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 5520,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 6000,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 6240,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 6720,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 6960,
+        "length": 240,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 7200,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 3,
+        "start": 7200,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 3,
+        "start": 7200,
+        "length": 480
+      }
+    ]
+  }
+}

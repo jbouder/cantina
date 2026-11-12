@@ -1,0 +1,174 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Locking a gallop with the kick",
+  "instrument": "bass",
+  "teaches": "rhythm",
+  "style": "Metal",
+  "instructions": "The gallop on the bass's low E, then G or A on beat four, played with a pick, down, down-up. The kick drum plays the same gallop: listen for the two of you landing as one thud, and stop each note short so the gaps match the kick's.",
+  "key": {
+    "tonic": "E",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 100,
+    "goal": 170,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "bass-metal",
+  "drums": {
+    "kit": "metal",
+    "groove": "Heavy metal",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 0,
+        "length": 460
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 480,
+        "length": 220
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 720,
+        "length": 220
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 960,
+        "length": 460
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 1440,
+        "length": 220
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 1680,
+        "length": 220
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 1920,
+        "length": 460
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 2400,
+        "length": 220
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 2640,
+        "length": 220
+      },
+      {
+        "string": 4,
+        "fret": 3,
+        "start": 2880,
+        "length": 460
+      },
+      {
+        "string": 4,
+        "fret": 3,
+        "start": 3360,
+        "length": 220
+      },
+      {
+        "string": 4,
+        "fret": 3,
+        "start": 3600,
+        "length": 220
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 3840,
+        "length": 460
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 4320,
+        "length": 220
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 4560,
+        "length": 220
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 4800,
+        "length": 460
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 5280,
+        "length": 220
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 5520,
+        "length": 220
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 5760,
+        "length": 460
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 6240,
+        "length": 220
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 6480,
+        "length": 220
+      },
+      {
+        "string": 4,
+        "fret": 5,
+        "start": 6720,
+        "length": 460
+      },
+      {
+        "string": 4,
+        "fret": 5,
+        "start": 7200,
+        "length": 220
+      },
+      {
+        "string": 4,
+        "fret": 5,
+        "start": 7440,
+        "length": 220
+      }
+    ]
+  }
+}

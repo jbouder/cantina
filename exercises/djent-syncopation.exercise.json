@@ -1,0 +1,132 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Djent syncopation",
+  "instrument": "guitar",
+  "teaches": "rhythm",
+  "style": "Metal",
+  "instructions": "In drop C: chugs grouped three, three, two, three, three sixteenths, then a stab on the last eighth, over the djent groove's half-time snare. Count sixteenths, not the groups; the kick follows your chugs, so lock to it and let the snare float on top.",
+  "key": {
+    "tonic": "C",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 90,
+    "goal": 140,
+    "step": 5
+  },
+  "countIn": 1,
+  "tuning": [
+    36,
+    43,
+    48,
+    53,
+    57,
+    62
+  ],
+  "rig": "djent",
+  "drums": {
+    "kit": "metal-triggered",
+    "groove": "Djent",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 0,
+        "length": 720,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 720,
+        "length": 720,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 1440,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 1920,
+        "length": 720,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 2640,
+        "length": 720,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 3360,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 3,
+        "start": 3360,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 3840,
+        "length": 720,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 4560,
+        "length": 720,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 5280,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 5760,
+        "length": 720,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 6480,
+        "length": 720,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 5,
+        "start": 7200,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 5,
+        "start": 7200,
+        "length": 480
+      }
+    ]
+  }
+}

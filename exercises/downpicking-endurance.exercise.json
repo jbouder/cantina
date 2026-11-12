@@ -1,0 +1,142 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Downpicking endurance",
+  "instrument": "guitar",
+  "teaches": "technique",
+  "style": "Metal",
+  "instructions": "Two bars of palm-muted eighths on the open low E, every one a downstroke. Move from the elbow and wrist together, keep the palm resting on the bridge, and keep every note the same length and weight; when the downstrokes start to tire, stop at that rung rather than switching to upstrokes.",
+  "key": {
+    "tonic": "E",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 120,
+    "goal": 210,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "thrash",
+  "drums": {
+    "kit": "metal",
+    "groove": "Thrash",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 0,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 480,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 960,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 1440,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 1920,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 2400,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 2880,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 3360,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 3840,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 4320,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 4800,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 5280,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 5760,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 6240,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 6720,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 7200,
+        "length": 480,
+        "palmMute": true
+      }
+    ]
+  }
+}

@@ -47,8 +47,10 @@ fn every_stock_exercise_checks_and_plays_through_its_rig() {
             "{name}: {sentences} sentences of instructions"
         );
         taught.push(exercise.teaches);
+        // A loop that ends in silence says so with `bars`.
         assert!(
-            exercise.loop_ticks() - exercise.phrase_end() < exercise.beat_ticks(),
+            exercise.bars.is_some()
+                || exercise.loop_ticks() - exercise.phrase_end() < exercise.beat_ticks(),
             "{name}: the loop ends with {} ticks of nothing",
             exercise.loop_ticks() - exercise.phrase_end()
         );

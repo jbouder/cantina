@@ -1,0 +1,123 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "A breakdown with space",
+  "instrument": "guitar",
+  "teaches": "rhythm",
+  "style": "Metal",
+  "instructions": "In drop C over a half-time groove: three dotted-eighth chugs on the low C, a chord on beat three, then nothing. The silence is the riff: mute every string with both hands after the chord and count the rest out loud.",
+  "key": {
+    "tonic": "C",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 70,
+    "goal": 100,
+    "step": 5
+  },
+  "countIn": 1,
+  "tuning": [
+    36,
+    43,
+    48,
+    53,
+    57,
+    62
+  ],
+  "bars": 2,
+  "rig": "metalcore",
+  "drums": {
+    "kit": "metal",
+    "groove": "Half-time",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 0,
+        "length": 720,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 720,
+        "length": 720,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 1440,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 1,
+        "start": 1920,
+        "length": 960,
+        "letRing": true
+      },
+      {
+        "string": 5,
+        "fret": 1,
+        "start": 1920,
+        "length": 960,
+        "letRing": true
+      },
+      {
+        "string": 4,
+        "fret": 1,
+        "start": 1920,
+        "length": 960,
+        "letRing": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 3840,
+        "length": 720,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 4560,
+        "length": 720,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 0,
+        "start": 5280,
+        "length": 480,
+        "palmMute": true
+      },
+      {
+        "string": 6,
+        "fret": 6,
+        "start": 5760,
+        "length": 960,
+        "letRing": true
+      },
+      {
+        "string": 5,
+        "fret": 6,
+        "start": 5760,
+        "length": 960,
+        "letRing": true
+      },
+      {
+        "string": 4,
+        "fret": 6,
+        "start": 5760,
+        "length": 960,
+        "letRing": true
+      }
+    ]
+  }
+}
