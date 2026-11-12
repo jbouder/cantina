@@ -499,6 +499,28 @@ The tempos an exercise climbs through, in beats per minute.
 | `start` | yes | number (≥ 30, ≤ 300) | Where to start: playable the first day. |
 | `step` | yes | number (> 0) | How far each step up goes. |
 
+## Cantina practice log (`practice-log`)
+
+What was practiced, day by day: one entry per exercise per day with the fastest tempo a whole pass was played at and the minutes played. Cantina writes it; it is never part of a project.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `days` |  | array of `PracticeDay` | One entry per exercise per day, oldest first. Default `[]`. |
+| `version` | yes | integer (≥ 1, ≤ 1) | The format version, 1. |
+
+Where it goes: `~/Music/Cantina/Practice/log.json`, written by Cantina; read it, do not write it. Schema: `https://cantina-docs.vibeproject.workers.dev/schemas/practice-log.schema.json`.
+
+### `PracticeDay`
+
+An exercise practiced on a day.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `date` | yes | string (matching `^[0-9]{4}-[0-9]{2}-[0-9]{2}$`) | The day, `YYYY-MM-DD`, in local time. |
+| `exercise` | yes | string (not empty) | The exercise, by its file's name less `.exercise.json`. |
+| `minutes` | yes | number (≥ 0) | Minutes played. |
+| `tempo` | yes | number (≥ 0, ≤ 300) | The fastest a whole pass was played at, in beats per minute; 0 when no pass was finished. |
+
 ## Cantina project (`project`)
 
 A whole project. Saved as `project.json` inside a `Name.cantina/` directory next to `audio/`, `plugins/` and `pedals/`.

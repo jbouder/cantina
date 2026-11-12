@@ -149,6 +149,15 @@ impl Schedule {
         self.tempos.push((at, bpm));
     }
 
+    /// Drops the tempo changes coming after `tick`.
+    pub fn keep_tempos_through(&mut self, tick: u64) {
+        let first = self.tempos.first().copied();
+        self.tempos.retain(|(t, _)| *t <= tick);
+        if self.tempos.is_empty() {
+            self.tempos.extend(first);
+        }
+    }
+
     /// The section playing at `tick`.
     pub fn section_at(&self, tick: u64) -> Section {
         self.sections

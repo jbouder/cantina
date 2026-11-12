@@ -64,7 +64,7 @@ decisions and the milestones; the architecture lives on the docs site, in
   hand-written ground truth for the transcription reference takes. Third-party audio is credited in
   each folder's `CREDITS.md`.
 - `schemas/` — JSON Schemas for pedals, kits, kit recipes, patterns, tabs,
-  rigs, jams, exercises and projects, generated from the Rust types. Do not hand-edit.
+  rigs, jams, exercises, the practice log and projects, generated from the Rust types. Do not hand-edit.
 - `.claude/skills/cantina-author/` — the skill for writing Cantina files.
   `references/formats.md` and `references/node-catalog.md` are generated
   by `scripts/skill-references.mjs`; do not hand-edit them.

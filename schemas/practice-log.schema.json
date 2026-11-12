@@ -1,0 +1,67 @@
+{
+  "$defs": {
+    "PracticeDay": {
+      "description": "An exercise practiced on a day.",
+      "properties": {
+        "date": {
+          "description": "The day, `YYYY-MM-DD`, in local time.",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "type": "string"
+        },
+        "exercise": {
+          "description": "The exercise, by its file's name less `.exercise.json`.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "minutes": {
+          "description": "Minutes played.",
+          "format": "double",
+          "minimum": 0,
+          "type": "number"
+        },
+        "tempo": {
+          "description": "The fastest a whole pass was played at, in beats per minute; 0 when no pass was finished.",
+          "format": "double",
+          "maximum": 300.0,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "exercise",
+        "date",
+        "tempo",
+        "minutes"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://cantina-docs.vibeproject.workers.dev/schemas/practice-log.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "What was practiced, day by day: one entry per exercise per day with the fastest tempo a whole pass was played at and the minutes played. Cantina writes it; it is never part of a project.",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "days": {
+      "default": [],
+      "description": "One entry per exercise per day, oldest first.",
+      "items": {
+        "$ref": "#/$defs/PracticeDay"
+      },
+      "type": "array"
+    },
+    "version": {
+      "description": "The format version, 1.",
+      "format": "uint32",
+      "maximum": 1,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version"
+  ],
+  "title": "Cantina practice log",
+  "type": "object"
+}

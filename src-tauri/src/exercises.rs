@@ -30,6 +30,10 @@ pub struct ExerciseInfo {
     pub start: f64,
     pub goal: f64,
     pub step: f64,
+    /// The fastest a whole pass has been played, from the practice log.
+    pub best: Option<f64>,
+    /// The last day it was practiced, `YYYY-MM-DD`.
+    pub last: Option<String>,
 }
 
 fn info(exercise: &Exercise, path: &Path, stock: bool) -> ExerciseInfo {
@@ -54,6 +58,8 @@ fn info(exercise: &Exercise, path: &Path, stock: bool) -> ExerciseInfo {
         start: exercise.tempo.start,
         goal: exercise.tempo.goal,
         step: exercise.tempo.step,
+        best: None,
+        last: None,
     }
 }
 

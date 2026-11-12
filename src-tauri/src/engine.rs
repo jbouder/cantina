@@ -2340,6 +2340,10 @@ pub struct Engine {
     stock_jams: Vec<crate::jams::JamInfo>,
     /// The stock exercises, found once at launch.
     stock_exercises: Vec<crate::exercises::ExerciseInfo>,
+    /// What was practiced, day by day, as `Practice/log.json` keeps it.
+    practice_log: cantina_project::PracticeLog,
+    /// The log loaded, or there was none: it may be written.
+    practice_log_ok: bool,
     /// A rig heard on a track in place of its chain.
     rig_audition: Option<RigAudition>,
     /// Rows muted or soloed on drum tracks, for listening while editing.
@@ -2606,6 +2610,15 @@ impl Engine {
         let stock_rigs = crate::rigs::scan_stock(&rig_roots(&app));
         let stock_jams = crate::jams::scan_stock(&jam_roots(&app));
         let stock_exercises = crate::exercises::scan_stock(&exercise_roots(&app));
+        let (practice_log, practice_log_ok, log_problem) = jam_engine::read_practice_log(
+            &projects
+                .root()
+                .join("Practice")
+                .join(cantina_project::PRACTICE_LOG_FILE),
+        );
+        if last_error.is_none() {
+            last_error = log_problem;
+        }
         let mut engine = Self {
             app,
             live: None,
@@ -2635,6 +2648,8 @@ impl Engine {
             stock_rigs,
             stock_jams,
             stock_exercises,
+            practice_log,
+            practice_log_ok,
             rig_audition: None,
             drum_rows: RowMixes::new(),
             jam: None,
@@ -2798,7 +2813,14 @@ impl Engine {
                 .stock_exercises
                 .iter()
                 .chain(&self.library_status.exercises)
-                .cloned()
+                .map(|e| {
+                    let id = jam_engine::exercise_id(&e.path);
+                    crate::exercises::ExerciseInfo {
+                        best: self.practice_log.best(&id),
+                        last: self.practice_log.last(&id).map(|d| d.date.clone()),
+                        ..e.clone()
+                    }
+                })
                 .collect(),
             instrument_profile: InstrumentProfileStatus {
                 profile: self.settings.instrument.clone(),

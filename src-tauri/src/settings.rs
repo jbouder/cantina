@@ -177,6 +177,13 @@ pub struct PracticeLast {
     pub groove: bool,
     /// The rig the input played through in place of the exercise's.
     pub rig: Option<String>,
+    /// Passes before the tempo climbs a rung; 0 holds it.
+    #[serde(default = "four")]
+    pub climb: u32,
+}
+
+fn four() -> u32 {
+    4
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

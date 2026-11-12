@@ -87,6 +87,28 @@ the time never stumbles. Type a tempo to go straight to it.
 The way to speed is small steps: play a few clean passes, go up a rung,
 and drop back one when it gets away from you.
 
+**Climb** does the stepping for you: every 4 passes, unless you choose
+every pass, 2 or 8, the tempo goes up a rung on the bar line where the
+next pass starts, until it reaches the goal. The display shows the next
+rung and the bar it lands on. **↓** drops back a rung when it got away
+from you, and the climb carries on from there. **Hold the tempo** turns
+it off. Stop, and the next **Play** starts at the tempo you got to.
+
+## The practice log
+
+Cantina keeps a log of what you practice in
+`~/Music/Cantina/Practice/log.json`, never in a project. For each
+exercise and day it keeps the minutes you played and the fastest tempo
+you played a whole pass at. Nobody listens: a pass counts when it was
+played to the end, and you know whether it was clean.
+
+The view shows your best tempo for the exercise, when you last practiced
+it, how many days in a row you have practiced anything, and your minutes
+today. The list shows each exercise's best in place of its tempo range.
+The log is a [JSON file](/reference/schemas/practice-log/) you can read,
+back up or delete; a log that does not load is reported and left as it
+is.
+
 ## The stock exercises and your own
 
 The [exercise format](/reference/exercise-format/#the-stock-exercises)
