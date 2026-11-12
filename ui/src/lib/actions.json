@@ -150,6 +150,11 @@
       "key": "J",
       "checkable": true
     },
+    "practice": {
+      "label": "Practice",
+      "key": "E",
+      "checkable": true
+    },
     "designer": {
       "label": "Pedal Designer"
     },
@@ -315,6 +320,7 @@
       "items": [
         "arrange",
         "jam",
+        "practice",
         "designer",
         "stage",
         "perform",
@@ -410,6 +416,16 @@
         ["T", "Taps the tempo: two taps or more set it"],
         ["Return", "Keep that: keeps the last minutes of your playing as a take"],
         ["P", "Plays the jam on stage: the scene full screen with the jam's controls over it"]
+      ]
+    },
+    {
+      "title": "Practice",
+      "note": "In the Practice view, outside a text field or menu.",
+      "keys": [
+        ["Space", "Plays the exercise from the top, after its count-in, or stops it"],
+        ["↑ ↓", "Climbs or drops a rung of the exercise's tempo ladder, from the next bar"],
+        ["L", "Loops the phrase, or plays it once and stops"],
+        ["G", "Turns the groove on or off; off, the click keeps time"]
       ]
     },
     {

@@ -91,8 +91,9 @@ The [command line](/reference/cli/) reference has every command and flag.
 | `~/Music/Cantina/Patterns/` | `<Name>.pattern.json` | the **Pattern** menu, under *Import from the library* |
 | `~/Music/Cantina/Rigs/` | `<id>.rig.json` | the rig picker on an audio track's pedalboard, marked *yours* |
 | `~/Music/Cantina/Jams/` | `<id>.jam.json` | the Jam view's **Jams** list, under *Yours* |
+| `~/Music/Cantina/Exercises/` | `<id>.exercise.json` | the [Practice](/guides/practice/) view's exercise list, marked *yours* |
 
-Cantina watches the five folders while it runs. A file added or changed
+Cantina watches the six folders while it runs. A file added or changed
 there appears within a second; a file that does not load is listed as
 *will not load* with the same reason `cantina-cli check` gives, and cannot
 be picked until it is fixed. See [library folders](/guides/drums/#library-folders).

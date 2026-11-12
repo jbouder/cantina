@@ -12,6 +12,7 @@ import { Meter } from "./components/Meter";
 import { Notice } from "./components/Notice";
 import { PedalPicker } from "./components/PedalPicker";
 import { Performance } from "./components/Performance";
+import { PracticeView } from "./components/PracticeView";
 import { ProjectBar } from "./components/ProjectBar";
 import { ProjectName, type ProjectNameMode } from "./components/ProjectName";
 import { Projects } from "./components/Projects";
@@ -68,6 +69,8 @@ import {
   openLink,
   patternImport,
   pedalImport,
+  practiceOpen,
+  practiceOptions,
   projectOpen,
   projectRedo,
   projectSave,
@@ -181,6 +184,9 @@ export function App() {
   // Jam mode: the jam is heard in place of the project. In a browser
   // `?jam` opens it.
   const [jamming, setJamming] = useState(() => params?.has("jam") ?? false);
+  // Practice: an exercise heard in place of the project. In a browser
+  // `?exercise` opens it.
+  const [practicing, setPracticing] = useState(() => params?.has("exercise") ?? false);
   const perform = useCallback(() => {
     setStageOpen(false);
     setPerforming(true);
@@ -191,16 +197,31 @@ export function App() {
     jamOpen().then(
       (s) => {
         setStatus(s);
+        setPracticing(false);
         setJamming(true);
       },
       (e) => setError(String(e)),
     );
   }, []);
+  // Leaves a jam or practice: the project is heard again.
   const leaveJam = useCallback(() => {
     jamClose().then(
       (s) => {
         setStatus(s);
         setJamming(false);
+        setPracticing(false);
+      },
+      (e) => setError(String(e)),
+    );
+  }, []);
+  const openPractice = useCallback(() => {
+    setStageOpen(false);
+    setPerforming(false);
+    practiceOpen().then(
+      (s) => {
+        setStatus(s);
+        setJamming(false);
+        setPracticing(true);
       },
       (e) => setError(String(e)),
     );
@@ -324,6 +345,10 @@ export function App() {
   useEffect(() => {
     if (params?.has("jam")) {
       jamOpen().then(setStatus, (e) => setError(String(e)));
+      return;
+    }
+    if (params?.has("exercise")) {
+      practiceOpen().then(setStatus, (e) => setError(String(e)));
       return;
     }
     engineStatus().then(setStatus, (e) => setError(String(e)));
@@ -600,15 +625,15 @@ export function App() {
       run: () => timelineEdit.current?.splitAtPlayhead(),
     },
     play: {
-      enabled: running && (jamming || rolling || hasClips),
+      enabled: running && (jamming || practicing || rolling || hasClips),
       label: rolling || frame.countIn > 0 ? "Stop" : "Play",
       run: () => {
-        if (jamming) report(rolling || frame.countIn > 0 ? jamStop() : jamPlay());
+        if (jamming || practicing) report(rolling || frame.countIn > 0 ? jamStop() : jamPlay());
         else report(rolling ? transportStop() : transportPlay());
       },
     },
     record: {
-      enabled: has && !jamming && !rolling && !busy && tracks.some((t) => !t.kit),
+      enabled: has && !jamming && !practicing && !rolling && !busy && tracks.some((t) => !t.kit),
       run: () => void recordNow(),
     },
     countIn: {
@@ -619,9 +644,15 @@ export function App() {
     // Loop on and off; with no region yet, four bars from the playhead's bar.
     loop: {
       enabled: has,
-      checked: project?.loop?.on ?? false,
+      checked: practicing ? (status?.practicing?.looping ?? false) : (project?.loop?.on ?? false),
       run: () => {
         if (!status) return;
+        // In practice, L loops the exercise's phrase.
+        const p = status.practicing;
+        if (practicing && p) {
+          report(practiceOptions({ looping: !p.looping, groove: p.groove, rig: p.rig }));
+          return;
+        }
         const region = status.project.loop;
         if (region) report(loopSet({ ...region, on: !region.on }));
         else report(loopSet({ ...barsFrom(status, frame.position), on: true }));
@@ -709,7 +740,7 @@ export function App() {
         setStageOpen(false);
         setPerforming(false);
         setDesigning(null);
-        if (jamming) leaveJam();
+        if (jamming || practicing) leaveJam();
       },
     },
     jam: {
@@ -719,6 +750,15 @@ export function App() {
         setStartOpen(false);
         if (jamming) leaveJam();
         else openJam();
+      },
+    },
+    practice: {
+      enabled: has && !frame.recording,
+      checked: practicing,
+      run: () => {
+        setStartOpen(false);
+        if (practicing) leaveJam();
+        else openPractice();
       },
     },
     // The selected track's first designed pedal, or a new design on it.
@@ -870,41 +910,43 @@ export function App() {
         </>
       }
       status={
-        status && jamming
-          ? `Space plays · 1 to 6 change section at the next bar · ↑ ↓ tempo · T taps it · Return keeps your playing. Jamming never edits ${status.project.name}.`
-          : status && transport
-            ? (() => {
-                const step = nextStep(
-                  transport,
-                  status.project.tracks,
-                  frame.countIn,
-                  running,
-                  selected?.id ?? null,
-                );
-                const action = step.action;
-                return (
-                  <span className="flex items-center gap-2">
-                    <span className="min-w-0 truncate">{step.text}</span>
-                    {action?.kind === "start" ? (
-                      <Button tier="quiet" disabled={busy} onClick={toggle}>
-                        Turn audio on
-                      </Button>
-                    ) : action?.kind === "arm" ? (
-                      <Button
-                        tier="quiet"
-                        onClick={() =>
-                          trackArm(action.track.id, true).then(setStatus, (e) =>
-                            setError(String(e)),
-                          )
-                        }
-                      >
-                        Arm {action.track.name}
-                      </Button>
-                    ) : null}
-                  </span>
-                );
-              })()
-            : null
+        status && practicing
+          ? `Space plays · ↑ ↓ climb the tempo ladder · L loops · G turns the groove on or off. Practice never edits ${status.project.name}.`
+          : status && jamming
+            ? `Space plays · 1 to 6 change section at the next bar · ↑ ↓ tempo · T taps it · Return keeps your playing. Jamming never edits ${status.project.name}.`
+            : status && transport
+              ? (() => {
+                  const step = nextStep(
+                    transport,
+                    status.project.tracks,
+                    frame.countIn,
+                    running,
+                    selected?.id ?? null,
+                  );
+                  const action = step.action;
+                  return (
+                    <span className="flex items-center gap-2">
+                      <span className="min-w-0 truncate">{step.text}</span>
+                      {action?.kind === "start" ? (
+                        <Button tier="quiet" disabled={busy} onClick={toggle}>
+                          Turn audio on
+                        </Button>
+                      ) : action?.kind === "arm" ? (
+                        <Button
+                          tier="quiet"
+                          onClick={() =>
+                            trackArm(action.track.id, true).then(setStatus, (e) =>
+                              setError(String(e)),
+                            )
+                          }
+                        >
+                          Arm {action.track.name}
+                        </Button>
+                      ) : null}
+                    </span>
+                  );
+                })()
+              : null
       }
       meters={
         metersShown ? (
@@ -952,7 +994,16 @@ export function App() {
             ) : null}
           </Toasts>
 
-          {status && jamming ? (
+          {status && practicing ? (
+            <PracticeView
+              status={status}
+              frame={frame}
+              onPlay={() => bound.current.play.run()}
+              onLeave={leaveJam}
+              onStatus={setStatus}
+              onError={setError}
+            />
+          ) : status && jamming ? (
             <JamView
               status={status}
               frame={frame}
@@ -1100,7 +1151,12 @@ export function App() {
           opening={projectsIntent.opening ?? null}
         />
       ) : null}
-      {startOpen && status && !status.project.recovery && !jamming && !projectsOpen ? (
+      {startOpen &&
+      status &&
+      !status.project.recovery &&
+      !jamming &&
+      !practicing &&
+      !projectsOpen ? (
         <StartDialog
           current={status.project.name}
           atLaunch={startAtLaunch}
@@ -1112,6 +1168,10 @@ export function App() {
           onJam={() => {
             setStartOpen(false);
             openJam();
+          }}
+          onPractice={() => {
+            setStartOpen(false);
+            openPractice();
           }}
         />
       ) : null}

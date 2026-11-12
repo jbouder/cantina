@@ -165,6 +165,20 @@ pub const DEFAULT_CAPTURE_MINUTES: f32 = 5.0;
 /// The lengths the capture may be set to, in minutes.
 pub const CAPTURE_MINUTES: [f32; 4] = [1.0, 2.0, 5.0, 10.0];
 
+/// The exercise practiced last and how: opened again next time.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PracticeLast {
+    /// The exercise's file.
+    pub path: String,
+    /// The tempo it was left at.
+    pub tempo: f64,
+    pub looping: bool,
+    pub groove: bool,
+    /// The rig the input played through in place of the exercise's.
+    pub rig: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
@@ -189,6 +203,8 @@ pub struct Settings {
     pub jam: Option<cantina_project::Jam>,
     /// Minutes of a jam's input kept for Keep that.
     pub capture_minutes: f32,
+    /// The exercise practiced last, opened again next time.
+    pub practice: Option<PracticeLast>,
     /// Skip the start dialog and open the last project at launch.
     pub open_last_at_launch: bool,
 }
@@ -207,6 +223,7 @@ impl Default for Settings {
             instrument: InstrumentProfile::default(),
             jam: None,
             capture_minutes: DEFAULT_CAPTURE_MINUTES,
+            practice: None,
             open_last_at_launch: false,
         }
     }

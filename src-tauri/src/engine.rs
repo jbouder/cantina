@@ -63,6 +63,7 @@ use crate::tabs;
 #[path = "engine_jam.rs"]
 mod jam_engine;
 use jam_engine::JamSession;
+pub use jam_engine::PracticeOptions;
 pub use jam_engine::{JamStatus, JamTrackInfo, KeepInto};
 
 /// Event name for status pushes to the UI.
@@ -137,6 +138,9 @@ pub struct EngineStatus {
     /// The jam, while jam mode is open. Session state, not part of the
     /// project.
     pub jam: Option<JamStatus>,
+    /// The exercise, while practice is open. Practice is jam mode with an
+    /// exercise's phrase for the backing, so `jam` is there too.
+    pub practicing: Option<jam_engine::PracticeStatus>,
 }
 
 /// A rig heard on a track's live input in place of its chain. Mirrors
@@ -2813,6 +2817,7 @@ impl Engine {
                 .map(|(t, m)| (t.0, m.clone()))
                 .collect(),
             jam: self.jam_status(),
+            practicing: self.practice_status(),
         }
     }
 

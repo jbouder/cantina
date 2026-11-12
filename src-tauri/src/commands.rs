@@ -594,6 +594,31 @@ pub fn jam_open(engine: State<'_, EngineState>) -> Result<EngineStatus, String> 
     engine.lock().jam_open().map_err(fail)
 }
 
+/// Opens practice: the exercise at `path`, or the last one, heard in
+/// place of the project. Play, stop, tempo and close are the jam's.
+#[tauri::command]
+pub fn practice_open(
+    engine: State<'_, EngineState>,
+    path: Option<String>,
+) -> Result<EngineStatus, String> {
+    engine.lock().practice_open(path).map_err(fail)
+}
+
+/// Practices another exercise, from its start tempo.
+#[tauri::command]
+pub fn practice_load(engine: State<'_, EngineState>, path: String) -> Result<EngineStatus, String> {
+    engine.lock().practice_load(&path).map_err(fail)
+}
+
+/// Turns practice's loop or groove on or off, or picks the input's rig.
+#[tauri::command]
+pub fn practice_options(
+    engine: State<'_, EngineState>,
+    options: crate::engine::PracticeOptions,
+) -> Result<EngineStatus, String> {
+    engine.lock().practice_options(options).map_err(fail)
+}
+
 /// Leaves jam mode: the project is heard again.
 #[tauri::command]
 pub fn jam_close(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {

@@ -9,6 +9,8 @@ sentences on how, the tempos to climb from a first-day start to a goal,
 and the sound around it: the rig the example and your guitar go through,
 and a stock groove to play over. A metal exercise heard dry over a click
 teaches the wrong thing, so the rig and the groove belong to the file.
+The [practice guide](/guides/practice/) is about playing them; this page
+is the file.
 
 ## Schema
 

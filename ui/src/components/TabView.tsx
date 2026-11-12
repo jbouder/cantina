@@ -89,9 +89,9 @@ const ABOVE = 28;
 /** Room below the staff for the rhythm. */
 const BELOW = 30;
 /** Room left of each row for the string names. */
-const GUTTER = 26;
+export const GUTTER = 26;
 /** A bar's width. */
-const BAR = 240;
+export const BAR = 240;
 
 /** Room a fret number takes on its string. */
 function labelWidth(label: string): number {
@@ -109,7 +109,7 @@ function caretOn(
   return at.row === row ? { x: at.x, line: caret.string - 1 } : null;
 }
 
-function rowHeight(strings: number): number {
+export function rowHeight(strings: number): number {
   return ABOVE + (strings - 1) * LINE + BELOW;
 }
 
@@ -602,7 +602,7 @@ export function TabView({
                 className="block font-lcd"
               >
                 {Array.from({ length: layout.rows }, (_, row) => (
-                  <Row
+                  <TabRow
                     // biome-ignore lint/suspicious/noArrayIndexKey: rows are positions
                     key={row}
                     row={row}
@@ -625,7 +625,8 @@ export function TabView({
   );
 }
 
-function Row({
+/** One row of a tab: strings, fret numbers, marks, rhythm and the cursor. */
+export function TabRow({
   row,
   tab,
   layout,
