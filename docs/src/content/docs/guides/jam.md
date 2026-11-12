@@ -16,15 +16,23 @@ with its playhead where it was.
 ## Opening it
 
 Press the **Jam** button (the note) in the title bar, choose
-**View ▸ Jam**, or press **J**. **Leave**, **J** again or
+**View ▸ Jam**, or press **J**. **Back to project**, **J** again or
 **View ▸ Arrange** goes back to the project. The jam you had last comes
 back the next time you open it, tempo and all.
+
+The view has a header with the jam's name, which opens the jams, and
+**Save as jam…**, **Stage** and **Back to project**. Below it, the left
+side sets the jam up in three groups: **Band** (the groove, the kit and
+the backing), **Song** (the key and the tempo) and **Your sound** (the
+rig). The right side plays it: a display of the section, bar and tempo,
+the six sections, then **Play**, **Count in**, the click, and **Keep
+that** with how much it keeps.
 
 ![The Jam view: the jams, groove, kit, key, rig and Keep that length on the left with the meters; the display, play, count-in, click, Keep that, tempo, the six sections and the backing on the right](../../../assets/guides/jam.png)
 
 ## A first jam
 
-1. Open the **Jams** list at the top and pick a stock jam for a style
+1. Click the jam's name at the top and pick a stock jam for a style
    you play, say *Blues in A*. It sets the drums, a bass playing the
    changes, the tempo, the key and a rig for your guitar.
 2. Press **Play** (or **Space**). With **Count in** on, the click counts
@@ -181,12 +189,12 @@ The presets:
 
 ## Jams: saving and opening
 
-The **Jams** list at the top opens a jam: one of the stock jams, a
+The jam's name at the top opens a jam: one of the stock jams, a
 groove, a backing, a tempo, a key and a rig for each common style, or
 one of yours. Opening one replaces the jam playing; the music goes on,
 with a new tempo from the next bar.
 
-**Save…** writes the jam as it is (groove, backing, progression, tempo,
+**Save as jam…** writes the jam as it is (groove, backing, progression, tempo,
 key and rig) to `~/Music/Cantina/Jams/<name>.jam.json` with a name, a
 genre and a line on it. It then shows under *Yours*. Saving under a
 name you already have replaces that jam; the stock jams are never
@@ -225,8 +233,8 @@ The stock jams:
 
 The best riff is always the one you were not recording. While a jam is
 open, Cantina keeps the last minutes of your playing: your dry input and
-the sound through the rig. It is always on; **Keep that** in the jam's
-settings says how long it keeps, 1, 2, 5 (the default) or 10 minutes.
+the sound through the rig. It is always on; the menu beside **Keep that**
+says how long it keeps, 1, 2, 5 (the default) or 10 minutes.
 Changing it starts afresh.
 
 Press **Keep that** (or **Return**) and those minutes are written to two
