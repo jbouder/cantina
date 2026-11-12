@@ -77,6 +77,8 @@
   --state-on-ink: #ffb060;
   --state-selected: #136a5e;
   --state-selected-ink: #ffffff;
+  /* The line under a row of tabs, and under the selected one. */
+  --tab-rule: var(--state-on-ink);
   --state-disabled: #ab9f86;
   --state-disabled-ink: #54462f;
   --state-disabled-shadow: inset 0 0 0 1px #8a7e66;

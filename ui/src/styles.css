@@ -384,15 +384,18 @@
   &[aria-selected="true"] {
     color: var(--state-on-ink);
     background: var(--state-on);
+    /* The rule runs on under the tab, which would otherwise cover it. */
+    box-shadow: inset 0 -2px 0 var(--tab-rule);
   }
 }
 
 /*
- * The rule a row of tabs sits on, in the selected tab's own fill, so the
- * tab and the rule read as one piece.
+ * The rule a row of tabs sits on, in the skin's `--tab-rule` (the
+ * selected tab's ink, or its fill where the ink is dark), drawn under the
+ * selected tab too, so the line runs unbroken.
  */
 @utility tab-rule {
-  box-shadow: inset 0 -2px 0 var(--state-on);
+  box-shadow: inset 0 -2px 0 var(--tab-rule);
 }
 
 /*

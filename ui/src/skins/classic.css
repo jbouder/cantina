@@ -129,6 +129,8 @@
     inset 1px 1px 0 var(--pbtn-bevel-lo), inset 0 -2px 0 var(--led-on), 0 0 0 1px var(--frame-edge);
   --state-selected: #0000c6;
   --state-selected-ink: #ffffff;
+  /* The line under a row of tabs, and under the selected one. */
+  --tab-rule: var(--state-on-ink);
   --state-selected-shadow: 0 0 0 1px var(--frame-edge);
   --state-disabled: #2a2a38;
   --state-disabled-ink: #8a8a9c;

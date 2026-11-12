@@ -62,6 +62,8 @@
   --state-on-ink: #7fe8ff;
   --state-selected: #2b5fd0;
   --state-selected-ink: #ffffff;
+  /* The line under a row of tabs, and under the selected one. */
+  --tab-rule: var(--state-on-ink);
   --state-disabled: #161d38;
   --state-disabled-ink: #7484b0;
   --lcd-muted: #3aa8c0;
