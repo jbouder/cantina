@@ -13,7 +13,8 @@ hear when you play the song from the top.
 
 ## Export the mix
 
-Choose **Export…** next to the project name or **File ▸ Export Mixdown…**,
+Choose **Export mixdown…** in the project menu under the project's name, or
+**File ▸ Export Mixdown…**,
 or press ⌘E.
 
 ![The export sheet over the studio](../../../assets/guides/export.png)

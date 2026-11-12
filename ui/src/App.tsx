@@ -811,10 +811,7 @@ export function App() {
         status ? (
           <ProjectBar
             project={status.project}
-            canStartNew={idle}
-            onNewProject={() => bound.current.newProject.run()}
-            onOpenProjects={() => setProjectsOpen(true)}
-            onOpenExport={() => setExportOpen(true)}
+            actions={bindings}
             onStatus={setStatus}
             onError={setError}
           />

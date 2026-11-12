@@ -67,14 +67,14 @@ Cantina opens with the start dialog, three ways in:
   asked in one step, with nothing to undo.
 - **Open a recent project**: the projects you had open lately, newest
   first, each with when it was last saved. A project moved or deleted
-  since stays in the list and says so. **Projects…** in the toolbar
-  lists every project in `~/Music/Cantina`.
+  since stays in the list and says so. **Open…** (⌘O), in the project
+  menu, lists every project in `~/Music/Cantina`.
 - **Jam session**, the button at the bottom left: straight into
   [jam mode](/guides/jam/), drums and a backing to play over with nothing
   to set up.
 
 Escape (or the close key) takes the most recent project, or the new
-`Untitled` project Cantina makes the first time. **New…** in the toolbar
+`Untitled` project Cantina makes the first time. **New project…**
 (⌘N) brings the same dialog back later; there Escape or **Cancel** keeps
 the project you have open. If the last session
 quit without saving, Cantina offers to recover those edits first, and
@@ -138,8 +138,10 @@ so strum: the **IN** meter moves, and you hear the overdrive.
 
 ![The studio with the guitar track armed, two takes on the timeline and its pedalboard below](../../../assets/guides/studio.png)
 
-The header is two rows. The top one holds the project (its name, undo,
-redo, **Save**, **New…**, **Projects…**, **Export…**) at the left, then at the right the **IN** and
+The header is two rows. The top one holds the project at the left: its
+name, which opens the project menu (**New project…**, **Open…**, **Save**,
+**Rename…**, **Duplicate…**, **Export mixdown…**, **Show in Finder**, all
+also in **File**), then undo and redo; then at the right the **IN** and
 **OUT** meters beside the engine, jam, stage and settings keys.
 The second is the transport: record, play, stop, the clock, the tempo, the
 metronome, and snap and zoom for the timeline. In a narrow window the keys
@@ -177,8 +179,9 @@ undone with the arrows next to the project name, or ⌘Z. The
 **Record** (or R) starts the engine and arms a track if it has to, counts in four beats, then starts the
 transport and records what comes in; **Stop** (or Space) ends the take, which lands on the track as a
 clip. Space plays from the playhead. **Save** (⌘S) writes the project to
-`~/Music/Cantina/`, **New…** (⌘N) brings back the start dialog for a new
-project, and **Projects…** (⌘O) opens another. There **Delete**, clicked
+`~/Music/Cantina/`, **New project…** (⌘N) brings back the start dialog for a new
+project, and **Open…** (⌘O) opens another; all three are in the project menu
+under the project's name. There **Delete**, clicked
 twice, moves a project other than the open one to the Trash, where Finder
 can put it back. The **File**
 menu also renames and duplicates projects, reopens recent ones and imports

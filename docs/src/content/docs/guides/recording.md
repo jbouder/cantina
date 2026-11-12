@@ -145,6 +145,6 @@ When the mix is done, [export it](/guides/mixdown/) to a WAV file.
 ## Projects
 
 A project is a folder in `~/Music/Cantina/` holding its takes, its settings
-and every edit. **Save** writes it, and **Projects…** opens another or
-starts a new one with a name of your choosing. If Cantina quits without saving, the next
+and every edit. **Save** (⌘S) writes it, and **Open…** (⌘O) opens another or
+starts a new one; both are also in the project menu under its name with a name of your choosing. If Cantina quits without saving, the next
 launch offers to restore the unsaved edits.
