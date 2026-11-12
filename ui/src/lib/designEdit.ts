@@ -2,9 +2,10 @@
 // from one part to the next, so the designer's own history can step
 // back through them and tests can run them without the engine.
 
-import type { DrumPart, PartSection } from "./drumPart";
-import { uniqueName } from "./drumPart";
-import type { PatternInfo } from "./engine";
+import type { DrumPart, OrderStep, PartSection, SectionFill } from "./drumPart";
+import { emptyPattern, MAX_REPEAT, uniqueName } from "./drumPart";
+import type { GrooveSection, PatternInfo } from "./engine";
+import { MAX_STEPS } from "./gridEdit";
 
 /** The part with section `name`'s pattern replaced. */
 export function withPattern(part: DrumPart, name: string, pattern: PatternInfo): DrumPart {
@@ -54,4 +55,125 @@ export function gridPads(
     .filter((r) => !kitPads.some((p) => p.id === r.pad) && r.steps.some((v) => v > 0))
     .map((r) => ({ id: r.pad, name: r.pad }));
   return [...kitPads, ...extra];
+}
+
+/** The labels the kinds go by, in the order the designer offers them. */
+export const SECTION_KINDS: { kind: GrooveSection; label: string }[] = [
+  { kind: "intro", label: "Intro" },
+  { kind: "verse", label: "Verse" },
+  { kind: "chorus", label: "Chorus" },
+  { kind: "bridge", label: "Bridge" },
+  { kind: "fill", label: "Fill" },
+  { kind: "ending", label: "Ending" },
+];
+
+/**
+ * The part with a new section: of a kind, named after it, or of your
+ * own, "Section". It starts as an empty pattern as long as the section
+ * edited, or a fill's one bar. Returns the part and the new name.
+ */
+export function addSection(
+  part: DrumPart,
+  kind: GrooveSection | null,
+  like: PatternInfo | null,
+  barSteps: number,
+): [DrumPart, string] {
+  const label = SECTION_KINDS.find((k) => k.kind === kind)?.label ?? "Section";
+  const name = uniqueName(
+    label,
+    part.sections.map((s) => s.name),
+  );
+  const base = like ?? emptyPattern(name);
+  const length = kind === "fill" ? Math.max(1, barSteps) : base.length;
+  const pattern: PatternInfo = {
+    id: 1,
+    name,
+    stepsPerBeat: base.stepsPerBeat,
+    length: Math.min(MAX_STEPS, length),
+    swing: base.swing,
+    rows: [],
+  };
+  const section: PartSection = { name, pattern, ...(kind ? { kind } : {}) };
+  return [{ ...part, sections: [...part.sections, section] }, name];
+}
+
+/** The part with a copy of section `name` after it, as "Verse 2". Returns the part and the copy's name. */
+export function duplicateSection(part: DrumPart, name: string): [DrumPart, string] {
+  const i = part.sections.findIndex((s) => s.name === name);
+  const source = part.sections[i];
+  if (!source) return [part, name];
+  const copy = uniqueName(
+    name,
+    part.sections.map((s) => s.name),
+  );
+  const sections = [...part.sections];
+  sections.splice(i + 1, 0, {
+    ...structuredClone(source),
+    name: copy,
+    pattern: { ...structuredClone(source.pattern), name: copy },
+  });
+  return [{ ...part, sections }, copy];
+}
+
+/**
+ * The part without section `name`, its steps in the order and the fills
+ * that named it. Unchanged when it is the only section.
+ */
+export function removeSection(part: DrumPart, name: string): DrumPart {
+  if (part.sections.length < 2) return part;
+  return {
+    ...part,
+    sections: part.sections
+      .filter((s) => s.name !== name)
+      .map((s) => {
+        if (s.fill?.section !== name) return s;
+        const { fill: _, ...rest } = s;
+        return rest;
+      }),
+    order: part.order.filter((o) => o.section !== name),
+  };
+}
+
+/** The part with section `name` played `times` at `at` in the order, or at its end. */
+export function addStep(part: DrumPart, name: string, times = 1, at?: number): DrumPart {
+  const order = [...part.order];
+  order.splice(at ?? order.length, 0, { section: name, times: clampTimes(times) });
+  return { ...part, order };
+}
+
+/** The part with step `i` of the order changed. */
+export function setStep(part: DrumPart, i: number, step: Partial<OrderStep>): DrumPart {
+  return {
+    ...part,
+    order: part.order.map((o, j) =>
+      j === i ? { ...o, ...step, times: clampTimes(step.times ?? o.times) } : o,
+    ),
+  };
+}
+
+/** The part with step `i` moved `by` places, kept inside the order. */
+export function moveStep(part: DrumPart, i: number, by: number): DrumPart {
+  const to = Math.max(0, Math.min(part.order.length - 1, i + by));
+  const step = part.order[i];
+  if (!step || to === i) return part;
+  const order = part.order.filter((_, j) => j !== i);
+  order.splice(to, 0, step);
+  return { ...part, order };
+}
+
+/** The part without step `i`. */
+export function removeStep(part: DrumPart, i: number): DrumPart {
+  return { ...part, order: part.order.filter((_, j) => j !== i) };
+}
+
+/** The part with section `name`'s fill set, or taken off with null. */
+export function setFill(part: DrumPart, name: string, fill: SectionFill | null): DrumPart {
+  return withSection(part, name, (s) => {
+    const { fill: _, ...rest } = s;
+    return fill && fill.section !== name ? { ...rest, fill } : rest;
+  });
+}
+
+function clampTimes(times: number): number {
+  return Math.max(1, Math.min(MAX_REPEAT, Math.round(times)));
 }

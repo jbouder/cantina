@@ -267,7 +267,14 @@ and hears it the way it hears a jam: `heard_project` returns a project of
 the designer's making (one drum track with the source track's kit, pad
 mixes and fader, the sections' patterns, and a pattern clip per step of
 the order, or one clip for a section looped alone) in place of the open
-project, and the transport loops over it. An edit sends the whole part
+project, and the transport loops over it. A change to what plays while it
+rolls (`drum_design_plays`) lands on a bar line, as a jam's sections do:
+the next one at least two buffers and 20 ms ahead and no later than the
+loop's end. What was playing becomes the session's **lead**, cut at that
+bar, and the new material starts on it with the loop moved to cover it;
+the status's `spans` tell the view what plays where. Stop or play goes
+back to the top with no lead. `fill_bars` and `order_bars` count the
+song's bars and where its fills fall. An edit sends the whole part
 (`drum_design_set`); one that keeps the kit and the loop's length goes to
 the audio thread as a new score, anything else resyncs the graph. Project
 commands wait while it is open, as they do in a jam. Undo inside the

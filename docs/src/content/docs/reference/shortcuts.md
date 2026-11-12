@@ -116,6 +116,19 @@ With a pad focused, in the Pads panel of the Beats tab.
 | ← → | In step entry, move the cursor a step |
 | Esc | Stops recording or step entry |
 
+## Drum designer
+
+In the drum designer, outside a text field or menu.
+
+| Keys | Does |
+| --- | --- |
+| Space | Plays the section or the song on loop, or stops it |
+| 1–9 | Edits the first nine sections; looping a section, plays it from the next bar |
+| ← → ↑ ↓ | With a cell focused, move between cells |
+| Space or Return | With a cell focused, toggles a hit |
+| ⌘Z ⇧⌘Z | Undo and redo in the designer, apart from the project |
+| Esc | Back to the project, asking first if the part has changes |
+
 ## Jam
 
 In the Jam view, outside a text field or menu.

@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { gridPads, renameSection, withPattern } from "./designEdit";
-import { type DrumPart, emptyPattern } from "./drumPart";
+import {
+  addSection,
+  addStep,
+  duplicateSection,
+  gridPads,
+  moveStep,
+  removeSection,
+  removeStep,
+  renameSection,
+  setFill,
+  setStep,
+  withPattern,
+} from "./designEdit";
+import { type DrumPart, emptyPattern, fillBars, orderBars } from "./drumPart";
 
 function part(): DrumPart {
   return {
@@ -59,5 +71,61 @@ describe("the grid's pads", () => {
       "kick",
       "cowbell",
     ]);
+  });
+});
+
+describe("sections", () => {
+  it("are added by kind, or of your own", () => {
+    const [next, name] = addSection(part(), "chorus", null, 16);
+    expect(name).toBe("Chorus 2");
+    expect(next.sections.at(-1)?.kind).toBe("chorus");
+    const [own, ownName] = addSection(part(), null, null, 16);
+    expect(ownName).toBe("Section");
+    expect(own.sections.at(-1)?.kind).toBeUndefined();
+  });
+  it("take the edited section's length, and a fill one bar", () => {
+    const like = { ...emptyPattern("Verse"), length: 32, stepsPerBeat: 4 };
+    expect(addSection(part(), "bridge", like, 16)[0].sections.at(-1)?.pattern.length).toBe(32);
+    expect(addSection(part(), "fill", like, 16)[0].sections.at(-1)?.pattern.length).toBe(16);
+  });
+  it("are duplicated after themselves", () => {
+    const [next, name] = duplicateSection(part(), "Verse");
+    expect(name).toBe("Verse 2");
+    expect(next.sections.map((s) => s.name)).toEqual(["Verse", "Verse 2", "Fill", "Chorus"]);
+    expect(next.sections[1]?.fill).toEqual(part().sections[0]?.fill);
+  });
+  it("take their steps and the fills that named them when removed", () => {
+    const next = removeSection(part(), "Fill");
+    expect(next.sections.map((s) => s.name)).toEqual(["Verse", "Chorus"]);
+    expect(next.sections[0]?.fill).toBeUndefined();
+    expect(next.order).toEqual([{ section: "Verse", times: 2 }]);
+  });
+  it("never leave the part empty", () => {
+    const one = { ...part(), sections: part().sections.slice(0, 1) };
+    expect(removeSection(one, "Verse")).toBe(one);
+  });
+});
+
+describe("the order", () => {
+  it("gains, changes, moves and loses steps", () => {
+    let p = addStep(part(), "Chorus", 2);
+    expect(p.order.at(-1)).toEqual({ section: "Chorus", times: 2 });
+    p = setStep(p, 2, { times: 99 });
+    expect(p.order[2]?.times).toBe(64);
+    p = moveStep(p, 2, -5);
+    expect(p.order.map((o) => o.section)).toEqual(["Chorus", "Verse", "Fill"]);
+    p = removeStep(p, 1);
+    expect(p.order.map((o) => o.section)).toEqual(["Chorus", "Fill"]);
+  });
+  it("counts its bars and its fills", () => {
+    const p = part();
+    // Verse ×2 then Fill ×1, a bar each; the verse fills every 4, so never in 2 bars.
+    expect(orderBars(p, 3840)).toBe(3);
+    expect(fillBars(p, 3840)).toEqual([]);
+    const longer = setStep(p, 0, { times: 8 });
+    expect(fillBars(longer, 3840)).toEqual([3, 7]);
+    const atEnd = setFill(longer, "Verse", { section: "Fill", every: 0, atEnd: true });
+    expect(fillBars(atEnd, 3840)).toEqual([7]);
+    expect(fillBars(setFill(longer, "Verse", null), 3840)).toEqual([]);
   });
 });
