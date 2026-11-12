@@ -127,6 +127,63 @@ chord lasts:
 
 Each stroke rings until the next.
 
+## Where exercises go
+
+| Folder | Holds |
+| --- | --- |
+| `exercises/` in the app | the stock exercises, read-only |
+| `~/Music/Cantina/Exercises/` | yours: a file written here is read within a second, without a restart |
+
+A file in your folder that does not load is listed with the reason, the
+same one `cantina-cli check` gives, as other [library
+files](/guides/agents/#the-folders) are.
+
+## The stock exercises
+
+Each is heard through a stock rig over a stock groove, with a tempo a
+beginner can start at and a goal worth reaching.
+
+| Exercise | Teaches | Style | Tempo | Rig | Groove |
+| --- | --- | --- | --- | --- | --- |
+| Barre chords: A shape | chord | Rock | 60 to 110 | `classic-rock` | Half-time |
+| Barre chords: E shape | chord | Rock | 60 to 110 | `classic-rock` | Half-time |
+| Open A | chord | Beginner | 60 to 100 | `country` | Half-time |
+| Open Am | chord | Beginner | 60 to 100 | `country` | Half-time |
+| Open C | chord | Beginner | 60 to 100 | `country` | Half-time |
+| Open D | chord | Beginner | 60 to 100 | `country` | Half-time |
+| Open Dm | chord | Beginner | 60 to 100 | `country` | Half-time |
+| Open E | chord | Beginner | 60 to 100 | `country` | Half-time |
+| Open Em | chord | Beginner | 60 to 100 | `country` | Half-time |
+| Open G | chord | Beginner | 60 to 100 | `country` | Half-time |
+| A to D | change | Beginner | 60 to 110 | `country` | Half-time |
+| Am, Dm and E | change | Beginner | 60 to 110 | `country` | Half-time |
+| E to A | change | Beginner | 60 to 110 | `country` | Half-time |
+| Em, C, G and D | change | Beginner | 60 to 110 | `country` | Half-time |
+| G to C | change | Beginner | 60 to 110 | `country` | Half-time |
+| G, C and D | change | Beginner | 60 to 110 | `country` | Half-time |
+| Minor barre chords | change | Rock | 60 to 110 | `classic-rock` | Half-time |
+| A blues scale | scale | Blues | 60 to 130 | `blues` | Blues shuffle |
+| A natural minor, one position | scale | Rock | 60 to 140 | `jazz-clean` | Half-time |
+| A natural minor, three positions | scale | Rock | 60 to 140 | `jazz-clean` | Half-time |
+| G major scale, one position | scale | Beginner | 60 to 140 | `jazz-clean` | Pop |
+| G major scale, three positions | scale | Beginner | 60 to 140 | `jazz-clean` | Pop |
+| Minor pentatonic, box 1 | scale | Rock | 60 to 140 | `hard-rock` | Rock |
+| Minor pentatonic, box 2 | scale | Rock | 60 to 140 | `hard-rock` | Rock |
+| Minor pentatonic, box 3 | scale | Rock | 60 to 140 | `hard-rock` | Rock |
+| Minor pentatonic, box 4 | scale | Rock | 60 to 140 | `hard-rock` | Rock |
+| Minor pentatonic, box 5 | scale | Rock | 60 to 140 | `hard-rock` | Rock |
+| Minor pentatonic, the boxes joined | scale | Rock | 60 to 140 | `hard-rock` | Rock |
+| Bends and vibrato | technique | Blues | 60 to 100 | `blues` | Blues shuffle |
+| Chromatic alternate picking | technique | Rock | 60 to 140 | `classic-rock` | Rock |
+| Hammer-ons and pull-offs | technique | Rock | 60 to 130 | `hard-rock` | Rock |
+| Slides | technique | Blues | 60 to 120 | `blues` | Blues shuffle |
+| 12-bar blues in A | riff | Blues | 70 to 120 | `blues` | Blues shuffle |
+| Sixteenth funk strum | rhythm | Funk | 70 to 110 | `funk-clean` | Funk |
+| Strumming eighths, down and up | rhythm | Beginner | 60 to 120 | `country` | Half-time |
+| Octaves (bass) | technique | Funk | 80 to 116 | `bass-funk` | Funk |
+| Walking blues in A (bass) | riff | Blues | 70 to 130 | `bass-clean` | Blues shuffle |
+| Root and fifth (bass) | rhythm | Beginner | 70 to 120 | `bass-clean` | Rock |
+
 ## Checking and hearing one
 
 ```sh

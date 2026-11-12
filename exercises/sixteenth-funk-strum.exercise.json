@@ -1,0 +1,55 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Sixteenth funk strum",
+  "instrument": "guitar",
+  "teaches": "rhythm",
+  "style": "Funk",
+  "instructions": "An E9 at the seventh fret with the hand moving in sixteenths, down on every beat. Strike on the pattern, scratch the muted strings on the x by releasing the fretting hand's pressure, and miss the strings on the rest. The scratch is the groove: keep it short and dead.",
+  "key": {
+    "tonic": "E",
+    "mode": "major"
+  },
+  "tempo": {
+    "start": 70,
+    "goal": 110,
+    "step": 4
+  },
+  "countIn": 1,
+  "rig": "funk-clean",
+  "drums": {
+    "kit": "vintage",
+    "groove": "Funk",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "chords",
+    "chords": [
+      {
+        "name": "E9",
+        "frets": [
+          null,
+          7,
+          6,
+          7,
+          7,
+          7
+        ],
+        "fingers": [
+          0,
+          2,
+          1,
+          3,
+          3,
+          3
+        ],
+        "start": 0,
+        "length": 7680
+      }
+    ],
+    "strum": {
+      "pattern": "D-xU -UxU D-xU xUDU",
+      "stepsPerBeat": 4
+    }
+  }
+}

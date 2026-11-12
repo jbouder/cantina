@@ -1,0 +1,126 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Root and fifth",
+  "instrument": "bass",
+  "teaches": "rhythm",
+  "style": "Beginner",
+  "instructions": "A, D, E and back, a bar each: the root, then the fifth two frets up on the next string, in quarter notes. Pluck with two fingers in turn and stop each note just before the next, so the line has a pulse and not a drone.",
+  "key": {
+    "tonic": "A",
+    "mode": "major"
+  },
+  "tempo": {
+    "start": 70,
+    "goal": 120,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "bass-clean",
+  "drums": {
+    "kit": "rock",
+    "groove": "Rock",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 3,
+        "fret": 0,
+        "start": 0,
+        "length": 900
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 960,
+        "length": 900
+      },
+      {
+        "string": 3,
+        "fret": 0,
+        "start": 1920,
+        "length": 900
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 2880,
+        "length": 900
+      },
+      {
+        "string": 2,
+        "fret": 0,
+        "start": 3840,
+        "length": 900
+      },
+      {
+        "string": 1,
+        "fret": 2,
+        "start": 4800,
+        "length": 900
+      },
+      {
+        "string": 2,
+        "fret": 0,
+        "start": 5760,
+        "length": 900
+      },
+      {
+        "string": 1,
+        "fret": 2,
+        "start": 6720,
+        "length": 900
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 7680,
+        "length": 900
+      },
+      {
+        "string": 3,
+        "fret": 2,
+        "start": 8640,
+        "length": 900
+      },
+      {
+        "string": 4,
+        "fret": 0,
+        "start": 9600,
+        "length": 900
+      },
+      {
+        "string": 3,
+        "fret": 2,
+        "start": 10560,
+        "length": 900
+      },
+      {
+        "string": 3,
+        "fret": 0,
+        "start": 11520,
+        "length": 900
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 12480,
+        "length": 900
+      },
+      {
+        "string": 3,
+        "fret": 0,
+        "start": 13440,
+        "length": 900
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 14400,
+        "length": 900
+      }
+    ]
+  }
+}

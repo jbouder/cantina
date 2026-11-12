@@ -1,0 +1,318 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Chromatic alternate picking",
+  "instrument": "guitar",
+  "teaches": "technique",
+  "style": "Rock",
+  "instructions": "Frets one to four on every string, up and back, in sixteenths: one finger per fret and strictly down, up, down, up, even across the strings. Leave each finger down until the next one is on; listen for every note the same length and the beat landing on the downstroke.",
+  "key": {
+    "tonic": "A",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 140,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "classic-rock",
+  "drums": {
+    "kit": "rock",
+    "groove": "Rock",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 6,
+        "fret": 1,
+        "start": 0,
+        "length": 240
+      },
+      {
+        "string": 6,
+        "fret": 2,
+        "start": 240,
+        "length": 240
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 480,
+        "length": 240
+      },
+      {
+        "string": 6,
+        "fret": 4,
+        "start": 720,
+        "length": 240
+      },
+      {
+        "string": 5,
+        "fret": 1,
+        "start": 960,
+        "length": 240
+      },
+      {
+        "string": 5,
+        "fret": 2,
+        "start": 1200,
+        "length": 240
+      },
+      {
+        "string": 5,
+        "fret": 3,
+        "start": 1440,
+        "length": 240
+      },
+      {
+        "string": 5,
+        "fret": 4,
+        "start": 1680,
+        "length": 240
+      },
+      {
+        "string": 4,
+        "fret": 1,
+        "start": 1920,
+        "length": 240
+      },
+      {
+        "string": 4,
+        "fret": 2,
+        "start": 2160,
+        "length": 240
+      },
+      {
+        "string": 4,
+        "fret": 3,
+        "start": 2400,
+        "length": 240
+      },
+      {
+        "string": 4,
+        "fret": 4,
+        "start": 2640,
+        "length": 240
+      },
+      {
+        "string": 3,
+        "fret": 1,
+        "start": 2880,
+        "length": 240
+      },
+      {
+        "string": 3,
+        "fret": 2,
+        "start": 3120,
+        "length": 240
+      },
+      {
+        "string": 3,
+        "fret": 3,
+        "start": 3360,
+        "length": 240
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 3600,
+        "length": 240
+      },
+      {
+        "string": 2,
+        "fret": 1,
+        "start": 3840,
+        "length": 240
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 4080,
+        "length": 240
+      },
+      {
+        "string": 2,
+        "fret": 3,
+        "start": 4320,
+        "length": 240
+      },
+      {
+        "string": 2,
+        "fret": 4,
+        "start": 4560,
+        "length": 240
+      },
+      {
+        "string": 1,
+        "fret": 1,
+        "start": 4800,
+        "length": 240
+      },
+      {
+        "string": 1,
+        "fret": 2,
+        "start": 5040,
+        "length": 240
+      },
+      {
+        "string": 1,
+        "fret": 3,
+        "start": 5280,
+        "length": 240
+      },
+      {
+        "string": 1,
+        "fret": 4,
+        "start": 5520,
+        "length": 240
+      },
+      {
+        "string": 1,
+        "fret": 4,
+        "start": 5760,
+        "length": 240
+      },
+      {
+        "string": 1,
+        "fret": 3,
+        "start": 6000,
+        "length": 240
+      },
+      {
+        "string": 1,
+        "fret": 2,
+        "start": 6240,
+        "length": 240
+      },
+      {
+        "string": 1,
+        "fret": 1,
+        "start": 6480,
+        "length": 240
+      },
+      {
+        "string": 2,
+        "fret": 4,
+        "start": 6720,
+        "length": 240
+      },
+      {
+        "string": 2,
+        "fret": 3,
+        "start": 6960,
+        "length": 240
+      },
+      {
+        "string": 2,
+        "fret": 2,
+        "start": 7200,
+        "length": 240
+      },
+      {
+        "string": 2,
+        "fret": 1,
+        "start": 7440,
+        "length": 240
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 7680,
+        "length": 240
+      },
+      {
+        "string": 3,
+        "fret": 3,
+        "start": 7920,
+        "length": 240
+      },
+      {
+        "string": 3,
+        "fret": 2,
+        "start": 8160,
+        "length": 240
+      },
+      {
+        "string": 3,
+        "fret": 1,
+        "start": 8400,
+        "length": 240
+      },
+      {
+        "string": 4,
+        "fret": 4,
+        "start": 8640,
+        "length": 240
+      },
+      {
+        "string": 4,
+        "fret": 3,
+        "start": 8880,
+        "length": 240
+      },
+      {
+        "string": 4,
+        "fret": 2,
+        "start": 9120,
+        "length": 240
+      },
+      {
+        "string": 4,
+        "fret": 1,
+        "start": 9360,
+        "length": 240
+      },
+      {
+        "string": 5,
+        "fret": 4,
+        "start": 9600,
+        "length": 240
+      },
+      {
+        "string": 5,
+        "fret": 3,
+        "start": 9840,
+        "length": 240
+      },
+      {
+        "string": 5,
+        "fret": 2,
+        "start": 10080,
+        "length": 240
+      },
+      {
+        "string": 5,
+        "fret": 1,
+        "start": 10320,
+        "length": 240
+      },
+      {
+        "string": 6,
+        "fret": 4,
+        "start": 10560,
+        "length": 240
+      },
+      {
+        "string": 6,
+        "fret": 3,
+        "start": 10800,
+        "length": 240
+      },
+      {
+        "string": 6,
+        "fret": 2,
+        "start": 11040,
+        "length": 240
+      },
+      {
+        "string": 6,
+        "fret": 1,
+        "start": 11280,
+        "length": 240
+      }
+    ]
+  }
+}

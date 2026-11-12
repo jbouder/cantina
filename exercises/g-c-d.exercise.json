@@ -1,0 +1,118 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "G, C and D",
+  "instrument": "guitar",
+  "teaches": "change",
+  "style": "Beginner",
+  "instructions": "One bar each of the I, IV and V in G, the shape of a thousand songs. Start the D strum on the open D string, not the low E.",
+  "key": {
+    "tonic": "G",
+    "mode": "major"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 110,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "country",
+  "drums": {
+    "kit": "rock",
+    "groove": "Half-time",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "chords",
+    "chords": [
+      {
+        "name": "G",
+        "frets": [
+          3,
+          2,
+          0,
+          0,
+          0,
+          3
+        ],
+        "fingers": [
+          2,
+          1,
+          0,
+          0,
+          0,
+          3
+        ],
+        "start": 0,
+        "length": 3840
+      },
+      {
+        "name": "C",
+        "frets": [
+          null,
+          3,
+          2,
+          0,
+          1,
+          0
+        ],
+        "fingers": [
+          0,
+          3,
+          2,
+          0,
+          1,
+          0
+        ],
+        "start": 3840,
+        "length": 3840
+      },
+      {
+        "name": "D",
+        "frets": [
+          null,
+          null,
+          0,
+          2,
+          3,
+          2
+        ],
+        "fingers": [
+          0,
+          0,
+          0,
+          1,
+          3,
+          2
+        ],
+        "start": 7680,
+        "length": 3840
+      },
+      {
+        "name": "G",
+        "frets": [
+          3,
+          2,
+          0,
+          0,
+          0,
+          3
+        ],
+        "fingers": [
+          2,
+          1,
+          0,
+          0,
+          0,
+          3
+        ],
+        "start": 11520,
+        "length": 3840
+      }
+    ],
+    "strum": {
+      "pattern": "D-DU-UDU",
+      "stepsPerBeat": 2
+    }
+  }
+}

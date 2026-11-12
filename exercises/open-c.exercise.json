@@ -1,0 +1,55 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Open C",
+  "instrument": "guitar",
+  "teaches": "chord",
+  "style": "Beginner",
+  "instructions": "Fingers walk down from the A string: 3 at the third fret, 2 on the D at the second, 1 on the B at the first. Leave the low E out and keep finger 1 off the open G. Strum four downstrokes a bar, then pick each string alone to find the one that does not ring.",
+  "key": {
+    "tonic": "C",
+    "mode": "major"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 100,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "country",
+  "drums": {
+    "kit": "rock",
+    "groove": "Half-time",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "chords",
+    "chords": [
+      {
+        "name": "C",
+        "frets": [
+          null,
+          3,
+          2,
+          0,
+          1,
+          0
+        ],
+        "fingers": [
+          0,
+          3,
+          2,
+          0,
+          1,
+          0
+        ],
+        "start": 0,
+        "length": 7680
+      }
+    ],
+    "strum": {
+      "pattern": "D",
+      "stepsPerBeat": 1
+    }
+  }
+}

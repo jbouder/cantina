@@ -1,0 +1,300 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "G major scale, three positions",
+  "instrument": "guitar",
+  "teaches": "scale",
+  "style": "Beginner",
+  "instructions": "The same octave of G major, from the G on the D string, played in three places: around the fifth fret, the tenth and the fifteenth. The notes do not change, only where they are: listen for all three passes sounding alike.",
+  "key": {
+    "tonic": "G",
+    "mode": "major"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 140,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "jazz-clean",
+  "drums": {
+    "kit": "acoustic",
+    "groove": "Pop",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 4,
+        "fret": 5,
+        "start": 0,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 7,
+        "start": 480,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 960,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 5,
+        "start": 1440,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 7,
+        "start": 1920,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 5,
+        "start": 2400,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 7,
+        "start": 2880,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 8,
+        "start": 3360,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 7,
+        "start": 3840,
+        "length": 480
+      },
+      {
+        "string": 2,
+        "fret": 5,
+        "start": 4320,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 7,
+        "start": 4800,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 5,
+        "start": 5280,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 4,
+        "start": 5760,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 7,
+        "start": 6240,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 5,
+        "start": 6720,
+        "length": 960
+      },
+      {
+        "string": 5,
+        "fret": 10,
+        "start": 7680,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 12,
+        "start": 8160,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 14,
+        "start": 8640,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 10,
+        "start": 9120,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 12,
+        "start": 9600,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 14,
+        "start": 10080,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 11,
+        "start": 10560,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 12,
+        "start": 11040,
+        "length": 480
+      },
+      {
+        "string": 3,
+        "fret": 11,
+        "start": 11520,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 14,
+        "start": 12000,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 12,
+        "start": 12480,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 10,
+        "start": 12960,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 14,
+        "start": 13440,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 12,
+        "start": 13920,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 10,
+        "start": 14400,
+        "length": 960
+      },
+      {
+        "string": 6,
+        "fret": 15,
+        "start": 15360,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 17,
+        "start": 15840,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 19,
+        "start": 16320,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 15,
+        "start": 16800,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 17,
+        "start": 17280,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 19,
+        "start": 17760,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 16,
+        "start": 18240,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 17,
+        "start": 18720,
+        "length": 480
+      },
+      {
+        "string": 4,
+        "fret": 16,
+        "start": 19200,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 19,
+        "start": 19680,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 17,
+        "start": 20160,
+        "length": 480
+      },
+      {
+        "string": 5,
+        "fret": 15,
+        "start": 20640,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 19,
+        "start": 21120,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 17,
+        "start": 21600,
+        "length": 480
+      },
+      {
+        "string": 6,
+        "fret": 15,
+        "start": 22080,
+        "length": 960
+      }
+    ]
+  }
+}

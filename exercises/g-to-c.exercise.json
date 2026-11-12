@@ -1,0 +1,76 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "G to C",
+  "instrument": "guitar",
+  "teaches": "change",
+  "style": "Beginner",
+  "instructions": "Two bars of each. Fingers 2 and 3 keep their shape and drop a string; finger 1 joins on the B. Keep the strum hand moving through the change so the time never stops.",
+  "key": {
+    "tonic": "G",
+    "mode": "major"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 110,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "country",
+  "drums": {
+    "kit": "rock",
+    "groove": "Half-time",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "chords",
+    "chords": [
+      {
+        "name": "G",
+        "frets": [
+          3,
+          2,
+          0,
+          0,
+          0,
+          3
+        ],
+        "fingers": [
+          2,
+          1,
+          0,
+          0,
+          0,
+          3
+        ],
+        "start": 0,
+        "length": 7680
+      },
+      {
+        "name": "C",
+        "frets": [
+          null,
+          3,
+          2,
+          0,
+          1,
+          0
+        ],
+        "fingers": [
+          0,
+          3,
+          2,
+          0,
+          1,
+          0
+        ],
+        "start": 7680,
+        "length": 7680
+      }
+    ],
+    "strum": {
+      "pattern": "D-DU-UDU",
+      "stepsPerBeat": 2
+    }
+  }
+}

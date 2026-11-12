@@ -1,9 +1,9 @@
-// The library folders under ~/Music/Cantina (Pedals, Kits, Patterns, Rigs and Jams),
-// as the shell reports them. Kept apart from engine.ts so tests can
+// The library folders under ~/Music/Cantina (Pedals, Kits, Patterns, Rigs, Jams
+// and Exercises), as the shell reports them. Kept apart from engine.ts so tests can
 // import the helpers without a window.
 
 /** Which kind of library file. */
-export type LibraryKind = "pedal" | "kit" | "pattern" | "rig" | "jam";
+export type LibraryKind = "pedal" | "kit" | "pattern" | "rig" | "jam" | "exercise";
 
 /** A library file that does not load. Mirrors `BrokenFile` in src-tauri. */
 export interface BrokenFile {
@@ -33,6 +33,7 @@ export interface LibraryStatus {
   patternsDir: string;
   rigsDir: string;
   jamsDir: string;
+  exercisesDir: string;
   patterns: LibraryPattern[];
   broken: BrokenFile[];
 }

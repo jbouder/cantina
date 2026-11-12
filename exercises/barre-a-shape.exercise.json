@@ -1,0 +1,118 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Barre chords: A shape",
+  "instrument": "guitar",
+  "teaches": "chord",
+  "style": "Rock",
+  "instructions": "Finger 1 barres from the A string to the high E; three fingers sit in a row two frets up. B flat at the first fret, C at the third, D at the fifth. Leave the low E out with the tip of finger 1 touching it.",
+  "key": {
+    "tonic": "C",
+    "mode": "major"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 110,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "classic-rock",
+  "drums": {
+    "kit": "rock",
+    "groove": "Half-time",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "chords",
+    "chords": [
+      {
+        "name": "Bb",
+        "frets": [
+          null,
+          1,
+          3,
+          3,
+          3,
+          1
+        ],
+        "fingers": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          1
+        ],
+        "start": 0,
+        "length": 3840
+      },
+      {
+        "name": "C",
+        "frets": [
+          null,
+          3,
+          5,
+          5,
+          5,
+          3
+        ],
+        "fingers": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          1
+        ],
+        "start": 3840,
+        "length": 3840
+      },
+      {
+        "name": "D",
+        "frets": [
+          null,
+          5,
+          7,
+          7,
+          7,
+          5
+        ],
+        "fingers": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          1
+        ],
+        "start": 7680,
+        "length": 3840
+      },
+      {
+        "name": "C",
+        "frets": [
+          null,
+          3,
+          5,
+          5,
+          5,
+          3
+        ],
+        "fingers": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          1
+        ],
+        "start": 11520,
+        "length": 3840
+      }
+    ],
+    "strum": {
+      "pattern": "D-D-D-DU",
+      "stepsPerBeat": 2
+    }
+  }
+}

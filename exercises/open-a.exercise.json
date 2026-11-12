@@ -1,0 +1,55 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Open A",
+  "instrument": "guitar",
+  "teaches": "chord",
+  "style": "Beginner",
+  "instructions": "Three fingers in a row on the D, G and B strings at the second fret, the low E left out. Tuck them in tight behind the fret; if the high E buzzes, the third finger is leaning on it. Strum four downstrokes a bar, then pick each string alone to find the one that does not ring.",
+  "key": {
+    "tonic": "A",
+    "mode": "major"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 100,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "country",
+  "drums": {
+    "kit": "rock",
+    "groove": "Half-time",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "chords",
+    "chords": [
+      {
+        "name": "A",
+        "frets": [
+          null,
+          0,
+          2,
+          2,
+          2,
+          0
+        ],
+        "fingers": [
+          0,
+          0,
+          1,
+          2,
+          3,
+          0
+        ],
+        "start": 0,
+        "length": 7680
+      }
+    ],
+    "strum": {
+      "pattern": "D",
+      "stepsPerBeat": 1
+    }
+  }
+}

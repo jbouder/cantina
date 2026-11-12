@@ -1,0 +1,134 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Slides",
+  "instrument": "guitar",
+  "teaches": "technique",
+  "style": "Blues",
+  "instructions": "Pick once and slide up two frets, then pick again and slide back, on the G, the B and the high E between pentatonic boxes 1 and 2. Keep the pressure on through the slide so the note does not die, and stop exactly on the fret.",
+  "key": {
+    "tonic": "A",
+    "mode": "minor"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 120,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "blues",
+  "drums": {
+    "kit": "vintage",
+    "groove": "Blues shuffle",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "notes",
+    "notes": [
+      {
+        "string": 3,
+        "fret": 7,
+        "start": 0,
+        "length": 480,
+        "slide": true
+      },
+      {
+        "string": 3,
+        "fret": 9,
+        "start": 480,
+        "length": 1440
+      },
+      {
+        "string": 3,
+        "fret": 9,
+        "start": 1920,
+        "length": 480,
+        "slide": true
+      },
+      {
+        "string": 3,
+        "fret": 7,
+        "start": 2400,
+        "length": 1440
+      },
+      {
+        "string": 2,
+        "fret": 8,
+        "start": 3840,
+        "length": 480,
+        "slide": true
+      },
+      {
+        "string": 2,
+        "fret": 10,
+        "start": 4320,
+        "length": 1440
+      },
+      {
+        "string": 2,
+        "fret": 10,
+        "start": 5760,
+        "length": 480,
+        "slide": true
+      },
+      {
+        "string": 2,
+        "fret": 8,
+        "start": 6240,
+        "length": 1440
+      },
+      {
+        "string": 1,
+        "fret": 8,
+        "start": 7680,
+        "length": 480,
+        "slide": true
+      },
+      {
+        "string": 1,
+        "fret": 10,
+        "start": 8160,
+        "length": 1440
+      },
+      {
+        "string": 1,
+        "fret": 10,
+        "start": 9600,
+        "length": 480,
+        "slide": true
+      },
+      {
+        "string": 1,
+        "fret": 8,
+        "start": 10080,
+        "length": 1440
+      },
+      {
+        "string": 2,
+        "fret": 8,
+        "start": 11520,
+        "length": 480,
+        "slide": true
+      },
+      {
+        "string": 2,
+        "fret": 10,
+        "start": 12000,
+        "length": 1440
+      },
+      {
+        "string": 2,
+        "fret": 10,
+        "start": 13440,
+        "length": 480,
+        "slide": true
+      },
+      {
+        "string": 2,
+        "fret": 8,
+        "start": 13920,
+        "length": 1440
+      }
+    ]
+  }
+}

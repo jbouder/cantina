@@ -387,6 +387,7 @@ pub(crate) mod testing {
                 patterns: root.join("Patterns"),
                 rigs: root.join("Rigs"),
                 jams: root.join("Jams"),
+                exercises: root.join("Exercises"),
             };
             for dir in folders.all() {
                 std::fs::create_dir_all(dir).unwrap();

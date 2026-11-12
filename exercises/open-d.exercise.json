@@ -1,0 +1,55 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/exercise.schema.json",
+  "version": 1,
+  "name": "Open D",
+  "instrument": "guitar",
+  "teaches": "chord",
+  "style": "Beginner",
+  "instructions": "Four strings only, from the open D up: start the strum on the D string. Finger 3 on the B at the third fret, 1 and 2 under it; let the high E ring past finger 2. Strum four downstrokes a bar, then pick each string alone to find the one that does not ring.",
+  "key": {
+    "tonic": "D",
+    "mode": "major"
+  },
+  "tempo": {
+    "start": 60,
+    "goal": 100,
+    "step": 5
+  },
+  "countIn": 1,
+  "rig": "country",
+  "drums": {
+    "kit": "rock",
+    "groove": "Half-time",
+    "levelDb": -4
+  },
+  "phrase": {
+    "kind": "chords",
+    "chords": [
+      {
+        "name": "D",
+        "frets": [
+          null,
+          null,
+          0,
+          2,
+          3,
+          2
+        ],
+        "fingers": [
+          0,
+          0,
+          0,
+          1,
+          3,
+          2
+        ],
+        "start": 0,
+        "length": 7680
+      }
+    ],
+    "strum": {
+      "pattern": "D",
+      "stepsPerBeat": 1
+    }
+  }
+}
