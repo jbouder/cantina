@@ -819,7 +819,9 @@ export function App() {
       }
       end={
         <>
-          <EngineControl status={status} busy={busy} onToggle={toggle} />
+          {/* In the studio the engine sits beside Record; a jam has no
+              transport strip, so there it stays up here. */}
+          {jamming ? <EngineControl status={status} busy={busy} onToggle={toggle} /> : null}
           {ready ? (
             <Button
               aria-label={status?.assistant.persona ? "Tapster" : "Assistant"}
@@ -993,6 +995,7 @@ export function App() {
                       countIn={frame.countIn}
                       auditioning={status.audition !== null}
                       timeline={controls}
+                      engine={<EngineControl status={status} busy={busy} onToggle={toggle} />}
                       onRecord={() => void recordNow()}
                       onStatus={setStatus}
                       onError={setError}

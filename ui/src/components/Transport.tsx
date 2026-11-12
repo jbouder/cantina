@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import {
   clock,
   type EngineStatus,
@@ -30,6 +30,8 @@ type Props = {
   auditioning: boolean;
   /** The timeline's view: snap, zoom and the bar readout. */
   timeline: TimelineControls;
+  /** The engine's key, first in the strip, left of Record. */
+  engine?: ReactNode;
   /** Record, starting the engine and arming a track first if need be. */
   onRecord: () => void;
   onStatus: (status: EngineStatus) => void;
@@ -57,6 +59,7 @@ export function Transport({
   countIn,
   auditioning,
   timeline,
+  engine,
   onRecord,
   onStatus,
   onError,
@@ -87,6 +90,7 @@ export function Transport({
     <div className="@container">
       <div className="flex items-center gap-3">
         <span className="flex shrink-0 items-center gap-1">
+          {engine}
           <Button
             tier="primary"
             aria-label="Record"
