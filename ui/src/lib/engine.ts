@@ -110,7 +110,17 @@ export interface EngineStatus {
 }
 
 /** What the drum designer plays round and round. Mirrors `DesignPlays` in src-tauri. */
-export type DesignPlays = { kind: "section"; name: string } | { kind: "order" };
+export type DesignPlays = { kind: "section"; name: string } | { kind: "order"; from: number };
+
+/** What plays where, in ticks. Mirrors `PlaySpan` in src-tauri. */
+export interface PlaySpan {
+  start: number;
+  length: number;
+  /** The section, by name. */
+  section: string;
+  /** The step of the order, for the whole song. */
+  step: number | null;
+}
 
 /** The open drum designer. Mirrors `DrumDesignStatus` in src-tauri. */
 export interface DrumDesignStatus {
@@ -122,8 +132,12 @@ export interface DrumDesignStatus {
   changed: boolean;
   /** Ticks in a bar, at the project's time signature. */
   barTicks: number;
-  /** Ticks the loop lasts. */
-  loopTicks: number;
+  /** The tick the loop starts on. */
+  loopStart: number;
+  /** The tick the loop wraps at. */
+  loopEnd: number;
+  /** What plays where, up to the loop's end. */
+  spans: PlaySpan[];
 }
 
 /** The exercise being practiced. Mirrors `PracticeStatus` in src-tauri. */
@@ -4263,28 +4277,51 @@ function mockBarTicks(): number {
   return ((960 * 4) / denominator) * numerator;
 }
 
-function mockDesignStatus(d: NonNullable<typeof mockDesign>): DrumDesignStatus {
+/** What the stand-in's designer plays: as the shell has it, changes landing at once. */
+function mockDesignPlan(d: NonNullable<typeof mockDesign>): {
+  spans: PlaySpan[];
+  loopStart: number;
+  loopEnd: number;
+} {
   const bar = mockBarTicks();
-  let loop = 0;
-  if (d.plays.kind === "order") {
-    const last = partLayout(d.part).at(-1);
-    loop = last ? last.start + last.length : 0;
-  } else {
+  if (d.plays.kind === "section") {
     const name = d.plays.name;
     const section = d.part.sections.find((s) => s.name === name);
-    if (section) {
-      const ticks = Math.max(1, patternTicks(section.pattern));
-      const every = (section.fill?.every ?? 0) * bar;
-      loop = Math.ceil(Math.max(every, ticks) / ticks) * ticks;
-    }
+    if (!section) return { spans: [], loopStart: 0, loopEnd: 0 };
+    const ticks = Math.max(1, patternTicks(section.pattern));
+    const every = (section.fill?.every ?? 0) * bar;
+    const length = Math.ceil(Math.max(every, ticks) / ticks) * ticks;
+    return {
+      spans: [{ start: 0, length, section: name, step: null }],
+      loopStart: 0,
+      loopEnd: length,
+    };
   }
+  const layout = partLayout(d.part);
+  const total = layout.reduce((end, s) => Math.max(end, s.start + s.length), 0);
+  const skip = layout[d.plays.from]?.start ?? 0;
+  const at = skip > 0 ? total - skip : 0;
+  const span = (s: (typeof layout)[number], start: number): PlaySpan => ({
+    start,
+    length: s.length,
+    section: d.part.sections[s.section]?.name ?? "",
+    step: s.step,
+  });
+  const spans = [
+    ...(skip > 0 ? layout.filter((s) => s.start >= skip).map((s) => span(s, s.start - skip)) : []),
+    ...layout.map((s) => span(s, at + s.start)),
+  ];
+  return { spans, loopStart: at, loopEnd: at + total };
+}
+
+function mockDesignStatus(d: NonNullable<typeof mockDesign>): DrumDesignStatus {
   return {
     track: d.track,
     part: structuredClone(d.part),
     plays: { ...d.plays },
     changed: JSON.stringify(d.part) !== JSON.stringify(d.base),
-    barTicks: bar,
-    loopTicks: loop,
+    barTicks: mockBarTicks(),
+    ...mockDesignPlan(d),
   };
 }
 
@@ -4307,7 +4344,7 @@ export async function drumDesignOpen(track: number): Promise<EngineStatus> {
     base: structuredClone(part),
     plays:
       part.order.length > 0
-        ? { kind: "order" }
+        ? { kind: "order", from: 0 }
         : { kind: "section", name: part.sections[0]?.name ?? "" },
     projectPosition: mockTransport.position,
   };
@@ -4349,12 +4386,22 @@ export async function drumDesignSet(part: DrumPart): Promise<EngineStatus> {
   }
   mockDesign.part = structuredClone(part);
   const plays = mockDesign.plays;
-  const keep = plays.kind === "order" ? part.order.length > 0 : names.has(plays.name);
-  if (!keep) mockDesign.plays = { kind: "section", name: part.sections[0]?.name ?? "" };
+  const keep =
+    plays.kind === "order" ? plays.from < partLayout(part).length : names.has(plays.name);
+  if (!keep) {
+    mockDesign.plays =
+      part.order.length > 0
+        ? { kind: "order", from: 0 }
+        : { kind: "section", name: part.sections[0]?.name ?? "" };
+  }
   return mockStatus();
 }
 
-/** Plays a section, or the whole order, on loop in the designer. */
+/**
+ * Plays a section, or the order from one of its steps, on loop in the
+ * designer. While it rolls the shell lands the change on the next bar
+ * line; the stand-in changes at once.
+ */
 export async function drumDesignPlays(plays: DesignPlays): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("drum_design_plays", { plays });
   if (!mockDesign) throw new Error("open the drum designer first");
@@ -4363,6 +4410,9 @@ export async function drumDesignPlays(plays: DesignPlays): Promise<EngineStatus>
   }
   if (plays.kind === "order" && mockDesign.part.order.length === 0) {
     throw new Error("the order is empty");
+  }
+  if (plays.kind === "order" && plays.from >= partLayout(mockDesign.part).length) {
+    throw new Error(`the order has no step ${plays.from + 1}`);
   }
   if (JSON.stringify(plays) !== JSON.stringify(mockDesign.plays)) {
     mockDesign.plays = { ...plays };
@@ -4978,8 +5028,12 @@ function openMeterChannel() {
     t += 1 / 60;
     if (mockTransport.playing) mockTransport.position += mock.practice.speed / 60;
     if (mockDesign && mockTransport.playing) {
-      const loop = mockDesignStatus(mockDesign).loopTicks * (60 / mock.project.tempo.bpm / 960);
-      if (loop > 0 && mockTransport.position >= loop) mockTransport.position %= loop;
+      const { loopStart, loopEnd } = mockDesignPlan(mockDesign);
+      const seconds = 60 / mock.project.tempo.bpm / 960;
+      const [from, to] = [loopStart * seconds, loopEnd * seconds];
+      if (to > from && mockTransport.position >= to) {
+        mockTransport.position = from + ((mockTransport.position - to) % (to - from));
+      }
     }
     if (mockTransport.countIn > 0 && !mockParams?.has("countin")) {
       mockTransport.countIn = Math.max(0, mockTransport.countIn - 1 / 60);

@@ -45,6 +45,43 @@ track, the designer asks first: **Leave without placing** drops them.
 - **Play** (Space) starts the loop from the top; Space again stops it.
   The readout shows the bar and beat, the tempo and the time signature.
 
+## Sections and the order
+
+Two lanes run across the top.
+
+**Sections** lists the part's sections; the grid edits the one chosen.
+Keys **1** to **9** choose the first nine. **+** adds a section: an intro,
+verse, chorus, bridge, fill or ending, named after its kind, or one of
+your own to name in the inspector. A new section is an empty pattern as
+long as the one you were editing; a fill starts as one bar. Each section
+has a pattern of its own length. In the inspector, **Duplicate** copies the section
+as "Verse 2", and **Remove section** takes it out with its steps in the
+order and any fills that came from it.
+
+**Order** arranges the sections into a song. Each step plays a section a
+number of times, as wide in the lane as it is long: *Verse ×4, Chorus
+×2, Verse ×2, Ending ×1*. Under each step are its bars and how many of
+them play a fill, and the total is at the end of the lane. **+** at the
+end adds the section you are editing. Click a step to show it in the
+inspector, where you can change what it plays and how many times, move it
+earlier or later, remove it, or **Play from here**.
+
+A section can play a **fill**: the first bar of another section played
+in its place on the last bar of every 2, 4, 8 or 16, and on its last bar
+in each step of the order with **At its end**, just as a pattern clip's
+fills do on the timeline. Looping a section alone, the loop runs long
+enough for its fill to come round.
+
+### Changing what plays
+
+While the part rolls, choosing another section to loop, **Whole song**,
+or **Play from here** lands on the next bar line, as a jam's sections
+do: what is playing carries on to the bar, and the new part starts on it.
+Stopped, the change is where play starts next time.
+
+Edits to the sections and the order are part of the designer's history,
+so **⌘Z** takes them back like any other.
+
 ## The grid and the inspector
 
 Click a cell to put a hit there, or click a hit to take it away; drag
@@ -52,9 +89,9 @@ across cells to paint or erase a run. With a cell focused, the arrows
 move and Space or Return toggles it. The column under the playhead lights
 while the section plays.
 
-The inspector picks the section you are **editing**, and sets its
-**name**, its **kind** (intro, verse, chorus, bridge, fill, ending or
-your own), its **length** in bars and its **swing**.
+The inspector sets the section's **name** (the order and fills follow a
+rename), its **kind** (intro, verse, chorus, bridge, fill, ending or your
+own), its **length** in bars, its **swing** and its **fill**.
 
 The designer keeps a history of its own: **⌘Z** and **⇧⌘Z**, or the
 arrows in its toolbar, step back and forward through your edits in the

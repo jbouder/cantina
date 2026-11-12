@@ -122,6 +122,43 @@ impl DrumPart {
         spans
     }
 
+    /// Bars of the order, counted from 0 at the top, `bar` ticks each,
+    /// where a section's fill plays instead of it: the last bar of every
+    /// `every` of the step, and its last bar with `at_end`, as a pattern
+    /// clip's fill does.
+    pub fn fill_bars(&self, bar: u64) -> Vec<u64> {
+        let bar = bar.max(1);
+        let mut out = Vec::new();
+        for span in self.layout() {
+            let section = &self.sections[span.section];
+            let Some(fill) = section
+                .fill
+                .as_ref()
+                .filter(|f| self.section(&f.section).is_some())
+            else {
+                continue;
+            };
+            let fill = crate::model::Fill {
+                pattern: PatternId(0),
+                every: fill.every,
+                at_end: fill.at_end,
+            };
+            let bars = span.length / bar;
+            let first = span.start / bar;
+            out.extend(
+                (0..bars)
+                    .filter(|b| fill.plays_at(*b, bars))
+                    .map(|b| first + b),
+            );
+        }
+        out
+    }
+
+    /// Bars the whole order lasts, `bar` ticks each, rounded up.
+    pub fn order_bars(&self, bar: u64) -> u64 {
+        self.order_ticks().div_ceil(bar.max(1))
+    }
+
     /// Ticks the whole order lasts.
     pub fn order_ticks(&self) -> u64 {
         self.layout().last().map_or(0, |s| s.start + s.length)
@@ -456,6 +493,68 @@ mod tests {
             at_end: false,
         });
         assert!(bad.validate().unwrap_err().contains("itself"));
+    }
+
+    #[test]
+    fn the_order_counts_its_bars() {
+        let mut project = Project::new("Song", 48_000.0);
+        project.patterns = vec![pattern(1, "Verse", 16), pattern(2, "Chorus", 32)];
+        let mut part = DrumPart::from_track(&project, &Track::drums(TrackId(1), "D", "k"));
+        part.order = vec![
+            OrderStep {
+                section: "Verse".into(),
+                times: 4,
+            },
+            OrderStep {
+                section: "Chorus".into(),
+                times: 2,
+            },
+            OrderStep {
+                section: "Verse".into(),
+                times: 1,
+            },
+        ];
+        assert_eq!(part.order_bars(BAR), 4 + 4 + 1);
+        // In 3/4 the same ticks are more bars.
+        assert_eq!(part.order_bars(2880), (9 * BAR).div_ceil(2880));
+        part.order[0].times = 3;
+        assert_eq!(part.layout()[1].start, 3 * BAR);
+    }
+
+    #[test]
+    fn fills_fall_on_their_bars() {
+        let mut project = Project::new("Song", 48_000.0);
+        project.patterns = vec![
+            pattern(1, "Verse", 16),
+            pattern(2, "Chorus", 32),
+            pattern(3, "Fill", 16),
+        ];
+        let mut part = DrumPart::from_track(&project, &Track::drums(TrackId(1), "D", "k"));
+        part.order = vec![
+            OrderStep {
+                section: "Verse".into(),
+                times: 8,
+            },
+            OrderStep {
+                section: "Chorus".into(),
+                times: 2,
+            },
+        ];
+        part.sections[0].fill = Some(SectionFill {
+            section: "Fill".into(),
+            every: 4,
+            at_end: false,
+        });
+        part.sections[1].fill = Some(SectionFill {
+            section: "Fill".into(),
+            every: 0,
+            at_end: true,
+        });
+        // The verse's bars 4 and 8, then the chorus's last (bar 12).
+        assert_eq!(part.fill_bars(BAR), vec![3, 7, 11]);
+        // A fill naming a section that is gone plays nothing.
+        part.sections.retain(|s| s.name != "Fill");
+        assert!(part.fill_bars(BAR).is_empty());
     }
 
     #[test]

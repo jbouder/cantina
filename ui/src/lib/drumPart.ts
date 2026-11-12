@@ -167,3 +167,30 @@ export function partFromTrack(
   }
   return { kit, sections, order };
 }
+
+/** Bars the whole order lasts, `bar` ticks each, rounded up. Mirrors `order_bars`. */
+export function orderBars(part: DrumPart, bar: number): number {
+  return Math.ceil(orderTicks(part) / Math.max(1, bar));
+}
+
+/**
+ * Bars of the order, from 0 at the top, where a section's fill plays:
+ * the last of every `every` bars of a step, and its last with `atEnd`.
+ * Mirrors `fill_bars`.
+ */
+export function fillBars(part: DrumPart, bar: number): number[] {
+  const b = Math.max(1, bar);
+  const out: number[] = [];
+  for (const span of layout(part)) {
+    const fill = part.sections[span.section]?.fill;
+    if (!fill || !part.sections.some((s) => s.name === fill.section)) continue;
+    const bars = Math.floor(span.length / b);
+    const first = Math.floor(span.start / b);
+    for (let i = 0; i < bars; i++) {
+      if ((fill.every > 0 && (i + 1) % fill.every === 0) || (fill.atEnd && i + 1 === bars)) {
+        out.push(first + i);
+      }
+    }
+  }
+  return out;
+}

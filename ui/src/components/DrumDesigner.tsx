@@ -10,8 +10,23 @@ import {
   useRef,
   useState,
 } from "react";
-import { gridPads, renameSection, withPattern, withSection } from "../lib/designEdit";
-import { type DrumPart, layout, patternTicks } from "../lib/drumPart";
+import { isTyping } from "../lib/actions";
+import {
+  addSection,
+  addStep,
+  duplicateSection,
+  gridPads,
+  moveStep,
+  removeSection,
+  removeStep,
+  renameSection,
+  SECTION_KINDS,
+  setFill,
+  setStep,
+  withPattern,
+  withSection,
+} from "../lib/designEdit";
+import { type DrumPart, layout, MAX_REPEAT, patternTicks } from "../lib/drumPart";
 import { DEFAULT_VELOCITY, isBeatStart, lengthLabel, stepTicks, ticksAt } from "../lib/drums";
 import {
   type DesignPlays,
@@ -27,7 +42,8 @@ import {
 } from "../lib/engine";
 import { resizePattern, setCells, strokeCells } from "../lib/gridEdit";
 import { Button } from "./Button";
-import { Field } from "./Field";
+import { DesignLanes } from "./DesignLanes";
+import { Field, Toggle } from "./Field";
 import { Lcd } from "./Lcd";
 import { Select } from "./Select";
 import { Sheet } from "./Sheet";
@@ -55,14 +71,8 @@ type Props = {
   onError: (e: string) => void;
 };
 
-const SECTION_KINDS: { kind: GrooveSection; label: string }[] = [
-  { kind: "intro", label: "Intro" },
-  { kind: "verse", label: "Verse" },
-  { kind: "chorus", label: "Chorus" },
-  { kind: "bridge", label: "Bridge" },
-  { kind: "fill", label: "Fill" },
-  { kind: "ending", label: "Ending" },
-];
+/** Bars apart a fill can come, as the designer offers them. */
+const FILL_EVERY = [0, 2, 4, 8, 16];
 
 /** Undo steps the designer keeps. */
 const HISTORY = 200;
@@ -94,6 +104,7 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
   const [selected, setSelected] = useState<string>(() =>
     design?.plays.kind === "section" ? design.plays.name : (design?.part.sections[0]?.name ?? ""),
   );
+  const [selectedStep, setSelectedStep] = useState<number | null>(null);
   const [stroke, setStroke] = useState<Stroke | null>(null);
   const strokeRef = useRef<Stroke | null>(null);
   const [leaving, setLeaving] = useState(false);
@@ -182,48 +193,59 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
     [track, pattern],
   );
 
-  // Where the playhead is in the loop, and on which step of this section.
+  // What is under the playhead: the span of the plan it is in, the step
+  // of this section's grid, and where it is in the song or the section.
   const tempo = status.project.tempo;
-  const loopTicks = design?.loopTicks ?? 0;
-  const ticks =
-    status.transport.playing && loopTicks > 0 ? ticksAt(frame.position, tempo) % loopTicks : null;
+  const ticks = status.transport.playing ? ticksAt(frame.position, tempo) : null;
+  const now =
+    ticks === null
+      ? null
+      : (design?.spans.find((s) => ticks >= s.start && ticks < s.start + s.length) ?? null);
   let step: number | null = null;
-  if (ticks !== null && part && section && pattern) {
-    const spanned =
-      design?.plays.kind === "order"
-        ? layout(part).find((s) => ticks >= s.start && ticks < s.start + s.length)
-        : { section: part.sections.indexOf(section), start: 0 };
-    if (spanned && part.sections[spanned.section]?.name === section.name) {
-      const local = (ticks - spanned.start) % patternTicks(pattern);
-      step = Math.min(pattern.length - 1, Math.floor(local / stepTicks(pattern)));
-    }
+  if (ticks !== null && now && section && pattern && now.section === section.name) {
+    const local = (ticks - now.start) % patternTicks(pattern);
+    step = Math.min(pattern.length - 1, Math.floor(local / stepTicks(pattern)));
   }
   const barTicks = design?.barTicks ?? 3840;
   const beatTicks = (960 * 4) / tempo.denominator;
-  const at = ticks ?? 0;
+  const stepStart =
+    now?.step != null && part ? (layout(part).find((s) => s.step === now.step)?.start ?? 0) : 0;
+  const at = ticks !== null && now ? stepStart + ticks - now.start : 0;
   const position = `${Math.floor(at / barTicks) + 1}.${Math.floor((at % barTicks) / beatTicks) + 1}`;
+
+  // Picks the section the grid edits; looping a section, it is the one
+  // heard from the next bar.
+  const plays: DesignPlays | null = design?.plays ?? null;
+  const pick = useCallback(
+    (name: string) => {
+      setSelected(name);
+      if (plays?.kind === "section" && plays.name !== name) {
+        report(drumDesignPlays({ kind: "section", name }));
+      }
+    },
+    [plays, report],
+  );
 
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (
-        e.key === "Escape" &&
-        !leaving &&
-        document.activeElement?.closest("[role=dialog]") === null
-      ) {
+      if (leaving || document.activeElement?.closest("[role=dialog]") !== null) return;
+      if (e.key === "Escape") {
         leave();
+        return;
+      }
+      if (isTyping(document.activeElement) || e.metaKey || e.ctrlKey || e.altKey) return;
+      const n = Number(e.key);
+      const chosen = Number.isInteger(n) && n >= 1 ? part?.sections[n - 1] : undefined;
+      if (chosen) {
+        e.preventDefault();
+        pick(chosen.name);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [leave, leaving]);
+  }, [leave, leaving, part, pick]);
 
-  if (!design || !part || !section || !pattern) return null;
-
-  const plays: DesignPlays = design.plays;
-  const pick = (name: string) => {
-    setSelected(name);
-    if (plays.kind === "section") report(drumDesignPlays({ kind: "section", name }));
-  };
+  if (!design || !part || !section || !pattern || !plays) return null;
 
   const valueAt = (pad: string, s: number) =>
     pattern.rows.find((r) => r.pad === pad)?.steps[s] ?? 0;
@@ -291,13 +313,14 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
   };
 
   const perBar = pattern.stepsPerBeat * tempo.numerator;
+  const orderStep = selectedStep === null ? undefined : part.order[selectedStep];
   const bars = Math.max(1, Math.round(pattern.length / perBar));
   const lengthOptions = [1, 2, 3, 4, 6, 8].filter((b) => b * perBar <= 128);
 
   return (
     <section
       aria-label="Drum designer"
-      className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-3"
+      className="grid min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-3"
     >
       <header className="@container flex min-w-0 items-center gap-2">
         <span className="caption shrink-0">Drum designer</span>
@@ -321,7 +344,7 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
             aria-pressed={plays.kind === "order"}
             disabled={part.order.length === 0}
             title="Loop the whole song, in order"
-            onClick={() => report(drumDesignPlays({ kind: "order" }))}
+            onClick={() => report(drumDesignPlays({ kind: "order", from: 0 }))}
           >
             <span className="@3xl:inline hidden">Whole song</span>
             <span className="@3xl:hidden">Song</span>
@@ -386,6 +409,34 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
           <span className="@2xl:hidden">Back</span>
         </Button>
       </header>
+
+      <DesignLanes
+        part={part}
+        editing={section.name}
+        playingSection={now?.section ?? null}
+        playingStep={now?.step ?? null}
+        selectedStep={selectedStep}
+        barTicks={barTicks}
+        onEdit={(name) => {
+          setSelectedStep(null);
+          pick(name);
+        }}
+        onAddSection={(kind) => {
+          const [next, name] = addSection(part, kind, section.pattern, perBar);
+          commit(next);
+          setSelected(name);
+          setSelectedStep(null);
+        }}
+        onSelectStep={(i) => {
+          setSelectedStep(selectedStep === i ? null : i);
+          const name = part.order[i]?.section;
+          if (name) setSelected(name);
+        }}
+        onAddStep={() => {
+          commit(addStep(part, section.name));
+          setSelectedStep(part.order.length);
+        }}
+      />
 
       <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)] gap-3">
         <div className="surface-lcd scroll-area min-h-0 p-2">
@@ -462,20 +513,119 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
           aria-label="Inspector"
           className="surface-panel scroll-area grid min-h-0 content-start gap-3 p-3"
         >
+          {orderStep && selectedStep !== null ? (
+            <>
+              <h3 className="caption m-0">Step {selectedStep + 1} of the order</h3>
+              <Select
+                id={`${ids}-step-section`}
+                label="Plays"
+                value={orderStep.section}
+                onChange={(e) => {
+                  commit(setStep(part, selectedStep, { section: e.target.value }));
+                  setSelected(e.target.value);
+                }}
+              >
+                {part.sections.map((s) => (
+                  <option key={s.name} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+              <Field
+                label="Times"
+                hint={`${
+                  (orderStep.times *
+                    patternTicks(
+                      part.sections.find((x) => x.name === orderStep.section)?.pattern ??
+                        section.pattern,
+                    )) /
+                  barTicks
+                } bars`}
+                htmlFor={`${ids}-times`}
+              >
+                <span className="flex w-full items-center gap-1">
+                  <Button
+                    square
+                    aria-label="Fewer times"
+                    disabled={orderStep.times <= 1}
+                    onClick={() =>
+                      commit(setStep(part, selectedStep, { times: orderStep.times - 1 }))
+                    }
+                  >
+                    −
+                  </Button>
+                  <input
+                    key={orderStep.times}
+                    id={`${ids}-times`}
+                    type="number"
+                    min={1}
+                    max={MAX_REPEAT}
+                    defaultValue={orderStep.times}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                    }}
+                    onBlur={(e) => {
+                      const times = Number(e.currentTarget.value);
+                      if (Number.isFinite(times)) commit(setStep(part, selectedStep, { times }));
+                    }}
+                    className="surface-field min-h-8 w-12 min-w-0 flex-1 px-2 text-center tabular-nums"
+                  />
+                  <Button
+                    square
+                    aria-label="More times"
+                    disabled={orderStep.times >= MAX_REPEAT}
+                    onClick={() =>
+                      commit(setStep(part, selectedStep, { times: orderStep.times + 1 }))
+                    }
+                  >
+                    +
+                  </Button>
+                </span>
+              </Field>
+              <span className="flex flex-wrap gap-1">
+                <Button
+                  onClick={() => report(drumDesignPlays({ kind: "order", from: selectedStep }))}
+                  title="Play the song from this step, from the next bar while it rolls"
+                >
+                  Play from here
+                </Button>
+                <Button
+                  square
+                  aria-label="Earlier"
+                  title="Move the step earlier"
+                  disabled={selectedStep === 0}
+                  onClick={() => {
+                    commit(moveStep(part, selectedStep, -1));
+                    setSelectedStep(selectedStep - 1);
+                  }}
+                >
+                  ←
+                </Button>
+                <Button
+                  square
+                  aria-label="Later"
+                  title="Move the step later"
+                  disabled={selectedStep >= part.order.length - 1}
+                  onClick={() => {
+                    commit(moveStep(part, selectedStep, 1));
+                    setSelectedStep(selectedStep + 1);
+                  }}
+                >
+                  →
+                </Button>
+                <Button
+                  tier="quiet"
+                  onClick={() => {
+                    commit(removeStep(part, selectedStep));
+                    setSelectedStep(null);
+                  }}
+                >
+                  Remove step
+                </Button>
+              </span>
+            </>
+          ) : null}
           <h3 className="caption m-0">Section</h3>
-          <Select
-            id={`${ids}-section`}
-            label="Editing"
-            {...(plays.kind === "section" ? { hint: "Loops while you edit it" } : {})}
-            value={section.name}
-            onChange={(e) => pick(e.target.value)}
-          >
-            {part.sections.map((s) => (
-              <option key={s.name} value={s.name}>
-                {s.name}
-              </option>
-            ))}
-          </Select>
           <TextInput
             key={section.name}
             id={`${ids}-name`}
@@ -569,6 +719,94 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
               className="w-full"
             />
           </Field>
+          <Select
+            id={`${ids}-fill`}
+            label="Fill"
+            hint="Another section's first bar, played in its place"
+            value={section.fill?.section ?? ""}
+            onChange={(e) => {
+              const fill = e.target.value;
+              commit(
+                setFill(
+                  part,
+                  section.name,
+                  fill
+                    ? {
+                        section: fill,
+                        every: section.fill?.every ?? 4,
+                        atEnd: section.fill?.atEnd ?? false,
+                      }
+                    : null,
+                ),
+              );
+            }}
+          >
+            <option value="">None</option>
+            {part.sections
+              .filter((s) => s.name !== section.name)
+              .map((s) => (
+                <option key={s.name} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+          </Select>
+          {section.fill ? (
+            <>
+              <Select
+                id={`${ids}-every`}
+                label="Every"
+                hint="The last bar of every so many"
+                value={section.fill.every}
+                onChange={(e) => {
+                  const fill = section.fill;
+                  if (fill) {
+                    commit(setFill(part, section.name, { ...fill, every: Number(e.target.value) }));
+                  }
+                }}
+              >
+                {FILL_EVERY.map((n) => (
+                  <option key={n} value={n}>
+                    {n === 0 ? "Never" : `${n} bars`}
+                  </option>
+                ))}
+              </Select>
+              <Toggle
+                id={`${ids}-at-end`}
+                label="At its end"
+                hint="Its last bar in each step of the order"
+                checked={section.fill.atEnd}
+                onChange={(atEnd) => {
+                  const fill = section.fill;
+                  if (fill) commit(setFill(part, section.name, { ...fill, atEnd }));
+                }}
+              />
+            </>
+          ) : null}
+          <span className="flex flex-wrap gap-1">
+            <Button
+              onClick={() => {
+                const [next, name] = duplicateSection(part, section.name);
+                commit(next);
+                setSelected(name);
+              }}
+            >
+              Duplicate
+            </Button>
+            <Button
+              tier="quiet"
+              disabled={part.sections.length < 2}
+              title={`Remove ${section.name}, its steps in the order and fills from it`}
+              onClick={() => {
+                const i = part.sections.indexOf(section);
+                const next = removeSection(part, section.name);
+                commit(next);
+                setSelected(next.sections[Math.max(0, i - 1)]?.name ?? "");
+                setSelectedStep(null);
+              }}
+            >
+              Remove section
+            </Button>
+          </span>
         </aside>
       </div>
 
