@@ -175,31 +175,38 @@ page.
 
 ### M20 Practice
 
-Exercises for chords, techniques, scales and rhythm: read one, hear it,
-play it slowed and looped, and let Cantina listen and say how you did.
-Built on what is there: the tab format and the tab voice (a tab through
-your rig, looped, at practice speed), the tuner's pitch tracker, Basic
-Pitch for chords, the jam's capture ring and its key and chord spelling.
+A great way to practice scales, chords and techniques, metal ones
+first: read an exercise as a tab and chord diagrams, hear it through the
+right rig over a groove, slow it down, loop it and climb in tempo. No
+listening or grading: you are the judge. Built on what is there: the tab
+format and the tab voice (a tab through your rig, looped, at practice
+speed), the rigs, the stock grooves and the jam's key and chord spelling.
 
 - An exercise file format (`*.exercise.json`): a phrase in the tab
-  format's terms or a sequence of chord shapes, instructions, a tempo
-  range, a count-in and a key; schema, `cantina-cli check` and `render`,
-  the skill's references.
-- Stock exercises: open and barre chords and the changes between them,
-  the 12-bar blues, power chords and palm muting, pentatonic and major
-  scale boxes, alternate picking, hammer-ons and pull-offs, slides,
-  bends and vibrato, strumming patterns, and bass lines.
-- A practice view, opened like Jam: pick an exercise, read it as a tab,
-  hear it, slow it down, loop it, count in, play along through your rig.
+  format's terms or a sequence of chord shapes, what it teaches and its
+  style, instructions, a tempo range with a step, a count-in, a key, the
+  rig it is heard through and a groove to play it over; schema,
+  `cantina-cli check` and `render`, the skill's references.
+- Stock exercises, chords and scales: open and barre chords and the
+  changes between them, the 12-bar blues, the pentatonic boxes and how
+  they join, major, minor and blues scales, alternate picking,
+  hammer-ons and pull-offs, slides, bends and vibrato, strumming
+  patterns, and bass lines.
+- Stock exercises, metal techniques: downpicking endurance, gallops,
+  tremolo picking, palm-muted chugs, breakdown and djent rhythms,
+  pedal-tone and thrash riffs, pinch and natural harmonics, tapping,
+  legato, sweep arpeggios, harmonic minor and Phrygian dominant shapes,
+  in standard and drop tunings, each through a metal rig.
+- A practice view, opened like Jam: pick an exercise by style and skill,
+  read it as a tab, hear it through its rig over its groove, slow it
+  down, loop it, count in, step the tempo, play along through the rig.
 - Chord diagrams and a fretboard that lights the notes as they come.
-- Listening: what you play, heard off the audio thread; single notes
-  live from the pitch tracker, chords from Basic Pitch over each bar.
-- Scoring: each pass graded on notes and timing, shown on the tab as
-  you play and summarized after.
-- A tempo trainer that climbs after clean passes, and a practice log in
-  `~/Music/Cantina/Practice` with bests and streaks.
-- Courses (`*.course.json`): ordered exercises with goal tempos; the
-  assistant reads the log and suggests the next one.
+- A tempo ladder that climbs a step every N loops or on a key, and a
+  practice log in `~/Music/Cantina/Practice` with the tempo reached,
+  bests and streaks.
+- Courses (`*.course.json`): ordered exercises with goal tempos, Metal
+  rhythm and Metal lead first; the assistant reads the log and suggests
+  the next one.
 - A guide to practice.
 
 ### M21 Drum designer
