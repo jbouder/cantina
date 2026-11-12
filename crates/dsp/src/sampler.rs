@@ -307,10 +307,13 @@ impl Sampler {
             pad: trigger.pad,
             layer: layer_index,
             position: 0.0,
-            step: if mix.tune == 0.0 {
+            // The kit's tune and the track's add; with neither, the
+            // sample plays at its own pitch exactly.
+            step: if pad.tune + mix.tune == 0.0 {
                 layer.sample.sample_rate / self.sample_rate
             } else {
-                layer.sample.sample_rate / self.sample_rate * 2f64.powf(f64::from(mix.tune) / 12.0)
+                layer.sample.sample_rate / self.sample_rate
+                    * 2f64.powf(f64::from(pad.tune + mix.tune) / 12.0)
             },
             gain_left,
             gain_right,
@@ -321,10 +324,12 @@ impl Sampler {
             serial: self.next_serial,
             env: 1.0,
             // Under 1, the hit is down 60 dB by that share of its length.
-            env_step: if mix.decay >= 1.0 {
+            // The kit's decay and the track's multiply.
+            env_step: if pad.decay * mix.decay >= 1.0 {
                 1.0
             } else {
-                let frames = (layer.sample.frames() as f64 * f64::from(mix.decay)).max(1.0);
+                let frames =
+                    (layer.sample.frames() as f64 * f64::from(pad.decay * mix.decay)).max(1.0);
                 10f32.powf(-3.0 / frames as f32)
             },
         };
@@ -604,6 +609,45 @@ mod tests {
             .fold(0.0f32, f32::max);
         assert!(worst < 0.05, "{worst}");
         assert!(after[1500..].iter().all(|v| v.abs() < 1e-4), "faded out");
+    }
+
+    #[test]
+    fn the_kits_tune_and_decay_sound_as_the_mixers_do_and_add_to_them() {
+        let render_pad = |kit: Arc<LoadedKit>, pad: usize, params: &[(usize, f32)]| {
+            let mut s = Sampler::new(kit);
+            for (which, v) in params {
+                s.set_param(pad_param(pad, *which), *v);
+            }
+            s.prepare(SR, 64);
+            s.trigger(pad, 1.0, 0);
+            render(&mut s, 64).0
+        };
+        let with = |pad: usize, tune: f32, decay: f32| {
+            let mut k = (*kit()).clone();
+            k.pads_mut()[pad].tune = tune;
+            k.pads_mut()[pad].decay = decay;
+            Arc::new(k)
+        };
+        // The kit's octave up is the mixer's octave up, to the sample.
+        assert_eq!(
+            render_pad(with(3, 12.0, 1.0), 3, &[]),
+            render_pad(kit(), 3, &[(PAD_TUNE, 12.0)])
+        );
+        // The kit's half decay is the mixer's.
+        assert_eq!(
+            render_pad(with(2, 0.0, 0.5), 2, &[]),
+            render_pad(kit(), 2, &[(PAD_DECAY, 0.5)])
+        );
+        // They add (tune) and multiply (decay).
+        assert_eq!(
+            render_pad(with(3, 7.0, 0.5), 3, &[(PAD_TUNE, 5.0), (PAD_DECAY, 0.5)]),
+            render_pad(kit(), 3, &[(PAD_TUNE, 12.0), (PAD_DECAY, 0.25)])
+        );
+        // A kit at 0 and 1 plays exactly as before.
+        assert_eq!(
+            render_pad(with(3, 0.0, 1.0), 3, &[]),
+            render_pad(kit(), 3, &[])
+        );
     }
 
     #[test]

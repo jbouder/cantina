@@ -280,7 +280,18 @@ or `Vary::Chain` (A B C D); `PartSection::played` lays one round of them
 end to end as a single pattern, which is what the designer's clip loops,
 so a fill counts its bars across the variations. Ghost notes, accents,
 rolls, flams and chance are the pattern format's own velocities and step
-marks; the designer adds no field to the pattern. An edit sends the whole part
+marks; the designer adds no field to the pattern.
+
+The kit workbench (`engine_kit.rs`) copies the part's kit into a
+`KitEdit`: the `Kit` as data, where each sample comes from (a file, or
+audio a recipe made in memory) and the recipe, if the kit's folder holds a
+`recipe.json` or a stock recipe has its id. Each change builds a
+`LoadedKit` off the audio thread and registers it in the engine's kits
+under a fresh id (`design:kit:<n>`), so the designer's drum track takes it
+as a kit change; the sampler applies a pad's `tune` and `decay` (kit
+format 2) on each hit with arithmetic alone, added to and multiplied by
+the track's pad mixer. Saving writes a kit folder beside the others,
+then renames it into place. An edit sends the whole part
 (`drum_design_set`); one that keeps the kit and the loop's length goes to
 the audio thread as a new score, anything else resyncs the graph. Project
 commands wait while it is open, as they do in a jam. Undo inside the

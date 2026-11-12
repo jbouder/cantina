@@ -36,7 +36,8 @@
       "../rigs/": "rigs/",
       "../jams/": "jams/",
       "../exercises/": "exercises/",
-      "../courses/": "courses/"
+      "../courses/": "courses/",
+      "../recipes/": "recipes/"
     },
     "icon": [
       "icons/32x32.png",

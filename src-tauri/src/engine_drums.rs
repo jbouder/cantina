@@ -66,7 +66,7 @@ pub(super) struct DrumDesign {
     /// The drum track it was opened from.
     track: TrackId,
     /// The part as the designer has it now.
-    part: DrumPart,
+    pub(super) part: DrumPart,
     /// The part as it was opened, or last placed.
     base: DrumPart,
     plays: DesignPlays,
@@ -77,6 +77,16 @@ pub(super) struct DrumDesign {
     start: u64,
     /// Where the project's playhead was, put back on close.
     project_position: u64,
+    /// The kit in the workbench, heard in place of the part's.
+    pub(super) kit_edit: Option<super::kit_engine::KitEdit>,
+}
+
+/// A pad of the kit the designer hears. Mirrors `PadInfo` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DesignPad {
+    pub id: String,
+    pub name: String,
 }
 
 /// The open drum designer, for the status. Mirrors `DrumDesignStatus`
@@ -100,6 +110,10 @@ pub struct DrumDesignStatus {
     pub loop_end: u64,
     /// What plays where, up to the loop's end.
     pub spans: Vec<PlaySpan>,
+    /// The pads of the kit the designer hears, in the kit's order.
+    pub pads: Vec<DesignPad>,
+    /// The kit in the workbench, when it is open.
+    pub kit_edit: Option<super::kit_engine::KitEditStatus>,
 }
 
 /// Ticks in a bar of `tempo`'s time signature.
@@ -248,7 +262,11 @@ impl Engine {
         let mut project = Project::new("Drum designer", self.project.sample_rate);
         project.tempo = self.project.tempo.clone();
         let source = self.project.track(design.track);
-        let mut track = Track::drums(DESIGN_TRACK, "Drums", design.part.kit.clone());
+        let kit = design
+            .kit_edit
+            .as_ref()
+            .map_or_else(|| design.part.kit.clone(), |e| e.heard.clone());
+        let mut track = Track::drums(DESIGN_TRACK, "Drums", kit);
         if let Some(t) = source {
             track.strip.gain_db = t.strip.gain_db;
             track.strip.pan = t.strip.pan;
@@ -313,6 +331,21 @@ impl Engine {
                     })
                 })
                 .collect(),
+            pads: {
+                let heard = design
+                    .kit_edit
+                    .as_ref()
+                    .map_or(design.part.kit.as_str(), |e| e.heard.as_str());
+                self.kit_status(heard)
+                    .pads
+                    .into_iter()
+                    .map(|p| DesignPad {
+                        id: p.id,
+                        name: p.name,
+                    })
+                    .collect()
+            },
+            kit_edit: self.kit_edit_status(),
         })
     }
 
@@ -369,6 +402,7 @@ impl Engine {
             lead: Vec::new(),
             start: 0,
             project_position: position,
+            kit_edit: None,
         });
         if let Some(live) = &mut self.live {
             live.transport().locate(0);
@@ -383,6 +417,7 @@ impl Engine {
         let Some(design) = self.drum_design.take() else {
             return Ok(self.publish());
         };
+        self.kits.forget_prefix("design:kit:");
         if let Some(live) = &mut self.live {
             live.transport().stop();
             live.transport().locate(design.project_position);
@@ -589,6 +624,7 @@ mod tests {
             lead: Vec::new(),
             start: 0,
             project_position: 0,
+            kit_edit: None,
         }
     }
 

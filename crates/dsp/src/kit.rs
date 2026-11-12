@@ -1,11 +1,11 @@
 //! The drum kit format: pads mapped to samples, with velocity layers,
-//! choke groups and per-pad gain and pan.
+//! choke groups and per-pad gain, pan, tune and decay.
 //!
 //! A kit is a JSON file next to its samples:
 //!
 //! ```json
 //! {
-//!   "version": 1,
+//!   "version": 2,
 //!   "name": "Acoustic",
 //!   "pads": [
 //!     {
@@ -16,12 +16,15 @@
 //!       ]
 //!     },
 //!     { "id": "hh-closed", "name": "Closed hat", "choke": "hat", "pan": 0.3,
-//!       "layers": [{ "file": "hh-closed.wav" }] },
+//!       "tune": 1, "decay": 0.6, "layers": [{ "file": "hh-closed.wav" }] },
 //!     { "id": "hh-open", "name": "Open hat", "choke": "hat", "pan": 0.3,
 //!       "layers": [{ "file": "hh-open.wav" }] }
 //!   ]
 //! }
 //! ```
+//!
+//! Version 2 added each pad's `tune` and `decay`; a version 1 file reads
+//! as version 2 with every pad as it was, in tune and ringing out.
 //!
 //! [`Kit`] is the file as data, validated by [`Kit::from_json`]. A
 //! [`LoadedKit`] is a kit with its samples in memory, built by whoever can
@@ -38,8 +41,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::db_to_linear;
 
-/// The format version this crate reads and writes.
-pub const KIT_VERSION: u32 = 1;
+/// The format version this crate writes. Version 1, without per-pad
+/// tune and decay, still reads.
+pub const KIT_VERSION: u32 = 2;
+/// How far a pad may be tuned, in semitones either way.
+pub const MAX_TUNE: f32 = 12.0;
+/// The shortest decay a pad may have: the share of its samples' length
+/// it rings for.
+pub const MIN_DECAY: f32 = 0.05;
 /// Most pads a kit may have.
 pub const MAX_PADS: usize = 64;
 /// Most velocity layers one pad may have.
@@ -80,8 +89,28 @@ pub struct Pad {
     /// silencing the open one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub choke: Option<String>,
+    /// Semitones up (or down), −12 to 12: the samples played faster or
+    /// slower. Version 2.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub tune: f32,
+    /// How much of each hit rings, from 0.05 to 1 (all of it): under 1 a
+    /// hit is down 60 dB by that share of its sample's length. Version 2.
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    pub decay: f32,
     /// The pad's samples by velocity, at least one.
     pub layers: Vec<Layer>,
+}
+
+fn is_zero(v: &f32) -> bool {
+    *v == 0.0
+}
+
+fn one() -> f32 {
+    1.0
+}
+
+fn is_one(v: &f32) -> bool {
+    *v == 1.0
 }
 
 /// One sample of a pad, chosen by velocity.
@@ -143,6 +172,9 @@ impl Kit {
             }
         }
         kit.validate()?;
+        // Version 1 had no tune or decay; its pads read with neither, so
+        // it is version 2 as it stands.
+        kit.version = KIT_VERSION;
         Ok(kit)
     }
 
@@ -192,6 +224,18 @@ impl Kit {
                 return invalid(format!(
                     "pad {:?} has a gain or pan that is not a number",
                     pad.id
+                ));
+            }
+            if !(pad.tune.is_finite() && (-MAX_TUNE..=MAX_TUNE).contains(&pad.tune)) {
+                return invalid(format!(
+                    "pad {:?} is tuned {} semitones, outside -{MAX_TUNE} to {MAX_TUNE}",
+                    pad.id, pad.tune
+                ));
+            }
+            if !(pad.decay.is_finite() && (MIN_DECAY..=1.0).contains(&pad.decay)) {
+                return invalid(format!(
+                    "pad {:?} has a decay of {}, outside {MIN_DECAY} to 1",
+                    pad.id, pad.decay
                 ));
             }
             if !(-1.0..=1.0).contains(&pad.pan) {
@@ -297,6 +341,10 @@ pub struct LoadedPad {
     pub pan: f32,
     /// Index of the choke group among the kit's groups.
     pub choke: Option<usize>,
+    /// Semitones, −12 to 12; a track's pad mixer adds its own.
+    pub tune: f32,
+    /// How much of each hit rings, 0.05 to 1; a track's pad mixer scales it.
+    pub decay: f32,
     /// The pad's layers, in the kit's order.
     pub layers: Vec<LoadedLayer>,
 }
@@ -409,6 +457,8 @@ impl LoadedKit {
                 gain: db_to_linear(pad.gain_db),
                 pan: pad.pan,
                 choke,
+                tune: pad.tune,
+                decay: pad.decay,
                 layers,
             });
         }
@@ -422,6 +472,12 @@ impl LoadedKit {
     /// The pads, in the kit's order.
     pub fn pads(&self) -> &[LoadedPad] {
         &self.pads
+    }
+
+    /// The pads, to change in a test.
+    #[cfg(test)]
+    pub(crate) fn pads_mut(&mut self) -> &mut [LoadedPad] {
+        &mut self.pads
     }
 
     /// Where a pad sits among the pads, which is what a trigger names.
@@ -489,7 +545,7 @@ mod tests {
     fn rejects_broken_kits_with_a_reason() {
         let cases: &[(&str, &str)] = &[
             ("{", "not a kit file"),
-            (r#"{"version":2,"name":"x","pads":[]}"#, "version 2"),
+            (r#"{"version":3,"name":"x","pads":[]}"#, "version 3"),
             (r#"{"version":1,"name":"  ","pads":[]}"#, "no name"),
             (r#"{"version":1,"name":"x","pads":[]}"#, "no pads"),
             (
@@ -524,11 +580,36 @@ mod tests {
                 r#"{"version":1,"name":"x","pads":[{"id":"a","choke":"","layers":[{"file":"a.wav"}]}]}"#,
                 "empty choke group",
             ),
+            (
+                r#"{"version":2,"name":"x","pads":[{"id":"a","tune":13,"layers":[{"file":"a.wav"}]}]}"#,
+                "tuned 13 semitones",
+            ),
+            (
+                r#"{"version":2,"name":"x","pads":[{"id":"a","decay":0,"layers":[{"file":"a.wav"}]}]}"#,
+                "decay of 0",
+            ),
         ];
         for (text, expected) in cases {
             let err = Kit::from_json(text).unwrap_err().to_string();
             assert!(err.contains(expected), "{text}: {err}");
         }
+    }
+
+    #[test]
+    fn a_version_1_kit_reads_as_version_2_unchanged() {
+        let v1 = Kit::from_json(KIT).unwrap();
+        assert_eq!(v1.version, KIT_VERSION);
+        assert!(v1.pads.iter().all(|p| p.tune == 0.0 && p.decay == 1.0));
+        // Written back, the new fields stay out until they are set.
+        let text = v1.to_json();
+        assert!(!text.contains("tune") && !text.contains("decay"), "{text}");
+        let mut tuned = v1.clone();
+        tuned.pads[0].tune = -2.0;
+        tuned.pads[0].decay = 0.5;
+        let back = Kit::from_json(&tuned.to_json()).unwrap();
+        assert_eq!(back, tuned);
+        let loaded = LoadedKit::build(&back, |_| Ok(sample(10))).unwrap();
+        assert_eq!((loaded.pads()[0].tune, loaded.pads()[0].decay), (-2.0, 0.5));
     }
 
     #[test]

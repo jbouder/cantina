@@ -735,6 +735,84 @@ pub fn groove_file_read(
     engine.lock().groove_file_read(&path).map_err(fail)
 }
 
+/// Opens the drum designer's kit workbench on the part's kit.
+#[tauri::command]
+pub fn drum_design_kit_open(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().drum_design_kit_open().map_err(fail)
+}
+
+/// Sets the workbench kit's pads: level, pan, tune, decay, choke group.
+#[tauri::command]
+pub fn drum_design_kit_set(
+    engine: State<'_, EngineState>,
+    kit: cantina_dsp::Kit,
+) -> Result<EngineStatus, String> {
+    engine.lock().drum_design_kit_set(kit).map_err(fail)
+}
+
+/// Gives a workbench pad new samples: a file, or another kit's pad.
+#[tauri::command]
+pub fn drum_design_kit_swap(
+    engine: State<'_, EngineState>,
+    pad: String,
+    source: crate::engine::PadSource,
+) -> Result<EngineStatus, String> {
+    engine
+        .lock()
+        .drum_design_kit_swap(&pad, source)
+        .map_err(fail)
+}
+
+/// Makes the workbench kit again from a recipe.
+#[tauri::command]
+pub fn drum_design_kit_recipe(
+    engine: State<'_, EngineState>,
+    recipe: cantina_dsp::KitRecipe,
+) -> Result<EngineStatus, String> {
+    engine.lock().drum_design_kit_recipe(recipe).map_err(fail)
+}
+
+/// Puts the part's kit back as it was.
+#[tauri::command]
+pub fn drum_design_kit_reset(engine: State<'_, EngineState>) -> Result<EngineStatus, String> {
+    engine.lock().drum_design_kit_reset().map_err(fail)
+}
+
+/// Saves the workbench kit as a kit of the user's.
+#[tauri::command]
+pub fn drum_design_kit_save(
+    engine: State<'_, EngineState>,
+    name: String,
+    replace: bool,
+) -> Result<EngineStatus, String> {
+    engine
+        .lock()
+        .drum_design_kit_save(&name, replace)
+        .map_err(fail)
+}
+
+/// Plays a pad of the kit the drum designer hears.
+#[tauri::command]
+pub fn drum_design_audition(
+    engine: State<'_, EngineState>,
+    pad: String,
+    velocity: f32,
+) -> Result<(), String> {
+    engine
+        .lock()
+        .drum_design_audition(&pad, velocity)
+        .map_err(fail)
+}
+
+/// The pads of an installed kit.
+#[tauri::command]
+pub fn kit_pads(
+    engine: State<'_, EngineState>,
+    kit: String,
+) -> Result<Vec<crate::engine::KitPadInfo>, String> {
+    engine.lock().kit_pads(&kit).map_err(fail)
+}
+
 /// Saves the drum designer's part as a groove in the library.
 #[tauri::command]
 pub fn drum_design_save_groove(

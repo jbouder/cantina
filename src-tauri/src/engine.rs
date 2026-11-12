@@ -68,8 +68,11 @@ pub use jam_engine::{JamStatus, JamTrackInfo, KeepInto};
 
 #[path = "engine_drums.rs"]
 mod drums_engine;
+#[path = "engine_kit.rs"]
+mod kit_engine;
 use drums_engine::DrumDesign;
 pub use drums_engine::{DesignPlays, DrumDesignStatus};
+pub use kit_engine::{KitPadInfo, PadSource};
 
 /// Event name for status pushes to the UI.
 pub const STATUS_EVENT: &str = "engine://status";
@@ -2078,6 +2081,24 @@ impl Kits {
         kit
     }
 
+    /// Makes `kit` the one `id` names, for a kit that is not a folder: the
+    /// drum designer's workbench.
+    fn put(&mut self, id: &str, kit: Arc<LoadedKit>) {
+        self.failed.remove(id);
+        self.loaded.insert(id.to_string(), kit);
+    }
+
+    /// Lets go of a loaded kit, so the next `get` reads it again.
+    fn forget(&mut self, id: &str) {
+        self.loaded.remove(id);
+        self.failed.remove(id);
+    }
+
+    /// Lets go of every loaded kit whose id starts with `prefix`.
+    fn forget_prefix(&mut self, prefix: &str) {
+        self.loaded.retain(|id, _| !id.starts_with(prefix));
+    }
+
     /// Why `get` came back empty for `id`, if it did.
     fn problem(&self, id: &str) -> Option<&str> {
         self.failed.get(id).map(String::as_str)
@@ -2365,6 +2386,11 @@ pub struct Engine {
     /// The part heard in place of the project while the drum designer
     /// is open.
     drum_design: Option<DrumDesign>,
+    /// Counts the kits the drum designer's workbench has made, so each is
+    /// heard under an id of its own.
+    kit_serial: u64,
+    /// Where the stock kit recipes are, for the workbench.
+    recipe_roots: Vec<PathBuf>,
     recording: Vec<Recording>,
     last_error: Option<String>,
     notice: Option<String>,
@@ -2632,6 +2658,7 @@ impl Engine {
         let stock_jams = crate::jams::scan_stock(&jam_roots(&app));
         let stock_exercises = crate::exercises::scan_stock(&exercise_roots(&app));
         let stock_courses = crate::courses::scan_stock(&course_roots(&app));
+        let recipe_roots = recipe_roots(&app);
         let (practice_log, practice_log_ok, log_problem) = jam_engine::read_practice_log(
             &projects
                 .root()
@@ -2677,6 +2704,8 @@ impl Engine {
             drum_rows: RowMixes::new(),
             jam: None,
             drum_design: None,
+            kit_serial: 0,
+            recipe_roots,
             recording: Vec::new(),
             last_error,
             notice: None,
@@ -6540,6 +6569,23 @@ impl Engine {
 
 /// Where the stock courses are: the bundle's `courses/`, and the
 /// repository's in a debug build.
+/// Where the stock kit recipes are: the bundle's, then the repository's
+/// in a debug build.
+fn recipe_roots(app: &AppHandle) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Ok(resources) = app.path().resource_dir() {
+        roots.push(resources.join("recipes"));
+    }
+    if cfg!(debug_assertions) {
+        roots.push(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("recipes"),
+        );
+    }
+    roots
+}
+
 fn course_roots(app: &AppHandle) -> Vec<PathBuf> {
     let mut roots = Vec::new();
     if let Ok(resources) = app.path().resource_dir() {

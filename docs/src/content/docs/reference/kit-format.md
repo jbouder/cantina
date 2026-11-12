@@ -1,6 +1,6 @@
 ---
 title: "Drum kit format"
-description: "A drum kit is a folder with a kit.json and its samples: pads, velocity layers, choke groups and the sample formats Cantina reads."
+description: "A drum kit is a folder with a kit.json and its samples: pads, velocity layers, choke groups, each pad's level, pan, tune and decay, and the sample formats Cantina reads."
 ---
 
 A kit is a folder with a `kit.json` and its samples beside it:
@@ -34,7 +34,7 @@ The comments are for this page; a real `kit.json` has none.
 
 ```jsonc
 {
-  "version": 1,                  // the format version; always 1 for now
+  "version": 2,                  // the format version: 2 (1 still reads)
   "name": "Acoustic",            // shown in the kit picker
   "pads": [                      // one to 64, in the order the grid shows them
     {
@@ -47,6 +47,9 @@ The comments are for this page; a real `kit.json` has none.
     },
     // pan is -1 (left) to 1 (right); one layer needs no velocity range
     { "id": "snare", "name": "Snare", "pan": -0.1, "layers": [{ "file": "snare.wav" }] },
+    // tuned down two semitones, and cut to 60% of its ring (version 2)
+    { "id": "tom-lo", "name": "Low tom", "tune": -2, "decay": 0.6,
+      "layers": [{ "file": "tom-lo.wav" }] },
     // pads in the same choke group cut each other off
     { "id": "hh-closed", "name": "Closed hat", "choke": "hat", "pan": 0.3,
       "layers": [{ "file": "hh-closed.wav" }] },
@@ -61,8 +64,15 @@ The comments are for this page; a real `kit.json` has none.
 - **`pads`**: one to 64, each with a unique `id` that patterns refer to
   (`kick`, `snare`, `hh-closed`… the stock kits share these names so a
   pattern moves between kits), an optional display `name` (the id when
-  missing), `gainDb` (default 0), `pan` from −1 to 1 (default 0) and an
-  optional `choke` group.
+  missing), `gainDb` (default 0), `pan` from −1 to 1 (default 0), an
+  optional `choke` group, and since version 2 `tune` in semitones from
+  −12 to 12 (default 0: the samples played faster or slower) and `decay`
+  from 0.05 to 1 (default 1: under 1 a hit is down 60 dB by that share of
+  its sample's length). A track's pad mixer adds its tune to the kit's and
+  scales the kit's decay by its own.
+- **Versions**: version 2 added `tune` and `decay`. A version 1 kit reads
+  as it is, every pad in tune and ringing out, and is version 2 when
+  written again.
 - **`layers`**: one to 16 per pad, each a `file` next to the kit with the
   `velocity` range it answers, inclusive, inside 0 to 1 (the whole range
   when missing), and its own `gainDb`. A hit picks the first layer whose

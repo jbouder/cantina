@@ -76,6 +76,7 @@ import { Button } from "./Button";
 import { DesignLanes } from "./DesignLanes";
 import { DesignPalette } from "./DesignPalette";
 import { Field, Toggle } from "./Field";
+import { KitWorkbench } from "./KitWorkbench";
 import { Lcd } from "./Lcd";
 import { SaveGrooveSheet } from "./SaveGrooveSheet";
 import { Select } from "./Select";
@@ -161,9 +162,10 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
   const velocityDrag = useRef(false);
   // The side panel, the save sheet, and the name of the groove last
   // opened, to save it back under. In a browser `?palette` opens the palette.
-  const [panel, setPanel] = useState<"inspector" | "palette">(() =>
-    new URLSearchParams(window.location.search).has("palette") ? "palette" : "inspector",
-  );
+  const [panel, setPanel] = useState<"inspector" | "palette" | "kit">(() => {
+    const q = new URLSearchParams(window.location.search);
+    return q.has("palette") ? "palette" : q.has("workbench") ? "kit" : "inspector";
+  });
   const [saving, setSaving] = useState(false);
   const [grooveName, setGrooveName] = useState("");
   const [stroke, setStroke] = useState<Stroke | null>(null);
@@ -252,8 +254,8 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
     [length],
   );
   const pads = useMemo(
-    () => (pattern ? gridPads(track?.kit?.pads ?? [], pattern) : []),
-    [track, pattern],
+    () => (pattern ? gridPads(design?.pads ?? [], pattern) : []),
+    [design?.pads, pattern],
   );
 
   // What is under the playhead: the span of the plan it is in, the step
@@ -370,6 +372,8 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
   const editAll = (change: (p: PatternInfo) => PatternInfo) =>
     commit(withSection(part, section.name, (s) => everyVariation(s, change)));
   const numerator = tempo.numerator;
+  const kitName =
+    design.kitEdit?.kit.name ?? status.kits.find((k) => k.id === part.kit)?.name ?? part.kit;
   const bars = barCount(pattern, numerator);
   const barAt = Math.min(bar, bars - 1);
   const barOptions = Array.from({ length: bars }, (_, b) => ({ b, key: `bar-${b + 1}` }));
@@ -507,8 +511,9 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
     >
       <header className="@container flex min-w-0 items-center gap-2">
         <span className="caption shrink-0">Drum designer</span>
-        <Lcd className="min-w-0 max-w-80 truncate" title={`${track?.name} · ${track?.kit?.name}`}>
-          {track?.name ?? "Drums"} · {track?.kit?.name ?? part.kit}
+        <Lcd className="min-w-0 max-w-80 truncate" title={`${track?.name} · ${kitName}`}>
+          {track?.name ?? "Drums"} · {kitName}
+          {design.kitEdit?.changed ? " (changed)" : ""}
         </Lcd>
         <span className="flex-1" />
         <fieldset className="m-0 flex shrink-0 gap-0.5 border-0 p-0">
@@ -916,7 +921,26 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
             >
               Palette
             </Button>
+            <Button
+              role="tab"
+              aria-selected={panel === "kit"}
+              className="flex-1"
+              onClick={() => setPanel("kit")}
+              title="The kit: hear each pad, tune it, swap its samples, save it"
+            >
+              Kit
+            </Button>
           </div>
+          {panel === "kit" ? (
+            <KitWorkbench
+              kitId={part.kit}
+              kits={status.kits}
+              pads={design.pads}
+              edit={design.kitEdit}
+              onStatus={onStatus}
+              onError={onError}
+            />
+          ) : null}
           {panel === "palette" ? (
             <DesignPalette
               grooves={status.grooves}

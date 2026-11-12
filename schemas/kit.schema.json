@@ -44,6 +44,13 @@
             "null"
           ]
         },
+        "decay": {
+          "description": "How much of each hit rings, from 0.05 to 1 (all of it): under 1 a hit is down 60 dB by that share of its sample's length. Version 2.",
+          "format": "float",
+          "maximum": 1,
+          "minimum": 0.05,
+          "type": "number"
+        },
         "gainDb": {
           "default": 0.0,
           "description": "Gain in decibels.",
@@ -74,6 +81,13 @@
           "format": "float",
           "maximum": 1,
           "minimum": -1,
+          "type": "number"
+        },
+        "tune": {
+          "description": "Semitones up (or down), −12 to 12: the samples played faster or slower. Version 2.",
+          "format": "float",
+          "maximum": 12.0,
+          "minimum": -12.0,
           "type": "number"
         }
       },
@@ -106,10 +120,10 @@
       "type": "array"
     },
     "version": {
-      "const": 1,
       "description": "The format version, `KIT_VERSION` when written.",
       "format": "uint32",
-      "minimum": 0,
+      "maximum": 2,
+      "minimum": 1,
       "type": "integer"
     }
   },

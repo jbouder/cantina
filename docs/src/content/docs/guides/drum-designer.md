@@ -114,6 +114,30 @@ they are. The file is the [groove format](/reference/groove-format/):
 write one by hand or [with an agent](/guides/agents/), and
 `cantina-cli check` it.
 
+## The kit workbench
+
+**Kit**, the third tab of the side panel, is the kit's side of the part.
+Click any pad to hear it.
+
+**Change the kit** opens a copy of the part's kit to work on, heard as it
+changes; the kit's own folder is never touched. For the pad you clicked:
+
+- **Level**, **Pan**, **Tune** (±12 semitones) and **Decay** (how much of
+  each hit rings), each taking effect when you let go of the slider, and
+  its **Choke group**: a hit cuts the others in its group, the closed hat
+  silencing the open one.
+- **Samples**: **From a file…** puts a WAV file on the pad; **From a kit**
+  and **Use** put another kit's pad there, every velocity layer of it.
+- **Recipe**: a kit made from a recipe (the stock Metal, Jazz, Vintage
+  and others, or one you saved) shows the pad's **Pitch**, **Length**,
+  **Tone** and **Noise**; changing one synthesizes the kit again.
+
+**Reset** puts the kit back as it was. **Save as kit…** writes it to
+`~/Music/Cantina/Kits/<name>/` (its `kit.json`, every sample, and the
+recipe when it has one), where every drum track's **Kit** list and
+`cantina-cli check` find it, and the part plays it from then on. The
+pads' settings are the [kit format](/reference/kit-format/)'s, version 2.
+
 ## The grid and the inspector
 
 Click a cell to put a hit there, or click a hit to take it away; drag
