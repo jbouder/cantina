@@ -162,6 +162,31 @@ Each pass round the loop goes in as one **take**, one step of the
 designer's history: **Undo take** (or ⌘Z) takes back the last. **Record**
 again stops, keeping what was played in the pass under way.
 
+## Placing the part
+
+**Place**, the toolbar's one primary button, puts the part on the drum
+track you opened the designer from: a pattern for each section (named
+after the track and the section, with a whole round of its variations),
+a pattern clip for each step of the order with the section's fill, and
+the part's kit. Clips are in bars, so they stay on them whatever the
+tempo does.
+
+When the track already has clips, Place asks where:
+
+- **In place of the part placed before** takes out what the last Place
+  put there (its clips, and its patterns nothing else plays) and puts
+  the part where it started. The first time, it replaces the track's
+  clips, from the first of them.
+- **After the track's last clip** starts the part on the next bar line
+  after everything else on the track.
+
+It is one edit: **Edit ▸ Undo** in the project takes all of it back. The
+designer stays open, the part now the track's, and leaving no longer
+asks. Open the designer on the track later and it has the part as you
+placed it, sections, variations and all, ready to revise and place
+again. A kit changed in the workbench must be saved (or reset) first,
+since a placed part plays an installed kit.
+
 ## The grid and the inspector
 
 Click a cell to put a hit there, or click a hit to take it away; drag

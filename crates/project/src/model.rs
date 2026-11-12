@@ -13,7 +13,7 @@ use crate::tab::Tab;
 
 /// The format version this crate writes. The loader upgrades older files;
 /// see `file.rs` for the migrations.
-pub const FORMAT_VERSION: u32 = 10;
+pub const FORMAT_VERSION: u32 = 11;
 
 /// Ticks per quarter note in pattern and pattern clip positions. The
 /// same as the engine's tempo map, so a tick here is a tick there.
@@ -624,6 +624,11 @@ pub struct Track {
     /// has it.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub pads: std::collections::BTreeMap<String, PadMix>,
+    /// A drum track's part as the drum designer last placed it, so the
+    /// designer opens on it again and a second placing knows what it put
+    /// there. None until a part is placed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub part: Option<crate::drum_part::PlacedPart>,
 }
 
 /// One pad's place in a drum track's mix.
@@ -697,6 +702,7 @@ impl Track {
             pattern_clips: Vec::new(),
             strip: Strip::default(),
             pads: std::collections::BTreeMap::new(),
+            part: None,
         }
     }
 

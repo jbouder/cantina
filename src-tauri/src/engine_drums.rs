@@ -114,6 +114,10 @@ pub struct DrumDesignStatus {
     pub pads: Vec<DesignPad>,
     /// The kit in the workbench, when it is open.
     pub kit_edit: Option<super::kit_engine::KitEditStatus>,
+    /// The track has a part the designer placed on it.
+    pub placed: bool,
+    /// Pattern clips on the track now.
+    pub track_clips: usize,
 }
 
 /// Ticks in a bar of `tempo`'s time signature.
@@ -346,6 +350,14 @@ impl Engine {
                     .collect()
             },
             kit_edit: self.kit_edit_status(),
+            placed: self
+                .project
+                .track(design.track)
+                .is_some_and(|t| t.part.is_some()),
+            track_clips: self
+                .project
+                .track(design.track)
+                .map_or(0, |t| t.pattern_clips.len()),
         })
     }
 
@@ -542,6 +554,31 @@ impl Engine {
             design.rewind();
         }
         self.sync()?;
+        Ok(self.publish())
+    }
+
+    /// Places the part on the track it was opened from, as one undoable
+    /// edit: in place of what was placed before (or of the track's clips,
+    /// the first time), or after the track's last clip. The designer stays
+    /// open, the part now the track's.
+    pub fn drum_design_place(&mut self, mode: cantina_project::PlaceMode) -> Result<EngineStatus> {
+        let design = self
+            .drum_design
+            .as_ref()
+            .context("open the drum designer first")?;
+        if design.kit_edit.as_ref().is_some_and(|e| e.changed()) {
+            bail!(
+                "save the kit you changed first, or reset it: a part plays a kit that is installed"
+            );
+        }
+        let bar = bar_ticks(&self.project.tempo);
+        let command =
+            cantina_project::place_part(&self.project, design.track, &design.part, mode, bar)
+                .map_err(|e| anyhow!("{e}"))?;
+        self.apply_quietly(command)?;
+        if let Some(design) = &mut self.drum_design {
+            design.base = design.part.clone();
+        }
         Ok(self.publish())
     }
 

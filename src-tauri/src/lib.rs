@@ -151,6 +151,7 @@ pub fn run() {
             commands::pattern_file_read,
             commands::groove_file_read,
             commands::drum_design_save_groove,
+            commands::drum_design_place,
             commands::drum_design_kit_open,
             commands::drum_design_kit_set,
             commands::drum_design_kit_swap,

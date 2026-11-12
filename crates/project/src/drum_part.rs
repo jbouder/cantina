@@ -9,7 +9,11 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::model::{Pattern, PatternId, PatternRow, Project, StepMark, Track};
+use crate::command::Command;
+use crate::model::{
+    Fill, Pattern, PatternClip, PatternClipId, PatternId, PatternRow, Project, StepMark, Track,
+    TrackId,
+};
 use crate::pattern_file::Section;
 
 /// Times a step of the order can repeat its section, and bars apart a
@@ -170,6 +174,185 @@ pub struct OrderStep {
     pub section: String,
     /// Passes of its pattern, 1 to [`MAX_REPEAT`].
     pub times: u16,
+}
+
+/// A part as the drum designer placed it on a drum track: the part
+/// itself, so the designer can open on it again, the tick it starts on,
+/// and what placing it put in the project, so placing again can take it
+/// back out.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlacedPart {
+    /// The part as it was placed.
+    pub part: DrumPart,
+    /// The timeline tick it starts on.
+    pub start: u64,
+    /// The pattern clips placing it made.
+    pub clips: Vec<PatternClipId>,
+    /// The patterns placing it made: one per section.
+    pub patterns: Vec<PatternId>,
+}
+
+/// Where placing a part puts it on a drum track.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PlaceMode {
+    /// In place of what the designer placed last, starting where it
+    /// started; a track never placed on has its pattern clips replaced,
+    /// from the start of the first.
+    Replace,
+    /// After the track's last pattern clip, on the next bar line.
+    Append,
+}
+
+/// The edit that places `part` on drum track `track`, as one command:
+/// what is replaced comes out (clips, and patterns the designer made that
+/// nothing else plays), a pattern goes in for each section (a whole round
+/// of its variations), a clip for each step of the order with the
+/// section's fill, the kit when it differs, and the part, so the designer
+/// can open on it again. Clips are in ticks, `bar` a bar, so they stay on
+/// their bars whatever the tempo does.
+pub fn place_part(
+    project: &Project,
+    track: TrackId,
+    part: &DrumPart,
+    mode: PlaceMode,
+    bar: u64,
+) -> Result<Command, String> {
+    part.validate()?;
+    let t = project
+        .track(track)
+        .ok_or_else(|| format!("no track {track}"))?;
+    if !t.is_drums() {
+        return Err(format!("{} is not a drum track", t.name));
+    }
+    if part.order_ticks() == 0 {
+        return Err("the order is empty: there is nothing to place".into());
+    }
+    let bar = bar.max(1);
+    // What comes out: the last placement's clips (or, never placed, all
+    // the track's clips) when replacing.
+    let replaced: Vec<&PatternClip> = match (mode, &t.part) {
+        (PlaceMode::Append, _) => Vec::new(),
+        (PlaceMode::Replace, Some(placed)) => t
+            .pattern_clips
+            .iter()
+            .filter(|c| placed.clips.contains(&c.id))
+            .collect(),
+        (PlaceMode::Replace, None) => t.pattern_clips.iter().collect(),
+    };
+    let start = match (mode, &t.part) {
+        (PlaceMode::Replace, Some(placed)) => placed.start,
+        (PlaceMode::Replace, None) => replaced.iter().map(|c| c.start).min().unwrap_or(0),
+        (PlaceMode::Append, _) => t
+            .pattern_clips
+            .iter()
+            .map(PatternClip::end)
+            .max()
+            .map_or(0, |end| end.div_ceil(bar) * bar),
+    };
+    let mut commands = Vec::new();
+    for c in &replaced {
+        commands.push(Command::RemovePatternClip { id: c.id });
+    }
+    // Patterns the last placement made that no clip plays once its clips
+    // are gone.
+    let gone: Vec<PatternClipId> = replaced.iter().map(|c| c.id).collect();
+    let still_played = |id: PatternId| {
+        project.tracks.iter().any(|tr| {
+            tr.pattern_clips.iter().any(|c| {
+                !gone.contains(&c.id)
+                    && (c.pattern == id || c.fill.as_ref().is_some_and(|f| f.pattern == id))
+            })
+        })
+    };
+    let mut removed_patterns = Vec::new();
+    if mode == PlaceMode::Replace {
+        if let Some(placed) = &t.part {
+            for id in &placed.patterns {
+                if project.pattern(*id).is_some() && !still_played(*id) {
+                    commands.push(Command::RemovePattern { id: *id });
+                    removed_patterns.push(*id);
+                }
+            }
+        }
+    }
+    // Fresh ids, past every id the project has.
+    let mut next = project.fresh_id();
+    let mut fresh = || {
+        let id = next;
+        next += 1;
+        id
+    };
+    let mut taken: Vec<String> = project
+        .patterns
+        .iter()
+        .filter(|p| !removed_patterns.contains(&p.id))
+        .map(|p| p.name.clone())
+        .collect();
+    let mut ids = Vec::new();
+    for (i, s) in part.sections.iter().enumerate() {
+        let id = PatternId(fresh());
+        let name = unique_name(
+            &format!("{} {}", t.name, s.name),
+            taken.iter().map(String::as_str),
+        );
+        taken.push(name.clone());
+        commands.push(Command::InsertPattern {
+            index: project.patterns.len() + i,
+            pattern: Pattern {
+                id,
+                name,
+                ..s.played()
+            },
+        });
+        ids.push(id);
+    }
+    let mut clips = Vec::new();
+    for span in part.layout() {
+        let section = &part.sections[span.section];
+        let fill = section.fill.as_ref().and_then(|f| {
+            part.section_index(&f.section).map(|i| Fill {
+                pattern: ids[i],
+                every: f.every,
+                at_end: f.at_end,
+            })
+        });
+        let id = PatternClipId(fresh());
+        commands.push(Command::InsertPatternClip {
+            track,
+            clip: PatternClip {
+                id,
+                pattern: ids[span.section],
+                start: start + span.start,
+                offset: 0,
+                length: span.length,
+                fill,
+            },
+        });
+        clips.push(id);
+    }
+    if t.kit.as_deref() != Some(part.kit.as_str()) {
+        commands.push(Command::SetTrackKit {
+            id: track,
+            kit: part.kit.clone(),
+        });
+    }
+    // First, so the history names the edit after it.
+    commands.insert(
+        0,
+        Command::SetTrackPart {
+            track,
+            part: Some(PlacedPart {
+                part: part.clone(),
+                start,
+                clips,
+                patterns: ids,
+            }),
+        },
+    );
+    Ok(Command::Batch { commands })
 }
 
 /// Where a step of the order falls, in ticks from the top of the part.
@@ -338,11 +521,15 @@ impl DrumPart {
         Ok(())
     }
 
-    /// The part a drum track plays now: a section for each pattern its
-    /// clips play, in the order they first come, and an order that follows
-    /// the clips. A track with no clips gets a section for each of the
-    /// project's patterns, and with none of those an empty verse.
+    /// The part a drum track plays now: the part the designer last placed
+    /// on it, if it was; else a section for each pattern its clips play,
+    /// in the order they first come, and an order that follows the clips.
+    /// A track with no clips gets a section for each of the project's
+    /// patterns, and with none of those an empty verse.
     pub fn from_track(project: &Project, track: &Track) -> Self {
+        if let Some(placed) = &track.part {
+            return placed.part.clone();
+        }
         let kit = track.kit.clone().unwrap_or_default();
         let mut clips: Vec<_> = track.pattern_clips.iter().collect();
         clips.sort_by_key(|c| c.start);
@@ -716,6 +903,176 @@ mod tests {
         part.validate().unwrap();
         part.sections[0].variations[0].steps_per_beat = 8;
         assert!(part.validate().unwrap_err().contains("same steps"));
+    }
+
+    /// A project with a drum track playing two bars of a verse, and a
+    /// part of a two-bar verse, a one-bar fill every 4 and a chorus.
+    fn placing() -> (Project, DrumPart) {
+        let mut project = Project::new("Song", 48_000.0);
+        project.patterns = vec![pattern(1, "Verse", 16)];
+        let mut track = Track::drums(TrackId(9), "Drums", "rock");
+        track.pattern_clips = vec![clip(10, 1, 0, 2 * BAR)];
+        project.tracks.push(track);
+        let mut part = DrumPart::from_track(&project, &project.tracks[0]);
+        part.kit = "metal".into();
+        part.sections[0].pattern.length = 32;
+        for r in &mut part.sections[0].pattern.rows {
+            r.steps.resize(32, 0.0);
+        }
+        part.sections.push(PartSection {
+            name: "Fill".into(),
+            kind: Some(Section::Fill),
+            pattern: pattern(2, "Fill", 16),
+            fill: None,
+            variations: Vec::new(),
+            vary: Vary::Alternate,
+        });
+        part.sections.push(PartSection {
+            name: "Chorus".into(),
+            kind: Some(Section::Chorus),
+            pattern: pattern(3, "Chorus", 16),
+            fill: None,
+            variations: Vec::new(),
+            vary: Vary::Alternate,
+        });
+        part.sections[0].fill = Some(SectionFill {
+            section: "Fill".into(),
+            every: 4,
+            at_end: false,
+        });
+        part.order = vec![
+            OrderStep {
+                section: "Verse".into(),
+                times: 2,
+            },
+            OrderStep {
+                section: "Chorus".into(),
+                times: 4,
+            },
+        ];
+        (project, part)
+    }
+
+    #[test]
+    fn placing_puts_the_order_on_the_track_as_one_undoable_edit() {
+        let (mut project, part) = placing();
+        let before = project.clone();
+        let cmd = place_part(&project, TrackId(9), &part, PlaceMode::Replace, BAR).unwrap();
+        assert_eq!(cmd.label(), "place drum part");
+        let undo = cmd.apply(&mut project).unwrap();
+        let t = project.track(TrackId(9)).unwrap();
+        // The track's own clip is replaced by a clip per step of the order.
+        let spans: Vec<_> = t
+            .pattern_clips
+            .iter()
+            .map(|c| (c.start, c.length))
+            .collect();
+        assert_eq!(spans, [(0, 4 * BAR), (4 * BAR, 4 * BAR)]);
+        assert_eq!(t.kit.as_deref(), Some("metal"));
+        let placed = t.part.as_ref().unwrap();
+        assert_eq!(placed.part, part);
+        assert_eq!(placed.clips.len(), 2);
+        assert_eq!(placed.patterns.len(), 3);
+        // The verse's clip plays the fill every four bars.
+        let verse = &t.pattern_clips[0];
+        let fill = verse.fill.as_ref().unwrap();
+        assert_eq!((fill.every, fill.pattern), (4, placed.patterns[1]));
+        // Patterns named after the track, the old one kept.
+        let names: Vec<_> = project.patterns.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(
+            names,
+            ["Verse", "Drums Verse", "Drums Fill", "Drums Chorus"]
+        );
+        project.validate().unwrap();
+        // Reopened, the designer gets the part back as placed.
+        assert_eq!(
+            DrumPart::from_track(&project, project.track(TrackId(9)).unwrap()),
+            part
+        );
+        // One undo puts everything back.
+        undo.apply(&mut project).unwrap();
+        assert_eq!(project, before);
+    }
+
+    #[test]
+    fn placing_again_replaces_what_it_placed_or_appends() {
+        let (mut project, part) = placing();
+        place_part(&project, TrackId(9), &part, PlaceMode::Replace, BAR)
+            .unwrap()
+            .apply(&mut project)
+            .unwrap();
+        // A clip of the user's after it stays through a replace.
+        let id = PatternClipId(project.fresh_id());
+        Command::InsertPatternClip {
+            track: TrackId(9),
+            clip: clip(id.0, 1, 10 * BAR, BAR),
+        }
+        .apply(&mut project)
+        .unwrap();
+        let mut revised = part.clone();
+        revised.order[1].times = 2;
+        let first = project.track(TrackId(9)).unwrap().part.clone().unwrap();
+        place_part(&project, TrackId(9), &revised, PlaceMode::Replace, BAR)
+            .unwrap()
+            .apply(&mut project)
+            .unwrap();
+        let t = project.track(TrackId(9)).unwrap();
+        let spans: Vec<_> = t
+            .pattern_clips
+            .iter()
+            .map(|c| (c.start, c.length))
+            .collect();
+        assert_eq!(spans, [(0, 4 * BAR), (4 * BAR, 2 * BAR), (10 * BAR, BAR)]);
+        // The first placing's patterns are gone; its names are free again.
+        assert!(first.patterns.iter().all(|p| project.pattern(*p).is_none()));
+        assert_eq!(project.patterns.len(), 4);
+        project.validate().unwrap();
+
+        // Appended, it starts on the bar after the last clip.
+        place_part(&project, TrackId(9), &revised, PlaceMode::Append, BAR)
+            .unwrap()
+            .apply(&mut project)
+            .unwrap();
+        let t = project.track(TrackId(9)).unwrap();
+        let starts: Vec<_> = t.pattern_clips.iter().map(|c| c.start).collect();
+        assert_eq!(starts, [0, 4 * BAR, 10 * BAR, 11 * BAR, 15 * BAR]);
+        assert_eq!(t.part.as_ref().unwrap().start, 11 * BAR);
+        project.validate().unwrap();
+    }
+
+    #[test]
+    fn placed_clips_stay_on_their_bars_through_a_tempo_change() {
+        let (mut project, part) = placing();
+        place_part(&project, TrackId(9), &part, PlaceMode::Replace, BAR)
+            .unwrap()
+            .apply(&mut project)
+            .unwrap();
+        Command::SetTempo {
+            tempo: crate::model::Tempo {
+                bpm: 87.0,
+                ..project.tempo.clone()
+            },
+        }
+        .apply(&mut project)
+        .unwrap();
+        // Positions are ticks: every clip still starts and ends on a bar.
+        for c in &project.track(TrackId(9)).unwrap().pattern_clips {
+            assert_eq!(c.start % BAR, 0);
+            assert_eq!(c.length % BAR, 0);
+        }
+    }
+
+    #[test]
+    fn placing_refuses_an_empty_order_or_an_audio_track() {
+        let (mut project, mut part) = placing();
+        project.tracks.push(Track::new(TrackId(20), "Guitar"));
+        assert!(place_part(&project, TrackId(20), &part, PlaceMode::Replace, BAR).is_err());
+        part.order.clear();
+        assert!(
+            place_part(&project, TrackId(9), &part, PlaceMode::Replace, BAR)
+                .unwrap_err()
+                .contains("nothing to place")
+        );
     }
 
     #[test]

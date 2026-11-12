@@ -813,6 +813,15 @@ pub fn kit_pads(
     engine.lock().kit_pads(&kit).map_err(fail)
 }
 
+/// Places the drum designer's part on its track, as one undoable edit.
+#[tauri::command]
+pub fn drum_design_place(
+    engine: State<'_, EngineState>,
+    mode: cantina_project::PlaceMode,
+) -> Result<EngineStatus, String> {
+    engine.lock().drum_design_place(mode).map_err(fail)
+}
+
 /// Saves the drum designer's part as a groove in the library.
 #[tauri::command]
 pub fn drum_design_save_groove(

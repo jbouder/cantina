@@ -144,6 +144,11 @@ impl KitEdit {
 }
 
 impl KitEdit {
+    /// It differs from the kit it started from.
+    pub(super) fn changed(&self) -> bool {
+        self.kit != self.base
+    }
+
     /// Writes the kit as a folder at `dir`, named `name`: its `kit.json`,
     /// every sample, and the recipe it was made from.
     fn write(&mut self, dir: &Path, name: &str) -> Result<()> {
