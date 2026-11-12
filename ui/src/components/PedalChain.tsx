@@ -183,19 +183,23 @@ export function PedalChain({
             No pedals: the signal goes straight through.
           </li>
         ) : null}
+        {/* Right after the last pedal, as wide as a pedal, so it scrolls
+            with the chain. */}
+        <li className="flex min-h-0 shrink-0">
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            onClick={onAdd}
+            title="Add a stock pedal, one of yours, a plugin, a new design or a file"
+            className="grid min-h-24 w-64 cursor-pointer place-content-center justify-items-center gap-1 rounded-control border-2 border-frame-hi border-dashed bg-transparent p-2 text-ink-dim hover:border-ink hover:text-ink"
+          >
+            <span aria-hidden="true" className="font-lcd text-display leading-none">
+              +
+            </span>
+            <span className="font-bold text-label">Add a pedal</span>
+          </button>
+        </li>
       </ol>
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        onClick={onAdd}
-        title="Add a stock pedal, one of yours, a plugin, a new design or a file"
-        className="mb-1 grid min-h-24 w-24 shrink-0 cursor-pointer place-content-center justify-items-center gap-1 rounded-control border-2 border-frame-hi border-dashed bg-transparent p-2 text-ink-dim hover:border-ink hover:text-ink"
-      >
-        <span aria-hidden="true" className="font-lcd text-display leading-none">
-          +
-        </span>
-        <span className="font-bold text-label">Add a pedal</span>
-      </button>
     </div>
   );
 }
