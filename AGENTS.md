@@ -55,16 +55,17 @@ decisions and the milestones; the architecture lives on the docs site, in
 - `packages/scenes` — `@cantina/scenes`, the visualizer scenes, shared
   with music-visualizer. `packages/skins` — `@cantina/skins`, the six
   skins' shared palette.
-- `pedals/`, `kits/`, `irs/`, `recipes/`, `rigs/`, `jams/`, `exercises/` —
+- `pedals/`, `kits/`, `irs/`, `recipes/`, `rigs/`, `jams/`, `exercises/`, `courses/` —
   stock pedals (JSON), drum kits, cabinet impulse responses, kit recipes,
   rigs (chains of stock pedals for a style, `*.rig.json`), jams (a stock
   groove, a backing progression, a tempo, a key and rigs to practice
   with, `*.jam.json`), exercises (a phrase to practice with a tempo
-  ladder, a rig and a groove, `*.exercise.json`). `takes/` holds the
+  ladder, a rig and a groove, `*.exercise.json`), courses (exercises in
+  order with goal tempos, `*.course.json`). `takes/` holds the
   hand-written ground truth for the transcription reference takes. Third-party audio is credited in
   each folder's `CREDITS.md`.
 - `schemas/` — JSON Schemas for pedals, kits, kit recipes, patterns, tabs,
-  rigs, jams, exercises, the practice log and projects, generated from the Rust types. Do not hand-edit.
+  rigs, jams, exercises, courses, the practice log and projects, generated from the Rust types. Do not hand-edit.
 - `.claude/skills/cantina-author/` — the skill for writing Cantina files.
   `references/formats.md` and `references/node-catalog.md` are generated
   by `scripts/skill-references.mjs`; do not hand-edit them.

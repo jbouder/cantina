@@ -63,7 +63,9 @@ Each request for a message contains exactly:
 - **the conversation so far**: your messages, its replies, and what each
   of its tools returned. That includes whatever it read: track, pedal,
   clip and pattern names and settings; the drum kits and pedals you have;
-  device names, levels and dropout counts; docs pages; and the files it
+  device names, levels and dropout counts; when it reads your practice,
+  the exercises and courses with your best tempos, streak and the last two
+  weeks of your practice log; docs pages; and the files it
   wrote with their check and render results. Older parts of a long
   conversation are left out.
 
@@ -177,6 +179,12 @@ It can **read**:
 - the audio engine: whether it is running, the devices, sample rate,
   buffer size, latency, dropouts, the input and output meters, plugins
   that failed to scan and pedals that cannot be built;
+- your practice, read only: the [courses](/guides/practice/#courses) and
+  the step you are on in each, every exercise with your best tempo and
+  the last day you played it, your streak and minutes today, and the last
+  two weeks of the practice log. Ask *"what should I practice next?"* and
+  it suggests the next step of a course, or the exercise furthest from
+  its goal, and says why;
 - Cantina's guides and reference pages.
 
 It can **change**:

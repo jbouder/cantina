@@ -73,6 +73,13 @@ export function PracticeView({ status, frame, onPlay, onLeave, onStatus, onError
 
   const [style, setStyle] = useState(ALL);
   const [teaches, setTeaches] = useState<Teaches | typeof ALL>(ALL);
+  // `?course=<name>` opens on a course, for screenshots.
+  const [coursePath, setCoursePath] = useState(() => {
+    const wanted = new URLSearchParams(window.location.search).get("course");
+    return status.courses.find((c) => c.name === wanted)?.path ?? ALL;
+  });
+  const course = status.courses.find((c) => c.path === coursePath) ?? null;
+  const nextStep = course && course.next !== null ? (course.steps[course.next] ?? null) : null;
   const styles = useMemo(
     () => [...new Set(status.exercises.map((e) => e.style))].sort((a, b) => a.localeCompare(b)),
     [status.exercises],
@@ -180,63 +187,128 @@ export function PracticeView({ status, frame, onPlay, onLeave, onStatus, onError
       </header>
 
       <div className="grid min-h-0 items-start gap-3 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)]">
-        <div className="surface-panel grid max-h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-2 p-3">
+        <div className="surface-panel flex max-h-full min-h-0 flex-col gap-2 p-3">
           <Select
-            id={`${ids}-style`}
-            label="Style"
-            value={style}
-            onChange={(e) => setStyle(e.target.value)}
+            id={`${ids}-course`}
+            label="Course"
+            value={coursePath}
+            onChange={(e) => setCoursePath(e.target.value)}
           >
-            <option value={ALL}>Every style</option>
-            {styles.map((s) => (
-              <option key={s} value={s}>
-                {s}
+            <option value={ALL}>Every exercise</option>
+            {status.courses.map((c) => (
+              <option key={c.path} value={c.path}>
+                {c.name}
+                {c.stock ? "" : " (yours)"}
               </option>
             ))}
           </Select>
-          <Select
-            id={`${ids}-teaches`}
-            label="Teaches"
-            value={teaches}
-            onChange={(e) => setTeaches(e.target.value as Teaches | typeof ALL)}
-          >
-            <option value={ALL}>Everything</option>
-            {TEACHES.map((t) => (
-              <option key={t} value={t}>
-                {TEACHES_LABELS[t]}
-              </option>
-            ))}
-          </Select>
-          <ul
-            aria-label="Exercises"
-            className="scroll-area m-0 grid list-none content-start gap-1 p-0"
-          >
-            {shown.length === 0 ? (
-              <li className="text-ink-dim text-label">No exercises match.</li>
-            ) : null}
-            {shown.map((e) => (
-              <li key={e.path}>
-                <button
-                  type="button"
-                  aria-current={loaded(e) ? "true" : undefined}
-                  onClick={() => report(practiceLoad(e.path))}
-                  className="button-quiet flex min-h-8 w-full items-center justify-between gap-2 border-0 px-2 text-left text-body"
-                  title={`${e.name}: ${TEACHES_LABELS[e.teaches].toLowerCase()}, ${e.start} to ${e.goal} bpm${e.best ? `, your best ${e.best}` : ""}${e.last ? `, last practiced ${dayName(e.last)}` : ""}`}
+          {course ? (
+            <>
+              <p className="m-0 text-ink-dim text-label">
+                {course.description}{" "}
+                {course.next === null
+                  ? "Every step is done."
+                  : `Step ${course.next + 1} of ${course.steps.length}.`}
+              </p>
+              {nextStep?.path && nextStep.path !== practice?.path ? (
+                <Button
+                  onClick={() => nextStep.path && report(practiceLoad(nextStep.path))}
+                  title={nextStep.note || `Practice ${nextStep.name} to ${nextStep.goal} bpm`}
                 >
-                  <span className="truncate">
-                    {e.name}
-                    {e.instrument === "bass" ? " · bass" : ""}
-                    {e.stock ? "" : " (yours)"}
-                  </span>
-                  <span
-                    className={`shrink-0 text-label tabular-nums ${loaded(e) ? "" : "text-ink-dim"}`}
-                  >
-                    {e.best ? `best ${e.best}` : `${e.start}–${e.goal}`}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+                  Next step: {nextStep.name}
+                </Button>
+              ) : null}
+              <ol
+                aria-label={`Steps of ${course.name}`}
+                className="scroll-area m-0 grid min-h-0 flex-1 list-none content-start gap-1 p-0"
+              >
+                {course.steps.map((step, i) => (
+                  <li key={step.exercise}>
+                    <button
+                      type="button"
+                      disabled={!step.path}
+                      aria-current={step.path === practice?.path ? "true" : undefined}
+                      onClick={() => step.path && report(practiceLoad(step.path))}
+                      className="button-quiet flex min-h-8 w-full items-center justify-between gap-2 border-0 px-2 text-left text-body"
+                      title={step.note || `${step.name}, to ${step.goal} bpm`}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <Led on={step.done} label={step.done ? "Done" : "Not yet"} />
+                        <span className="truncate">
+                          {i + 1}. {step.name}
+                          {i === course.next ? " · next" : ""}
+                        </span>
+                      </span>
+                      <span
+                        className={`shrink-0 text-label tabular-nums ${step.path === practice?.path ? "" : "text-ink-dim"}`}
+                      >
+                        {step.best ? `${step.best} of ${step.goal}` : `to ${step.goal}`}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </>
+          ) : (
+            <>
+              <Select
+                id={`${ids}-style`}
+                label="Style"
+                value={style}
+                onChange={(e) => setStyle(e.target.value)}
+              >
+                <option value={ALL}>Every style</option>
+                {styles.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                id={`${ids}-teaches`}
+                label="Teaches"
+                value={teaches}
+                onChange={(e) => setTeaches(e.target.value as Teaches | typeof ALL)}
+              >
+                <option value={ALL}>Everything</option>
+                {TEACHES.map((t) => (
+                  <option key={t} value={t}>
+                    {TEACHES_LABELS[t]}
+                  </option>
+                ))}
+              </Select>
+              <ul
+                aria-label="Exercises"
+                className="scroll-area m-0 grid min-h-0 flex-1 list-none content-start gap-1 p-0"
+              >
+                {shown.length === 0 ? (
+                  <li className="text-ink-dim text-label">No exercises match.</li>
+                ) : null}
+                {shown.map((e) => (
+                  <li key={e.path}>
+                    <button
+                      type="button"
+                      aria-current={loaded(e) ? "true" : undefined}
+                      onClick={() => report(practiceLoad(e.path))}
+                      className="button-quiet flex min-h-8 w-full items-center justify-between gap-2 border-0 px-2 text-left text-body"
+                      title={`${e.name}: ${TEACHES_LABELS[e.teaches].toLowerCase()}, ${e.start} to ${e.goal} bpm${e.best ? `, your best ${e.best}` : ""}${e.last ? `, last practiced ${dayName(e.last)}` : ""}`}
+                    >
+                      <span className="truncate">
+                        {e.name}
+                        {e.instrument === "bass" ? " · bass" : ""}
+                        {e.stock ? "" : " (yours)"}
+                      </span>
+                      <span
+                        className={`shrink-0 text-label tabular-nums ${loaded(e) ? "" : "text-ink-dim"}`}
+                      >
+                        {e.best ? `best ${e.best}` : `${e.start}–${e.goal}`}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
 
         <div className="surface-panel scroll-area grid max-h-full min-h-0 grid-cols-[minmax(0,1fr)] content-start gap-3 p-3">

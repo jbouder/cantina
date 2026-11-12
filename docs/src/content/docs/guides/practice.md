@@ -21,6 +21,21 @@ start dialog. **Back to project**, **E** again or **View ▸ Arrange** goes
 back to the project. The exercise you had last comes back the next time,
 at the tempo you left it, with the loop and the groove as you left them.
 
+## Courses
+
+A course is exercises in an order, each with a tempo to reach before the
+next. Pick one under **Course** at the top of the list: *Beginner
+guitar*, *Rhythm guitar*, *Metal rhythm*, *Metal lead*, *Bass
+foundations*, or one of yours from `~/Music/Cantina/Courses`. The list
+shows its steps in order, each lit when your best reaches its goal, with
+your best and the goal beside it. **Next step** opens the first step not
+done. Back to **Every exercise** for the whole list.
+
+Not sure what to practice? Ask the [assistant](/guides/assistant/): it
+reads your courses and your log, never changing them, and suggests the
+next step and why. The [course format](/reference/course-format/) page
+has the file, for writing your own.
+
 ## Picking an exercise
 
 The left side lists every exercise: the stock ones, then yours from

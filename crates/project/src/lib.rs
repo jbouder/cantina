@@ -7,6 +7,7 @@
 
 mod chords;
 mod command;
+mod course;
 mod exercise;
 mod file;
 mod fill;
@@ -24,6 +25,9 @@ pub mod tab_export;
 
 pub use chords::{parse_chord, parse_progression, Bar, Chord, Preset, PRESETS};
 pub use command::{Command, CommandError};
+pub use course::{
+    course_file_name, course_from_json, Course, CourseStep, COURSE_SUFFIX, COURSE_VERSION,
+};
 pub use exercise::{
     exercise_file_name, exercise_from_json, exercise_to_json, ChordShape, Exercise, ExerciseDrums,
     Phrase, Sounded, Strum, Teaches, TempoLadder, EXERCISE_SUFFIX, EXERCISE_VERSION, FRETBOARD,

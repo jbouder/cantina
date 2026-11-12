@@ -89,6 +89,8 @@ export interface EngineStatus {
   jams: JamInfo[];
   /** Every exercise the practice view offers: the stock ones, then the user's. */
   exercises: ExerciseInfo[];
+  /** Every course, the stock ones then the user's, with your progress. */
+  courses: CourseInfo[];
   /** The rig heard on a track in place of its chain. Session state, never saved. */
   rigAudition: RigAudition | null;
   /** What the player plays through, and the trim it gives rigs. An app setting. */
@@ -184,6 +186,32 @@ export interface ExerciseInfo {
   best: number | null;
   /** The last day it was practiced, `YYYY-MM-DD`. */
   last: string | null;
+}
+
+/** A course and how far through it you are. Mirrors `CourseInfo` in src-tauri. */
+export interface CourseInfo {
+  name: string;
+  description: string;
+  instrument: Instrument;
+  style: string;
+  stock: boolean;
+  path: string;
+  steps: CourseStepInfo[];
+  /** The first step not done, by index; null when the course is done. */
+  next: number | null;
+}
+
+/** One step of a course. Mirrors `StepInfo` in src-tauri. */
+export interface CourseStepInfo {
+  /** The exercise's id, its file less `.exercise.json`. */
+  exercise: string;
+  name: string;
+  /** Its file, when it is installed. */
+  path: string | null;
+  goal: number;
+  note: string;
+  best: number | null;
+  done: boolean;
 }
 
 /** An exercise practiced on a day. Mirrors `PracticeDay` in cantina-project. */
@@ -1463,6 +1491,51 @@ function mockExercises(): ExerciseInfo[] {
     );
 }
 
+/** A course file as the stand-in reads it. */
+interface CourseFile {
+  name: string;
+  description?: string;
+  instrument: Instrument;
+  style: string;
+  steps: { exercise: string; goal: number; note?: string }[];
+}
+
+/** The stock courses, read from the repository's `courses/` at build time. */
+const COURSE_FILES = import.meta.glob<CourseFile>("../../../courses/*.course.json", {
+  eager: true,
+  import: "default",
+});
+
+function mockCourses(): CourseInfo[] {
+  const exercises = mockExercises();
+  return Object.entries(COURSE_FILES).map(([file, c]) => {
+    const steps = c.steps.map((s) => {
+      const e = exercises.find((x) => mockId(x.path) === s.exercise);
+      const best = e?.best ?? null;
+      return {
+        exercise: s.exercise,
+        name: e?.name ?? s.exercise,
+        path: e?.path ?? null,
+        goal: s.goal,
+        note: s.note ?? "",
+        best,
+        done: best !== null && best >= s.goal,
+      };
+    });
+    const next = steps.findIndex((s) => !s.done);
+    return {
+      name: c.name,
+      description: c.description ?? "",
+      instrument: c.instrument,
+      style: c.style,
+      stock: true,
+      path: `/Applications/Cantina.app/Contents/Resources/${file.replace(/^(\.\.\/)+/, "")}`,
+      steps,
+      next: next < 0 ? null : next,
+    };
+  });
+}
+
 /** A rig file as the stand-in reads it. */
 interface RigFile {
   version: number;
@@ -1771,6 +1844,7 @@ const mock: EngineStatus = {
   rigs: [],
   jams: [],
   exercises: [],
+  courses: [],
   // `?rigaudition` hears the Metalcore rig on the guitar track, for screenshots.
   // `?calibrated=-12` starts the profile calibrated at that peak, for screenshots.
   instrumentProfile: (() => {
@@ -1827,6 +1901,7 @@ const mock: EngineStatus = {
     rigsDir: "/Users/you/Music/Cantina/Rigs",
     jamsDir: "/Users/you/Music/Cantina/Jams",
     exercisesDir: "/Users/you/Music/Cantina/Exercises",
+    coursesDir: "/Users/you/Music/Cantina/Courses",
     patterns: mockParams?.has("library")
       ? [
           {
@@ -1925,6 +2000,7 @@ function mockStatus(): EngineStatus {
     practicing: mockPractice && mockJam ? mockPracticeStatus(mockPractice, mockJam) : null,
     jams: mockJams(),
     exercises: mockExercises(),
+    courses: mockCourses(),
     metronome: { ...mock.metronome, sounds: [...mock.metronome.sounds] },
     countIn: mock.countIn,
     openLastAtLaunch: mock.openLastAtLaunch,
@@ -3939,6 +4015,9 @@ const mockLog: PracticeDay[] = mockParams?.has("practicelog")
         { exercise: "a-to-d", date: day(1), tempo: 80, minutes: 12 },
         { exercise: "pentatonic-box-1", date: day(1), tempo: 85, minutes: 6.5 },
         { exercise: "a-to-d", date: day(0), tempo: 75, minutes: 4 },
+        { exercise: "downpicking-endurance", date: day(2), tempo: 210, minutes: 20 },
+        { exercise: "downpicked-power-chords", date: day(1), tempo: 180, minutes: 15 },
+        { exercise: "power-chords-up-the-neck", date: day(0), tempo: 120, minutes: 8 },
       ];
     })()
   : [];

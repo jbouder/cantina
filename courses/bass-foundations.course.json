@@ -1,0 +1,32 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/course.schema.json",
+  "version": 1,
+  "name": "Bass foundations",
+  "description": "Root and fifth, a walking blues, octaves, then locking with a metal kick.",
+  "instrument": "bass",
+  "style": "Beginner",
+  "steps": [
+    {
+      "exercise": "bass-root-and-fifth",
+      "goal": 110,
+      "note": "The root and the fifth hold up every song."
+    },
+    {
+      "exercise": "bass-walking-blues",
+      "goal": 120
+    },
+    {
+      "exercise": "bass-octaves",
+      "goal": 108
+    },
+    {
+      "exercise": "bass-gallop",
+      "goal": 155,
+      "note": "Lock with the kick, not the snare."
+    },
+    {
+      "exercise": "bass-metalcore-line",
+      "goal": 150
+    }
+  ]
+}

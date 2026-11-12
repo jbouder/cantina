@@ -92,8 +92,9 @@ The [command line](/reference/cli/) reference has every command and flag.
 | `~/Music/Cantina/Rigs/` | `<id>.rig.json` | the rig picker on an audio track's pedalboard, marked *yours* |
 | `~/Music/Cantina/Jams/` | `<id>.jam.json` | the Jam view's **Jams** list, under *Yours* |
 | `~/Music/Cantina/Exercises/` | `<id>.exercise.json` | the [Practice](/guides/practice/) view's exercise list, marked *yours* |
+| `~/Music/Cantina/Courses/` | `<id>.course.json` | the Practice view's **Course** list, marked *yours* |
 
-Cantina watches the six folders while it runs. A file added or changed
+Cantina watches the seven folders while it runs. A file added or changed
 there appears within a second; a file that does not load is listed as
 *will not load* with the same reason `cantina-cli check` gives, and cannot
 be picked until it is fixed. See [library folders](/guides/drums/#library-folders).
@@ -153,12 +154,13 @@ Nothing here needs an agent. The same references serve a person:
 
 - the [pedal format](/reference/pedal-format/), [kit format](/reference/kit-format/),
   [rig format](/reference/rig-format/), [jam format](/reference/jam-format/),
-  [exercise format](/reference/exercise-format/) and
+  [exercise format](/reference/exercise-format/),
+  [course format](/reference/course-format/) and
   [pattern files](/guides/drums/#pattern-files);
 - a generated page per schema: [pedal](/reference/schemas/pedal/),
   [kit](/reference/schemas/kit/), [kit recipe](/reference/schemas/kit-recipe/),
   [pattern](/reference/schemas/pattern/), [rig](/reference/schemas/rig/),
-  [jam](/reference/schemas/jam/), [exercise](/reference/schemas/exercise/) and
+  [jam](/reference/schemas/jam/), [exercise](/reference/schemas/exercise/), [course](/reference/schemas/course/) and
   [project](/reference/schemas/project/);
 - `cantina-cli check` and `render` from a terminal, and an editor that
   validates against the `"$schema"` as you type.

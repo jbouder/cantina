@@ -13,6 +13,7 @@
 # Jams: check, with no warnings: every groove, kit and rig they name is stock.
 # Exercises: check, with no warnings, then render through their rig,
 # judged as pedals are.
+# Courses: check, with no warnings: every exercise they name is installed.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -53,8 +54,8 @@ while IFS= read -r file; do
         console.log(`ok ${process.argv[2]}: peak ${s.peakDb.toFixed(1)} dBFS, rms ${s.rmsDb.toFixed(1)} dBFS, latency ${s.latency}`);
       ' "$out" "$rel" || fail "$rel" "levels"
       ;;
-    *.jam.json)
-      # A jam names stock grooves, kits and rigs: check it, warnings and all.
+    *.jam.json | *.course.json)
+      # A jam or a course names stock files: check it, warnings and all.
       out="$("$cli" check "$file")" || { fail "$rel" "check"; continue; }
       if grep -q "^warning" <<<"$out"; then fail "$rel" "warnings: $out"; continue; fi
       echo "ok $rel"

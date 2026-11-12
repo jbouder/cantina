@@ -1,0 +1,53 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/course.schema.json",
+  "version": 1,
+  "name": "Rhythm guitar",
+  "description": "Strumming, barre chords, the blues shuffle and funk, then rock and metal rhythm.",
+  "instrument": "guitar",
+  "style": "Rock",
+  "steps": [
+    {
+      "exercise": "strumming-down-up",
+      "goal": 110
+    },
+    {
+      "exercise": "g-c-d",
+      "goal": 100
+    },
+    {
+      "exercise": "em-c-g-d",
+      "goal": 100
+    },
+    {
+      "exercise": "barre-e-shape",
+      "goal": 100,
+      "note": "Barre chords open the whole neck."
+    },
+    {
+      "exercise": "barre-a-shape",
+      "goal": 100
+    },
+    {
+      "exercise": "minor-barres",
+      "goal": 100
+    },
+    {
+      "exercise": "twelve-bar-blues-in-a",
+      "goal": 110,
+      "note": "The form half of rock is built on."
+    },
+    {
+      "exercise": "sixteenth-funk-strum",
+      "goal": 102,
+      "note": "Sixteenths, with the scratch as the groove."
+    },
+    {
+      "exercise": "downpicked-power-chords",
+      "goal": 165
+    },
+    {
+      "exercise": "gallops",
+      "goal": 165
+    }
+  ]
+}

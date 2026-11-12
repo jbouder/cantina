@@ -1,0 +1,57 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/course.schema.json",
+  "version": 1,
+  "name": "Metal rhythm",
+  "description": "From the first downstroke to a breakdown: picking, gallops, chugs and syncopation.",
+  "instrument": "guitar",
+  "style": "Metal",
+  "steps": [
+    {
+      "exercise": "downpicking-endurance",
+      "goal": 210,
+      "note": "Everything after this is downpicking."
+    },
+    {
+      "exercise": "downpicked-power-chords",
+      "goal": 180
+    },
+    {
+      "exercise": "power-chords-up-the-neck",
+      "goal": 160
+    },
+    {
+      "exercise": "gallops",
+      "goal": 180
+    },
+    {
+      "exercise": "reverse-gallops",
+      "goal": 170
+    },
+    {
+      "exercise": "pedal-tone-riff",
+      "goal": 170
+    },
+    {
+      "exercise": "thrash-string-skips",
+      "goal": 200
+    },
+    {
+      "exercise": "tremolo-picking",
+      "goal": 180
+    },
+    {
+      "exercise": "chugs-and-open-accents",
+      "goal": 160,
+      "note": "Drop D: a chug that stops dead."
+    },
+    {
+      "exercise": "breakdown-with-space",
+      "goal": 100,
+      "note": "Drop C: the silence is the riff."
+    },
+    {
+      "exercise": "djent-syncopation",
+      "goal": 140
+    }
+  ]
+}

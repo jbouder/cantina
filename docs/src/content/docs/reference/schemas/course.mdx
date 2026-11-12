@@ -1,0 +1,13 @@
+---
+title: "Course schema"
+description: "Every field of a .course.json course, generated from course.schema.json."
+---
+
+import Schema from '../../../../components/Schema.astro';
+
+Exercises in an order, each with a goal tempo, as a file of its own,
+`<id>.course.json`. See the [course format](/reference/course-format/).
+Whether each exercise is installed is left to
+[`cantina-cli check`](/reference/cli/#check).
+
+<Schema name="course" />
