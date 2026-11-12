@@ -132,8 +132,8 @@ The rest of Settings holds the **Skin**, **Motion** (Reduce flashing),
 ## Arm a track and play
 
 A new project with one guitar track (`Untitled`, the first time) opens
-with a track whose chain is a gain into an overdrive. Click the round light beside the track's name to
-arm it; it turns red. An armed track plays your input through its pedals,
+with a track whose chain is a gain into an overdrive. Click the record key beside the track's name to
+arm it; its light turns red. An armed track plays your input through its pedals,
 so strum: the **IN** meter moves, and you hear the overdrive.
 
 ![The studio with the guitar track armed, two takes on the timeline and its pedalboard below](../../../assets/guides/studio.png)
@@ -145,7 +145,9 @@ The second is the transport: record, play, stop, the clock, the tempo, the
 metronome, and snap and zoom for the timeline. In a narrow window the keys
 keep their glyphs and drop their captions; hover one for its name and
 shortcut. The line along the bottom of the window says what the transport
-is waiting for, such as *Arm a track to record* or *Guitar armed*.
+is waiting for, or the next step to recording with a key to take it:
+*The engine is off* with **Start engine**, *No track armed* with **Arm
+Guitar**, then *Guitar armed · press Record or R*.
 
 Nothing moving on the **IN** meter means nothing is reaching Cantina; see
 [Troubleshooting](/guides/troubleshooting/).
@@ -172,7 +174,7 @@ undone with the arrows next to the project name, or ⌘Z. The
 
 ## Record
 
-With a track armed, **Record** (or R) counts in four beats, then starts the
+**Record** (or R) starts the engine and arms a track if it has to, counts in four beats, then starts the
 transport and records what comes in; **Stop** (or Space) ends the take, which lands on the track as a
 clip. Space plays from the playhead. **Save** (⌘S) writes the project to
 `~/Music/Cantina/`, **New…** (⌘N) brings back the start dialog for a new

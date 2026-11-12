@@ -22,7 +22,7 @@ import { StageView } from "./components/StageView";
 import { StartDialog } from "./components/StartDialog";
 import { Timeline, type TimelineEdit, type TimelineEditState } from "./components/Timeline";
 import { Toasts } from "./components/Toast";
-import { Transport, transportNote } from "./components/Transport";
+import { Transport } from "./components/Transport";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { Window } from "./components/Window";
 import {
@@ -87,6 +87,7 @@ import {
   type UpdateInfo,
   updateCheck,
 } from "./lib/engine";
+import { nextStep, trackToArm } from "./lib/next-step";
 import { readoutsByPedal } from "./lib/readouts";
 import { openStageWindow } from "./lib/stage";
 import { samplesPerTick, splitHeight } from "./lib/timeline";
@@ -412,6 +413,32 @@ export function App() {
   const readouts = useMemo(() => readoutsByPedal(tracks, frame.readouts), [tracks, frame.readouts]);
   const selected = tracks.find((t) => t.id === selectedTrack) ?? tracks[0] ?? null;
   dropTarget.current = selected?.id ?? null;
+  // Record from wherever the player is: the engine started if it is off,
+  // a track armed if none is (the selected one, or the first that takes
+  // audio), then the count-in. Each step shows as it lands.
+  const recordNow = useCallback(async () => {
+    let s = status;
+    if (!s || busy) return;
+    setError(null);
+    try {
+      if (!s.running) {
+        setBusy(true);
+        s = await engineStart();
+        setStatus(s);
+      }
+      if (!s.project.tracks.some((t) => t.armed && !t.kit)) {
+        const target = trackToArm(s.project.tracks, selectedTrack);
+        if (!target) throw new Error("Add a guitar track to record");
+        s = await trackArm(target.id, true);
+        setStatus(s);
+      }
+      setStatus(await transportRecord());
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [status, busy, selectedTrack]);
   const designed =
     designing === null
       ? null
@@ -581,8 +608,8 @@ export function App() {
       },
     },
     record: {
-      enabled: running && !jamming && !rolling && tracks.some((t) => t.armed && !t.kit),
-      run: () => report(transportRecord()),
+      enabled: has && !jamming && !rolling && !busy && tracks.some((t) => !t.kit),
+      run: () => void recordNow(),
     },
     countIn: {
       enabled: has,
@@ -849,7 +876,37 @@ export function App() {
         status && jamming
           ? `Space plays · 1 to 6 change section at the next bar · ↑ ↓ tempo · T taps it · Return keeps your playing. Jamming never edits ${status.project.name}.`
           : status && transport
-            ? transportNote(transport, status.project.tracks, frame.countIn)
+            ? (() => {
+                const step = nextStep(
+                  transport,
+                  status.project.tracks,
+                  frame.countIn,
+                  running,
+                  selected?.id ?? null,
+                );
+                const action = step.action;
+                return (
+                  <span className="flex items-center gap-2">
+                    <span className="min-w-0 truncate">{step.text}</span>
+                    {action?.kind === "start" ? (
+                      <Button tier="quiet" disabled={busy} onClick={toggle}>
+                        Start engine
+                      </Button>
+                    ) : action?.kind === "arm" ? (
+                      <Button
+                        tier="quiet"
+                        onClick={() =>
+                          trackArm(action.track.id, true).then(setStatus, (e) =>
+                            setError(String(e)),
+                          )
+                        }
+                      >
+                        Arm {action.track.name}
+                      </Button>
+                    ) : null}
+                  </span>
+                );
+              })()
             : null
       }
       meters={
@@ -939,6 +996,7 @@ export function App() {
                       countIn={frame.countIn}
                       auditioning={status.audition !== null}
                       timeline={controls}
+                      onRecord={() => void recordNow()}
                       onStatus={setStatus}
                       onError={setError}
                     />

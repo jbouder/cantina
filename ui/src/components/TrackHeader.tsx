@@ -182,9 +182,13 @@ export function TrackHeader({
             data-no-grip
             aria-pressed={track.armed}
             aria-label={`Arm ${track.name}`}
-            title="Arm for recording"
+            title={
+              track.armed
+                ? `${track.name} is armed: Record takes it. Click to disarm`
+                : `Arm ${track.name} for recording`
+            }
             onClick={() => run(trackArm(track.id, !track.armed))}
-            className="grid size-6 shrink-0 place-items-center border-0 bg-transparent p-0"
+            className={KEY}
           >
             <Led on={track.recording || track.armed} tone="record" label="Armed" />
           </button>

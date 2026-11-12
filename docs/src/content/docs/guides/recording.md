@@ -26,9 +26,12 @@ the right shows how far.
 
 ## Record a take
 
-1. Arm the track: click the light beside its name, or choose **Track ▸ Arm for
-   Recording**. An armed track plays your input through its pedals.
-2. Press **Record**, R or **Transport ▸ Record**. The click counts in four beats, whether or not the
+1. Arm the track: click the record key beside its name (its light turns
+   red), or choose **Track ▸ Arm for Recording**. An armed track plays your
+   input through its pedals.
+2. Press **Record**, R or **Transport ▸ Record**. With the engine off,
+   Record starts it; with no track armed, it arms the selected one (or the
+   first guitar track), so one press goes from a new project to a take. The click counts in four beats, whether or not the
    metronome is on, and the clock shows the count. Then the transport rolls
    from the playhead and the take starts on that exact sample.
 3. Press **Stop** or Space. The take lands on the track as a clip. Stopping
@@ -121,7 +124,7 @@ projects and launches, and undo does not touch it.
 Each track header is a channel strip:
 
 - the name, which selects the track
-- the **arm** light, or a drum mark on a drum track
+- the **arm** key, or a drum mark on a drum track
 - **mute** and **solo**
 - a **gain** fader with its value in dB beside it, and a **pan** fader
   with its position (`C`, `L25`, `R10`)
