@@ -134,7 +134,7 @@ window, so the key never travels back into the interface.
 ## The chat panel
 
 Once the assistant is on, with an endpoint and a model, a key with
-Tapster's face appears beside the meters at the top right. Press it,
+Tapster's face appears beside **Audio on** at the top right. Press it,
 choose **View ▸ Tapster** (**View ▸ Assistant** with the persona off) or
 press **⌘J** to open the chat at the right of the window; the same again
 closes it.

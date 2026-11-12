@@ -142,9 +142,8 @@ The header is two rows. The top one holds the project at the left: its
 name, which opens the project menu (**New project…**, **Open…**, **Save**,
 **Rename…**, **Duplicate…**, **Export mixdown…**, **Show in Finder**, all
 also in **File**), then undo and redo; then at the right the **IN** and
-**OUT** meters beside the jam, stage and settings keys.
-The second is the transport: the **Audio** key first (in a jam it sits in
-the top row instead), then record, play, stop, the clock, the tempo, the
+**OUT** meters beside the **Audio** key and the jam, stage and settings keys.
+The second is the transport: record, play, stop, the clock, the tempo, the
 metronome, and snap and zoom for the timeline. In a narrow window the keys
 keep their glyphs and drop their captions; hover one for its name and
 shortcut. The line along the bottom of the window says what the transport

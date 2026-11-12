@@ -10,7 +10,7 @@ type Props = {
 };
 
 /**
- * The audio key, first in the transport: its light shows the audio
+ * The audio key at the right of the toolbar: its light shows the audio
  * stream running, its caption says Audio on or Audio off, and a press
  * turns it on or off. The route and rates are its tooltip; Settings
  * spells them out.

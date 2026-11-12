@@ -15,7 +15,7 @@ these guides before it answers.
 
 ## No sound
 
-1. **Is the audio on?** The key left of **Record** reads **Audio on**, its
+1. **Is the audio on?** The key at the top right reads **Audio on**, its
    light lit, while audio runs. Press it to turn the audio on.
 2. **Does the IN meter move when you play?** If it does not, nothing reaches
    Cantina: check [the microphone permission](#macos-blocks-the-input), the
