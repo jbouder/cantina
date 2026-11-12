@@ -16,6 +16,7 @@ import phaserDef from "../../../pedals/phaser.pedal.json";
 import tremoloDef from "../../../pedals/tremolo.pedal.json";
 import { ACTIONS, type ActionId, type ActionState } from "./actions";
 import { profileTrim } from "./calibrate";
+import { type Exercise, exerciseTab, loopTicks } from "./exercise";
 import { type AnalysisFrame, analysisOf, decodeFrame, encodeFrame } from "./frame";
 import {
   type BrokenFile,
@@ -96,6 +97,39 @@ export interface EngineStatus {
   drumRows: Record<number, DrumRows>;
   /** The jam, while jam mode is open. Session state, not part of the project. */
   jam: JamStatus | null;
+  /**
+   * The exercise, while practice is open. Practice is jam mode with the
+   * exercise's phrase as its backing, so `jam` is there too.
+   */
+  practicing: PracticeStatus | null;
+}
+
+/** The exercise being practiced. Mirrors `PracticeStatus` in src-tauri. */
+export interface PracticeStatus {
+  /** The file, which names the exercise. */
+  path: string;
+  exercise: Exercise;
+  /** The phrase as a tab, to read. */
+  tab: Tab;
+  /** The tempo last asked for. */
+  tempo: number;
+  looping: boolean;
+  /** The drums are heard; false is the click alone. */
+  groove: boolean;
+  /** The rig the input plays through in place of the exercise's; null is its own. */
+  rig: string | null;
+  /** Ticks in one pass of the loop. */
+  loopTicks: number;
+  /** What the example's rig left out. */
+  exampleMissing: string[];
+}
+
+/** What can change about practice besides the exercise and its tempo. */
+export interface PracticeOptions {
+  looping: boolean;
+  groove: boolean;
+  /** The rig the input plays through; null is the exercise's own. */
+  rig: string | null;
 }
 
 /** A pattern a jam keeps of its own: a pattern without the project's id. */
@@ -1372,18 +1406,8 @@ function mockJams(): JamInfo[] {
   return [...stock.sort(by), ...mockUserJams.map((j) => j.info).sort(by)];
 }
 
-/** An exercise file as the stand-in reads it: what the list shows. */
-interface ExerciseFile {
-  name: string;
-  instrument: Instrument;
-  teaches: Teaches;
-  style: string;
-  key: JamKey;
-  tempo: { start: number; goal: number; step: number };
-}
-
 /** The stock exercises, read from the repository's `exercises/` at build time. */
-const EXERCISE_FILES = import.meta.glob<ExerciseFile>("../../../exercises/*.exercise.json", {
+const EXERCISE_FILES = import.meta.glob<Exercise>("../../../exercises/*.exercise.json", {
   eager: true,
   import: "default",
 });
@@ -1578,6 +1602,7 @@ const MOCK_DRUMS = 10;
 
 const mock: EngineStatus = {
   jam: null,
+  practicing: null,
   running: mockParams?.has("running") ?? false,
   sampleRate: MOCK_RATE,
   bufferFrames: 128,
@@ -1869,6 +1894,7 @@ function mockStatus(): EngineStatus {
     instrumentProfile: { ...mock.instrumentProfile, tuning: [...mock.instrumentProfile.tuning] },
     drumRows: structuredClone(mock.drumRows),
     jam: mockJam ? mockJamStatus(mockJam) : null,
+    practicing: mockPractice && mockJam ? mockPracticeStatus(mockPractice, mockJam) : null,
     jams: mockJams(),
     exercises: mockExercises(),
     metronome: { ...mock.metronome, sounds: [...mock.metronome.sounds] },
@@ -3709,6 +3735,8 @@ let mockProjectPosition = 0;
 export async function jamOpen(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("jam_open");
   if (mockTransport.recording) throw new Error("stop recording before jamming");
+  // Practice gives way to a jam.
+  if (mockPractice) await jamClose();
   if (!mockJam) {
     mockProjectPosition = mockTransport.position;
     mockTransport.playing = false;
@@ -3739,11 +3767,12 @@ export async function jamOpen(): Promise<EngineStatus> {
   return mockStatus();
 }
 
-/** Leaves jam mode: the project is heard again, its playhead where it was. */
+/** Leaves jam mode, or practice: the project is heard again, its playhead where it was. */
 export async function jamClose(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("jam_close");
   if (mockJam) {
     mockJam = null;
+    mockPractice = null;
     mockTransport.playing = false;
     mockTransport.countIn = 0;
     mockTransport.position = mockProjectPosition;
@@ -3787,8 +3816,12 @@ export async function jamPlay(): Promise<EngineStatus> {
   const first = mockJam.sections[0]?.section;
   mockJamRestart(mockJam, mockTransport.playing ? undefined : first);
   mockTransport.position = 0;
-  mockTransport.countIn = mock.countIn ? MOCK_COUNT_BEATS * (60 / mockJam.setup.tempo) : 0;
-  mockTransport.playing = !mock.countIn;
+  const beats = mockPractice
+    ? (mockPractice.exercise.countIn ?? 1) * mockJam.setup.timeSignature.numerator
+    : MOCK_COUNT_BEATS;
+  const counting = mock.countIn && beats > 0;
+  mockTransport.countIn = counting ? beats * (60 / mockJam.setup.tempo) : 0;
+  mockTransport.playing = !counting;
   return mockStatus();
 }
 
@@ -3835,7 +3868,142 @@ export async function jamTempo(bpm: number): Promise<EngineStatus> {
     const first = mockJam.sections[0]?.section;
     mockJamRestart(mockJam, first);
   }
-  mockJamLast = { ...structuredClone(mockJam.setup), tempo };
+  if (mockPractice)
+    mockPracticeLast = { ...mockPracticeOptions(mockPractice), path: mockPractice.path, tempo };
+  else mockJamLast = { ...structuredClone(mockJam.setup), tempo };
+  return mockStatus();
+}
+
+// ----- practice -----
+
+/** The stand-in's practice: the exercise and how it is played, over `mockJam`. */
+let mockPractice: {
+  path: string;
+  exercise: Exercise;
+  looping: boolean;
+  groove: boolean;
+  rig: string | null;
+} | null = null;
+let mockPracticeLast: (PracticeOptions & { path: string; tempo: number }) | null = null;
+
+function mockPracticeOptions(p: NonNullable<typeof mockPractice>): PracticeOptions {
+  return { looping: p.looping, groove: p.groove, rig: p.rig };
+}
+
+function mockExercise(path: string): Exercise {
+  const found = Object.entries(EXERCISE_FILES).find(([file]) =>
+    path.endsWith(file.replace(/^(\.\.\/)+/, "")),
+  );
+  if (!found) throw new Error(`there is no exercise at ${path}`);
+  return structuredClone(found[1]);
+}
+
+function mockPracticeStatus(
+  p: NonNullable<typeof mockPractice>,
+  jam: NonNullable<typeof mockJam>,
+): PracticeStatus {
+  return {
+    path: p.path,
+    exercise: structuredClone(p.exercise),
+    tab: exerciseTab(p.exercise),
+    tempo: jam.tempos.at(-1)?.bpm ?? jam.setup.tempo,
+    looping: p.looping,
+    groove: p.groove && Boolean(p.exercise.drums),
+    rig: p.rig,
+    loopTicks: loopTicks(p.exercise),
+    exampleMissing: [],
+  };
+}
+
+/** Builds the stand-in jam an exercise plays as: its tempo, key, groove's verse and rig. */
+function mockPracticeJam(p: NonNullable<typeof mockPractice>, tempo: number) {
+  const e = p.exercise;
+  const setup: Jam = {
+    version: 1,
+    name: e.name,
+    tempo,
+    timeSignature: e.timeSignature ?? { numerator: 4, denominator: 4 },
+    key: { ...e.key },
+    drums: {
+      kit: e.drums?.kit ?? mockKits[0]?.id ?? "studio",
+      groove: e.drums?.groove ?? "Rock",
+      levelDb: e.drums?.levelDb ?? 0,
+    },
+    rig: p.rig ?? e.rig ?? null,
+  };
+  const jam = { setup, sections: [], tempos: [], end: null };
+  mockJamRestart(jam, "verse");
+  return jam;
+}
+
+/**
+ * Opens practice: the exercise at `path`, or the last one at the tempo it
+ * was left at, heard in place of the project, which practice never edits.
+ * Play, stop, tempo and leaving are the jam's: `jamPlay`, `jamStop`,
+ * `jamTempo` and `jamClose`.
+ */
+export async function practiceOpen(path?: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("practice_open", { path: path ?? null });
+  if (mockTransport.recording) throw new Error("stop recording before practicing");
+  const last = mockPracticeLast;
+  const chosen = path ?? last?.path ?? mockExercises()[0]?.path;
+  if (!chosen) throw new Error("there are no exercises to practice");
+  const exercise = mockExercise(chosen);
+  const same = last?.path === chosen ? last : null;
+  if (!mockJam) {
+    mockProjectPosition = mockTransport.position;
+    mockTransport.playing = false;
+    mockTransport.position = 0;
+  }
+  mockTransport.playing = false;
+  mockTransport.countIn = 0;
+  mockTransport.position = 0;
+  mockPractice = {
+    path: chosen,
+    exercise,
+    looping: same?.looping ?? true,
+    groove: same?.groove ?? true,
+    rig: same?.rig ?? null,
+  };
+  mockJam = mockPracticeJam(mockPractice, same?.tempo ?? exercise.tempo.start);
+  // `?practice=playing` has it rolling in its second pass, for screenshots.
+  if (mockParams?.get("practice") === "playing" && !path) {
+    mockTransport.playing = true;
+    mockTransport.position = Number(mockParams.get("position") ?? 6.5);
+  }
+  mockPracticeLast = {
+    ...mockPracticeOptions(mockPractice),
+    path: chosen,
+    tempo: mockJam.setup.tempo,
+  };
+  return mockStatus();
+}
+
+/** Practices another exercise, from its start tempo. */
+export async function practiceLoad(path: string): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("practice_load", { path });
+  if (!mockPractice) return practiceOpen(path);
+  const exercise = mockExercise(path);
+  mockTransport.playing = false;
+  mockTransport.countIn = 0;
+  mockTransport.position = 0;
+  mockPractice = { ...mockPractice, path, exercise, rig: null };
+  mockJam = mockPracticeJam(mockPractice, exercise.tempo.start);
+  mockPracticeLast = { ...mockPracticeOptions(mockPractice), path, tempo: exercise.tempo.start };
+  return mockStatus();
+}
+
+/** Turns practice's loop or groove on or off, or picks the rig the input plays through. */
+export async function practiceOptions(options: PracticeOptions): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("practice_options", { options });
+  if (!mockPractice || !mockJam) throw new Error("open practice first");
+  mockPractice = { ...mockPractice, ...options };
+  mockJam.setup.rig = options.rig ?? mockPractice.exercise.rig ?? null;
+  mockPracticeLast = {
+    ...options,
+    path: mockPractice.path,
+    tempo: mockJam.tempos.at(-1)?.bpm ?? mockJam.setup.tempo,
+  };
   return mockStatus();
 }
 

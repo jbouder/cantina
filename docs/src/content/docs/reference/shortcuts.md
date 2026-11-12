@@ -56,6 +56,7 @@ without ⌘ do nothing while you are typing in a text field. The
 | Keys | Does |
 | --- | --- |
 | J | Jam |
+| E | Practice |
 | P | Performance Mode |
 | ⌘J | Assistant |
 | ⌘= | Zoom In |
@@ -126,6 +127,17 @@ In the Jam view, outside a text field or menu.
 | T | Taps the tempo: two taps or more set it |
 | Return | Keep that: keeps the last minutes of your playing as a take |
 | P | Plays the jam on stage: the scene full screen with the jam's controls over it |
+
+## Practice
+
+In the Practice view, outside a text field or menu.
+
+| Keys | Does |
+| --- | --- |
+| Space | Plays the exercise from the top, after its count-in, or stops it |
+| ↑ ↓ | Climbs or drops a rung of the exercise's tempo ladder, from the next bar |
+| L | Loops the phrase, or plays it once and stops |
+| G | Turns the groove on or off; off, the click keeps time |
 
 ## Groove browser
 

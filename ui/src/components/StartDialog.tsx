@@ -41,6 +41,7 @@ type Props = {
   onClose: () => void;
   /** Into the jam view. */
   onJam: () => void;
+  onPractice: () => void;
 };
 
 const heading = "caption m-0";
@@ -61,6 +62,7 @@ export function StartDialog({
   onStatus,
   onClose,
   onJam,
+  onPractice,
 }: Props) {
   const [recent, setRecent] = useState<RecentProject[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -166,9 +168,15 @@ export function StartDialog({
           <Button
             onClick={onJam}
             title="Jam over a drum loop and a backing track, with no project to set up"
-            className="mr-auto"
           >
             Jam session
+          </Button>
+          <Button
+            onClick={onPractice}
+            title="Practice chords, scales and riffs at a tempo that climbs, with no project to set up"
+            className="mr-auto"
+          >
+            Practice
           </Button>
           {atLaunch ? null : <Button onClick={onClose}>Cancel</Button>}
           <Button type="submit" form="start-new-form" tier="primary" disabled={!tempoOk}>

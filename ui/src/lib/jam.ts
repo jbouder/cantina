@@ -32,6 +32,8 @@ export const JAM_TEMPO = { min: 30, max: 300 };
 export interface JamPlace {
   section: GrooveSection;
   bpm: number;
+  /** Ticks from the start of the timeline. */
+  tick: number;
   /** From 1. */
   bar: number;
   /** From 1. */
@@ -73,6 +75,7 @@ export function jamPlace(
   return {
     section: at.section,
     bpm: at.bpm,
+    tick,
     bar,
     beat: Math.min(beat, beatsPerBar),
     next: section ? { section: section.section, bar: barOf(section.tick) } : null,

@@ -425,15 +425,19 @@ impl TransportHandle {
     /// Asks the transport to count [`COUNT_IN_BEATS`] beats at the tempo
     /// where it stands, then play. False when the queue is full.
     pub fn count_in(&mut self, sample_rate: f64) -> bool {
+        self.count_in_beats(sample_rate, COUNT_IN_BEATS)
+    }
+
+    /// Asks the transport to count `beats` beats at the tempo where it
+    /// stands, then play: an exercise counts in its own bars. False when
+    /// the queue is full.
+    pub fn count_in_beats(&mut self, sample_rate: f64, beats: u64) -> bool {
         let tick = self
             .tempo
             .samples_to_ticks(self.position(), sample_rate)
             .max(0.0) as u64;
         let beat = (60.0 / self.tempo.tempo_at(tick) * sample_rate).round() as u64;
-        self.send(TransportCommand::CountIn(CountIn::new(
-            beat,
-            COUNT_IN_BEATS,
-        )))
+        self.send(TransportCommand::CountIn(CountIn::new(beat, beats.max(1))))
     }
 
     /// Asks the transport to stop. False when the queue is full.

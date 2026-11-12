@@ -473,6 +473,44 @@ pub fn progression_loop(
     }
 }
 
+/// An exercise's phrase as the voice plays it: every note as it sounds,
+/// strums and all, repeated every pass of the loop until `until`.
+pub fn phrase_loop(exercise: &cantina_project::Exercise, until: u64) -> TabLoop {
+    let period = exercise.loop_ticks();
+    let voice = match exercise.instrument {
+        Instrument::Guitar => Voice::Guitar,
+        Instrument::Bass => Voice::Bass,
+    };
+    let notes = exercise
+        .sounded()
+        .into_iter()
+        .filter(|s| s.start < period)
+        .map(|s| TabEvent {
+            tick: s.start as f64,
+            ticks: s.length as f64,
+            instrument: voice,
+            note: PluckNote {
+                string: s.string,
+                pitch: s.pitch,
+                velocity: s.velocity,
+                length: 0,
+                bend: s.bend,
+                release: s.release,
+                vibrato: s.vibrato,
+                palm_mute: s.palm_mute,
+                dead: s.dead,
+                harmonic: s.harmonic,
+            },
+        })
+        .collect();
+    TabLoop {
+        notes,
+        start: 0,
+        period,
+        until,
+    }
+}
+
 /// What the backing plays when an ending starts at `at`: the
 /// progression's first chord, once, ringing for `ticks`.
 pub fn ending_chord(bars: &[Bar], instrument: Instrument, at: u64, ticks: u64) -> TabScore {
@@ -893,6 +931,25 @@ mod tests {
     /// transport. A tempo change goes in ahead of its bar and changes
     /// nothing before it, so the beat the scenes pulse on keeps time
     /// through the change: on every beat, to the sample, at each tempo.
+    #[test]
+    fn an_exercise_phrase_loops_every_pass_as_it_sounds() {
+        let text = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../exercises/e-to-a.exercise.json"),
+        )
+        .unwrap();
+        let e = cantina_project::exercise_from_json(&text).unwrap();
+        let l = phrase_loop(&e, 99);
+        assert_eq!(l.period, 4 * 3840);
+        assert_eq!(l.until, 99);
+        assert_eq!(l.notes.len(), e.sounded().len());
+        // Strummed low to high: the low E first, the high E 50 ticks on.
+        assert_eq!((l.notes[0].note.string, l.notes[0].tick), (6, 0.0));
+        assert!(l.notes.windows(2).all(|w| w[0].tick <= w[1].tick));
+        assert!(l.notes.iter().all(|n| n.instrument == Voice::Guitar));
+        assert_eq!(l.notes[0].note.pitch, 40.0);
+    }
+
     #[test]
     fn the_stage_beat_stays_locked_across_a_tempo_change() {
         use cantina_engine::beat_at;

@@ -4,8 +4,9 @@
 
 use std::collections::BTreeMap;
 
+use cantina_engine::transport::COUNT_IN_BEATS;
 use cantina_project::{
-    Backing, Bar, Instrument, Jam, Meter, Rhythm, Section, DRUM_GAIN_DB, JAM_TEMPO,
+    Backing, Bar, Exercise, Instrument, Jam, Meter, Rhythm, Section, DRUM_GAIN_DB, JAM_TEMPO,
 };
 
 use super::*;
@@ -33,6 +34,29 @@ pub(super) struct JamSession {
     backing: JamBacking,
     /// What Keep that wrote last, until it goes into a project.
     kept: Option<KeptTake>,
+    /// Beats counted in before it plays: a bar of four for a jam, an
+    /// exercise's own bars for practice.
+    count_in_beats: u64,
+    /// The exercise, when the jam is practice: its phrase is the backing.
+    practice: Option<Practicing>,
+}
+
+/// An exercise being practiced. Practice is jam mode whose backing is the
+/// exercise's phrase on the tab voice, through the exercise's rig, over
+/// the verse of its groove.
+#[derive(Clone)]
+pub(super) struct Practicing {
+    /// The file it was read from.
+    path: String,
+    exercise: Exercise,
+    /// Round and round, or once and stop.
+    looping: bool,
+    /// The drums heard, or only the click.
+    groove: bool,
+    /// The rig the input plays through in place of the exercise's.
+    rig: Option<String>,
+    /// With the loop off, the tick the phrase stops after.
+    stop: u64,
 }
 
 /// A take Keep that wrote, and what the jam was doing under it.
@@ -98,6 +122,10 @@ enum BackingPlay {
     Clips {
         clips: Vec<Clip>,
         bpm: f64,
+    },
+    /// An exercise's phrase, for the voice, round and round.
+    Phrase {
+        exercise: Box<Exercise>,
     },
 }
 
@@ -610,6 +638,8 @@ impl Engine {
         }
         let mut session = JamSession {
             kept: None,
+            count_in_beats: COUNT_IN_BEATS,
+            practice: None,
             first_pedal,
             backing,
             schedule: Schedule::new(bar, Section::Verse, setup.tempo, |_| bar, Section::Verse),
@@ -642,7 +672,19 @@ impl Engine {
         input.chain = jam.chain.clone();
         let mut drums = Track::drums(DRUM_TRACK, "Drums", jam.setup.drums.kit.clone());
         drums.strip.gain_db = DRUM_GAIN_DB + jam.setup.drums.level_db;
+        if let Some(p) = &jam.practice {
+            drums.strip.mute = !p.groove || p.exercise.drums.is_none();
+        }
         project.tracks = vec![input, drums];
+        if let Some(p) = &jam.practice {
+            let mut example = Track::new(BACKING_TRACK, "Example");
+            example.chain = jam.backing.chain.clone();
+            example.strip.gain_db = match p.exercise.instrument {
+                Instrument::Guitar => 0.0,
+                Instrument::Bass => EXAMPLE_BASS_GAIN_DB,
+            };
+            project.tracks.push(example);
+        }
         let level = match &jam.setup.backing {
             Backing::None => None,
             Backing::Progression { level_db, .. }
@@ -687,6 +729,13 @@ impl Engine {
         let Some(jam) = &self.jam else {
             return HashMap::new();
         };
+        if let (BackingPlay::Phrase { exercise }, Some(p)) = (&jam.backing.play, &jam.practice) {
+            let until = if p.looping { u64::MAX } else { p.stop };
+            return HashMap::from([(
+                BACKING_TRACK,
+                (TabScore::new(), crate::jam::phrase_loop(exercise, until)),
+            )]);
+        }
         let BackingPlay::Voice {
             bars,
             instrument,
@@ -716,9 +765,11 @@ impl Engine {
         };
         let map = jam.schedule.tempo_map(jam.setup.time_signature);
         let sample_rate = live.stream.info().sample_rate;
+        let practice_end = jam.practice.as_ref().filter(|p| !p.looping).map(|p| p.stop);
         let stop = jam
             .schedule
             .end()
+            .or(practice_end)
             .map(|t| map.ticks_to_samples(t as f64, sample_rate));
         if live.transport().tempo_map() != &map {
             live.set_tempo_map(map);
@@ -791,9 +842,13 @@ impl Engine {
     /// the count-in's last beat. Before that, the timeline has not
     /// moved and the change can be the jam's start.
     fn jam_changes_wait(&self) -> bool {
+        let beats = self
+            .jam
+            .as_ref()
+            .map_or(COUNT_IN_BEATS, |j| j.count_in_beats);
         self.live.as_ref().is_some_and(|l| {
             let t = l.controller.transport();
-            t.is_playing() || t.clock().count_in() >= cantina_engine::transport::COUNT_IN_BEATS
+            t.is_playing() || (beats > 0 && t.clock().count_in() >= beats)
         })
     }
 
@@ -801,8 +856,13 @@ impl Engine {
     /// place of the project, which stays as it is. Refused while
     /// recording.
     pub fn jam_open(&mut self) -> Result<EngineStatus> {
-        if self.jam.is_some() {
-            return Ok(self.publish());
+        match &self.jam {
+            Some(j) if j.practice.is_none() => return Ok(self.publish()),
+            // Practice gives way to a jam.
+            Some(_) => {
+                self.jam_close()?;
+            }
+            None => {}
         }
         if !self.recording.is_empty() {
             bail!("stop recording before jamming");
@@ -1259,6 +1319,10 @@ impl Engine {
     }
 
     fn jam_remember(&mut self) {
+        if self.jam.as_ref().is_some_and(|j| j.practice.is_some()) {
+            self.practice_remember();
+            return;
+        }
         if let Some(jam) = &self.jam {
             let mut setup = jam.setup.clone();
             setup.tempo = jam.schedule.tempo();
@@ -1280,12 +1344,21 @@ impl Engine {
         };
         live.transport().stop();
         live.transport().locate(0);
+        let beats = match &mut self.jam {
+            Some(jam) => {
+                if let Some(p) = &mut jam.practice {
+                    p.stop = p.exercise.loop_ticks();
+                }
+                jam.count_in_beats
+            }
+            None => COUNT_IN_BEATS,
+        };
         self.jam_send()?;
-        let count_in = self.settings.count_in;
+        let count_in = self.settings.count_in && beats > 0;
         if let Some(live) = &mut self.live {
             let sample_rate = live.stream.info().sample_rate;
             if count_in {
-                live.transport().count_in(sample_rate);
+                live.transport().count_in_beats(sample_rate, beats);
             } else {
                 live.transport().play();
             }
@@ -1378,5 +1451,330 @@ impl Engine {
             info.sample_rate,
             margin(info.sample_rate, info.buffer_frames),
         ))
+    }
+}
+
+/// The bass voice comes out well below a bass DI through the same rig;
+/// the example's strip lifts it to sit with your playing.
+const EXAMPLE_BASS_GAIN_DB: f32 = 12.0;
+
+/// The exercise being practiced, as the UI sees it. Mirrors
+/// `PracticeStatus` in the UI.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PracticeStatus {
+    /// The file, which names the exercise.
+    pub path: String,
+    pub exercise: Exercise,
+    /// The phrase as a tab, to read.
+    pub tab: cantina_project::Tab,
+    /// The tempo last asked for.
+    pub tempo: f64,
+    pub looping: bool,
+    /// The drums are heard; false is the click alone.
+    pub groove: bool,
+    /// The rig the input plays through in place of the exercise's; none
+    /// is the exercise's own.
+    pub rig: Option<String>,
+    /// Ticks in one pass of the loop.
+    pub loop_ticks: u64,
+    /// What the example's rig left out.
+    pub example_missing: Vec<String>,
+}
+
+/// What can change about practice besides the exercise and its tempo.
+/// Mirrors `PracticeOptions` in the UI.
+#[derive(Debug, Clone, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PracticeOptions {
+    pub looping: bool,
+    pub groove: bool,
+    /// The rig the input plays through; none is the exercise's own.
+    pub rig: Option<String>,
+}
+
+impl Engine {
+    /// Builds a practice session: jam mode with the exercise's tempo,
+    /// key, groove and rig, the verse of its groove alone, its phrase as
+    /// the backing through its own rig, and its count-in.
+    fn practice_build(
+        &mut self,
+        practicing: Practicing,
+        tempo: f64,
+        project_position: u64,
+        previous: Option<&JamSession>,
+    ) -> Result<JamSession> {
+        let ex = &practicing.exercise;
+        let fallback = self.jam_setup();
+        let kit = ex
+            .drums
+            .as_ref()
+            .map_or_else(|| fallback.drums.kit.clone(), |d| d.kit.clone());
+        let mut setup = Jam::new(ex.name.clone(), tempo, kit);
+        setup.time_signature = ex.time_signature;
+        setup.key = ex.key.clone();
+        setup.drums.groove = ex
+            .drums
+            .as_ref()
+            .map(|d| d.groove.clone())
+            .or(fallback.drums.groove);
+        setup.drums.level_db = ex.drums.as_ref().map_or(0.0, |d| d.level_db);
+        setup.rig = practicing.rig.clone().or_else(|| ex.rig.clone());
+        let mut session = self.jam_build(setup, project_position, previous)?;
+        let same = previous
+            .filter(|p| p.practice.as_ref().is_some_and(|q| q.exercise == *ex))
+            .map(|p| p.backing.clone());
+        session.backing = match same {
+            Some(b) => b,
+            None => {
+                let first = Self::next_ids(
+                    previous.map(|p| p.backing.first_pedal),
+                    FIRST_BACKING_PEDAL,
+                    AUDITION_IDS,
+                );
+                let (chain, missing) =
+                    self.jam_rig(ex.rig.as_deref(), first, FIRST_BACKING_PEDAL..AUDITION_IDS)?;
+                JamBacking {
+                    play: BackingPlay::Phrase {
+                        exercise: Box::new(ex.clone()),
+                    },
+                    chain,
+                    first_pedal: first,
+                    missing,
+                }
+            }
+        };
+        // The verse, round and round, under the phrase.
+        let keep = if session.patterns.contains_key(&Section::Verse) {
+            Section::Verse
+        } else {
+            *session
+                .patterns
+                .keys()
+                .next()
+                .context("the groove has nothing to play")?
+        };
+        session.patterns.retain(|s, _| *s == keep);
+        session.restart(Some(keep));
+        session.count_in_beats =
+            u64::from(ex.count_in) * u64::from(session.setup.time_signature.numerator);
+        session.practice = Some(practicing);
+        Ok(session)
+    }
+
+    /// The exercise a path names, or the last one practiced, or the
+    /// first stock one, with the settings practiced with last if it is
+    /// the same file.
+    fn practicing(&self, path: Option<String>) -> Result<(Practicing, f64)> {
+        let last = self.settings.practice.clone();
+        let wanted = path.or_else(|| last.as_ref().map(|l| l.path.clone()));
+        let read = wanted
+            .as_ref()
+            .map(|p| (p.clone(), crate::exercises::read(Path::new(p))));
+        let (path, exercise) = match read {
+            Some((p, Ok(e))) => (p, e),
+            // A remembered exercise that is gone gives way to the first.
+            Some((p, Err(e))) if last.as_ref().is_none_or(|l| l.path != p) => return Err(e),
+            _ => {
+                let first = self
+                    .stock_exercises
+                    .first()
+                    .or(self.library_status.exercises.first())
+                    .context("there are no exercises to practice")?;
+                let e = crate::exercises::read(Path::new(&first.path))?;
+                (first.path.clone(), e)
+            }
+        };
+        let same = last.filter(|l| l.path == path);
+        let tempo = same
+            .as_ref()
+            .map_or(exercise.tempo.start, |l| l.tempo)
+            .clamp(JAM_TEMPO.0, JAM_TEMPO.1);
+        let stop = exercise.loop_ticks();
+        Ok((
+            Practicing {
+                path,
+                looping: same.as_ref().is_none_or(|l| l.looping),
+                groove: same.as_ref().is_none_or(|l| l.groove),
+                rig: same.and_then(|l| l.rig),
+                exercise,
+                stop,
+            },
+            tempo,
+        ))
+    }
+
+    /// Opens practice: the exercise at `path`, or the last one at the
+    /// tempo it was left at, heard in place of the project, which
+    /// practice never edits. A jam that is open gives way to it.
+    pub fn practice_open(&mut self, path: Option<String>) -> Result<EngineStatus> {
+        if !self.recording.is_empty() {
+            bail!("stop recording before practicing");
+        }
+        let (practicing, tempo) = self.practicing(path)?;
+        if self.jam.as_ref().is_some_and(|j| j.practice.is_some()) {
+            return self.practice_switch(practicing, tempo);
+        }
+        if self.jam.is_some() {
+            self.jam_close()?;
+        }
+        let position = match &mut self.live {
+            Some(live) => {
+                live.transport().stop();
+                live.transport().position()
+            }
+            None => 0,
+        };
+        if self.rig_audition.take().is_some() {
+            self.plugin_states.retain(|id, _| id.0 < AUDITION_IDS);
+        }
+        self.audition = None;
+        self.capture_plugin_states();
+        let session = self.practice_build(practicing, tempo, position, None)?;
+        self.jam = Some(session);
+        if let Some(live) = &mut self.live {
+            live.transport().set_rate(1.0);
+            live.transport().locate(0);
+        }
+        self.sync()?;
+        self.jam_send()?;
+        self.practice_remember();
+        Ok(self.publish())
+    }
+
+    /// Practices another exercise, from its start tempo.
+    pub fn practice_load(&mut self, path: &str) -> Result<EngineStatus> {
+        if !self.jam.as_ref().is_some_and(|j| j.practice.is_some()) {
+            return self.practice_open(Some(path.to_string()));
+        }
+        let exercise = crate::exercises::read(Path::new(path))?;
+        let current = self.jam.as_ref().and_then(|j| j.practice.clone());
+        let tempo = exercise.tempo.start;
+        let practicing = Practicing {
+            path: path.to_string(),
+            looping: current.as_ref().is_none_or(|p| p.looping),
+            groove: current.as_ref().is_none_or(|p| p.groove),
+            rig: None,
+            stop: exercise.loop_ticks(),
+            exercise,
+        };
+        self.practice_switch(practicing, tempo)
+    }
+
+    /// Puts another exercise in place of the one practiced: it stops, and
+    /// starts from the top when played.
+    fn practice_switch(&mut self, practicing: Practicing, tempo: f64) -> Result<EngineStatus> {
+        let Some(old) = self.jam.take() else {
+            bail!("open practice first");
+        };
+        let session = match self.practice_build(practicing, tempo, old.project_position, Some(&old))
+        {
+            Ok(s) => s,
+            Err(e) => {
+                self.jam = Some(old);
+                return Err(e);
+            }
+        };
+        if let Some(live) = &mut self.live {
+            live.transport().stop();
+            live.transport().stop_at(None);
+            live.transport().locate(0);
+        }
+        self.jam = Some(session);
+        self.with_track_faded(INPUT_TRACK, |e| e.sync())?;
+        self.jam_send()?;
+        self.practice_remember();
+        Ok(self.publish())
+    }
+
+    /// Turns the loop or the groove on or off, or plays the input through
+    /// another rig. While it plays, the loop turned off lets the pass
+    /// going on finish, and a rig is swapped without a click.
+    pub fn practice_options(&mut self, options: PracticeOptions) -> Result<EngineStatus> {
+        let waits = self.jam_changes_wait();
+        let now = self.practice_tick();
+        let Some(p) = self.jam.as_ref().and_then(|j| j.practice.clone()) else {
+            bail!("open practice first");
+        };
+        if options.rig != p.rig {
+            let old = self.jam.take().expect("practice is open");
+            let tempo = old.schedule.tempo();
+            let next = Practicing {
+                rig: options.rig.clone(),
+                ..p.clone()
+            };
+            let mut session =
+                match self.practice_build(next, tempo, old.project_position, Some(&old)) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        self.jam = Some(old);
+                        return Err(e);
+                    }
+                };
+            if waits {
+                session.schedule = old.schedule;
+            }
+            self.jam = Some(session);
+            self.with_track_faded(INPUT_TRACK, |e| e.sync())?;
+        }
+        let period = p.exercise.loop_ticks().max(1);
+        if let Some(q) = self.jam.as_mut().and_then(|j| j.practice.as_mut()) {
+            q.looping = options.looping;
+            q.groove = options.groove;
+            // Off while it plays: to the end of the pass going on.
+            q.stop = match now {
+                Some(tick) if waits => (tick / period + 1) * period,
+                _ => period,
+            };
+        }
+        if options.groove != p.groove {
+            let heard = self.heard_project();
+            if let (Some(live), Some(heard)) = (&mut self.live, heard) {
+                live.apply_strips(&heard);
+            }
+        }
+        self.jam_send()?;
+        self.practice_remember();
+        Ok(self.publish())
+    }
+
+    /// The tick the practice loop is at, while the transport runs.
+    fn practice_tick(&self) -> Option<u64> {
+        let live = self.live.as_ref()?;
+        let jam = self.jam.as_ref()?;
+        let map = jam.schedule.tempo_map(jam.setup.time_signature);
+        let position = live.controller.transport().position();
+        Some(map.samples_to_ticks(position, live.stream.info().sample_rate) as u64)
+    }
+
+    /// Keeps the exercise, its tempo and the options for next time.
+    fn practice_remember(&mut self) {
+        let Some(jam) = &self.jam else { return };
+        let Some(p) = &jam.practice else { return };
+        self.settings.practice = Some(crate::settings::PracticeLast {
+            path: p.path.clone(),
+            tempo: jam.schedule.tempo(),
+            looping: p.looping,
+            groove: p.groove,
+            rig: p.rig.clone(),
+        });
+        self.persist();
+    }
+
+    /// The exercise being practiced, for the status.
+    pub(super) fn practice_status(&self) -> Option<PracticeStatus> {
+        let jam = self.jam.as_ref()?;
+        let p = jam.practice.as_ref()?;
+        Some(PracticeStatus {
+            path: p.path.clone(),
+            tab: p.exercise.tab(),
+            tempo: jam.schedule.tempo(),
+            looping: p.looping,
+            groove: p.groove && p.exercise.drums.is_some(),
+            rig: p.rig.clone(),
+            loop_ticks: p.exercise.loop_ticks(),
+            example_missing: jam.backing.missing.clone(),
+            exercise: p.exercise.clone(),
+        })
     }
 }
