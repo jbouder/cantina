@@ -68,8 +68,9 @@ Cantina opens with the start dialog, three ways in:
   first, each with when it was last saved. A project moved or deleted
   since stays in the list and says so. **Open…** lists every project in
   `~/Music/Cantina`.
-- **Jam session**, under both: straight into [jam mode](/guides/jam/),
-  drums and a backing to play over with nothing to set up.
+- **Jam session**, the button at the bottom left: straight into
+  [jam mode](/guides/jam/), drums and a backing to play over with nothing
+  to set up.
 
 Escape (or the close key) takes the most recent project, or the new
 `Untitled` project Cantina makes the first time. **New…** in the toolbar

@@ -137,6 +137,13 @@ export function StartDialog({
       wide
       footer={
         <>
+          <Button
+            onClick={onJam}
+            title="Jam over a drum loop and a backing track, with no project to set up"
+            className="mr-auto"
+          >
+            Jam session
+          </Button>
           {atLaunch ? null : <Button onClick={onClose}>Cancel</Button>}
           <Button type="submit" form="start-new-form" tier="primary" disabled={!tempoOk}>
             Create
@@ -266,22 +273,6 @@ export function StartDialog({
           </div>
         </section>
       </div>
-      <section
-        aria-labelledby="start-jam-label"
-        className="flex items-center gap-3 border-0 border-ink-dim border-t border-solid pt-3"
-      >
-        <div className="grid min-w-0 flex-1 gap-0.5">
-          <h3 id="start-jam-label" className={heading}>
-            Or just play
-          </h3>
-          <p className="m-0 text-ink-dim text-body">
-            Jam over a drum loop and a backing track, with no project to set up.
-          </p>
-        </div>
-        <Button onClick={onJam} title="Play over a drum loop and a backing track">
-          Jam session
-        </Button>
-      </section>
     </Sheet>
   );
 }
