@@ -1054,11 +1054,6 @@ export function App() {
           hasKits={status.kits.length > 0}
           onStatus={setStatus}
           onClose={closeStart}
-          onBrowse={() => {
-            setStartOpen(false);
-            setProjectsIntent({});
-            setProjectsOpen(true);
-          }}
           onJam={() => {
             setStartOpen(false);
             openJam();

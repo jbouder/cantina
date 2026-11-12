@@ -31,8 +31,6 @@ type Props = {
   onStatus: (status: EngineStatus) => void;
   /** Closes the dialog on the project already open. */
   onClose: () => void;
-  /** File ▸ Open…: the Projects sheet, for a project not in the list. */
-  onBrowse: () => void;
   /** Into the jam view. */
   onJam: () => void;
 };
@@ -54,7 +52,6 @@ export function StartDialog({
   hasKits,
   onStatus,
   onClose,
-  onBrowse,
   onJam,
 }: Props) {
   const [recent, setRecent] = useState<RecentProject[] | null>(null);
@@ -268,9 +265,6 @@ export function StartDialog({
               })
             )}
           </ul>
-          <div className="flex">
-            <Button onClick={onBrowse}>Open…</Button>
-          </div>
         </section>
       </div>
     </Sheet>
