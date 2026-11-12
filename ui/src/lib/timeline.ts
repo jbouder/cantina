@@ -112,7 +112,7 @@ export function arrangementHeight(tracks: number): number {
  * row and a pedal's controls, so a pedal shows whole without stretching
  * to fill the window.
  */
-export const EDITOR_ROOM = 340;
+export const EDITOR_ROOM = 400;
 
 /**
  * The arrangement's height in a body `body` pixels tall. With no split
