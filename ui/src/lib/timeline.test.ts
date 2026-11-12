@@ -216,7 +216,7 @@ describe("the arrangement's height", () => {
   });
 
   it("still shows its tracks, up to half the body, in a short window", () => {
-    expect(splitHeight(null, 2, 500, MIN)).toBe(arrangementHeight(2));
+    expect(splitHeight(null, 2, 600, MIN)).toBe(arrangementHeight(2));
     expect(arrangementHeight(12)).toBeGreaterThan(250);
     expect(splitHeight(null, 12, 500, MIN)).toBe(250);
   });

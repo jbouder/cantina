@@ -139,8 +139,8 @@ so strum: the **IN** meter moves, and you hear the overdrive.
 ![The studio with the guitar track armed, two takes on the timeline and its pedalboard below](../../../assets/guides/studio.png)
 
 The header is two rows. The top one holds the project (its name, undo,
-redo, **Save**, **New…**, **Projects…**, **Export…**), the **IN** and **OUT** meters
-in the middle, and the engine, jam, stage and settings keys at the right.
+redo, **Save**, **New…**, **Projects…**, **Export…**) at the left, then at the right the **IN** and
+**OUT** meters beside the engine, jam, stage and settings keys.
 The second is the transport: record, play, stop, the clock, the tempo, the
 metronome, and snap and zoom for the timeline. In a narrow window the keys
 keep their glyphs and drop their captions; hover one for its name and

@@ -43,6 +43,7 @@ import { setPatternDropTarget } from "../lib/pattern-drag";
 import { loadPeaks, peaksFor, usePeaksVersion } from "../lib/peakStore";
 import { columns } from "../lib/peaks";
 import {
+  ADD_ROW_HEIGHT,
   canSplit,
   fitView,
   follow,
@@ -71,10 +72,11 @@ import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { MasterHeader, TrackHeader } from "./TrackHeader";
 
 /**
- * A small key in the ruler corner above the track headers, the height of
- * the header keys so it reads as part of the sidebar rather than the strip.
+ * A dashed slot under the last track header, as Add a pedal is at the end
+ * of a chain: where the next track goes.
  */
-const ADD_KEY = "button-standard min-h-6 shrink-0 border-0 px-2 font-bold text-label leading-none";
+const ADD_SLOT =
+  "flex cursor-pointer items-center justify-center gap-1 rounded-control border-2 border-frame-hi border-dashed bg-transparent px-2 font-bold text-ink-dim text-label hover:border-ink hover:text-ink disabled:cursor-default disabled:opacity-50 disabled:hover:border-frame-hi disabled:hover:text-ink-dim";
 
 /** What the transport strip above the lanes can do to the view. */
 export interface TimelineControls {
@@ -973,25 +975,7 @@ export function Timeline({
           style={{ gridTemplateColumns: `${LABEL_WIDTH}px 1fr` }}
         >
           <div className="grid content-start">
-            <div className="flex items-center gap-1 px-1" style={{ height: RULER_HEIGHT }}>
-              <button
-                type="button"
-                onClick={() => run(trackAdd())}
-                title="A track that records your instrument through its pedalboard"
-                className={ADD_KEY}
-              >
-                Add guitar
-              </button>
-              <button
-                type="button"
-                onClick={() => run(trackAddDrums())}
-                disabled={!hasKits}
-                title={hasKits ? "A track that plays drum patterns" : "No drum kits are installed"}
-                className={ADD_KEY}
-              >
-                Add drums
-              </button>
-            </div>
+            <div style={{ height: RULER_HEIGHT }} />
             {tracks.map((t, i) => (
               <TrackHeader
                 key={t.id}
@@ -1004,6 +988,31 @@ export function Timeline({
                 onError={onError}
               />
             ))}
+            <div className="grid grid-cols-2 gap-1 p-1" style={{ height: ADD_ROW_HEIGHT }}>
+              <button
+                type="button"
+                onClick={() => run(trackAdd())}
+                title="A track that records your instrument through its pedalboard"
+                className={ADD_SLOT}
+              >
+                <span aria-hidden="true" className="font-lcd">
+                  +
+                </span>
+                Add guitar
+              </button>
+              <button
+                type="button"
+                onClick={() => run(trackAddDrums())}
+                disabled={!hasKits}
+                title={hasKits ? "A track that plays drum patterns" : "No drum kits are installed"}
+                className={ADD_SLOT}
+              >
+                <span aria-hidden="true" className="font-lcd">
+                  +
+                </span>
+                Add drums
+              </button>
+            </div>
           </div>
           <div ref={container} className="min-w-0">
             <canvas

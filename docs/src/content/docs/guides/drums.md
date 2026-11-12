@@ -21,7 +21,7 @@ The quick way to a beat:
 
 ## Add a drum track
 
-**Add drums** above the track headers adds a drum track with the first kit
+**Add drums**, the dashed slot under the last track, adds a drum track with the first kit
 found. Select it to see its **Beats** tab below the timeline. A drum track has
 no input to arm; it has a pedalboard like any other track, so a drum bus
 can go through a compressor or a reverb.

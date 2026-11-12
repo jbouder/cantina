@@ -5,7 +5,7 @@ type Props = {
   title: string;
   /** Toolbar controls at the left end: the project cluster. */
   start?: ReactNode;
-  /** The in and out meters, in the middle of the toolbar. */
+  /** The in and out meters, right-aligned against the engine cluster. */
   meters?: ReactNode;
   /** Toolbar controls at the right end: the engine cluster and settings. */
   end?: ReactNode;
@@ -16,7 +16,7 @@ type Props = {
 
 /**
  * The skinned frame that fills the shell window: the title bar, one
- * key-high toolbar (the project at the left, the meters in the middle,
+ * key-high toolbar (the project at the left, the meters against the right,
  * the engine at the right) that never wraps, the body, and a status line
  * along the bottom. The toolbar is a container, so its children can drop
  * what is optional when the window is narrow.
@@ -30,7 +30,7 @@ export function Window({ title, start, meters, end, status, children }: Props) {
           <div className="@container shrink-0 px-window pt-3">
             <div className="flex items-center gap-3">
               {start ? <div className="flex min-w-0 items-center gap-1">{start}</div> : null}
-              <div className="flex min-w-28 flex-1 items-center justify-center gap-3">{meters}</div>
+              <div className="flex min-w-28 flex-1 items-center justify-end gap-3">{meters}</div>
               {end ? <div className="flex shrink-0 items-center gap-1">{end}</div> : null}
             </div>
           </div>

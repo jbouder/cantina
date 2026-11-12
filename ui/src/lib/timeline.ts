@@ -92,6 +92,8 @@ export function musicalLabel(sample: number, grid: Grid): string {
 /** Fixed layout, in CSS pixels. */
 export const RULER_HEIGHT = 28;
 export const TRACK_HEIGHT = 60;
+/** The row of add-a-track slots under the last track header. */
+export const ADD_ROW_HEIGHT = 40;
 /** The master strip, pinned under the lanes. */
 export const MASTER_HEIGHT = 36;
 /** The transport strip above the lanes, and the gap under it. */
@@ -100,11 +102,18 @@ const STRIP_HEIGHT = 32 + 8;
 /**
  * How tall the arrangement is when it shows every track and nothing
  * else: the transport strip, the ruler, a lane per track (one when there
- * are none, for the empty project) and the master, inside the display's
- * border.
+ * are none, for the empty project), the slots that add a track and the
+ * master, inside the display's border.
  */
 export function arrangementHeight(tracks: number): number {
-  return STRIP_HEIGHT + RULER_HEIGHT + Math.max(1, tracks) * TRACK_HEIGHT + MASTER_HEIGHT + 2;
+  return (
+    STRIP_HEIGHT +
+    RULER_HEIGHT +
+    Math.max(1, tracks) * TRACK_HEIGHT +
+    ADD_ROW_HEIGHT +
+    MASTER_HEIGHT +
+    2
+  );
 }
 
 /**
