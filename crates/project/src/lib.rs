@@ -15,6 +15,7 @@ mod jam;
 mod journal;
 mod model;
 mod pattern_file;
+mod practice_log;
 mod rig;
 #[cfg(any(test, feature = "schema"))]
 pub mod schema;
@@ -47,6 +48,10 @@ pub use model::{
 pub use pattern_file::{
     groove_from_json, imported, pattern_file_name, pattern_from_json, pattern_to_json, Feel,
     Groove, Meter, Section, TempoRange, PATTERN_SUFFIX,
+};
+pub use practice_log::{
+    day_number, practice_log_from_json, practice_log_to_json, PracticeDay, PracticeLog,
+    PRACTICE_LOG_FILE, PRACTICE_LOG_VERSION,
 };
 pub use rig::{
     decode_base64, encode_base64, resolve_values, rig_file_name, rig_from_json, rig_to_json,

@@ -12,7 +12,7 @@
 //! ```
 //!
 //! regenerates them all (pedal, kit, kit recipe, pattern, tab, rig, jam,
-//! exercise and project), and
+//! exercise, practice log and project), and
 //! the same test fails when any is stale.
 
 use serde_json::{json, Value};
@@ -278,6 +278,30 @@ pub fn exercise() -> Value {
     s
 }
 
+/// The schema for the practice log, `~/Music/Cantina/Practice/log.json`.
+pub fn practice_log() -> Value {
+    let mut s = schemars::schema_for!(crate::PracticeLog).to_value();
+    s["$id"] = json!(format!("{SITE}/practice-log.schema.json"));
+    s["title"] = json!("Cantina practice log");
+    s["description"] = json!(
+        "What was practiced, day by day: one entry per exercise per day with the fastest \
+         tempo a whole pass was played at and the minutes played. Cantina writes it; it is \
+         never part of a project."
+    );
+    let props = &mut s["properties"];
+    props["$schema"] = json!({ "type": "string" });
+    props["version"]["minimum"] = json!(1);
+    props["version"]["maximum"] = json!(crate::PRACTICE_LOG_VERSION);
+    let day = &mut s["$defs"]["PracticeDay"]["properties"];
+    day["exercise"]["minLength"] = json!(1);
+    day["date"]["pattern"] = json!("^[0-9]{4}-[0-9]{2}-[0-9]{2}$");
+    day["tempo"]["minimum"] = json!(0);
+    day["tempo"]["maximum"] = json!(crate::JAM_TEMPO.1);
+    day["minutes"]["minimum"] = json!(0);
+    tidy(&mut s);
+    s
+}
+
 /// A usable tempo and time signature.
 fn limit_tempo(defs: &mut Value) {
     let t = &mut defs["Tempo"]["properties"];
@@ -389,7 +413,7 @@ mod tests {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
     }
 
-    fn all() -> [(&'static str, Value); 9] {
+    fn all() -> [(&'static str, Value); 10] {
         [
             ("pedal", cantina_dsp::schema::pedal()),
             ("kit", cantina_dsp::schema::kit()),
@@ -400,6 +424,7 @@ mod tests {
             ("rig", rig()),
             ("jam", jam()),
             ("exercise", exercise()),
+            ("practice-log", practice_log()),
         ]
     }
 
@@ -456,7 +481,7 @@ mod tests {
 
     #[test]
     fn schemas_every_stock_file_validates() {
-        let [pedal, kit, recipe, pattern_s, tab_s, project_s, rig_s, jam_s, exercise_s] =
+        let [pedal, kit, recipe, pattern_s, tab_s, project_s, rig_s, jam_s, exercise_s, log_s] =
             all().map(|(_, s)| validator(&s));
         let pedals = files(&root().join("pedals"), ".pedal.json");
         assert!(!pedals.is_empty(), "no stock pedals found");
@@ -492,6 +517,14 @@ mod tests {
             crate::exercise_from_json(&std::fs::read_to_string(e).unwrap())
                 .unwrap_or_else(|p| panic!("{}: {p:?}", e.display()));
         }
+        let mut log = crate::PracticeLog::default();
+        log.record("pentatonic-box-1", "2026-11-12", 85.0, 12.5);
+        log.record("open-e", "2026-11-12", 0.0, 1.0);
+        let log: Value = serde_json::from_str(&crate::practice_log_to_json(&log)).unwrap();
+        assert!(log_s.is_valid(&log), "{log}");
+        let mut bad = log.clone();
+        bad["days"][0]["date"] = json!("12/11/2026");
+        assert!(!log_s.is_valid(&bad));
         let v10 = root().join("crates/project/tests/fixtures/v10.json");
         assert_valid(&project_s, &v10);
         // Each pattern in a project, without its id, is a pattern file.

@@ -650,7 +650,9 @@ export function App() {
         // In practice, L loops the exercise's phrase.
         const p = status.practicing;
         if (practicing && p) {
-          report(practiceOptions({ looping: !p.looping, groove: p.groove, rig: p.rig }));
+          report(
+            practiceOptions({ looping: !p.looping, groove: p.groove, rig: p.rig, climb: p.climb }),
+          );
           return;
         }
         const region = status.project.loop;

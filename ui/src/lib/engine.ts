@@ -118,6 +118,16 @@ export interface PracticeStatus {
   groove: boolean;
   /** The rig the input plays through in place of the exercise's; null is its own. */
   rig: string | null;
+  /** Passes before the tempo climbs a rung; 0 holds it. */
+  climb: number;
+  /** The fastest a whole pass has been played, from the log. */
+  best: number | null;
+  /** The last day it was practiced. */
+  last: PracticeDay | null;
+  /** Days in a row with any practice. */
+  streak: number;
+  /** Minutes practiced today, every exercise together. */
+  todayMinutes: number;
   /** Ticks in one pass of the loop. */
   loopTicks: number;
   /** What the example's rig left out. */
@@ -130,6 +140,8 @@ export interface PracticeOptions {
   groove: boolean;
   /** The rig the input plays through; null is the exercise's own. */
   rig: string | null;
+  /** Passes before the tempo climbs a rung; 0 holds it. */
+  climb: number;
 }
 
 /** A pattern a jam keeps of its own: a pattern without the project's id. */
@@ -168,6 +180,20 @@ export interface ExerciseInfo {
   start: number;
   goal: number;
   step: number;
+  /** The fastest a whole pass has been played, from the practice log. */
+  best: number | null;
+  /** The last day it was practiced, `YYYY-MM-DD`. */
+  last: string | null;
+}
+
+/** An exercise practiced on a day. Mirrors `PracticeDay` in cantina-project. */
+export interface PracticeDay {
+  exercise: string;
+  /** `YYYY-MM-DD`. */
+  date: string;
+  /** The fastest a whole pass was played at; 0 when none finished. */
+  tempo: number;
+  minutes: number;
 }
 
 /** A key: its tonic and whether it is major or minor. Mirrors `Key` in cantina-project. */
@@ -1426,6 +1452,8 @@ function mockExercises(): ExerciseInfo[] {
       start: e.tempo.start,
       goal: e.tempo.goal,
       step: e.tempo.step,
+      best: mockBest(file),
+      last: mockLastDay(file)?.date ?? null,
     }))
     .sort(
       (a, b) =>
@@ -3812,13 +3840,18 @@ export async function jamSet(setup: Jam): Promise<EngineStatus> {
 export async function jamPlay(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("jam_play");
   if (!mockJam) throw new Error("open a jam first");
-  mockJam.setup.tempo = mockJam.tempos.at(-1)?.bpm ?? mockJam.setup.tempo;
+  if (mockPractice) mockPracticeSettle();
+  else mockJam.setup.tempo = mockJam.tempos.at(-1)?.bpm ?? mockJam.setup.tempo;
   const first = mockJam.sections[0]?.section;
   mockJamRestart(mockJam, mockTransport.playing ? undefined : first);
   mockTransport.position = 0;
   const beats = mockPractice
     ? (mockPractice.exercise.countIn ?? 1) * mockJam.setup.timeSignature.numerator
     : MOCK_COUNT_BEATS;
+  if (mockPractice) {
+    mockPractice.played = true;
+    mockPracticePlan(mockPractice, mockJam);
+  }
   const counting = mock.countIn && beats > 0;
   mockTransport.countIn = counting ? beats * (60 / mockJam.setup.tempo) : 0;
   mockTransport.playing = !counting;
@@ -3828,6 +3861,7 @@ export async function jamPlay(): Promise<EngineStatus> {
 /** Stops the jam and goes back to the top. */
 export async function jamStop(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("jam_stop");
+  mockPracticeSettle();
   mockTransport.playing = false;
   mockTransport.countIn = 0;
   mockTransport.position = 0;
@@ -3883,11 +3917,104 @@ let mockPractice: {
   looping: boolean;
   groove: boolean;
   rig: string | null;
+  climb: number;
+  played: boolean;
 } | null = null;
 let mockPracticeLast: (PracticeOptions & { path: string; tempo: number }) | null = null;
 
 function mockPracticeOptions(p: NonNullable<typeof mockPractice>): PracticeOptions {
-  return { looping: p.looping, groove: p.groove, rig: p.rig };
+  return { looping: p.looping, groove: p.groove, rig: p.rig, climb: p.climb };
+}
+
+/** The stand-in's practice log, as `Practice/log.json` keeps it. `?practicelog` fills it. */
+const mockLog: PracticeDay[] = mockParams?.has("practicelog")
+  ? (() => {
+      const day = (back: number) => {
+        const d = new Date();
+        d.setDate(d.getDate() - back);
+        return mockDate(d);
+      };
+      return [
+        { exercise: "a-to-d", date: day(3), tempo: 70, minutes: 9 },
+        { exercise: "a-to-d", date: day(1), tempo: 80, minutes: 12 },
+        { exercise: "pentatonic-box-1", date: day(1), tempo: 85, minutes: 6.5 },
+        { exercise: "a-to-d", date: day(0), tempo: 75, minutes: 4 },
+      ];
+    })()
+  : [];
+
+function mockDate(d: Date): string {
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
+}
+
+/** An exercise's name in the log: its file less `.exercise.json`. */
+function mockId(path: string): string {
+  return (path.split("/").pop() ?? path).replace(/\.exercise\.json$/, "");
+}
+
+function mockBest(path: string): number | null {
+  const id = mockId(path);
+  const tempos = mockLog.filter((d) => d.exercise === id && d.tempo > 0).map((d) => d.tempo);
+  return tempos.length > 0 ? Math.max(...tempos) : null;
+}
+
+function mockLastDay(path: string): PracticeDay | null {
+  const id = mockId(path);
+  return [...mockLog].reverse().find((d) => d.exercise === id) ?? null;
+}
+
+function mockStreak(): number {
+  const days = new Set(mockLog.map((d) => d.date));
+  const d = new Date();
+  if (!days.has(mockDate(d))) d.setDate(d.getDate() - 1);
+  let count = 0;
+  while (days.has(mockDate(d))) {
+    count++;
+    d.setDate(d.getDate() - 1);
+  }
+  return count;
+}
+
+/** Plans the stand-in's climb from the top: a rung every `climb` passes. */
+function mockPracticePlan(p: NonNullable<typeof mockPractice>, jam: NonNullable<typeof mockJam>) {
+  const start = jam.tempos[0] ?? { tick: 0, bpm: jam.setup.tempo };
+  jam.tempos = [start];
+  if (p.climb <= 0) return;
+  const every = loopTicks(p.exercise) * p.climb;
+  const { goal, step } = p.exercise.tempo;
+  let bpm = start.bpm;
+  for (let at = every; step > 0 && bpm < goal - 1e-6; at += every) {
+    bpm = Math.round(Math.min(goal, bpm + step) * 10) / 10;
+    jam.tempos.push({ tick: at, bpm });
+  }
+}
+
+/** After the stand-in's practice rolled: log it and carry on at its tempo. */
+function mockPracticeSettle() {
+  const p = mockPractice;
+  const jam = mockJam;
+  if (!p || !jam || !p.played) return;
+  p.played = false;
+  const tick = mockJamTick(jam.tempos, mockTransport.position);
+  const period = loopTicks(p.exercise);
+  const at = (t: number) =>
+    [...jam.tempos].reverse().find((m) => m.tick <= t)?.bpm ?? jam.setup.tempo;
+  let fastest = 0;
+  for (let k = 0; (k + 1) * period <= tick; k++) {
+    fastest = Math.max(fastest, Math.min(at(k * period), at((k + 1) * period - 1)));
+  }
+  jam.setup.tempo = at(tick);
+  if (mockTransport.position < 1) return;
+  const id = mockId(p.path);
+  const date = mockDate(new Date());
+  const day = mockLog.find((d) => d.exercise === id && d.date === date);
+  if (day) {
+    day.tempo = Math.max(day.tempo, fastest);
+    day.minutes += mockTransport.position / 60;
+  } else {
+    mockLog.push({ exercise: id, date, tempo: fastest, minutes: mockTransport.position / 60 });
+  }
 }
 
 function mockExercise(path: string): Exercise {
@@ -3912,6 +4039,13 @@ function mockPracticeStatus(
     rig: p.rig,
     loopTicks: loopTicks(p.exercise),
     exampleMissing: [],
+    climb: p.climb,
+    best: mockBest(p.path),
+    last: mockLastDay(p.path),
+    streak: mockStreak(),
+    todayMinutes: mockLog
+      .filter((d) => d.date === mockDate(new Date()))
+      .reduce((m, d) => m + d.minutes, 0),
   };
 }
 
@@ -3964,10 +4098,14 @@ export async function practiceOpen(path?: string): Promise<EngineStatus> {
     looping: same?.looping ?? true,
     groove: same?.groove ?? true,
     rig: same?.rig ?? null,
+    climb: last?.climb ?? 4,
+    played: false,
   };
   mockJam = mockPracticeJam(mockPractice, same?.tempo ?? exercise.tempo.start);
   // `?exercise=playing` has it rolling in its second pass, for screenshots.
   if (mockParams?.get("exercise") === "playing" && !path) {
+    mockPractice.played = true;
+    mockPracticePlan(mockPractice, mockJam);
     mockTransport.playing = true;
     mockTransport.position = Number(mockParams.get("position") ?? 6.5);
   }
@@ -3984,10 +4122,11 @@ export async function practiceLoad(path: string): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("practice_load", { path });
   if (!mockPractice) return practiceOpen(path);
   const exercise = mockExercise(path);
+  mockPracticeSettle();
   mockTransport.playing = false;
   mockTransport.countIn = 0;
   mockTransport.position = 0;
-  mockPractice = { ...mockPractice, path, exercise, rig: null };
+  mockPractice = { ...mockPractice, path, exercise, rig: null, played: false };
   mockJam = mockPracticeJam(mockPractice, exercise.tempo.start);
   mockPracticeLast = { ...mockPracticeOptions(mockPractice), path, tempo: exercise.tempo.start };
   return mockStatus();

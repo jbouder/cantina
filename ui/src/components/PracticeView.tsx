@@ -36,6 +36,21 @@ type Props = {
 };
 
 const ALL = "";
+/** How many passes a climb may wait: 0 holds the tempo. */
+const CLIMBS = [0, 1, 2, 4, 8];
+
+/** A log date as a person says it: today, yesterday, or the date. */
+function dayName(date: string): string {
+  const day = (back: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - back);
+    const two = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
+  };
+  if (date === day(0)) return "today";
+  if (date === day(1)) return "yesterday";
+  return date;
+}
 const TEACHES: Teaches[] = ["chord", "change", "scale", "technique", "riff", "rhythm"];
 
 /**
@@ -73,14 +88,15 @@ export function PracticeView({ status, frame, onPlay, onLeave, onStatus, onError
         looping: practice.looping,
         groove: practice.groove,
         rig: practice.rig,
+        climb: practice.climb,
         ...next,
       }),
     );
   };
 
   // The latest state for the key handler, which is installed once.
-  const keys = useRef({ practice, report, options });
-  keys.current = { practice, report, options };
+  const keys = useRef({ practice, report, options, now: practice?.tempo ?? 0 });
+  keys.current = { ...keys.current, practice, report, options };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -90,7 +106,7 @@ export function PracticeView({ status, frame, onPlay, onLeave, onStatus, onError
       if (!k.practice) return;
       if (e.key === "ArrowUp" || e.key === "ArrowDown") {
         const by = e.key === "ArrowUp" ? 1 : -1;
-        k.report(jamTempo(stepTempo(k.practice.exercise, k.practice.tempo, by)));
+        k.report(jamTempo(stepTempo(k.practice.exercise, k.now, by)));
       } else if (e.key === "g" || e.key === "G") {
         if (!k.practice.exercise.drums) return;
         k.options({ groove: !k.practice.groove });
@@ -116,7 +132,9 @@ export function PracticeView({ status, frame, onPlay, onLeave, onStatus, onError
   const place = jamPlace(frame.position, jam.marks, status.sampleRate, jam.barTicks, numerator);
   const where = rolling && place ? loopPlace(place.tick, practice.loopTicks) : null;
   const passBar = where ? Math.floor(where.tick / jam.barTicks) + 1 : null;
-  const tempo = Math.round(practice.tempo * 10) / 10;
+  // The tempo playing: the climb moves it between status updates.
+  const tempo = Math.round((rolling && place ? place.bpm : practice.tempo) * 10) / 10;
+  keys.current.now = tempo;
   const rungs = ladder(exercise);
   const rung = rungs.filter((t) => t <= tempo + 1e-6).length;
   const countBars = exercise.countIn ?? 1;
@@ -203,15 +221,17 @@ export function PracticeView({ status, frame, onPlay, onLeave, onStatus, onError
                   aria-current={loaded(e) ? "true" : undefined}
                   onClick={() => report(practiceLoad(e.path))}
                   className="button-quiet flex min-h-8 w-full items-center justify-between gap-2 border-0 px-2 text-left text-body"
-                  title={`${e.name}: ${TEACHES_LABELS[e.teaches].toLowerCase()}, ${e.start} to ${e.goal} bpm`}
+                  title={`${e.name}: ${TEACHES_LABELS[e.teaches].toLowerCase()}, ${e.start} to ${e.goal} bpm${e.best ? `, your best ${e.best}` : ""}${e.last ? `, last practiced ${dayName(e.last)}` : ""}`}
                 >
                   <span className="truncate">
                     {e.name}
                     {e.instrument === "bass" ? " · bass" : ""}
                     {e.stock ? "" : " (yours)"}
                   </span>
-                  <span className="shrink-0 text-ink-dim text-label tabular-nums">
-                    {e.start}–{e.goal}
+                  <span
+                    className={`shrink-0 text-label tabular-nums ${loaded(e) ? "" : "text-ink-dim"}`}
+                  >
+                    {e.best ? `best ${e.best}` : `${e.start}–${e.goal}`}
                   </span>
                 </button>
               </li>
@@ -228,7 +248,7 @@ export function PracticeView({ status, frame, onPlay, onLeave, onStatus, onError
                   ? `Pass ${where.pass} · bar ${passBar} · ${place?.beat ?? 1}`
                   : "Ready"}
               {" · "}
-              {Math.round((rolling && place ? place.bpm : tempo) * 10) / 10} bpm
+              {tempo} bpm
             </span>
             <span className="block min-h-6 text-readout">
               Rung {rung} of {rungs.length} · from {exercise.tempo.start} to {exercise.tempo.goal}{" "}
@@ -238,6 +258,14 @@ export function PracticeView({ status, frame, onPlay, onLeave, onStatus, onError
                 : ""}
             </span>
           </Lcd>
+          <p className="m-0 text-ink-dim text-label">
+            {practice.best ? `Best ${practice.best} bpm` : "No pass played yet"}
+            {practice.last ? ` · last practiced ${dayName(practice.last.date)}` : ""}
+            {practice.streak > 0
+              ? ` · ${practice.streak} day${practice.streak === 1 ? "" : "s"} in a row`
+              : ""}
+            {practice.todayMinutes >= 1 ? ` · ${Math.round(practice.todayMinutes)} min today` : ""}
+          </p>
 
           <section aria-labelledby={`${ids}-how`} className="grid gap-1">
             <h3 id={`${ids}-how`} className="caption m-0">
@@ -364,6 +392,19 @@ export function PracticeView({ status, frame, onPlay, onLeave, onStatus, onError
             </span>
           </Field>
 
+          <Select
+            id={`${ids}-climb`}
+            label="Climb"
+            hint="Up a rung after this many passes, on the bar line"
+            value={String(practice.climb)}
+            onChange={(e) => options({ climb: Number(e.target.value) })}
+          >
+            {CLIMBS.map((n) => (
+              <option key={n} value={n}>
+                {n === 0 ? "Hold the tempo" : n === 1 ? "Every pass" : `Every ${n} passes`}
+              </option>
+            ))}
+          </Select>
           <Select
             id={`${ids}-rig`}
             label="Your rig"

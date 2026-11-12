@@ -57,7 +57,17 @@ pub(super) struct Practicing {
     rig: Option<String>,
     /// With the loop off, the tick the phrase stops after.
     stop: u64,
+    /// Passes before the tempo climbs a rung; 0 holds it.
+    climb: u32,
+    /// It has rolled since it was last logged.
+    played: bool,
 }
+
+/// Passes before the tempo climbs a rung, unless asked otherwise.
+pub const DEFAULT_CLIMB: u32 = 4;
+
+/// The passes a climb may wait: off, or 1 to 16.
+const MAX_CLIMB: u32 = 16;
 
 /// A take Keep that wrote, and what the jam was doing under it.
 struct KeptTake {
@@ -902,6 +912,10 @@ impl Engine {
     /// Leaves jam mode: the project is heard again, with its playhead
     /// where it was.
     pub fn jam_close(&mut self) -> Result<EngineStatus> {
+        if self.jam.as_ref().is_some_and(|j| j.practice.is_some()) {
+            self.practice_settle();
+            self.practice_remember();
+        }
         let Some(jam) = self.jam.take() else {
             return Ok(self.publish());
         };
@@ -1333,10 +1347,14 @@ impl Engine {
 
     /// Plays the jam from the top, after a count-in when count-in is on.
     pub fn jam_play(&mut self) -> Result<EngineStatus> {
+        // Practice logs what rolled before and carries on at its tempo.
+        self.practice_settle();
         let Some(jam) = &mut self.jam else {
             bail!("open a jam first");
         };
-        jam.setup.tempo = jam.schedule.tempo();
+        if jam.practice.is_none() {
+            jam.setup.tempo = jam.schedule.tempo();
+        }
         // A section picked while stopped is where it starts.
         jam.restart(Some(jam.schedule.section_at(0)));
         let Some(live) = &mut self.live else {
@@ -1348,11 +1366,13 @@ impl Engine {
             Some(jam) => {
                 if let Some(p) = &mut jam.practice {
                     p.stop = p.exercise.loop_ticks();
+                    p.played = true;
                 }
                 jam.count_in_beats
             }
             None => COUNT_IN_BEATS,
         };
+        self.practice_plan(0);
         self.jam_send()?;
         let count_in = self.settings.count_in && beats > 0;
         if let Some(live) = &mut self.live {
@@ -1368,6 +1388,7 @@ impl Engine {
 
     /// Stops the jam and goes back to the top.
     pub fn jam_stop(&mut self) -> Result<EngineStatus> {
+        self.practice_settle();
         if let Some(live) = &mut self.live {
             live.transport().stop();
             live.transport().stop_at(None);
@@ -1422,7 +1443,10 @@ impl Engine {
         }
         let bpm = (bpm.clamp(slow, fast) * 10.0).round() / 10.0;
         if self.jam_changes_wait() {
-            self.jam_tempo_at_next_bar(bpm);
+            // In practice, the climb goes on from the new rung.
+            if let Some(at) = self.jam_tempo_at_next_bar(bpm) {
+                self.practice_plan(at);
+            }
         } else if let Some(jam) = &mut self.jam {
             jam.setup.tempo = bpm;
             jam.restart(Some(jam.schedule.section_at(0)));
@@ -1432,11 +1456,14 @@ impl Engine {
         Ok(self.publish())
     }
 
-    fn jam_tempo_at_next_bar(&mut self, bpm: f64) {
+    /// Sets the tempo from the next bar line, and says which.
+    fn jam_tempo_at_next_bar(&mut self, bpm: f64) -> Option<u64> {
         let next = self.jam_next_bar();
         if let (Some(jam), Some(at)) = (&mut self.jam, next) {
             jam.schedule.set_tempo(at, bpm);
+            return Some(at);
         }
+        None
     }
 
     /// The next bar line a change sent now can land on.
@@ -1476,6 +1503,16 @@ pub struct PracticeStatus {
     /// The rig the input plays through in place of the exercise's; none
     /// is the exercise's own.
     pub rig: Option<String>,
+    /// Passes before the tempo climbs a rung; 0 holds it.
+    pub climb: u32,
+    /// The fastest a whole pass has been played, from the log.
+    pub best: Option<f64>,
+    /// The last day it was practiced, from the log.
+    pub last: Option<cantina_project::PracticeDay>,
+    /// Days in a row with any practice.
+    pub streak: u32,
+    /// Minutes practiced today, every exercise together.
+    pub today_minutes: f64,
     /// Ticks in one pass of the loop.
     pub loop_ticks: u64,
     /// What the example's rig left out.
@@ -1491,6 +1528,13 @@ pub struct PracticeOptions {
     pub groove: bool,
     /// The rig the input plays through; none is the exercise's own.
     pub rig: Option<String>,
+    /// Passes before the tempo climbs a rung; 0 holds it.
+    #[serde(default = "default_climb")]
+    pub climb: u32,
+}
+
+fn default_climb() -> u32 {
+    DEFAULT_CLIMB
 }
 
 impl Engine {
@@ -1585,6 +1629,7 @@ impl Engine {
                 (first.path.clone(), e)
             }
         };
+        let climb = last.as_ref().map_or(DEFAULT_CLIMB, |l| l.climb);
         let same = last.filter(|l| l.path == path);
         let tempo = same
             .as_ref()
@@ -1596,9 +1641,11 @@ impl Engine {
                 path,
                 looping: same.as_ref().is_none_or(|l| l.looping),
                 groove: same.as_ref().is_none_or(|l| l.groove),
+                climb,
                 rig: same.and_then(|l| l.rig),
                 exercise,
                 stop,
+                played: false,
             },
             tempo,
         ))
@@ -1655,7 +1702,9 @@ impl Engine {
             looping: current.as_ref().is_none_or(|p| p.looping),
             groove: current.as_ref().is_none_or(|p| p.groove),
             rig: None,
+            climb: current.as_ref().map_or(DEFAULT_CLIMB, |p| p.climb),
             stop: exercise.loop_ticks(),
+            played: false,
             exercise,
         };
         self.practice_switch(practicing, tempo)
@@ -1664,6 +1713,7 @@ impl Engine {
     /// Puts another exercise in place of the one practiced: it stops, and
     /// starts from the top when played.
     fn practice_switch(&mut self, practicing: Practicing, tempo: f64) -> Result<EngineStatus> {
+        self.practice_settle();
         let Some(old) = self.jam.take() else {
             bail!("open practice first");
         };
@@ -1717,15 +1767,24 @@ impl Engine {
             self.jam = Some(session);
             self.with_track_faded(INPUT_TRACK, |e| e.sync())?;
         }
+        if options.climb > MAX_CLIMB {
+            bail!("the tempo climbs every 1 to {MAX_CLIMB} passes, or never");
+        }
         let period = p.exercise.loop_ticks().max(1);
         if let Some(q) = self.jam.as_mut().and_then(|j| j.practice.as_mut()) {
             q.looping = options.looping;
             q.groove = options.groove;
+            q.climb = options.climb;
             // Off while it plays: to the end of the pass going on.
             q.stop = match now {
                 Some(tick) if waits => (tick / period + 1) * period,
                 _ => period,
             };
+        }
+        if options.climb != p.climb && waits {
+            if let Some(tick) = now {
+                self.practice_plan(tick);
+            }
         }
         if options.groove != p.groove {
             let heard = self.heard_project();
@@ -1751,12 +1810,14 @@ impl Engine {
     fn practice_remember(&mut self) {
         let Some(jam) = &self.jam else { return };
         let Some(p) = &jam.practice else { return };
+        let tempo = jam.schedule.tempo_at(self.practice_tick().unwrap_or(0));
         self.settings.practice = Some(crate::settings::PracticeLast {
             path: p.path.clone(),
-            tempo: jam.schedule.tempo(),
+            tempo,
             looping: p.looping,
             groove: p.groove,
             rig: p.rig.clone(),
+            climb: p.climb,
         });
         self.persist();
     }
@@ -1765,16 +1826,200 @@ impl Engine {
     pub(super) fn practice_status(&self) -> Option<PracticeStatus> {
         let jam = self.jam.as_ref()?;
         let p = jam.practice.as_ref()?;
+        let id = exercise_id(&p.path);
+        let today = today();
         Some(PracticeStatus {
             path: p.path.clone(),
             tab: p.exercise.tab(),
-            tempo: jam.schedule.tempo(),
+            tempo: jam.schedule.tempo_at(self.practice_tick().unwrap_or(0)),
             looping: p.looping,
             groove: p.groove && p.exercise.drums.is_some(),
+            climb: p.climb,
+            best: self.practice_log.best(&id),
+            last: self.practice_log.last(&id).cloned(),
+            streak: self.practice_log.streak(&today),
+            today_minutes: self.practice_log.minutes_on(&today),
             rig: p.rig.clone(),
             loop_ticks: p.exercise.loop_ticks(),
             example_missing: jam.backing.missing.clone(),
             exercise: p.exercise.clone(),
         })
+    }
+}
+
+/// An exercise's name in the log: its file's name less `.exercise.json`.
+pub(super) fn exercise_id(path: &str) -> String {
+    let name = Path::new(path)
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    name.strip_suffix(cantina_project::EXERCISE_SUFFIX)
+        .unwrap_or(&name)
+        .to_string()
+}
+
+/// Today, `YYYY-MM-DD`, in local time.
+pub(super) fn today() -> String {
+    chrono::Local::now().format("%Y-%m-%d").to_string()
+}
+
+/// The fastest tempo a whole pass of `period` ticks was played at, of
+/// the passes finished by `ticks`; 0 for none.
+fn reached(schedule: &Schedule, period: u64, ticks: u64) -> f64 {
+    let period = period.max(1);
+    (0..ticks / period)
+        .map(|k| {
+            // A tempo that changed inside a pass counts its slower part.
+            let (a, b) = (
+                schedule.tempo_at(k * period),
+                schedule.tempo_at((k + 1) * period - 1),
+            );
+            a.min(b)
+        })
+        .fold(0.0, f64::max)
+}
+
+impl Engine {
+    /// Plans the climb from `from`: a rung of the ladder every `climb`
+    /// passes, on the pass's first bar line, up to the goal. Rungs planned
+    /// before, after `from`, are dropped first.
+    fn practice_plan(&mut self, from: u64) {
+        let Some(jam) = &mut self.jam else { return };
+        let Some(p) = &jam.practice else { return };
+        jam.schedule.keep_tempos_through(from);
+        if p.climb == 0 {
+            return;
+        }
+        let every = p.exercise.loop_ticks().max(1) * u64::from(p.climb);
+        let (goal, step) = (p.exercise.tempo.goal, p.exercise.tempo.step);
+        let mut tempo = jam.schedule.tempo_at(from);
+        let mut at = (from / every + 1) * every;
+        while step > 0.0 && tempo < goal - 1e-6 {
+            tempo = ((tempo + step).min(goal) * 10.0).round() / 10.0;
+            jam.schedule.set_tempo(at, tempo);
+            at += every;
+        }
+    }
+
+    /// After practice rolled: logs the minutes and the fastest whole pass,
+    /// and keeps the tempo it got to for the next play.
+    fn practice_settle(&mut self) {
+        let tick = self.practice_tick().unwrap_or(0);
+        let seconds = self.live.as_ref().map_or(0.0, |l| {
+            l.controller.transport().position() as f64 / l.stream.info().sample_rate
+        });
+        let Some(jam) = &mut self.jam else { return };
+        let Some(p) = &mut jam.practice else { return };
+        if !p.played {
+            return;
+        }
+        p.played = false;
+        let id = exercise_id(&p.path);
+        let fastest = reached(&jam.schedule, p.exercise.loop_ticks(), tick);
+        jam.setup.tempo = jam.schedule.tempo_at(tick);
+        if seconds < 1.0 {
+            return;
+        }
+        self.practice_log
+            .record(&id, &today(), fastest, seconds / 60.0);
+        if let Err(e) = self.practice_log_write() {
+            self.last_error = Some(format!("the practice log was not saved: {e:#}"));
+        }
+    }
+
+    /// Writes the practice log, whole or not at all. A log that would not
+    /// load at launch is left as it is.
+    fn practice_log_write(&self) -> Result<()> {
+        if !self.practice_log_ok {
+            bail!(
+                "{} did not load, so it is left as it is",
+                self.practice_log_path().display()
+            );
+        }
+        let path = self.practice_log_path();
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
+        }
+        let tmp = path.with_extension("json.tmp");
+        std::fs::write(
+            &tmp,
+            cantina_project::practice_log_to_json(&self.practice_log),
+        )
+        .with_context(|| format!("writing {}", tmp.display()))?;
+        std::fs::rename(&tmp, &path).with_context(|| format!("writing {}", path.display()))?;
+        Ok(())
+    }
+
+    /// Where the practice log is: `Practice/log.json` beside the projects.
+    pub(super) fn practice_log_path(&self) -> PathBuf {
+        self.projects
+            .root()
+            .join("Practice")
+            .join(cantina_project::PRACTICE_LOG_FILE)
+    }
+}
+
+/// Reads the practice log at `path`: none yet is an empty log; one that
+/// does not load is an empty log not to be written over, and the reason.
+pub(super) fn read_practice_log(
+    path: &Path,
+) -> (cantina_project::PracticeLog, bool, Option<String>) {
+    match std::fs::read_to_string(path) {
+        Err(_) => (cantina_project::PracticeLog::default(), true, None),
+        Ok(text) => match cantina_project::practice_log_from_json(&text) {
+            Ok(log) => (log, true, None),
+            Err(p) => (
+                cantina_project::PracticeLog::default(),
+                false,
+                Some(format!(
+                    "{} does not load: {}",
+                    path.display(),
+                    p.join("; ")
+                )),
+            ),
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_exercise_is_logged_by_its_file_name() {
+        assert_eq!(
+            exercise_id("/a/b/pentatonic-box-1.exercise.json"),
+            "pentatonic-box-1"
+        );
+        assert_eq!(exercise_id("odd.json"), "odd.json");
+        assert_eq!(today().len(), 10);
+    }
+
+    #[test]
+    fn the_fastest_whole_pass_counts() {
+        let bar = 3840;
+        let mut s = Schedule::new(bar, Section::Verse, 60.0, |_| bar, Section::Verse);
+        // Two-bar passes; climbs at the third and fifth pass, and a change
+        // in the middle of the sixth.
+        s.set_tempo(4 * bar, 65.0);
+        s.set_tempo(8 * bar, 70.0);
+        s.set_tempo(11 * bar, 75.0);
+        assert_eq!(reached(&s, 2 * bar, bar), 0.0, "no pass finished");
+        assert_eq!(reached(&s, 2 * bar, 4 * bar), 60.0);
+        assert_eq!(
+            reached(&s, 2 * bar, 9 * bar),
+            65.0,
+            "the fifth pass is not done"
+        );
+        assert_eq!(
+            reached(&s, 2 * bar, 12 * bar),
+            70.0,
+            "the sixth changed inside"
+        );
+        assert_eq!(reached(&s, 2 * bar, 14 * bar), 75.0);
+        s.keep_tempos_through(8 * bar);
+        assert_eq!(s.tempo(), 70.0);
+        s.keep_tempos_through(0);
+        assert_eq!(s.tempo(), 60.0);
     }
 }
