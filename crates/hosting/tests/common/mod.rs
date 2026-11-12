@@ -6,14 +6,17 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// The fixture dylib, next to the test binary's profile directory. Always
-/// built, which is a no-op when it is current, so a `-p cantina-hosting`
-/// run never tests a stale fixture.
+/// The fixture dylib, in the profile directory the test binary was built
+/// under (`target/debug`). Always built, which is a no-op when it is
+/// current, so a `-p cantina-hosting` run never tests a stale fixture.
 pub fn fixture_path() -> PathBuf {
     let exe = std::env::current_exe().unwrap();
+    // The profile directory is the one just under the target directory,
+    // which cargo marks with CACHEDIR.TAG. The test binary sits deeper:
+    // in `deps/` before Rust 1.100, in `build/<package>/<hash>/out/` since.
     let profile_dir = exe
         .ancestors()
-        .find(|p| p.join("deps").is_dir() && p.join(".fingerprint").is_dir())
+        .find(|p| p.parent().is_some_and(|t| t.join("CACHEDIR.TAG").is_file()))
         .expect("test binary lives under target/<profile>/")
         .to_path_buf();
     let path = profile_dir.join("libcantina_clap_gain.dylib");
