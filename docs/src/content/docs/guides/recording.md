@@ -127,10 +127,11 @@ The **Master** strip is pinned along the bottom of the arrangement and
 stays put while the tracks scroll. It has a mute, the overall gain and the
 output meter. Double-click a fader to reset it.
 
-The arrangement is as tall as its tracks, up to half the window, and the
-editor below takes the rest. Drag the divider to give the tracks less
-room; it never opens past the last track, so there is no empty space under
-them. A split you drag is kept for the session.
+The editor below the arrangement gets room for a pedal's controls, and the
+arrangement takes the rest of the window, its empty lanes waiting for more
+tracks. In a short window the arrangement still shows its tracks, up to
+half the window. Drag the divider to move the split either way; a split
+you drag is kept for the session.
 
 When the mix is done, [export it](/guides/mixdown/) to a WAV file.
 

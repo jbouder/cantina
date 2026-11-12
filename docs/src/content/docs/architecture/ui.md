@@ -29,7 +29,7 @@ A file's samples are reduced once, in a Web Worker (`peaks.worker.ts`), into min
 
 Edits are previewed on the canvas while dragging and become one command when the pointer is released.
 
-The arrangement's height comes from `splitHeight` in `ui/src/lib/timeline.ts`. With no split of the user's it is as tall as its tracks, up to half the body. A dragged split is kept but never goes past the tracks. The master strip is outside the scrolling tracks, pinned under them. In a browser `?tracks=<n>` gives the stand-in project n audio tracks.
+The arrangement's height comes from `splitHeight` in `ui/src/lib/timeline.ts`. With no split of the user's the editor gets `EDITOR_ROOM`, enough for a pedal's controls, and the arrangement the rest, but never less than its tracks up to half the body; the timeline's canvas fills the room, so the grid runs on under the last track. A dragged split is kept as long as each pane keeps its minimum. The master strip is outside the scrolling tracks, pinned under them. In a browser `?tracks=<n>` gives the stand-in project n audio tracks.
 
 ## The tab view
 

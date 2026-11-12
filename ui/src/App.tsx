@@ -89,7 +89,7 @@ import {
 } from "./lib/engine";
 import { readoutsByPedal } from "./lib/readouts";
 import { openStageWindow } from "./lib/stage";
-import { arrangementHeight, samplesPerTick, splitHeight } from "./lib/timeline";
+import { samplesPerTick, splitHeight } from "./lib/timeline";
 import { SKINS, type SkinId, useSkin } from "./skins";
 
 const IDLE: MeterFrame = {
@@ -295,17 +295,19 @@ export function App() {
   // session remembers it. In a browser `?tab=<beats|pedalboard|clips>`
   // opens the editor on a tab, so screenshots can show each.
   const [split, setSplit] = useState(() => loadSplit());
-  const body = useRef<HTMLDivElement>(null);
+  // A state, not a ref: the body mounts only once the engine reports, and
+  // measuring has to start then.
+  const [body, setBody] = useState<HTMLDivElement | null>(null);
   const [bodyHeight, setBodyHeight] = useState(720);
   useEffect(() => {
-    const el = body.current;
+    const el = body;
     if (!el) return;
     const measure = () => setBodyHeight(el.clientHeight);
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [body]);
   const changeSplit = useCallback((value: number) => {
     setSplit(value);
     try {
@@ -420,7 +422,7 @@ export function App() {
   // Messages the player dismissed that the engine still reports: each
   // stays hidden until its text changes.
   const [hidden, setHidden] = useState<{ latency?: string; problem?: string }>({});
-  // As tall as its tracks unless the user dragged it; see `splitHeight`.
+  // The editor's room and the rest, unless the user dragged it; see `splitHeight`.
   const trackCount = status?.project.tracks.length ?? 0;
   const arrangeHeight = splitHeight(split, trackCount, bodyHeight, MIN_PANE);
   // The transport flags in the frame are fresher than the last status push.
@@ -905,7 +907,7 @@ export function App() {
             />
           ) : status && transport ? (
             <div
-              ref={body}
+              ref={setBody}
               className="grid min-h-0 flex-1"
               style={{ gridTemplateRows: `${arrangeHeight}px auto minmax(0, 1fr)` }}
             >
@@ -949,10 +951,7 @@ export function App() {
               <Divider
                 value={arrangeHeight}
                 min={MIN_PANE}
-                max={Math.max(
-                  MIN_PANE,
-                  Math.min(arrangementHeight(trackCount), bodyHeight - MIN_PANE),
-                )}
+                max={Math.max(MIN_PANE, bodyHeight - MIN_PANE)}
                 onChange={changeSplit}
               />
               {selected ? (

@@ -217,6 +217,10 @@ export function Timeline({
   const canvas = useRef<HTMLCanvasElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
+  // The lanes' scrolling viewport: the canvas is at least as tall, so the
+  // grid runs on through the empty room under the last track.
+  const lanesView = useRef<HTMLDivElement>(null);
+  const [viewHeight, setViewHeight] = useState(0);
   const [view, setView] = useState<View>(() => fitView(sampleRate * 30, 800));
   const [snapOn, setSnapOn] = useState(true);
   const [selectedClip, setSelectedClip] = useState<number | null>(null);
@@ -237,7 +241,7 @@ export function Timeline({
   );
 
   const grid = useMemo(() => gridFor(tempo, sampleRate, view.spp), [tempo, sampleRate, view.spp]);
-  const height = RULER_HEIGHT + Math.max(1, tracks.length) * TRACK_HEIGHT;
+  const height = Math.max(RULER_HEIGHT + Math.max(1, tracks.length) * TRACK_HEIGHT, viewHeight);
   const anySolo = tracks.some((t) => t.strip.solo);
   const playhead = position * sampleRate;
   // What each lane holds: audio clips in samples, or a drum track's
@@ -273,10 +277,15 @@ export function Timeline({
   useLayoutEffect(() => {
     const el = container.current;
     if (!el) return;
-    const measure = () => setWidth(Math.max(100, Math.floor(el.clientWidth)));
+    const lanes = lanesView.current;
+    const measure = () => {
+      setWidth(Math.max(100, Math.floor(el.clientWidth)));
+      if (lanes) setViewHeight(Math.floor(lanes.clientHeight));
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(el);
+    if (lanes) observer.observe(lanes);
     return () => observer.disconnect();
   }, []);
 
@@ -959,6 +968,7 @@ export function Timeline({
       {strip(controls)}
       <div className="surface-lcd grid min-h-0 grid-rows-[minmax(0,1fr)_auto]">
         <div
+          ref={lanesView}
           className="grid min-h-0 content-start overflow-x-hidden overflow-y-auto"
           style={{ gridTemplateColumns: `${LABEL_WIDTH}px 1fr` }}
         >

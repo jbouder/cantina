@@ -108,11 +108,18 @@ export function arrangementHeight(tracks: number): number {
 }
 
 /**
+ * The room the editor under the arrangement wants: its tabs, the rig
+ * row and a pedal's controls, so a pedal shows whole without stretching
+ * to fill the window.
+ */
+export const EDITOR_ROOM = 340;
+
+/**
  * The arrangement's height in a body `body` pixels tall. With no split
- * of the user's (`null`) it is as tall as its tracks, up to half the
- * body, so the editor takes the spare room. A dragged split is kept, but
- * never past the tracks, where it would only show empty lanes, and never
- * so far that either pane has less than `minPane`.
+ * of the user's (`null`) the editor gets `EDITOR_ROOM` and the
+ * arrangement the rest, empty lanes and all, but never less than its
+ * tracks up to half the body. A dragged split is kept, but never so far
+ * that either pane has less than `minPane`.
  */
 export function splitHeight(
   split: number | null,
@@ -121,10 +128,11 @@ export function splitHeight(
   minPane: number,
 ): number {
   const room = Math.max(minPane, body - minPane);
-  const natural = arrangementHeight(tracks);
-  const wanted = split ?? Math.min(natural, Math.max(minPane, Math.round(body / 2)));
-  return Math.max(minPane, Math.min(wanted, natural, room));
+  const shown = Math.min(arrangementHeight(tracks), Math.round(body / 2));
+  const wanted = split ?? Math.max(body - EDITOR_ROOM, shown);
+  return Math.max(minPane, Math.min(wanted, room));
 }
+
 /** How close to a clip's edge a pointer counts as a trim handle. */
 export const EDGE_PX = 7;
 
