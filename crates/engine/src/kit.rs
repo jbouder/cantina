@@ -112,6 +112,24 @@ pub fn discover(roots: &[PathBuf], problems: &mut Vec<String>) -> Vec<KitEntry> 
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+
+    #[test]
+    fn every_stock_kit_loads_in_tune_and_ringing_out() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../kits");
+        let mut problems = Vec::new();
+        let kits = discover(&[root], &mut problems);
+        assert!(problems.is_empty(), "{problems:?}");
+        assert!(kits.len() >= 8, "{} kits", kits.len());
+        for entry in kits {
+            let (kit, loaded) = load(&entry.path).unwrap();
+            // Kit format 2's tune and decay are left at what version 1
+            // played: the stock kits sound as they did.
+            for pad in loaded.pads() {
+                assert_eq!((pad.tune, pad.decay), (0.0, 1.0), "{} {}", entry.id, pad.id);
+            }
+            assert!(kit.pads.iter().all(|p| p.tune == 0.0 && p.decay == 1.0));
+        }
+    }
     use crate::wav::tests::tempdir;
 
     /// Writes a small kit with two pads and a shared sample into `dir`

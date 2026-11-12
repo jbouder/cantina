@@ -140,7 +140,77 @@ export interface DrumDesignStatus {
   loopEnd: number;
   /** What plays where, up to the loop's end. */
   spans: PlaySpan[];
+  /** The pads of the kit the designer hears, in the kit's order. */
+  pads: PadInfo[];
+  /** The kit in the workbench, while it is open. */
+  kitEdit: KitEditStatus | null;
 }
+
+/** A layer of a kit's pad. Mirrors `Layer` in cantina-dsp. */
+export interface KitLayer {
+  file: string;
+  velocity?: [number, number];
+  gainDb?: number;
+}
+
+/** A pad as the kit format has it. Mirrors `Pad` in cantina-dsp. */
+export interface KitPad {
+  id: string;
+  name: string;
+  gainDb?: number;
+  pan?: number;
+  choke?: string;
+  /** Semitones, −12 to 12. Kit format 2. */
+  tune?: number;
+  /** How much of each hit rings, 0.05 to 1. Kit format 2. */
+  decay?: number;
+  layers: KitLayer[];
+}
+
+/** A kit's `kit.json`. Mirrors `Kit` in cantina-dsp. */
+export interface KitFile {
+  version: number;
+  name: string;
+  pads: KitPad[];
+}
+
+/** One pad of a kit recipe. Mirrors `PadRecipe` in cantina-dsp. */
+export interface PadRecipe {
+  id: string;
+  name?: string;
+  voice: "kick" | "snare" | "hat" | "clap" | "tom" | "cowbell";
+  pitch?: number;
+  decay?: number;
+  tone?: number;
+  noise?: number;
+  layers?: number;
+  gainDb?: number;
+  pan?: number;
+  choke?: string;
+}
+
+/** A kit described as synthesis settings. Mirrors `KitRecipe` in cantina-dsp. */
+export interface KitRecipe {
+  $schema?: string;
+  version: number;
+  name: string;
+  seed?: number;
+  pads: PadRecipe[];
+}
+
+/** The kit in the drum designer's workbench. Mirrors `KitEditStatus` in src-tauri. */
+export interface KitEditStatus {
+  /** The kit it started from, by id. */
+  from: string;
+  kit: KitFile;
+  /** The recipe it is made from, when it is. */
+  recipe: KitRecipe | null;
+  /** It differs from the kit it started from. */
+  changed: boolean;
+}
+
+/** Where a pad's new samples come from. Mirrors `PadSource` in src-tauri. */
+export type PadSource = { from: "file"; path: string } | { from: "kit"; kit: string; pad: string };
 
 /** The exercise being practiced. Mirrors `PracticeStatus` in src-tauri. */
 export interface PracticeStatus {
@@ -4445,7 +4515,19 @@ function mockDesignPlan(d: NonNullable<typeof mockDesign>): {
 }
 
 function mockDesignStatus(d: NonNullable<typeof mockDesign>): DrumDesignStatus {
+  const edit = mockKitEdit;
   return {
+    pads: edit
+      ? edit.kit.pads.map((p) => ({ id: p.id, name: p.name }))
+      : mockKitStatus(d.part.kit).pads,
+    kitEdit: edit
+      ? {
+          from: edit.from,
+          kit: structuredClone(edit.kit),
+          recipe: edit.recipe ? structuredClone(edit.recipe) : null,
+          changed: JSON.stringify(edit.kit) !== JSON.stringify(edit.base),
+        }
+      : null,
     track: d.track,
     part: structuredClone(d.part),
     plays: { ...d.plays },
@@ -4505,6 +4587,15 @@ export async function drumDesignOpen(track: number): Promise<EngineStatus> {
       mockDesign.base = structuredClone(part);
     }
   }
+  // `?workbench=open` opens the kit workbench with the snare tuned down.
+  if (mockParams?.get("workbench") === "open") {
+    const edit = mockKitEditStart();
+    const snare = edit.kit.pads.find((p) => p.id === "snare");
+    if (snare) {
+      snare.tune = -2;
+      snare.decay = 0.6;
+    }
+  }
   // `?drumdesign=playing` has it rolling, for screenshots; `?position` says where.
   if (mockParams?.get("drumdesign") === "playing") {
     mockTransport.playing = true;
@@ -4516,6 +4607,7 @@ export async function drumDesignOpen(track: number): Promise<EngineStatus> {
 /** Closes the drum designer: the project is heard again, its playhead where it was. */
 export async function drumDesignClose(): Promise<EngineStatus> {
   if (inTauri) return invoke<EngineStatus>("drum_design_close");
+  mockKitEdit = null;
   if (mockDesign) {
     mockTransport.playing = false;
     mockTransport.position = mockDesign.projectPosition;
@@ -4590,6 +4682,154 @@ export async function drumDesignStop(): Promise<EngineStatus> {
   mockTransport.playing = false;
   mockTransport.position = 0;
   return mockStatus();
+}
+
+// ----- the kit workbench -----
+
+/** The stock kit recipes, read from the repository's `recipes/` at build time. */
+const RECIPE_FILES = import.meta.glob<KitRecipe>("../../../recipes/*.recipe.json", {
+  eager: true,
+  import: "default",
+});
+
+/** The stand-in's workbench kit. */
+let mockKitEdit: {
+  from: string;
+  kit: KitFile;
+  base: KitFile;
+  recipe: KitRecipe | null;
+} | null = null;
+
+function mockKitFile(id: string): KitFile {
+  const status = mockKitStatus(id);
+  return {
+    version: 2,
+    name: status.name,
+    pads: status.pads.map((p) => ({
+      id: p.id,
+      name: p.name,
+      ...(p.id.startsWith("hh-") ? { choke: "hat", pan: 0.25 } : {}),
+      layers: [{ file: `${p.id}.wav` }],
+    })),
+  };
+}
+
+function mockKitEditStart(): NonNullable<typeof mockKitEdit> {
+  if (!mockDesign) throw new Error("open the drum designer first");
+  if (mockKitEdit) return mockKitEdit;
+  const from = mockDesign.part.kit;
+  const recipe =
+    Object.entries(RECIPE_FILES).find(([f]) => f.endsWith(`/${from}.recipe.json`))?.[1] ?? null;
+  const kit = recipe
+    ? {
+        version: 2,
+        name: recipe.name,
+        pads: recipe.pads.map((p) => ({
+          id: p.id,
+          name: p.name ?? p.id,
+          ...(p.gainDb ? { gainDb: p.gainDb } : {}),
+          ...(p.pan ? { pan: p.pan } : {}),
+          ...(p.choke ? { choke: p.choke } : {}),
+          layers: [{ file: `${p.id}-1.wav` }],
+        })),
+      }
+    : mockKitFile(from);
+  mockKitEdit = {
+    from,
+    kit,
+    base: structuredClone(kit),
+    recipe: recipe ? structuredClone(recipe) : null,
+  };
+  return mockKitEdit;
+}
+
+/** Opens the designer's kit workbench on the part's kit: a copy to change, heard as it changes. */
+export async function drumDesignKitOpen(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("drum_design_kit_open");
+  mockKitEditStart();
+  return mockStatus();
+}
+
+/** Sets the workbench kit's pads: level, pan, tune, decay and choke group. */
+export async function drumDesignKitSet(kit: KitFile): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("drum_design_kit_set", { kit });
+  const edit = mockKitEditStart();
+  for (const p of kit.pads) {
+    if ((p.tune ?? 0) < -12 || (p.tune ?? 0) > 12) throw new Error(`pad ${p.id} is tuned too far`);
+    const decay = p.decay ?? 1;
+    if (decay < 0.05 || decay > 1) throw new Error(`pad ${p.id} has a decay outside 0.05 to 1`);
+  }
+  edit.kit = structuredClone(kit);
+  return mockStatus();
+}
+
+/** Gives a workbench pad new samples: a WAV file, or another kit's pad. */
+export async function drumDesignKitSwap(pad: string, source: PadSource): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("drum_design_kit_swap", { pad, source });
+  const edit = mockKitEditStart();
+  const p = edit.kit.pads.find((x) => x.id === pad);
+  if (!p) throw new Error(`the kit has no pad ${pad}`);
+  p.layers = [
+    {
+      file:
+        source.from === "file"
+          ? (source.path.split("/").pop() ?? `${pad}.wav`)
+          : `${pad}-${source.kit}-1.wav`,
+    },
+  ];
+  edit.recipe = null;
+  return mockStatus();
+}
+
+/** Makes the workbench kit again from its recipe. */
+export async function drumDesignKitRecipe(recipe: KitRecipe): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("drum_design_kit_recipe", { recipe });
+  const edit = mockKitEditStart();
+  edit.recipe = structuredClone(recipe);
+  return mockStatus();
+}
+
+/** Puts the part's kit back as it was; the workbench closes. */
+export async function drumDesignKitReset(): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("drum_design_kit_reset");
+  mockKitEdit = null;
+  return mockStatus();
+}
+
+/** Saves the workbench kit as a kit of the user's in ~/Music/Cantina/Kits; the part plays it. */
+export async function drumDesignKitSave(name: string, replace: boolean): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("drum_design_kit_save", { name, replace });
+  const edit = mockKitEditStart();
+  if (!name.trim()) throw new Error("a kit needs a name");
+  const id = rigSlug(name);
+  const there = mockKits.find((k) => k.id === id);
+  if (there && !replace) throw new Error(`you already have a kit called ${name.trim()}`);
+  if (!there) mockKits.push({ id, name: name.trim() });
+  if (mockDesign) mockDesign.part.kit = id;
+  void edit;
+  mockKitEdit = null;
+  return mockStatus();
+}
+
+/** Plays a pad of the kit the drum designer hears. */
+export async function drumDesignAudition(pad: string, velocity: number): Promise<void> {
+  if (inTauri) return invoke<void>("drum_design_audition", { pad, velocity });
+}
+
+/** The pads of an installed kit, for swapping from. */
+export async function kitPads(kit: string): Promise<PadInfo[]> {
+  if (inTauri) return invoke<PadInfo[]>("kit_pads", { kit });
+  return mockKitStatus(kit).pads;
+}
+
+/** Asks for a WAV file to put on a pad. */
+export async function chooseSamplePath(): Promise<string | null> {
+  if (!inTauri) return "/Users/you/Samples/Big snare.wav";
+  const chosen = await openDialog({
+    multiple: false,
+    filters: [{ name: "WAV audio", extensions: ["wav", "wave"] }],
+  });
+  return typeof chosen === "string" ? chosen : null;
 }
 
 // ----- the transport -----

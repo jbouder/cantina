@@ -57,7 +57,7 @@ A drum kit as its JSON file holds it.
 | --- | --- | --- | --- |
 | `name` | yes | string | Shown in the kit picker. |
 | `pads` |  | array of `Pad` (at least 1, at most 64) | The pads, in the order the sequencer shows them. Default `[]`. |
-| `version` | yes | exactly `1` | The format version, `KIT_VERSION` when written. |
+| `version` | yes | integer (≥ 1, ≤ 2) | The format version, `KIT_VERSION` when written. |
 
 Where it goes: `kit.json` in a folder of `~/Music/Cantina/Kits/`. Schema: `https://cantina-docs.vibeproject.workers.dev/schemas/kit.schema.json`.
 
@@ -78,11 +78,13 @@ One pad: a sound the sequencer can hit.
 | Field | Required | Takes | What it is |
 | --- | --- | --- | --- |
 | `choke` |  | string | Pads in the same choke group cut each other: hitting one stops whatever else in the group is still ringing, the closed hat silencing the open one. |
+| `decay` |  | number (≥ 0.05, ≤ 1) | How much of each hit rings, from 0.05 to 1 (all of it): under 1 a hit is down 60 dB by that share of its sample's length. Version 2. |
 | `gainDb` |  | number | Gain in decibels. Default `0`. |
 | `id` | yes | string | Stable identifier patterns refer to, such as `kick` or `hh-closed`. |
 | `layers` | yes | array of `Layer` (at least 1, at most 16) | The pad's samples by velocity, at least one. |
 | `name` |  | string | Display name; the id when missing. Default `""`. |
 | `pan` |  | number (≥ -1, ≤ 1) | -1 is hard left, 1 hard right. Default `0`. |
+| `tune` |  | number (≥ -12, ≤ 12) | Semitones up (or down), −12 to 12: the samples played faster or slower. Version 2. |
 
 ## Cantina kit recipe (`kit-recipe`)
 

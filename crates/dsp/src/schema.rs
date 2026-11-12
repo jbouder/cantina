@@ -10,7 +10,7 @@
 
 use serde_json::{json, Map, Value};
 
-use crate::kit::{Kit, KIT_VERSION, MAX_LAYERS, MAX_PADS};
+use crate::kit::{Kit, KIT_VERSION, MAX_LAYERS, MAX_PADS, MAX_TUNE, MIN_DECAY};
 use crate::pedal::{kinds, FieldKind, PedalDef, MAX_NODES, MAX_PARAMS, PEDAL_VERSION};
 
 /// Where the docs site serves the schemas; each schema's `$id` is here.
@@ -116,12 +116,19 @@ pub fn kit() -> Value {
     s["title"] = json!("Cantina drum kit");
     let props = &mut s["properties"];
     props["$schema"] = json!({ "type": "string" });
-    props["version"]["const"] = json!(KIT_VERSION);
+    // Version 1, without tune and decay, still reads.
+    props["version"]["minimum"] = json!(1);
+    props["version"]["maximum"] = json!(KIT_VERSION);
     props["pads"]["minItems"] = json!(1);
     props["pads"]["maxItems"] = json!(MAX_PADS);
     let pad = &mut s["$defs"]["Pad"]["properties"];
     pad["pan"]["minimum"] = json!(-1);
     pad["pan"]["maximum"] = json!(1);
+    pad["tune"]["minimum"] = json!(-MAX_TUNE);
+    pad["tune"]["maximum"] = json!(MAX_TUNE);
+    // MIN_DECAY, written as the decimal it is rather than as an f32.
+    pad["decay"]["minimum"] = json!((f64::from(MIN_DECAY) * 1000.0).round() / 1000.0);
+    pad["decay"]["maximum"] = json!(1);
     pad["layers"]["minItems"] = json!(1);
     pad["layers"]["maxItems"] = json!(MAX_LAYERS);
     s["$defs"]["Layer"]["properties"]["velocity"]["items"] =

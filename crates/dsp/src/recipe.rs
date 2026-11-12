@@ -288,6 +288,8 @@ pub fn synthesize(recipe: &KitRecipe) -> (Kit, Vec<SynthSample>) {
             gain_db: pad.gain_db,
             pan: pad.pan,
             choke: pad.choke.clone(),
+            tune: 0.0,
+            decay: 1.0,
             layers,
         });
     }
