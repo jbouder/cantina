@@ -117,6 +117,7 @@ pub fn check(path: &Path, options: &CheckOptions) -> Result<Report, Failure> {
         Format::Rig => check_rig(&text, options, &mut warnings),
         Format::Jam => check_jam(&text, options, &mut warnings),
         Format::Exercise => check_exercise(&text, options, &mut warnings),
+        Format::Course => check_course(&text, &mut warnings),
     }
     .map_err(fail)?;
     Ok(Report {
@@ -534,6 +535,58 @@ fn check_exercise(
         instrument(ex.instrument),
         ex.teaches.name(),
         if bars == 1 { "bar" } else { "bars" },
+    ))
+}
+
+/// A course: its rules, then its exercises. One that is not installed,
+/// or is for the other instrument, fails it; a goal outside an
+/// exercise's tempo ladder is a warning.
+fn check_course(text: &str, warnings: &mut Vec<String>) -> Result<String, Vec<String>> {
+    let course = cantina_project::course_from_json(text)?;
+    let mut problems = Vec::new();
+    for (i, step) in course.steps.iter().enumerate() {
+        let at = format!("step {} ({})", i + 1, step.exercise);
+        let file = format!("{}{}", step.exercise, cantina_project::EXERCISE_SUFFIX);
+        let Some(path) = crate::exercise_dirs()
+            .into_iter()
+            .map(|d| d.join(&file))
+            .find(|p| p.is_file())
+        else {
+            problems.push(format!(
+                "{at}: no exercise {file} in ~/Music/Cantina/Exercises or among the stock ones"
+            ));
+            continue;
+        };
+        let read = std::fs::read_to_string(&path)
+            .map_err(|e| vec![e.to_string()])
+            .and_then(|t| cantina_project::exercise_from_json(&t));
+        match read {
+            Err(p) => problems.push(format!("{at} does not load: {}", p.join("; "))),
+            Ok(e) => {
+                if e.instrument != course.instrument {
+                    problems.push(format!("{at} is for another instrument than the course"));
+                }
+                if step.goal < e.tempo.start || step.goal > e.tempo.goal {
+                    warnings.push(format!(
+                        "{at}: the goal {} is outside the exercise's {} to {} bpm",
+                        step.goal, e.tempo.start, e.tempo.goal
+                    ));
+                }
+            }
+        }
+    }
+    if !problems.is_empty() {
+        return Err(problems);
+    }
+    Ok(format!(
+        "course {:?}: {} {}, {} steps",
+        course.name,
+        course.style,
+        match course.instrument {
+            cantina_project::Instrument::Guitar => "guitar",
+            cantina_project::Instrument::Bass => "bass",
+        },
+        course.steps.len()
     ))
 }
 

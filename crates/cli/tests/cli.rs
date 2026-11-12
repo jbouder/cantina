@@ -358,3 +358,41 @@ fn render_exercise_plays_the_phrase_through_its_rig() {
         "{faster}"
     );
 }
+
+#[test]
+fn check_reads_courses_and_names_the_exercises_they_lack() {
+    for entry in std::fs::read_dir(root().join("courses")).unwrap() {
+        let file = entry.unwrap().path();
+        let out = run(&["check", path(&file)]);
+        assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
+        assert!(
+            text(&out.stdout).starts_with("ok: course "),
+            "{}",
+            text(&out.stdout)
+        );
+        assert!(
+            !text(&out.stdout).contains("warning"),
+            "{}",
+            text(&out.stdout)
+        );
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("x.course.json");
+    std::fs::write(
+        &file,
+        r#"{"version":1,"name":"X","instrument":"bass","style":"Metal",
+            "steps":[{"exercise":"gallops","goal":150},{"exercise":"nope","goal":100}]}"#,
+    )
+    .unwrap();
+    let out = run(&["check", path(&file)]);
+    assert_eq!(out.status.code(), Some(1));
+    let err = text(&out.stderr);
+    assert!(
+        err.contains("step 1 (gallops) is for another instrument"),
+        "{err}"
+    );
+    assert!(
+        err.contains("step 2 (nope): no exercise nope.exercise.json"),
+        "{err}"
+    );
+}

@@ -37,10 +37,11 @@ Validates a pedal (`*.pedal.json`), a kit (a folder with `kit.json`), a kit
 recipe (`*.recipe.json`), a pattern (`*.pattern.json`), a tab
 (`*.tab.json`), a [rig](/reference/rig-format/) (`*.rig.json`), a
 [jam](/reference/jam-format/) (`*.jam.json`), an
-[exercise](/reference/exercise-format/) (`*.exercise.json`) or a project
+[exercise](/reference/exercise-format/) (`*.exercise.json`), a
+[course](/reference/course-format/) (`*.course.json`) or a project
 (a folder with `project.json`). The format comes from the name, then a
 `$schema` field, then the keys;
-`--as pedal|kit|kit-recipe|pattern|tab|rig|jam|exercise|project`
+`--as pedal|kit|kit-recipe|pattern|tab|rig|jam|exercise|course|project`
 overrides it.
 
 First the file is checked against its [schema](/schemas/pedal.schema.json),
@@ -90,6 +91,11 @@ Then the rules beyond the schema, the ones the app enforces:
   ladder that never reaches the groove's range are warnings. The summary
   names the style, instrument, what it teaches, the phrase, the ladder,
   the rig and the groove.
+- **Course**: its version, name, style and steps, each exercise named
+  once with a goal of 30 to 300 bpm. An exercise that is not installed
+  (in `~/Music/Cantina/Exercises`, then the stock ones) or is for the
+  other instrument fails it; a goal outside the exercise's tempo ladder
+  is a warning.
 - **Project**: every pedal in a chain is a stock pedal, a plugin, or a
   designed pedal whose `pedals/<id>.pedal.json` is in the project and
   compiles; each drum track's kit is found (in `--kits`, then
@@ -195,7 +201,7 @@ the result. The same recipe always writes the same bytes.
 
 ```sh
 cantina-cli kinds [--json]
-cantina-cli schema <pedal|kit|kit-recipe|pattern|tab|rig|jam|exercise|project>
+cantina-cli schema <pedal|kit|kit-recipe|pattern|tab|rig|jam|exercise|course|project>
 ```
 
 `kinds` prints the pedal node catalog: every kind, its fields with ranges,

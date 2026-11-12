@@ -9,6 +9,7 @@
 
 mod assistant;
 mod commands;
+mod courses;
 mod engine;
 mod exercises;
 mod frame;

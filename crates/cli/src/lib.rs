@@ -1,7 +1,7 @@
 //! `cantina-cli`: everything Cantina reads, checked, rendered and listed
 //! without the app, a window, a microphone or a person listening.
 //!
-//! - [`check()`] validates a pedal, kit, kit recipe, pattern, tab, rig, jam, exercise or project
+//! - [`check()`] validates a pedal, kit, kit recipe, pattern, tab, rig, jam, exercise, course or project
 //!   against its JSON Schema and then against the rules the app enforces
 //!   beyond it, with messages that name the node, pad or row.
 //! - [`render`](mod@render) runs a pedal over a guitar DI, a tone or a WAV through the
@@ -59,11 +59,13 @@ pub enum Format {
     /// An exercise, `<name>.exercise.json`: a phrase to practice, its
     /// tempos, rig and groove.
     Exercise,
+    /// A course, `<name>.course.json`: exercises in order, each to a tempo.
+    Course,
 }
 
 impl Format {
     /// Every format.
-    pub const ALL: [Format; 9] = [
+    pub const ALL: [Format; 10] = [
         Format::Pedal,
         Format::Kit,
         Format::KitRecipe,
@@ -73,6 +75,7 @@ impl Format {
         Format::Rig,
         Format::Jam,
         Format::Exercise,
+        Format::Course,
     ];
 
     /// The name messages and schema files use.
@@ -87,6 +90,7 @@ impl Format {
             Format::Rig => "rig",
             Format::Jam => "jam",
             Format::Exercise => "exercise",
+            Format::Course => "course",
         }
     }
 
@@ -102,6 +106,7 @@ impl Format {
             Format::Rig => cantina_project::schema::rig(),
             Format::Jam => cantina_project::schema::jam(),
             Format::Exercise => cantina_project::schema::exercise(),
+            Format::Course => cantina_project::schema::course(),
         }
     }
 
@@ -135,6 +140,7 @@ impl Format {
             (".rig.json", Format::Rig),
             (".jam.json", Format::Jam),
             (".exercise.json", Format::Exercise),
+            (".course.json", Format::Course),
             ("kit.json", Format::Kit),
             ("project.json", Format::Project),
         ];
@@ -150,8 +156,8 @@ impl Format {
             .ok_or_else(|| {
                 format!(
                     "cannot tell what {} is; name it *.pedal.json, *.pattern.json, *.tab.json, \
-                     *.recipe.json, *.rig.json, *.jam.json, *.exercise.json, kit.json or \
-                     project.json, or pass --as",
+                     *.recipe.json, *.rig.json, *.jam.json, *.exercise.json, *.course.json, \
+                     kit.json or project.json, or pass --as",
                     path.display()
                 )
             })
@@ -181,6 +187,8 @@ impl Format {
             Some(Format::Pattern)
         } else if has("chain") && has("instrument") {
             Some(Format::Rig)
+        } else if has("steps") && has("style") {
+            Some(Format::Course)
         } else if has("phrase") {
             Some(Format::Exercise)
         } else if has("drums") && has("tempo") {
@@ -215,6 +223,17 @@ pub fn rig_dirs() -> Vec<PathBuf> {
         roots.push(PathBuf::from(home).join("Music/Cantina/Rigs"));
     }
     roots.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../rigs"));
+    roots
+}
+
+/// Where exercises are looked for by id: the user's library, then the
+/// stock exercises in this repository when the binary was built from it.
+pub fn exercise_dirs() -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Some(home) = std::env::var_os("HOME") {
+        roots.push(PathBuf::from(home).join("Music/Cantina/Exercises"));
+    }
+    roots.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../exercises"));
     roots
 }
 

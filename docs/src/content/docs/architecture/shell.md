@@ -40,7 +40,8 @@ While a stream is open, a pump thread wakes 60 times a second, reads the meters,
 - **Practice** (`engine_jam.rs`): practice is jam mode with an exercise. The jam's drums play the verse of the exercise's groove alone, muted when the groove is off; its backing is the exercise's phrase as a `TabLoop` on the tab voice, through the exercise's own rig, round and round or once to the end of the pass going on; its count-in is the exercise's bars. Tempo changes are the jam's, on the next bar line. The last exercise, tempo and options are kept in the settings.
 - **Jams** (`jams.rs`): the stock jams in the bundle's `jams/` and the user's in `~/Music/Cantina/Jams`; opening one sets the jam playing, saving writes the jam as it is.
 - **Exercises** (`exercises.rs`): the stock exercises in the bundle's `exercises/` and the user's in `~/Music/Cantina/Exercises`, listed by style, what they teach and name.
-- **Library folders** (`library.rs`): `Pedals`, `Kits`, `Patterns`, `Rigs`, `Jams` and `Exercises` under `~/Music/Cantina`, watched twice a second and rescanned when they change.
+- **Courses** (`courses.rs`): the stock courses in the bundle's `courses/` and the user's in `~/Music/Cantina/Courses`, each with its steps' bests and the next step from the practice log. The assistant's `get_practice` tool reads them and the log, and never writes.
+- **Library folders** (`library.rs`): `Pedals`, `Kits`, `Patterns`, `Rigs`, `Jams`, `Exercises` and `Courses` under `~/Music/Cantina`, watched twice a second and rescanned when they change.
 - **Plugin editors**: native windows opened, ticked and closed on the main thread. See [hosting](/architecture/hosting/#editor-windows).
 - **The menu bar** (`menu.rs`): built from the action registry the UI shares. See [menus and shortcuts](/architecture/menus/).
 - **The assistant** (`assistant/`): the optional chat's provider requests and its key in the Keychain. See [assistant](/architecture/assistant/).

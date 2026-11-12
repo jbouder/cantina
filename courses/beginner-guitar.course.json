@@ -1,0 +1,88 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/course.schema.json",
+  "version": 1,
+  "name": "Beginner guitar",
+  "description": "Your first chords, the changes between them, a strum and your first scale.",
+  "instrument": "guitar",
+  "style": "Beginner",
+  "steps": [
+    {
+      "exercise": "open-em",
+      "goal": 85,
+      "note": "The easiest chord: two fingers, every string ringing."
+    },
+    {
+      "exercise": "open-e",
+      "goal": 85
+    },
+    {
+      "exercise": "open-a",
+      "goal": 85
+    },
+    {
+      "exercise": "open-am",
+      "goal": 85
+    },
+    {
+      "exercise": "e-to-a",
+      "goal": 90,
+      "note": "Your first change. Lift only the fingers that move."
+    },
+    {
+      "exercise": "open-d",
+      "goal": 85
+    },
+    {
+      "exercise": "a-to-d",
+      "goal": 90
+    },
+    {
+      "exercise": "open-g",
+      "goal": 85
+    },
+    {
+      "exercise": "open-c",
+      "goal": 85
+    },
+    {
+      "exercise": "g-to-c",
+      "goal": 90
+    },
+    {
+      "exercise": "open-dm",
+      "goal": 85
+    },
+    {
+      "exercise": "am-dm-e",
+      "goal": 90
+    },
+    {
+      "exercise": "strumming-down-up",
+      "goal": 95,
+      "note": "The hand never stops: down on the beat, up on the and."
+    },
+    {
+      "exercise": "g-c-d",
+      "goal": 90
+    },
+    {
+      "exercise": "em-c-g-d",
+      "goal": 90,
+      "note": "The four chords pop is made of."
+    },
+    {
+      "exercise": "chromatic-alternate-picking",
+      "goal": 110,
+      "note": "One finger per fret, down and up."
+    },
+    {
+      "exercise": "pentatonic-box-1",
+      "goal": 110,
+      "note": "The box every solo starts in."
+    },
+    {
+      "exercise": "major-scale-one-position",
+      "goal": 110
+    }
+  ]
+}

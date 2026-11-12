@@ -62,6 +62,10 @@ pub trait Host {
     /// The engine as the model should see it: whether audio runs, the
     /// devices, the sample rate and buffer, latency, meters, plugins.
     fn engine_report(&self) -> Value;
+    /// What has been practiced: the courses and where the player is in
+    /// them, every exercise with its best tempo, the streak and the last
+    /// two weeks of the practice log. Read only.
+    fn practice_report(&self) -> Value;
     /// The library folders the app watches.
     fn library(&self) -> Folders;
     /// An installed kit's folder.
@@ -221,6 +225,13 @@ pub static TOOLS: &[Tool] = &[
         schema: || object(json!({}), &[]),
         ask: None,
         run: |host, _| Done::read("Read the audio engine", host.engine_report()),
+    },
+    Tool {
+        name: "get_practice",
+        description: "Reads what the player has practiced, to suggest what to practice next: each course with its steps, the goal tempo of each, the player's best and whether it is done, and the next step; every exercise with what it teaches, its style, its tempo range, the best tempo reached and the last day; the streak of days, minutes today, the exercise open in Practice, and the last two weeks of the practice log. Read only: nothing here changes the log. Suggest the next step of a course they are in, or an exercise whose best is furthest from its goal, and say why.",
+        schema: || object(json!({}), &[]),
+        ask: None,
+        run: |host, _| Done::read("Read your practice", host.practice_report()),
     },
     Tool {
         name: "set_tempo",
@@ -1569,6 +1580,9 @@ pub(crate) mod fake {
         fn engine_report(&self) -> Value {
             json!({ "running": false })
         }
+        fn practice_report(&self) -> Value {
+            json!({ "streak": 3, "courses": [{ "name": "Metal rhythm", "next": "gallops" }] })
+        }
         fn library(&self) -> Folders {
             self.library.as_ref().map_or_else(
                 || Folders {
@@ -1578,6 +1592,7 @@ pub(crate) mod fake {
                     rigs: "/nonexistent/Rigs".into(),
                     jams: "/nonexistent/Jams".into(),
                     exercises: "/nonexistent/Exercises".into(),
+                    courses: "/nonexistent/Courses".into(),
                 },
                 |l| l.folders.clone(),
             )

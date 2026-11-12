@@ -499,6 +499,31 @@ The tempos an exercise climbs through, in beats per minute.
 | `start` | yes | number (≥ 30, ≤ 300) | Where to start: playable the first day. |
 | `step` | yes | number (> 0) | How far each step up goes. |
 
+## Cantina course (`course`)
+
+Exercises in the order to practice them, each with the tempo a whole pass must be played at before the next: a name, a line on it, the instrument, a style and the steps. Exercises are named by their file less `.exercise.json`.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `description` |  | string | One line on what it takes you through. |
+| `instrument` | yes | `Instrument` | Guitar or bass. |
+| `name` | yes | string (not empty) | Shown in the course list. |
+| `steps` | yes | array of `CourseStep` (at least 1) | The exercises, in the order to practice them. |
+| `style` | yes | string (not empty) | The style it is for: `Metal`, `Beginner`… |
+| `version` | yes | integer (≥ 1, ≤ 1) | The format version, 1. |
+
+Where it goes: `*.course.json` in `~/Music/Cantina/Courses/`, checked by `cantina-cli`. Schema: `https://cantina-docs.vibeproject.workers.dev/schemas/course.schema.json`.
+
+### `CourseStep`
+
+One exercise of a course, and the tempo to reach on it.
+
+| Field | Required | Takes | What it is |
+| --- | --- | --- | --- |
+| `exercise` | yes | string (not empty) | The exercise, by its file's name less `.exercise.json`. |
+| `goal` | yes | number (≥ 30, ≤ 300) | The tempo a whole pass must be played at before the next step, in beats per minute, 30 to 300. |
+| `note` |  | string | A line on why it comes here, shown with the step. |
+
 ## Cantina practice log (`practice-log`)
 
 What was practiced, day by day: one entry per exercise per day with the fastest tempo a whole pass was played at and the minutes played. Cantina writes it; it is never part of a project.

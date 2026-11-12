@@ -12,7 +12,7 @@
 //! ```
 //!
 //! regenerates them all (pedal, kit, kit recipe, pattern, tab, rig, jam,
-//! exercise, practice log and project), and
+//! exercise, practice log, course and project), and
 //! the same test fails when any is stale.
 
 use serde_json::{json, Value};
@@ -278,6 +278,34 @@ pub fn exercise() -> Value {
     s
 }
 
+/// The schema for a `<name>.course.json`: exercises in an order, each to
+/// a tempo. Whether its exercises are installed is left to
+/// `cantina-cli check`.
+pub fn course() -> Value {
+    let mut s = schemars::schema_for!(crate::Course).to_value();
+    s["$id"] = json!(format!("{SITE}/course.schema.json"));
+    s["title"] = json!("Cantina course");
+    s["description"] = json!(
+        "Exercises in the order to practice them, each with the tempo a whole pass must be \
+         played at before the next: a name, a line on it, the instrument, a style and the \
+         steps. Exercises are named by their file less `.exercise.json`."
+    );
+    let (slow, fast) = crate::JAM_TEMPO;
+    let props = &mut s["properties"];
+    props["$schema"] = json!({ "type": "string" });
+    props["version"]["minimum"] = json!(1);
+    props["version"]["maximum"] = json!(crate::COURSE_VERSION);
+    props["name"]["minLength"] = json!(1);
+    props["style"]["minLength"] = json!(1);
+    props["steps"]["minItems"] = json!(1);
+    let step = &mut s["$defs"]["CourseStep"]["properties"];
+    step["exercise"]["minLength"] = json!(1);
+    step["goal"]["minimum"] = json!(slow);
+    step["goal"]["maximum"] = json!(fast);
+    tidy(&mut s);
+    s
+}
+
 /// The schema for the practice log, `~/Music/Cantina/Practice/log.json`.
 pub fn practice_log() -> Value {
     let mut s = schemars::schema_for!(crate::PracticeLog).to_value();
@@ -413,7 +441,7 @@ mod tests {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
     }
 
-    fn all() -> [(&'static str, Value); 10] {
+    fn all() -> [(&'static str, Value); 11] {
         [
             ("pedal", cantina_dsp::schema::pedal()),
             ("kit", cantina_dsp::schema::kit()),
@@ -425,6 +453,7 @@ mod tests {
             ("jam", jam()),
             ("exercise", exercise()),
             ("practice-log", practice_log()),
+            ("course", course()),
         ]
     }
 
@@ -481,8 +510,19 @@ mod tests {
 
     #[test]
     fn schemas_every_stock_file_validates() {
-        let [pedal, kit, recipe, pattern_s, tab_s, project_s, rig_s, jam_s, exercise_s, log_s] =
+        let [pedal, kit, recipe, pattern_s, tab_s, project_s, rig_s, jam_s, exercise_s, log_s, course_s] =
             all().map(|(_, s)| validator(&s));
+        let mut courses = files(&root().join("courses"), ".course.json");
+        courses.extend(files(
+            &root().join(".claude/skills/cantina-author"),
+            ".course.json",
+        ));
+        assert!(courses.len() >= 5, "no stock courses found");
+        for c in &courses {
+            assert_valid(&course_s, c);
+            crate::course_from_json(&std::fs::read_to_string(c).unwrap())
+                .unwrap_or_else(|p| panic!("{}: {p:?}", c.display()));
+        }
         let pedals = files(&root().join("pedals"), ".pedal.json");
         assert!(!pedals.is_empty(), "no stock pedals found");
         pedals.iter().for_each(|p| assert_valid(&pedal, p));

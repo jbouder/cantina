@@ -127,6 +127,8 @@ pub struct EngineStatus {
     /// Every exercise the practice view offers: the stock ones, then the
     /// user's.
     pub exercises: Vec<crate::exercises::ExerciseInfo>,
+    /// Every course, the stock ones then the user's, with your progress.
+    pub courses: Vec<crate::courses::CourseInfo>,
     /// The rig being heard on a track in place of its chain, if one is.
     /// Session state, not part of the project.
     pub rig_audition: Option<RigAuditionStatus>,
@@ -2340,6 +2342,8 @@ pub struct Engine {
     stock_jams: Vec<crate::jams::JamInfo>,
     /// The stock exercises, found once at launch.
     stock_exercises: Vec<crate::exercises::ExerciseInfo>,
+    /// The stock courses, found once at launch.
+    stock_courses: Vec<crate::courses::CourseFile>,
     /// What was practiced, day by day, as `Practice/log.json` keeps it.
     practice_log: cantina_project::PracticeLog,
     /// The log loaded, or there was none: it may be written.
@@ -2460,6 +2464,10 @@ impl crate::assistant::tools::Host for Engine {
         let id = PatternId(self.project.fresh_id());
         self.pattern_import(&path.display().to_string(), track.map(|t| t.0))?;
         Ok(id)
+    }
+
+    fn practice_report(&self) -> serde_json::Value {
+        Engine::practice_report(self)
     }
 
     fn engine_report(&self) -> serde_json::Value {
@@ -2599,6 +2607,7 @@ impl Engine {
             rigs: projects.rigs_dir(),
             jams: projects.jams_dir(),
             exercises: projects.exercises_dir(),
+            courses: projects.courses_dir(),
         };
         // The folders are where files written outside the app go, so they
         // exist from the first launch.
@@ -2610,6 +2619,7 @@ impl Engine {
         let stock_rigs = crate::rigs::scan_stock(&rig_roots(&app));
         let stock_jams = crate::jams::scan_stock(&jam_roots(&app));
         let stock_exercises = crate::exercises::scan_stock(&exercise_roots(&app));
+        let stock_courses = crate::courses::scan_stock(&course_roots(&app));
         let (practice_log, practice_log_ok, log_problem) = jam_engine::read_practice_log(
             &projects
                 .root()
@@ -2648,6 +2658,7 @@ impl Engine {
             stock_rigs,
             stock_jams,
             stock_exercises,
+            stock_courses,
             practice_log,
             practice_log_ok,
             rig_audition: None,
@@ -2809,19 +2820,8 @@ impl Engine {
                 .chain(&self.library_status.jams)
                 .cloned()
                 .collect(),
-            exercises: self
-                .stock_exercises
-                .iter()
-                .chain(&self.library_status.exercises)
-                .map(|e| {
-                    let id = jam_engine::exercise_id(&e.path);
-                    crate::exercises::ExerciseInfo {
-                        best: self.practice_log.best(&id),
-                        last: self.practice_log.last(&id).map(|d| d.date.clone()),
-                        ..e.clone()
-                    }
-                })
-                .collect(),
+            exercises: self.exercise_infos(),
+            courses: self.course_infos(),
             instrument_profile: InstrumentProfileStatus {
                 profile: self.settings.instrument.clone(),
                 trim_db: self.settings.instrument.trim_db(),
@@ -6409,6 +6409,108 @@ fn jam_roots(app: &AppHandle) -> Vec<PathBuf> {
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("..")
                 .join("jams"),
+        );
+    }
+    roots
+}
+
+impl Engine {
+    /// Every exercise, stock then the user's, with its best and last day
+    /// from the practice log.
+    pub(crate) fn exercise_infos(&self) -> Vec<crate::exercises::ExerciseInfo> {
+        self.stock_exercises
+            .iter()
+            .chain(&self.library_status.exercises)
+            .map(|e| {
+                let id = jam_engine::exercise_id(&e.path);
+                crate::exercises::ExerciseInfo {
+                    best: self.practice_log.best(&id),
+                    last: self.practice_log.last(&id).map(|d| d.date.clone()),
+                    ..e.clone()
+                }
+            })
+            .collect()
+    }
+
+    /// Every course, stock then the user's, with its progress.
+    pub(crate) fn course_infos(&self) -> Vec<crate::courses::CourseInfo> {
+        let exercises = self.exercise_infos();
+        self.stock_courses
+            .iter()
+            .chain(&self.library_status.courses)
+            .map(|c| crate::courses::info(c, &exercises, &self.practice_log))
+            .collect()
+    }
+
+    /// What the assistant may read of practice: the courses and where you
+    /// are in them, every exercise with its best, the streak, and the
+    /// last two weeks of the log.
+    pub(crate) fn practice_report(&self) -> serde_json::Value {
+        let today = jam_engine::today();
+        let recent: Vec<&cantina_project::PracticeDay> = self
+            .practice_log
+            .days
+            .iter()
+            .filter(|d| {
+                match (
+                    cantina_project::day_number(&d.date),
+                    cantina_project::day_number(&today),
+                ) {
+                    (Some(a), Some(b)) => b - a < 14,
+                    _ => false,
+                }
+            })
+            .collect();
+        serde_json::json!({
+            "today": today,
+            "streak": self.practice_log.streak(&today),
+            "minutesToday": self.practice_log.minutes_on(&today),
+            "practicing": self.practice_status().map(|p| serde_json::json!({
+                "exercise": jam_engine::exercise_id(&p.path),
+                "name": p.exercise.name,
+                "tempo": p.tempo,
+            })),
+            "courses": self.course_infos().iter().map(|c| serde_json::json!({
+                "name": c.name,
+                "style": c.style,
+                "instrument": c.instrument,
+                "next": c.next.and_then(|i| c.steps.get(i)).map(|s| &s.exercise),
+                "steps": c.steps.iter().map(|s| serde_json::json!({
+                    "exercise": s.exercise,
+                    "name": s.name,
+                    "goal": s.goal,
+                    "best": s.best,
+                    "done": s.done,
+                })).collect::<Vec<_>>(),
+            })).collect::<Vec<_>>(),
+            "exercises": self.exercise_infos().iter().map(|e| serde_json::json!({
+                "exercise": jam_engine::exercise_id(&e.path),
+                "name": e.name,
+                "teaches": e.teaches,
+                "style": e.style,
+                "instrument": e.instrument,
+                "start": e.start,
+                "goal": e.goal,
+                "best": e.best,
+                "last": e.last,
+            })).collect::<Vec<_>>(),
+            "recentDays": recent,
+        })
+    }
+}
+
+/// Where the stock courses are: the bundle's `courses/`, and the
+/// repository's in a debug build.
+fn course_roots(app: &AppHandle) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Ok(resources) = app.path().resource_dir() {
+        roots.push(resources.join("courses"));
+    }
+    if cfg!(debug_assertions) {
+        roots.push(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("courses"),
         );
     }
     roots

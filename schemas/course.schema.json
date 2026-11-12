@@ -1,0 +1,95 @@
+{
+  "$defs": {
+    "CourseStep": {
+      "description": "One exercise of a course, and the tempo to reach on it.",
+      "properties": {
+        "exercise": {
+          "description": "The exercise, by its file's name less `.exercise.json`.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "goal": {
+          "description": "The tempo a whole pass must be played at before the next step, in beats per minute, 30 to 300.",
+          "format": "double",
+          "maximum": 300.0,
+          "minimum": 30.0,
+          "type": "number"
+        },
+        "note": {
+          "description": "A line on why it comes here, shown with the step.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "exercise",
+        "goal"
+      ],
+      "type": "object"
+    },
+    "Instrument": {
+      "description": "What the tab is for. It sets how many strings it may have.",
+      "oneOf": [
+        {
+          "const": "guitar",
+          "description": "A guitar: 6, 7 or 8 strings.",
+          "type": "string"
+        },
+        {
+          "const": "bass",
+          "description": "A bass: 4, 5 or 6 strings.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "https://cantina-docs.vibeproject.workers.dev/schemas/course.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Exercises in the order to practice them, each with the tempo a whole pass must be played at before the next: a name, a line on it, the instrument, a style and the steps. Exercises are named by their file less `.exercise.json`.",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "description": {
+      "description": "One line on what it takes you through.",
+      "type": "string"
+    },
+    "instrument": {
+      "$ref": "#/$defs/Instrument",
+      "description": "Guitar or bass."
+    },
+    "name": {
+      "description": "Shown in the course list.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "steps": {
+      "description": "The exercises, in the order to practice them.",
+      "items": {
+        "$ref": "#/$defs/CourseStep"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "style": {
+      "description": "The style it is for: `Metal`, `Beginner`…",
+      "minLength": 1,
+      "type": "string"
+    },
+    "version": {
+      "description": "The format version, 1.",
+      "format": "uint32",
+      "maximum": 1,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version",
+    "name",
+    "instrument",
+    "style",
+    "steps"
+  ],
+  "title": "Cantina course",
+  "type": "object"
+}

@@ -3,7 +3,7 @@
 // import the helpers without a window.
 
 /** Which kind of library file. */
-export type LibraryKind = "pedal" | "kit" | "pattern" | "rig" | "jam" | "exercise";
+export type LibraryKind = "pedal" | "kit" | "pattern" | "rig" | "jam" | "exercise" | "course";
 
 /** A library file that does not load. Mirrors `BrokenFile` in src-tauri. */
 export interface BrokenFile {
@@ -34,6 +34,7 @@ export interface LibraryStatus {
   rigsDir: string;
   jamsDir: string;
   exercisesDir: string;
+  coursesDir: string;
   patterns: LibraryPattern[];
   broken: BrokenFile[];
 }

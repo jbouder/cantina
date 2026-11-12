@@ -1,0 +1,65 @@
+{
+  "$schema": "https://cantina-docs.vibeproject.workers.dev/schemas/course.schema.json",
+  "version": 1,
+  "name": "Metal lead",
+  "description": "The pentatonic box to sweeps and tapping, with bends, harmonics and the exotic scales.",
+  "instrument": "guitar",
+  "style": "Metal",
+  "steps": [
+    {
+      "exercise": "pentatonic-box-1",
+      "goal": 130
+    },
+    {
+      "exercise": "pentatonic-box-2",
+      "goal": 130
+    },
+    {
+      "exercise": "pentatonic-boxes-joined",
+      "goal": 130,
+      "note": "The boxes joined, up the neck."
+    },
+    {
+      "exercise": "bends-and-vibrato",
+      "goal": 95,
+      "note": "A bend that falls short sounds wrong."
+    },
+    {
+      "exercise": "pinch-harmonics",
+      "goal": 115
+    },
+    {
+      "exercise": "natural-harmonics",
+      "goal": 95
+    },
+    {
+      "exercise": "hammer-ons-and-pull-offs",
+      "goal": 125
+    },
+    {
+      "exercise": "legato-run",
+      "goal": 130
+    },
+    {
+      "exercise": "harmonic-minor-shape",
+      "goal": 130,
+      "note": "The leading tone that makes it metal."
+    },
+    {
+      "exercise": "phrygian-dominant-shape",
+      "goal": 130
+    },
+    {
+      "exercise": "three-string-sweeps",
+      "goal": 115
+    },
+    {
+      "exercise": "five-string-sweeps",
+      "goal": 105
+    },
+    {
+      "exercise": "two-hand-tapping",
+      "goal": 125
+    }
+  ]
+}
