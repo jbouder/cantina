@@ -31,6 +31,7 @@ import { type DrumPart, layout, MAX_REPEAT, patternTicks } from "../lib/drumPart
 import { DEFAULT_VELOCITY, isBeatStart, lengthLabel, stepTicks, ticksAt } from "../lib/drums";
 import {
   type DesignPlays,
+  drumDesignAudition,
   drumDesignPlay,
   drumDesignPlays,
   drumDesignSet,
@@ -51,6 +52,7 @@ import {
   strokeCells,
   withPatternFeel,
 } from "../lib/gridEdit";
+import { addPartHit, heardTicks, landing, overdubPart, type PartTake } from "../lib/liveRecord";
 import {
   ACCENT,
   addVariation,
@@ -74,10 +76,12 @@ import {
 } from "../lib/patternTools";
 import { Button } from "./Button";
 import { DesignLanes } from "./DesignLanes";
+import { DesignPads } from "./DesignPads";
 import { DesignPalette } from "./DesignPalette";
 import { Field, Toggle } from "./Field";
 import { KitWorkbench } from "./KitWorkbench";
 import { Lcd } from "./Lcd";
+import { Led } from "./Led";
 import { SaveGrooveSheet } from "./SaveGrooveSheet";
 import { Select } from "./Select";
 import { Sheet } from "./Sheet";
@@ -167,6 +171,16 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
     return q.has("palette") ? "palette" : q.has("workbench") ? "kit" : "inspector";
   });
   const [saving, setSaving] = useState(false);
+  // Playing a part in: the pads strip, recording, the take of the pass
+  // under way, the pass it belongs to, and how deep the history was after
+  // the last take went in (for Undo take). `?pads` opens the strip.
+  const [padsOpen, setPadsOpen] = useState(() =>
+    new URLSearchParams(window.location.search).has("pads"),
+  );
+  const [recording, setRecording] = useState(false);
+  const take = useRef<PartTake>(new Map());
+  const takePass = useRef<string | null>(null);
+  const [takeDepth, setTakeDepth] = useState<number | null>(null);
   const [grooveName, setGrooveName] = useState("");
   const [stroke, setStroke] = useState<Stroke | null>(null);
   const strokeRef = useRef<Stroke | null>(null);
@@ -364,6 +378,72 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
       },
       (e) => onError(String(e)),
     );
+
+  // ----- playing a part in -----
+
+  const outputSeconds = status.latency.outputFrames / Math.max(1, status.sampleRate);
+  const heard = status.transport.playing ? heardTicks(frame.position, outputSeconds, tempo) : null;
+  const heardSpan =
+    heard === null
+      ? null
+      : (design.spans.find(
+          (s) => s.section === section.name && heard >= s.start && heard < s.start + s.length,
+        ) ?? null);
+  const round = passes(section);
+  const heardAt =
+    heard !== null && heardSpan ? landing(heard, heardSpan.start, section.pattern, round) : null;
+  const recordingVariant = heardAt?.variant ?? 0;
+
+  /** The take of the pass just played, into the part as one step of history. */
+  const commitTake = () => {
+    const out = overdubPart([section.pattern, ...(section.variations ?? [])], take.current);
+    take.current = new Map();
+    if (out.size === 0) return;
+    commit(
+      withSection(part, section.name, (s) => {
+        let next = s;
+        for (const [variant, p] of out) next = withVariation(next, variant, p);
+        return next;
+      }),
+    );
+    setTakeDepth(past.length + 1);
+  };
+
+  const hitPad = (pad: string, velocity: number) => {
+    drumDesignAudition(pad, velocity).catch((e) => onError(String(e)));
+    if (!recording || heard === null || !heardSpan) return;
+    const at = landing(heard, heardSpan.start, section.pattern, round);
+    // A hit quantized past the end of where the section plays belongs to
+    // what comes next: it is left out.
+    if (at.pass * patternTicks(section.pattern) >= heardSpan.length) return;
+    take.current = addPartHit(take.current, at, pad, velocity);
+  };
+
+  const toggleRecord = () => {
+    if (recording) {
+      commitTake();
+      setRecording(false);
+      return;
+    }
+    take.current = new Map();
+    takePass.current = null;
+    setRecording(true);
+    const loop =
+      plays.kind === "section" && plays.name === section.name
+        ? Promise.resolve(status)
+        : drumDesignPlays({ kind: "section", name: section.name });
+    report(loop.then((s) => (s.transport.playing || frame.countIn > 0 ? s : drumDesignPlay(true))));
+  };
+
+  // Rendered while recording, after the hits it ends were taken: when a
+  // pass of the recording ends, what was played in it goes in as a take.
+  // (Once: the pass is remembered before the take goes in.)
+  // A pass of the recording ends: what was played in it goes in as a take.
+  const passKey = heardSpan && heardAt ? `${heardSpan.start}:${heardAt.pass}` : null;
+  if (recording && passKey !== null && takePass.current !== passKey) {
+    if (takePass.current !== null && take.current.size > 0) queueMicrotask(commitTake);
+    takePass.current = passKey;
+  }
 
   /** One step of history: the pattern the grid shows, replaced. */
   const edit = (next: PatternInfo) =>
@@ -636,7 +716,9 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
       />
 
       <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)] gap-3">
-        <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-2">
+        <div
+          className={`grid min-h-0 gap-2 ${padsOpen ? "grid-rows-[auto_auto_minmax(0,1fr)]" : "grid-rows-[auto_minmax(0,1fr)]"}`}
+        >
           <div className="@container flex min-w-0 items-center gap-2">
             <div role="tablist" aria-label="Variations" className="flex shrink-0 gap-0.5">
               {[base, ...(section.variations ?? [])].map((_, i) =>
@@ -682,6 +764,14 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
               </Button>
             ) : null}
             <span className="flex-1" />
+            <Button
+              tight
+              aria-pressed={padsOpen}
+              onClick={() => setPadsOpen(!padsOpen)}
+              title="The kit as pads: play them, and record a part in"
+            >
+              Pads
+            </Button>
             <label className="flex shrink-0 items-center gap-2">
               <span className="caption @2xl:inline hidden">Bar</span>
               <span className="relative">
@@ -768,6 +858,39 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
               ›
             </Button>
           </div>
+          {padsOpen ? (
+            <div className="grid gap-1">
+              <div className="flex min-w-0 items-center gap-2">
+                <Button
+                  aria-pressed={recording}
+                  disabled={!status.running}
+                  onClick={toggleRecord}
+                  title={`Loop ${section.name} and record what you play into it, after a count-in, quantized to the step and overdubbed, a take a pass`}
+                >
+                  <Led on={recording && status.transport.playing} label="Recording" tone="record" />
+                  Record
+                </Button>
+                <Button
+                  tier="quiet"
+                  disabled={takeDepth === null || takeDepth !== past.length}
+                  onClick={undo}
+                  title="Take back the last pass you recorded"
+                >
+                  Undo take
+                </Button>
+                <span role="status" className="min-w-0 truncate text-body">
+                  {recording
+                    ? frame.countIn > 0
+                      ? "Counting in…"
+                      : status.transport.playing
+                        ? `Recording into ${section.name}, ${VARIATIONS[recordingVariant] ?? "A"}`
+                        : "Starting…"
+                    : "Play the pads, or click here and press A S D F…"}
+                </span>
+              </div>
+              <DesignPads pads={design.pads} onHit={hitPad} />
+            </div>
+          ) : null}
           <div className="surface-lcd scroll-area min-h-0 p-2">
             {pads.length > 0 ? (
               <table

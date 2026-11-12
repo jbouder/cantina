@@ -4667,12 +4667,17 @@ export async function drumDesignPlays(plays: DesignPlays): Promise<EngineStatus>
   return mockStatus();
 }
 
-/** Plays the designer's part from the top of its loop. */
-export async function drumDesignPlay(): Promise<EngineStatus> {
-  if (inTauri) return invoke<EngineStatus>("drum_design_play");
+/**
+ * Plays the designer's part from the top of its loop; with `countIn`, and
+ * count-in on, after a bar of clicks with the timeline held.
+ */
+export async function drumDesignPlay(countIn = false): Promise<EngineStatus> {
+  if (inTauri) return invoke<EngineStatus>("drum_design_play", { countIn });
   if (!mockDesign) throw new Error("open the drum designer first");
   mockTransport.position = 0;
-  mockTransport.playing = true;
+  const counting = countIn && mock.countIn;
+  mockTransport.countIn = counting ? mock.project.tempo.numerator * mockBeatSeconds() : 0;
+  mockTransport.playing = !counting;
   return mockStatus();
 }
 

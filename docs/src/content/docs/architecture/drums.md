@@ -291,7 +291,15 @@ under a fresh id (`design:kit:<n>`), so the designer's drum track takes it
 as a kit change; the sampler applies a pad's `tune` and `decay` (kit
 format 2) on each hit with arithmetic alone, added to and multiplied by
 the track's pad mixer. Saving writes a kit folder beside the others,
-then renames it into place. An edit sends the whole part
+then renames it into place.
+
+Playing a part in is the live pads' recording (`liveRecord.ts`) carried
+into the designer: a hit's time is the playhead less the output's
+latency (`heardTicks`), found in the status's spans, quantized to the
+nearest step of the pass it falls in (`landing`, which also says which
+variation that pass plays), and kept per pass in a take that is
+overdubbed onto each variation it touched (`overdubPart`) when the pass
+ends, one step of the designer's history. An edit sends the whole part
 (`drum_design_set`); one that keeps the kit and the loop's length goes to
 the audio thread as a new score, anything else resyncs the graph. Project
 commands wait while it is open, as they do in a jam. Undo inside the
