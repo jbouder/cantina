@@ -693,8 +693,8 @@ impl Processor for ClapProcessor {
             self.process_errors += 1;
             return;
         }
-        for ch in 0..present {
-            buffer.channel_mut(ch)[..frames].copy_from_slice(&self.scratch_out[ch][..frames]);
+        for (ch, out) in self.scratch_out.iter().enumerate().take(present) {
+            buffer.channel_mut(ch)[..frames].copy_from_slice(&out[..frames]);
         }
     }
 
