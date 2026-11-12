@@ -280,6 +280,7 @@ export function JamView({ status, frame, onPlay, onPerform, onLeave, onStatus, o
             </Select>
             <JamBacking
               backing={setup.backing ?? { kind: "none" }}
+              musicKey={setup.key}
               presets={jam.presets}
               rigs={rigs}
               project={status.project.name}

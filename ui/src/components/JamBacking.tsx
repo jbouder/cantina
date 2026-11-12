@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from "react";
+import { spellChords } from "../lib/chords";
 import {
   type JamBacking as Backing,
   chooseAudioPaths,
@@ -15,6 +16,8 @@ import { Select } from "./Select";
 
 type Props = {
   backing: Backing;
+  /** The jam's key, to spell a progression's numerals as chord names. */
+  musicKey: { tonic: string; mode: "major" | "minor" };
   presets: JamPreset[];
   rigs: RigInfo[];
   /** The open project, offered first for a track. */
@@ -83,7 +86,16 @@ function Level({
  * a built-in guitar or bass through a rig, an audio file, or a project's
  * track. Audio sets the jam's tempo.
  */
-export function JamBacking({ backing, presets, rigs, project, missing, onChange, onError }: Props) {
+export function JamBacking({
+  backing,
+  musicKey,
+  presets,
+  rigs,
+  project,
+  missing,
+  onChange,
+  onError,
+}: Props) {
   const ids = useId();
   const [projects, setProjects] = useState<string[]>([]);
   const [tracks, setTracks] = useState<JamTrack[]>([]);
@@ -159,7 +171,7 @@ export function JamBacking({ backing, presets, rigs, project, missing, onChange,
                   .filter((p) => p.genre === genre)
                   .map((p) => (
                     <option key={`${genre}-${p.name}`} value={p.chords}>
-                      {p.name}
+                      {p.name}: {spellChords(p.chords, musicKey.tonic)}
                     </option>
                   ))}
               </optgroup>
@@ -183,8 +195,14 @@ export function JamBacking({ backing, presets, rigs, project, missing, onChange,
               }}
               className="surface-field min-h-8 px-2"
             />
+            {backing.chords && spellChords(backing.chords, musicKey.tonic) !== backing.chords ? (
+              <span className="font-lcd text-readout">
+                In {musicKey.tonic} {musicKey.mode}: {spellChords(backing.chords, musicKey.tonic)}
+              </span>
+            ) : null}
             <small className="text-ink-dim text-label">
-              Numerals in the key (I, bVII, vi7) or names (Am, F, C/E); | between bars, - holds.
+              Steps of the key (I is the key's own chord, lower case is minor, b lowers it) or chord
+              names (Am, F, C/E); | between bars, - holds.
             </small>
           </label>
           <Select

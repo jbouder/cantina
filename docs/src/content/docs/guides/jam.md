@@ -165,6 +165,11 @@ chord, a lower-case one minor, and a suffix says the rest: `7`, `maj7`,
 `°`, `dim7`, `m7b5` or `ø`, `aug` or `+`. Chord names take the same
 suffixes, `m` for minor, and ignore the key.
 
+You need not read numerals: under **Chords** the progression is spelled
+out in the jam's key (`i5 | bVI5 | bVII5 | i5` in E minor reads *E5 | C5
+| D5 | E5*), and each stock progression in the list shows its chords the
+same way. Change the key and the names follow.
+
 **Played by** picks the guitar or the bass, **Rhythm** how often each
 chord is played (once, on half notes, on every beat or on eighths, the
 off-beats strummed up), and **Through** the rig it plays through, from
