@@ -115,8 +115,8 @@ impl Processor for Cabinet {
     fn process(&mut self, buffer: &mut Buffer) {
         let channels = buffer.channels().min(MAX_CHANNELS);
         let frames = buffer.frames();
-        for ch in 0..channels {
-            self.convolvers[ch].process(buffer.channel_mut(ch));
+        for (ch, convolver) in self.convolvers.iter_mut().enumerate().take(channels) {
+            convolver.process(buffer.channel_mut(ch));
         }
         if !self.level.is_settled() || self.level.current() != 1.0 {
             for frame in 0..frames {

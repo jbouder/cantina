@@ -112,8 +112,7 @@ impl Fft {
     fn transform(&self, data: &mut [Complex], inverse: bool) {
         let n = self.size;
         debug_assert_eq!(data.len(), n);
-        for i in 0..n {
-            let j = self.reversed[i];
+        for (i, &j) in self.reversed.iter().enumerate().take(n) {
             if j > i {
                 data.swap(i, j);
             }
