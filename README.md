@@ -87,6 +87,12 @@ can write one and the app picks it up.
   humanize, fills and feel, pads you can play and record live, a pad
   mixer, and 87 stock grooves in 17 genres with intros, verses, choruses,
   fills and endings.
+- **Drum designer.** A whole window for a song's drum part: sections and
+  an order that arranges them, A to D variations, ghost notes, rolls,
+  flams and a velocity lane, a palette of the stock grooves and your own
+  `*.groove.json` parts, a kit workbench to tune, swap and resynthesize
+  pads, playing a part in on the pads, and placing it on the track as one
+  undoable edit.
 - **Jam.** A practice room apart from the project: a groove, a backing
   track (a chord progression played by a built-in guitar or bass, an audio
   file or one of your tracks), a tempo, a key and your rig, on an endless
