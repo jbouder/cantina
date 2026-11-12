@@ -93,6 +93,39 @@ The inspector sets the section's **name** (the order and fills follow a
 rename), its **kind** (intro, verse, chorus, bridge, fill, ending or your
 own), its **length** in bars, its **swing** and its **fill**.
 
+## Pattern tools
+
+**Each hit** can be more than on or off. With a cell focused:
+
+- **G** plays it as a **ghost note** (30%), **A** as an **accent** (full);
+  **⇧↑** and **⇧↓** make a hit 10% harder or softer.
+- **R** steps its **roll**: 1 to 4 hits in the step (a ratchet, shown ×2,
+  ×3, ×4). **F** gives it a **flam**, a soft grace note just before (f).
+  **C** steps its **chance** of playing on a pass: 100, 75, 50 and 25%,
+  the cell dimming with it.
+- **⌫** clears it; **[** and **]** shift every hit of the pattern a step
+  earlier or later, round the ends.
+
+**The velocity lane** under the grid shows one pad's hits as bars: click
+a pad's name, or focus one of its cells, to choose it. Drag across the
+lane to draw the velocities, as high as the pointer; it only changes hits
+that are there, and never takes one away.
+
+**Bars**: above the grid, pick a bar, then **Copy** it (every pad),
+**Paste** a copied bar over it, **Duplicate** it (a copy goes in after
+it, and what followed moves a bar later), or **Clear** it. **‹** and **›**
+shift the whole pattern a step.
+
+**Variations**: **A** is the section's pattern. **+** adds a variation,
+**B**, **C** and then **D**, each a copy of the one shown to change; **×**
+removes the one shown. The inspector's **Variations** sets how they take
+turns, a pass of the pattern each: **Alternate** plays A between each of
+the others (A B A C A D), **Chain** one after another (A B C D). The
+variations are always the same steps as A: a length set in the inspector
+applies to them all, as do the **swing** and the **humanize** (how far
+hits stray from the grid in timing and in velocity). The grid lights only
+on the passes of the variation it shows.
+
 The designer keeps a history of its own: **⌘Z** and **⇧⌘Z**, or the
 arrows in its toolbar, step back and forward through your edits in the
 designer without touching the project's.

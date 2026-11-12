@@ -26,6 +26,10 @@ export interface PartSection {
   kind?: GrooveSection | undefined;
   pattern: PatternInfo;
   fill?: SectionFill | undefined;
+  /** Variations B, C and D of the pattern (A), the same steps as it. */
+  variations?: PatternInfo[] | undefined;
+  /** How they take turns: A B A C A D, or A B C D. Absent is alternate. */
+  vary?: "alternate" | "chain" | undefined;
 }
 
 /** One step of the order. Mirrors `OrderStep` in cantina-project. */

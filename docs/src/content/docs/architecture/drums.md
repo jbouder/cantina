@@ -274,7 +274,13 @@ loop's end. What was playing becomes the session's **lead**, cut at that
 bar, and the new material starts on it with the loop moved to cover it;
 the status's `spans` tell the view what plays where. Stop or play goes
 back to the top with no lead. `fill_bars` and `order_bars` count the
-song's bars and where its fills fall. An edit sends the whole part
+song's bars and where its fills fall. A section's variations (B to D, the same steps
+as its pattern) take turns pass by pass, `Vary::Alternate` (A B A C A D)
+or `Vary::Chain` (A B C D); `PartSection::played` lays one round of them
+end to end as a single pattern, which is what the designer's clip loops,
+so a fill counts its bars across the variations. Ghost notes, accents,
+rolls, flams and chance are the pattern format's own velocities and step
+marks; the designer adds no field to the pattern. An edit sends the whole part
 (`drum_design_set`); one that keeps the kit and the loop's length goes to
 the audio thread as a new score, anything else resyncs the graph. Project
 commands wait while it is open, as they do in a jam. Undo inside the

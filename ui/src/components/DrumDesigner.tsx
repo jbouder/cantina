@@ -23,7 +23,6 @@ import {
   SECTION_KINDS,
   setFill,
   setStep,
-  withPattern,
   withSection,
 } from "../lib/designEdit";
 import { type DrumPart, layout, MAX_REPEAT, patternTicks } from "../lib/drumPart";
@@ -40,7 +39,35 @@ import {
   type PatternInfo,
   RESOLUTIONS,
 } from "../lib/engine";
-import { resizePattern, setCells, strokeCells } from "../lib/gridEdit";
+import {
+  type MarkKind,
+  resizePattern,
+  setCells,
+  stepMark,
+  strokeCells,
+  withPatternFeel,
+} from "../lib/gridEdit";
+import {
+  ACCENT,
+  addVariation,
+  barCount,
+  barSteps,
+  clearBar,
+  copyBar,
+  drawVelocity,
+  duplicateBar,
+  everyVariation,
+  GHOST,
+  nudgeVelocity,
+  passes,
+  pasteBar,
+  removeVariation,
+  shiftSteps,
+  strike,
+  VARIATIONS,
+  variationOf,
+  withVariation,
+} from "../lib/patternTools";
 import { Button } from "./Button";
 import { DesignLanes } from "./DesignLanes";
 import { Field, Toggle } from "./Field";
@@ -74,6 +101,17 @@ type Props = {
 /** Bars apart a fill can come, as the designer offers them. */
 const FILL_EVERY = [0, 2, 4, 8, 16];
 
+/** A step's mark as the cell shows it: ×3 for a ratchet, f for a flam, 50 for a chance. */
+function markLabel(m: { chance?: number; ratchet?: number; flam?: boolean }): string {
+  return [
+    (m.ratchet ?? 1) > 1 ? `×${m.ratchet}` : "",
+    m.flam ? "f" : "",
+    (m.chance ?? 1) < 1 ? `${Math.round((m.chance ?? 1) * 100)}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 /** Undo steps the designer keeps. */
 const HISTORY = 200;
 
@@ -105,6 +143,16 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
     design?.plays.kind === "section" ? design.plays.name : (design?.part.sections[0]?.name ?? ""),
   );
   const [selectedStep, setSelectedStep] = useState<number | null>(null);
+  // The variation the grid edits (0 is A), the pad the velocity lane
+  // draws, the bar the bar tools work on, and a copied bar.
+  // In a browser `?variant=<1-3>` opens on a variation, for screenshots.
+  const [variant, setVariant] = useState(() =>
+    Number(new URLSearchParams(window.location.search).get("variant") ?? 0),
+  );
+  const [lanePad, setLanePad] = useState<string | null>(null);
+  const [bar, setBar] = useState(0);
+  const [copied, setCopied] = useState<ReturnType<typeof copyBar> | null>(null);
+  const velocityDrag = useRef(false);
   const [stroke, setStroke] = useState<Stroke | null>(null);
   const strokeRef = useRef<Stroke | null>(null);
   const [leaving, setLeaving] = useState(false);
@@ -182,7 +230,9 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
   );
 
   const section = part?.sections.find((s) => s.name === selected) ?? part?.sections[0] ?? null;
-  const pattern = stroke?.pattern ?? section?.pattern ?? null;
+  const variantIndex = Math.min(variant, section?.variations?.length ?? 0);
+  const base = section ? variationOf(section, variantIndex) : null;
+  const pattern = stroke?.pattern ?? base;
   const length = pattern?.length ?? 0;
   const steps = useMemo(
     () => Array.from({ length }, (_, s) => ({ s, key: `step-${s}` })),
@@ -201,10 +251,16 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
     ticks === null
       ? null
       : (design?.spans.find((s) => ticks >= s.start && ticks < s.start + s.length) ?? null);
+  // With variations the section plays a round of passes; the grid
+  // lights only on the pass of the variation it shows.
   let step: number | null = null;
   if (ticks !== null && now && section && pattern && now.section === section.name) {
-    const local = (ticks - now.start) % patternTicks(pattern);
-    step = Math.min(pattern.length - 1, Math.floor(local / stepTicks(pattern)));
+    const pass = patternTicks(pattern);
+    const round = passes(section);
+    const local = (ticks - now.start) % (pass * round.length);
+    if (round[Math.floor(local / pass)] === variantIndex) {
+      step = Math.min(pattern.length - 1, Math.floor((local % pass) / stepTicks(pattern)));
+    }
   }
   const barTicks = design?.barTicks ?? 3840;
   const beatTicks = (960 * 4) / tempo.denominator;
@@ -219,6 +275,8 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
   const pick = useCallback(
     (name: string) => {
       setSelected(name);
+      setVariant(0);
+      setBar(0);
       if (plays?.kind === "section" && plays.name !== name) {
         report(drumDesignPlays({ kind: "section", name }));
       }
@@ -245,7 +303,19 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
     return () => window.removeEventListener("keydown", onKey);
   }, [leave, leaving, part, pick]);
 
-  if (!design || !part || !section || !pattern || !plays) return null;
+  if (!design || !part || !section || !pattern || !base || !plays) return null;
+
+  /** One step of history: the pattern the grid shows, replaced. */
+  const edit = (next: PatternInfo) =>
+    commit(withSection(part, section.name, (s) => withVariation(s, variantIndex, next)));
+  /** One step of history: every variation of the section changed alike. */
+  const editAll = (change: (p: PatternInfo) => PatternInfo) =>
+    commit(withSection(part, section.name, (s) => everyVariation(s, change)));
+  const numerator = tempo.numerator;
+  const bars = barCount(pattern, numerator);
+  const barAt = Math.min(bar, bars - 1);
+  const barOptions = Array.from({ length: bars }, (_, b) => ({ b, key: `bar-${b + 1}` }));
+  const lane = pads.find((p) => p.id === lanePad) ?? pads[0] ?? null;
 
   const valueAt = (pad: string, s: number) =>
     pattern.rows.find((r) => r.pad === pad)?.steps[s] ?? 0;
@@ -261,7 +331,7 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
     if (e.button !== 0) return;
     e.currentTarget.releasePointerCapture?.(e.pointerId);
     const value = valueAt(pads[row]?.id ?? "", at) > 0 ? 0 : DEFAULT_VELOCITY;
-    const s = paint({ value, last: { row, step: at }, pattern: section.pattern }, row, at);
+    const s = paint({ value, last: { row, step: at }, pattern: base }, row, at);
     strokeRef.current = s;
     setStroke(s);
   };
@@ -276,14 +346,14 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
     const s = strokeRef.current;
     strokeRef.current = null;
     setStroke(null);
-    if (s) commit(withPattern(part, section.name, s.pattern));
+    if (s) edit(s.pattern);
   };
 
   const toggleCell = (row: number, at: number) => {
     const pad = pads[row]?.id;
     if (!pad) return;
     const value = valueAt(pad, at) > 0 ? 0 : DEFAULT_VELOCITY;
-    commit(withPattern(part, section.name, setCells(section.pattern, [{ pad, step: at, value }])));
+    edit(setCells(base, [{ pad, step: at, value }]));
   };
 
   const focusCell = (row: number, at: number) => {
@@ -305,16 +375,71 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
         Math.max(0, Math.min(pads.length - 1, row + move[0])),
         Math.max(0, Math.min(pattern.length - 1, at + move[1])),
       );
+      setLanePad(pads[Math.max(0, Math.min(pads.length - 1, row + move[0]))]?.id ?? null);
     } else if (e.key === " " || e.key === "Enter") {
       e.preventDefault();
       e.stopPropagation();
       toggleCell(row, at);
+    } else if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+      const pad = pads[row]?.id;
+      if (!pad) return;
+      const key = e.key.toLowerCase();
+      const marks: Record<string, MarkKind> = { c: "chance", r: "ratchet", f: "flam" };
+      const mark = marks[key];
+      let next: PatternInfo | null = null;
+      if (mark) next = stepMark(base, [{ pad, step: at }], mark);
+      else if (key === "g") next = strike(base, pad, at, GHOST);
+      else if (key === "a") next = strike(base, pad, at, ACCENT);
+      else if (e.key === "Backspace" || e.key === "Delete") next = strike(base, pad, at, 0);
+      else if (e.key === "[") next = shiftSteps(base, -1);
+      else if (e.key === "]") next = shiftSteps(base, 1);
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (next) edit(next);
     }
+  };
+  // ⇧↑ and ⇧↓ make a hit harder or softer, before the arrows move.
+  const onCellKeyCapture = (e: KeyboardEvent<HTMLButtonElement>, row: number, at: number) => {
+    const pad = pads[row]?.id;
+    if (!e.shiftKey || !pad || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    edit(nudgeVelocity(base, pad, at, e.key === "ArrowUp" ? 0.1 : -0.1));
+  };
+
+  /** The velocity the lane's pointer is at, from the bottom of a cell (soft) to its top (full). */
+  const laneValue = (e: PointerEvent<HTMLElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return 1 - (e.clientY - r.top) / Math.max(1, r.height);
+  };
+  const onLaneDown = (e: PointerEvent<HTMLButtonElement>, at: number) => {
+    if (e.button !== 0 || !lane) return;
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+    velocityDrag.current = true;
+    const s = {
+      value: 0,
+      last: { row: 0, step: at },
+      pattern: drawVelocity(base, lane.id, at, laneValue(e)),
+    };
+    strokeRef.current = s;
+    setStroke(s);
+  };
+  const onLaneMove = (e: PointerEvent<HTMLButtonElement>, at: number) => {
+    const s = strokeRef.current;
+    if (!velocityDrag.current || !s || !lane) return;
+    const next = { ...s, pattern: drawVelocity(s.pattern, lane.id, at, laneValue(e)) };
+    strokeRef.current = next;
+    setStroke(next);
+  };
+  const endLane = () => {
+    velocityDrag.current = false;
+    endStroke();
   };
 
   const perBar = pattern.stepsPerBeat * tempo.numerator;
   const orderStep = selectedStep === null ? undefined : part.order[selectedStep];
-  const bars = Math.max(1, Math.round(pattern.length / perBar));
+  const barsLong = Math.max(1, Math.round(pattern.length / perBar));
   const lengthOptions = [1, 2, 3, 4, 6, 8].filter((b) => b * perBar <= 128);
 
   return (
@@ -439,74 +564,267 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
       />
 
       <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)] gap-3">
-        <div className="surface-lcd scroll-area min-h-0 p-2">
-          {pads.length > 0 ? (
-            <table
-              ref={grid}
-              aria-label={`${section.name}: ${pads.length} pads by ${pattern.length} steps. Arrows move, Space or Return toggles a step.`}
-              className="border-separate border-spacing-0"
+        <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-2">
+          <div className="@container flex min-w-0 items-center gap-2">
+            <div role="tablist" aria-label="Variations" className="flex shrink-0 gap-0.5">
+              {[base, ...(section.variations ?? [])].map((_, i) =>
+                i === 0 || i <= (section.variations?.length ?? 0) ? (
+                  <Button
+                    key={VARIATIONS[i]}
+                    role="tab"
+                    square
+                    aria-selected={i === variantIndex}
+                    aria-label={`Variation ${VARIATIONS[i]}`}
+                    title={`Edit variation ${VARIATIONS[i]}`}
+                    onClick={() => setVariant(i)}
+                  >
+                    {VARIATIONS[i]}
+                  </Button>
+                ) : null,
+              )}
+            </div>
+            <Button
+              square
+              aria-label="Add a variation"
+              title={`Add a variation: a copy of ${VARIATIONS[variantIndex]} to change, up to D`}
+              disabled={(section.variations?.length ?? 0) >= 3}
+              onClick={() => {
+                commit(withSection(part, section.name, (s) => addVariation(s, variantIndex)));
+                setVariant((section.variations?.length ?? 0) + 1);
+              }}
             >
-              <tbody>
-                {pads.map((pad, row) => (
-                  <tr key={pad.id}>
-                    <th
-                      scope="row"
-                      className="lcd-text sticky left-0 z-[1] w-28 max-w-28 truncate bg-lcd-bg pr-2 text-left font-lcd font-normal text-readout"
-                      title={pad.name}
-                    >
-                      {pad.name}
-                    </th>
-                    {steps.map(({ s, key }) => {
-                      const v = valueAt(pad.id, s);
-                      const beat = isBeatStart(s, pattern);
-                      const now = step === s;
-                      return (
-                        <td key={key} className={`p-0 ${beat ? "pl-2" : "pl-0.5"}`}>
-                          <button
-                            type="button"
-                            data-row={row}
-                            data-step={s}
-                            tabIndex={row === 0 && s === 0 ? 0 : -1}
-                            aria-pressed={v > 0}
-                            aria-label={`${pad.name}, step ${s + 1}${v > 0 ? `, ${Math.round(v * 100)}%` : ""}`}
-                            onPointerDown={(e) => onCellDown(e, row, s)}
-                            onPointerEnter={() => onCellEnter(row, s)}
-                            onPointerUp={endStroke}
-                            onPointerCancel={endStroke}
-                            onClick={(e) => {
-                              // A click from the keyboard: pointer clicks were painted.
-                              if (e.detail === 0) toggleCell(row, s);
-                            }}
-                            onKeyDown={(e) => onCellKey(e, row, s)}
-                            className={`relative my-0.5 block h-9 w-8 touch-none overflow-hidden border-0 p-0 ${
-                              now ? "bg-tl-bar" : beat ? "bg-tl-lane" : "bg-tl-bg"
-                            } ${now ? "outline outline-1 outline-tl-playhead" : ""}`}
-                          >
-                            {v > 0 ? (
-                              <span
-                                aria-hidden="true"
-                                className="absolute inset-x-0.5 bottom-0.5 block bg-lcd-fg"
-                                style={{
-                                  height: `${Math.round(v * 90) + 10}%`,
-                                  opacity: 0.45 + v * 0.55,
-                                }}
-                              />
-                            ) : null}
-                          </button>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="lcd-text m-0 font-lcd text-readout">
-              {track?.kit?.missing
-                ? `The kit "${track.kit.name}" is not installed, so the part plays silence.`
-                : "This kit has no pads."}
-            </p>
-          )}
+              +
+            </Button>
+            {variantIndex > 0 ? (
+              <Button
+                tier="quiet"
+                tight
+                title={`Remove variation ${VARIATIONS[variantIndex]}`}
+                onClick={() => {
+                  commit(withSection(part, section.name, (s) => removeVariation(s, variantIndex)));
+                  setVariant(variantIndex - 1);
+                }}
+              >
+                <span className="@3xl:inline hidden">Remove {VARIATIONS[variantIndex]}</span>
+                <span className="@3xl:hidden">×</span>
+              </Button>
+            ) : null}
+            <span className="flex-1" />
+            <label className="flex shrink-0 items-center gap-2">
+              <span className="caption @2xl:inline hidden">Bar</span>
+              <span className="relative">
+                <select
+                  aria-label="Bar the bar tools work on"
+                  className="surface-field min-h-8 w-16 appearance-none py-0 pr-6 pl-2"
+                  value={barAt}
+                  onChange={(e) => setBar(Number(e.target.value))}
+                >
+                  {barOptions.map(({ b, key }) => (
+                    <option key={key} value={b}>
+                      {b + 1}
+                    </option>
+                  ))}
+                </select>
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 16 16"
+                  className="pointer-events-none absolute top-1/2 right-2 size-3 -translate-y-1/2 fill-field-fg"
+                >
+                  <path d="M2 5l6 6 6-6z" />
+                </svg>
+              </span>
+            </label>
+            <Button
+              tight
+              title={`Copy bar ${barAt + 1}, every pad`}
+              onClick={() =>
+                setCopied(
+                  copyBar(
+                    base,
+                    pads.map((p) => p.id),
+                    barAt,
+                    numerator,
+                  ),
+                )
+              }
+            >
+              Copy
+            </Button>
+            <Button
+              tight
+              disabled={!copied}
+              title={`Paste the copied bar over bar ${barAt + 1}`}
+              onClick={() => {
+                if (copied) edit(pasteBar(base, copied, barAt, numerator));
+              }}
+            >
+              Paste
+            </Button>
+            <Button
+              tight
+              disabled={pattern.length + barSteps(pattern, numerator) > 128}
+              title={`Play bar ${barAt + 1} twice: a copy goes in after it`}
+              onClick={() => {
+                const next = duplicateBar(base, barAt, numerator);
+                if (next) edit(next);
+              }}
+            >
+              <span className="@3xl:inline hidden">Duplicate</span>
+              <span className="@3xl:hidden">Dup</span>
+            </Button>
+            <Button
+              tight
+              title={`Clear bar ${barAt + 1}`}
+              onClick={() => edit(clearBar(base, barAt, numerator))}
+            >
+              Clear
+            </Button>
+            <Button
+              square
+              aria-label="Shift earlier"
+              title="Shift every hit a step earlier, round to the end ([)"
+              onClick={() => edit(shiftSteps(base, -1))}
+            >
+              ‹
+            </Button>
+            <Button
+              square
+              aria-label="Shift later"
+              title="Shift every hit a step later, round to the start (])"
+              onClick={() => edit(shiftSteps(base, 1))}
+            >
+              ›
+            </Button>
+          </div>
+          <div className="surface-lcd scroll-area min-h-0 p-2">
+            {pads.length > 0 ? (
+              <table
+                ref={grid}
+                aria-label={`${section.name} ${VARIATIONS[variantIndex]}: ${pads.length} pads by ${pattern.length} steps. Arrows move, Space or Return toggles a step, G ghosts it, A accents it.`}
+                className="border-separate border-spacing-0"
+              >
+                <tbody>
+                  {pads.map((pad, row) => (
+                    <tr key={pad.id}>
+                      <th
+                        scope="row"
+                        className="sticky left-0 z-[1] w-28 max-w-28 bg-lcd-bg p-0 pr-2 text-left font-normal"
+                      >
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          aria-pressed={lane?.id === pad.id}
+                          title={`Draw ${pad.name}'s velocities in the lane below`}
+                          onClick={() => setLanePad(pad.id)}
+                          className="lcd-text block w-full cursor-pointer truncate border-0 bg-transparent p-0 text-left font-lcd text-lcd-fg text-readout aria-pressed:underline"
+                        >
+                          {pad.name}
+                        </button>
+                      </th>
+                      {steps.map(({ s, key }) => {
+                        const v = valueAt(pad.id, s);
+                        const beat = isBeatStart(s, pattern);
+                        const now = step === s;
+                        const m = pattern.rows
+                          .find((r) => r.pad === pad.id)
+                          ?.marks?.find((x) => x.step === s);
+                        const label = m ? markLabel(m) : "";
+                        return (
+                          <td key={key} className={`p-0 ${beat ? "pl-2" : "pl-0.5"}`}>
+                            <button
+                              type="button"
+                              data-row={row}
+                              data-step={s}
+                              tabIndex={row === 0 && s === 0 ? 0 : -1}
+                              aria-pressed={v > 0}
+                              aria-label={`${pad.name}, step ${s + 1}${v > 0 ? `, ${Math.round(v * 100)}%${label ? `, ${label}` : ""}` : ""}`}
+                              onPointerDown={(e) => onCellDown(e, row, s)}
+                              onPointerEnter={() => onCellEnter(row, s)}
+                              onPointerUp={endStroke}
+                              onPointerCancel={endStroke}
+                              onClick={(e) => {
+                                // A click from the keyboard: pointer clicks were painted.
+                                if (e.detail === 0) toggleCell(row, s);
+                              }}
+                              onKeyDownCapture={(e) => onCellKeyCapture(e, row, s)}
+                              onKeyDown={(e) => onCellKey(e, row, s)}
+                              onFocus={() => setLanePad(pad.id)}
+                              className={`relative my-0.5 block h-9 w-8 touch-none overflow-hidden border-0 p-0 ${
+                                now ? "bg-tl-bar" : beat ? "bg-tl-lane" : "bg-tl-bg"
+                              } ${now ? "outline outline-1 outline-tl-playhead" : ""}`}
+                            >
+                              {v > 0 ? (
+                                <span
+                                  aria-hidden="true"
+                                  className="absolute inset-x-0.5 bottom-0.5 block bg-lcd-fg"
+                                  style={{
+                                    height: `${Math.round(v * 90) + 10}%`,
+                                    opacity: (0.45 + v * 0.55) * (m?.chance ?? 1),
+                                  }}
+                                />
+                              ) : null}
+                              {v > 0 && label ? (
+                                <span
+                                  aria-hidden="true"
+                                  className="absolute top-0 left-0.5 font-bold font-lcd text-label text-lcd-fg leading-none mix-blend-difference"
+                                >
+                                  {label}
+                                </span>
+                              ) : null}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                  {lane ? (
+                    <tr>
+                      <th
+                        scope="row"
+                        className="lcd-text sticky left-0 z-[1] w-28 max-w-28 truncate bg-lcd-bg pt-2 pr-2 text-left align-top font-lcd font-normal text-label"
+                        title={`${lane.name}'s velocities: drag across to draw them`}
+                      >
+                        Velocity · {lane.name}
+                      </th>
+                      {steps.map(({ s, key }) => {
+                        const v = valueAt(lane.id, s);
+                        const beat = isBeatStart(s, pattern);
+                        return (
+                          <td key={key} className={`p-0 pt-2 ${beat ? "pl-2" : "pl-0.5"}`}>
+                            <button
+                              type="button"
+                              tabIndex={-1}
+                              aria-label={`${lane.name} step ${s + 1} velocity${v > 0 ? `, ${Math.round(v * 100)}%` : ", no hit"}`}
+                              onPointerDown={(e) => onLaneDown(e, s)}
+                              onPointerMove={(e) => onLaneMove(e, s)}
+                              onPointerEnter={(e) => onLaneMove(e, s)}
+                              onPointerUp={endLane}
+                              onPointerCancel={endLane}
+                              className={`relative block h-16 w-8 cursor-ns-resize touch-none border-0 p-0 ${beat ? "bg-tl-lane" : "bg-tl-bg"}`}
+                            >
+                              {v > 0 ? (
+                                <span
+                                  aria-hidden="true"
+                                  className="absolute inset-x-1 bottom-0 block bg-lcd-fg"
+                                  style={{ height: `${Math.round(v * 100)}%` }}
+                                />
+                              ) : null}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            ) : (
+              <p className="lcd-text m-0 font-lcd text-readout">
+                {track?.kit?.missing
+                  ? `The kit "${track.kit.name}" is not installed, so the part plays silence.`
+                  : "This kit has no pads."}
+              </p>
+            )}
+          </div>
         </div>
 
         <aside
@@ -676,16 +994,8 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
             id={`${ids}-length`}
             label="Length"
             hint={`${lengthLabel(pattern, tempo)} of ${RESOLUTIONS.find((r) => r.stepsPerBeat === pattern.stepsPerBeat)?.label ?? ""} steps`}
-            value={pattern.length % perBar === 0 ? bars : ""}
-            onChange={(e) =>
-              commit(
-                withPattern(
-                  part,
-                  section.name,
-                  resizePattern(section.pattern, Number(e.target.value) * perBar),
-                ),
-              )
-            }
+            value={pattern.length % perBar === 0 ? barsLong : ""}
+            onChange={(e) => editAll((p) => resizePattern(p, Number(e.target.value) * perBar))}
           >
             {pattern.length % perBar === 0 ? null : (
               <option value="">{pattern.length} steps</option>
@@ -708,17 +1018,72 @@ export function DrumDesigner({ status, frame, handle, onClose, onStatus, onError
               max={1}
               step={0.05}
               value={pattern.swing}
-              onChange={(e) =>
-                commit(
-                  withPattern(part, section.name, {
-                    ...section.pattern,
-                    swing: Number(e.target.value),
-                  }),
-                )
-              }
+              onChange={(e) => editAll((p) => ({ ...p, swing: Number(e.target.value) }))}
               className="w-full"
             />
           </Field>
+          {(["timing", "velocity"] as const).map((k) => {
+            const h = pattern.humanize ?? { timing: 0, velocity: 0 };
+            return (
+              <Field
+                key={k}
+                label={k === "timing" ? "Humanize timing" : "Humanize velocity"}
+                hint={`${Math.round(h[k] * 100)}%`}
+                htmlFor={`${ids}-humanize-${k}`}
+              >
+                <input
+                  id={`${ids}-humanize-${k}`}
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={h[k]}
+                  onChange={(e) =>
+                    editAll((p) =>
+                      withPatternFeel(p, {
+                        ...(p.humanize ?? { timing: 0, velocity: 0 }),
+                        [k]: Number(e.target.value),
+                      }),
+                    )
+                  }
+                  className="w-full"
+                />
+              </Field>
+            );
+          })}
+          {section.variations?.length ? (
+            <Select
+              id={`${ids}-vary`}
+              label="Variations"
+              hint={
+                section.vary === "chain"
+                  ? "One after another, a pass each"
+                  : "A between each of the others"
+              }
+              value={section.vary ?? "alternate"}
+              onChange={(e) =>
+                commit(
+                  withSection(part, section.name, (s) => ({
+                    ...s,
+                    vary: e.target.value as "alternate" | "chain",
+                  })),
+                )
+              }
+            >
+              <option value="alternate">
+                Alternate:{" "}
+                {passes({ ...section, vary: "alternate" })
+                  .map((i) => VARIATIONS[i])
+                  .join(" ")}
+              </option>
+              <option value="chain">
+                Chain:{" "}
+                {passes({ ...section, vary: "chain" })
+                  .map((i) => VARIATIONS[i])
+                  .join(" ")}
+              </option>
+            </Select>
+          ) : null}
           <Select
             id={`${ids}-fill`}
             label="Fill"

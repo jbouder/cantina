@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::model::{Pattern, PatternId, Project, Track};
+use crate::model::{Pattern, PatternId, PatternRow, Project, StepMark, Track};
 use crate::pattern_file::Section;
 
 /// Times a step of the order can repeat its section, and bars apart a
@@ -47,6 +47,102 @@ pub struct PartSection {
     /// Another section's first bar played as a fill.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fill: Option<SectionFill>,
+    /// Variations B, C and D of the pattern (which is A), at most three,
+    /// each with its steps and resolution.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variations: Vec<Pattern>,
+    /// How the variations take turns, pass by pass.
+    #[serde(default, skip_serializing_if = "Vary::is_alternate")]
+    pub vary: Vary,
+}
+
+/// How a section's variations take turns, one pass of the pattern each.
+#[cfg_attr(any(test, feature = "schema"), derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Vary {
+    /// A between each of the others: A B A C A D.
+    #[default]
+    Alternate,
+    /// One after another: A B C D.
+    Chain,
+}
+
+impl Vary {
+    fn is_alternate(&self) -> bool {
+        *self == Vary::Alternate
+    }
+}
+
+/// Variations a section can have besides its pattern: B, C and D.
+pub const MAX_VARIATIONS: usize = 3;
+
+impl PartSection {
+    /// Which pattern each pass plays, by index (0 for A, 1 for B…), round
+    /// and round.
+    pub fn passes(&self) -> Vec<usize> {
+        let n = self.variations.len().min(MAX_VARIATIONS);
+        match self.vary {
+            _ if n == 0 => vec![0],
+            Vary::Chain => (0..=n).collect(),
+            Vary::Alternate => (1..=n).flat_map(|v| [0, v]).collect(),
+        }
+    }
+
+    /// What the section plays: its pattern, or with variations, one
+    /// pattern holding a whole round of its passes, so a fill counts its
+    /// bars across them. The feel is A's.
+    pub fn played(&self) -> Pattern {
+        let passes = self.passes();
+        if passes.len() < 2 {
+            return self.pattern.clone();
+        }
+        let a = &self.pattern;
+        let length = a.length as usize;
+        let of = |i: usize| if i == 0 { a } else { &self.variations[i - 1] };
+        let mut pads: Vec<&str> = Vec::new();
+        for i in &passes {
+            for r in &of(*i).rows {
+                if !pads.contains(&r.pad.as_str()) {
+                    pads.push(&r.pad);
+                }
+            }
+        }
+        let rows = pads
+            .into_iter()
+            .map(|pad| {
+                let mut row = a
+                    .row(pad)
+                    .map(|r| PatternRow {
+                        marks: Vec::new(),
+                        steps: Vec::new(),
+                        ..r.clone()
+                    })
+                    .unwrap_or_else(|| PatternRow::new(pad, Vec::new()));
+                for (pass, i) in passes.iter().enumerate() {
+                    let p = of(*i);
+                    let at = (pass * length) as u16;
+                    match p.row(pad) {
+                        Some(r) => {
+                            row.steps.extend(r.steps.iter().take(length));
+                            row.steps.resize((pass + 1) * length, 0.0);
+                            row.marks.extend(r.marks.iter().map(|m| StepMark {
+                                step: m.step + at,
+                                ..*m
+                            }));
+                        }
+                        None => row.steps.resize((pass + 1) * length, 0.0),
+                    }
+                }
+                row
+            })
+            .collect();
+        Pattern {
+            length: (length * passes.len()) as u16,
+            rows,
+            ..a.clone()
+        }
+    }
 }
 
 /// When a section plays a fill: every few bars, at its end, or both, as
@@ -185,6 +281,24 @@ impl DrumPart {
             s.pattern
                 .validate()
                 .map_err(|e| format!("section {:?}: {e}", s.name))?;
+            if s.variations.len() > MAX_VARIATIONS {
+                return Err(format!(
+                    "section {:?} has {} variations; B, C and D at most",
+                    s.name,
+                    s.variations.len()
+                ));
+            }
+            for (i, v) in s.variations.iter().enumerate() {
+                let letter = (b'B' + i as u8) as char;
+                v.validate()
+                    .map_err(|e| format!("section {:?} variation {letter}: {e}", s.name))?;
+                if v.length != s.pattern.length || v.steps_per_beat != s.pattern.steps_per_beat {
+                    return Err(format!(
+                        "section {:?} variation {letter} is not the same steps as A",
+                        s.name
+                    ));
+                }
+            }
         }
         for s in &self.sections {
             if let Some(f) = &s.fill {
@@ -256,6 +370,8 @@ impl DrumPart {
                 name,
                 pattern: pattern.clone(),
                 fill: None,
+                variations: Vec::new(),
+                vary: Vary::Alternate,
             });
         }
         if sections.is_empty() {
@@ -266,6 +382,8 @@ impl DrumPart {
                 kind: Some(Section::Verse),
                 pattern,
                 fill: None,
+                variations: Vec::new(),
+                vary: Vary::Alternate,
             });
         }
         let mut order = Vec::new();
@@ -555,6 +673,49 @@ mod tests {
         // A fill naming a section that is gone plays nothing.
         part.sections.retain(|s| s.name != "Fill");
         assert!(part.fill_bars(BAR).is_empty());
+    }
+
+    #[test]
+    fn variations_take_turns() {
+        let mut project = Project::new("Song", 48_000.0);
+        let mut a = pattern(1, "Verse", 4);
+        a.rows[0].steps = vec![1.0, 0.0, 0.0, 0.0];
+        a.rows[0].marks = vec![StepMark {
+            flam: true,
+            ..StepMark::plain(0)
+        }];
+        project.patterns = vec![a];
+        let mut part = DrumPart::from_track(&project, &Track::drums(TrackId(1), "D", "k"));
+        let section = &mut part.sections[0];
+        assert_eq!(section.played(), section.pattern);
+        let mut b = pattern(2, "B", 4);
+        b.rows = vec![PatternRow::new("snare", vec![0.0, 0.0, 1.0, 0.0])];
+        let mut c = pattern(3, "C", 4);
+        c.rows[0].steps = vec![0.0, 0.0, 0.0, 0.5];
+        section.variations = vec![b, c];
+        assert_eq!(section.passes(), [0, 1, 0, 2]);
+        let played = section.played();
+        assert_eq!(played.length, 16);
+        assert_eq!(
+            played.row("kick").unwrap().steps,
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5]
+        );
+        assert_eq!(played.row("snare").unwrap().steps[6], 1.0);
+        let marks: Vec<_> = played
+            .row("kick")
+            .unwrap()
+            .marks
+            .iter()
+            .map(|m| m.step)
+            .collect();
+        assert_eq!(marks, [0, 8]);
+        played.validate().unwrap();
+        section.vary = Vary::Chain;
+        assert_eq!(section.passes(), [0, 1, 2]);
+        assert_eq!(section.played().length, 12);
+        part.validate().unwrap();
+        part.sections[0].variations[0].steps_per_beat = 8;
+        assert!(part.validate().unwrap_err().contains("same steps"));
     }
 
     #[test]
