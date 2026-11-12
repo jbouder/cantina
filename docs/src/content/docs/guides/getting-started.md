@@ -104,8 +104,8 @@ Cantina then opens only the output: the metronome, playback and
 does not ask for the microphone. Recording needs an input. A Mac with no
 input device at all runs this way by itself and says so.
 
-The **Engine** key starts and stops the audio. Its light is on while audio
-is running. Your choices are remembered for next time.
+The **Audio** key turns the audio on and off: it reads **Audio on** with
+its light lit while audio is running, **Audio off** otherwise. Your choices are remembered for next time.
 
 ## Tell Cantina what you play
 
@@ -143,13 +143,13 @@ name, which opens the project menu (**New project…**, **Open…**, **Save**,
 **Rename…**, **Duplicate…**, **Export mixdown…**, **Show in Finder**, all
 also in **File**), then undo and redo; then at the right the **IN** and
 **OUT** meters beside the jam, stage and settings keys.
-The second is the transport: the **Engine** key first (in a jam it sits in
+The second is the transport: the **Audio** key first (in a jam it sits in
 the top row instead), then record, play, stop, the clock, the tempo, the
 metronome, and snap and zoom for the timeline. In a narrow window the keys
 keep their glyphs and drop their captions; hover one for its name and
 shortcut. The line along the bottom of the window says what the transport
 is waiting for, or the next step to recording with a key to take it:
-*The engine is off* with **Start engine**, *No track armed* with **Arm
+*Audio is off* with **Turn audio on**, *No track armed* with **Arm
 Guitar**, then *Guitar armed · press Record or R*.
 
 Nothing moving on the **IN** meter means nothing is reaching Cantina; see

@@ -15,8 +15,8 @@ these guides before it answers.
 
 ## No sound
 
-1. **Is the engine running?** The light on the **Engine** key is on while
-   audio runs. Press it to start the engine.
+1. **Is the audio on?** The key left of **Record** reads **Audio on**, its
+   light lit, while audio runs. Press it to turn the audio on.
 2. **Does the IN meter move when you play?** If it does not, nothing reaches
    Cantina: check [the microphone permission](#macos-blocks-the-input), the
    **Input** in Settings, the cable, and the input gain on the interface.
@@ -70,7 +70,7 @@ stays flat.
 
 1. Open **System Settings → Privacy & Security → Microphone**.
 2. Turn on **Cantina**.
-3. Stop and start the engine with the **Engine** key, or reopen Cantina.
+3. Turn the audio off and on again with the **Audio** key, or reopen Cantina.
 
 If Cantina is not in the list, start the engine once so macOS asks again.
 

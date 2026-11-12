@@ -889,7 +889,7 @@ export function App() {
                     <span className="min-w-0 truncate">{step.text}</span>
                     {action?.kind === "start" ? (
                       <Button tier="quiet" disabled={busy} onClick={toggle}>
-                        Start engine
+                        Turn audio on
                       </Button>
                     ) : action?.kind === "arm" ? (
                       <Button

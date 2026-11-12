@@ -2,7 +2,7 @@ import type { TrackStatus, TransportStatus } from "./engine";
 
 /**
  * What the status line says, and the one thing it offers to do about it:
- * start the engine, or arm a track (`track`), on the way to recording.
+ * turn the audio on, or arm a track (`track`), on the way to recording.
  */
 export type NextStep = {
   text: string;
@@ -35,7 +35,7 @@ export function nextStep(
   if (transport.recording) return { text: `Recording ${names}…`, action: null };
   if (!running) {
     return {
-      text: "The engine is off: start it to hear your instrument, or press Record",
+      text: "Audio is off: turn it on to hear your instrument, or press Record",
       action: { kind: "start" },
     };
   }
