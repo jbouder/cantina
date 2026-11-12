@@ -75,16 +75,11 @@ export function StartDialog({
       setError(String(e));
     });
   }, []);
-  // At launch Return opens the most recent project: it has focus once the
-  // list is in. With nothing to reopen, or from New project, the new
-  // project's name has it.
+  // A new project comes first: its name has focus, so typing one and
+  // pressing Return creates it.
   useEffect(() => {
-    if (recent === null) return;
-    const first = atLaunch
-      ? document.querySelector<HTMLElement>("[data-start-recent]:not([aria-disabled])")
-      : null;
-    (first ?? document.getElementById("start-name"))?.focus();
-  }, [recent, atLaunch]);
+    document.getElementById("start-name")?.focus();
+  }, []);
 
   const finish = useCallback(
     (action: Promise<EngineStatus>) =>
@@ -115,8 +110,16 @@ export function StartDialog({
 
   const tempo = Number(bpm);
   const tempoOk = Number.isFinite(tempo) && tempo >= 20 && tempo <= 300;
+  // Create stays enabled, the dialog's main action: with no name it asks
+  // for one instead.
+  const [nameMissing, setNameMissing] = useState(false);
   const create = (e: FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) {
+      setNameMissing(true);
+      document.getElementById("start-name")?.focus();
+      return;
+    }
     if (!tempoOk) return;
     finish(
       projectNew(name, {
@@ -134,15 +137,8 @@ export function StartDialog({
       wide
       footer={
         <>
-          <Button onClick={onJam} title="Play over a drum loop and a backing track">
-            Jam
-          </Button>
-          <Button
-            type="submit"
-            form="start-new-form"
-            tier="primary"
-            disabled={!name.trim() || !tempoOk}
-          >
+          {atLaunch ? null : <Button onClick={onClose}>Cancel</Button>}
+          <Button type="submit" form="start-new-form" tier="primary" disabled={!tempoOk}>
             Create
           </Button>
         </>
@@ -159,50 +155,6 @@ export function StartDialog({
         </Lcd>
       ) : null}
       <div className="grid gap-4 md:grid-cols-2">
-        <section aria-labelledby={recentLabel} className="grid content-start gap-2">
-          <h3 id={recentLabel} className={heading}>
-            Open a recent project
-          </h3>
-          <ul
-            aria-labelledby={recentLabel}
-            className="surface-lcd m-0 grid max-h-64 list-none content-start gap-0.5 overflow-y-auto p-1"
-          >
-            {recent === null ? (
-              <li className="px-2 py-1 font-lcd text-readout">...</li>
-            ) : recent.length === 0 ? (
-              <li className="lcd-text px-2 py-1 font-lcd text-readout">No projects yet</li>
-            ) : (
-              recent.map((r) => {
-                const when = savedLabel(r, now);
-                return (
-                  <li key={r.name}>
-                    <button
-                      type="button"
-                      data-start-recent
-                      aria-disabled={r.missing ? "true" : undefined}
-                      aria-description={when}
-                      onClick={() => {
-                        if (r.missing) setError(`${r.name} has been moved or deleted.`);
-                        else open(r.name);
-                      }}
-                      className={`grid min-h-11 w-full border-0 bg-transparent px-2 py-1 text-left font-lcd text-lcd-fg focus-visible:bg-select`}
-                    >
-                      <span className="lcd-text truncate text-readout leading-tight">{r.name}</span>
-                      <span
-                        className={`lcd-text text-body leading-tight ${r.missing ? "text-lcd-error" : ""}`}
-                      >
-                        {when}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })
-            )}
-          </ul>
-          <div className="flex">
-            <Button onClick={onBrowse}>Open…</Button>
-          </div>
-        </section>
         <section aria-labelledby="start-new-label" className="grid content-start gap-2">
           <h3 id="start-new-label" className={heading}>
             New project
@@ -211,8 +163,13 @@ export function StartDialog({
             <TextInput
               id="start-name"
               label="Name"
+              {...(nameMissing ? { hint: "Name the project to create it" } : {})}
+              aria-invalid={nameMissing}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                setNameMissing(false);
+              }}
               autoComplete="off"
             />
             <Select
@@ -264,17 +221,66 @@ export function StartDialog({
             </Select>
           </form>
         </section>
+        <section aria-labelledby={recentLabel} className="grid content-start gap-2">
+          <h3 id={recentLabel} className={heading}>
+            Open a recent project
+          </h3>
+          <ul
+            aria-labelledby={recentLabel}
+            className="surface-lcd m-0 grid max-h-64 list-none content-start gap-0.5 overflow-y-auto p-1"
+          >
+            {recent === null ? (
+              <li className="px-2 py-1 font-lcd text-readout">...</li>
+            ) : recent.length === 0 ? (
+              <li className="lcd-text px-2 py-1 font-lcd text-readout">No projects yet</li>
+            ) : (
+              recent.map((r) => {
+                const when = savedLabel(r, now);
+                return (
+                  <li key={r.name}>
+                    <button
+                      type="button"
+                      data-start-recent
+                      aria-disabled={r.missing ? "true" : undefined}
+                      aria-description={when}
+                      onClick={() => {
+                        if (r.missing) setError(`${r.name} has been moved or deleted.`);
+                        else open(r.name);
+                      }}
+                      className={`grid min-h-11 w-full border-0 bg-transparent px-2 py-1 text-left font-lcd text-lcd-fg focus-visible:bg-select`}
+                    >
+                      <span className="lcd-text truncate text-readout leading-tight">{r.name}</span>
+                      <span
+                        className={`lcd-text text-body leading-tight ${r.missing ? "text-lcd-error" : ""}`}
+                      >
+                        {when}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+          <div className="flex">
+            <Button onClick={onBrowse}>Open…</Button>
+          </div>
+        </section>
       </div>
       <section
         aria-labelledby="start-jam-label"
-        className="border-0 border-ink-dim border-t border-solid pt-3"
+        className="flex items-center gap-3 border-0 border-ink-dim border-t border-solid pt-3"
       >
-        <h3 id="start-jam-label" className={heading}>
+        <div className="grid min-w-0 flex-1 gap-0.5">
+          <h3 id="start-jam-label" className={heading}>
+            Or just play
+          </h3>
+          <p className="m-0 text-ink-dim text-body">
+            Jam over a drum loop and a backing track, with no project to set up.
+          </p>
+        </div>
+        <Button onClick={onJam} title="Play over a drum loop and a backing track">
           Jam session
-        </h3>
-        <p className="m-0 text-ink-dim text-body">
-          Play over a drum loop and a backing track, nothing to set up first. Press Jam below.
-        </p>
+        </Button>
       </section>
     </Sheet>
   );

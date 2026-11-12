@@ -59,19 +59,22 @@ Drag `Cantina.app` into Applications to keep it.
 
 Cantina opens with the start dialog, three ways in:
 
+- **New project**, first and with focus: a name, the sample rate, the
+  tempo, the time signature, and what to start with: one guitar track,
+  guitar and bass, guitar and a drum track with a kit, or nothing. Type
+  a name and press Return, or **Create**; the project is made as you
+  asked in one step, with nothing to undo.
 - **Open a recent project**: the projects you had open lately, newest
-  first, each with when it was last saved. Return opens the one with
-  focus. A project moved or deleted since stays in the list and says
-  so. **Open…** lists every project in `~/Music/Cantina`.
-- **New project**: a name, the sample rate, the tempo, the time
-  signature, and what to start with: one guitar track, guitar and bass,
-  guitar and a drum track with a kit, or nothing. The project is made as
-  you asked in one step, with nothing to undo.
-- **Jam session**: straight into [jam mode](/guides/jam/), drums and a
-  backing to play over with nothing to set up.
+  first, each with when it was last saved. A project moved or deleted
+  since stays in the list and says so. **Open…** lists every project in
+  `~/Music/Cantina`.
+- **Jam session**, under both: straight into [jam mode](/guides/jam/),
+  drums and a backing to play over with nothing to set up.
 
 Escape (or the close key) takes the most recent project, or the new
-`Untitled` project Cantina makes the first time. If the last session
+`Untitled` project Cantina makes the first time. **New…** in the toolbar
+(⌘N) brings the same dialog back later; there Escape or **Cancel** keeps
+the project you have open. If the last session
 quit without saving, Cantina offers to recover those edits first, and
 the dialog follows.
 
