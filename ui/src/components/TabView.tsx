@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { beatDiagram } from "../lib/diagram";
 import {
   type ClipInfo,
   clipTab,
@@ -51,6 +52,7 @@ import {
   tickAtX,
 } from "../lib/tabLayout";
 import { Button } from "./Button";
+import { ChordDiagram } from "./ChordDiagram";
 import { TabExportSheet } from "./TabExportSheet";
 
 type Props = {
@@ -415,6 +417,8 @@ export function TabView({
   const bars = tab ? barTicks(tab.tempo) : 1;
   const beatTicks = tab ? (960 * 4) / tab.tempo.denominator : 960;
   const where = Math.max(0, tick);
+  // The chord under the cursor: the caret's while editing, the playhead's otherwise.
+  const chordHere = tab ? beatDiagram(tab, editing ? caret.tick : where) : null;
   const placeOf = (t: number) =>
     `bar ${Math.floor(t / bars) + 1}, beat ${Math.floor((t % bars) / beatTicks) + 1}`;
   const valueText = editing
@@ -466,6 +470,11 @@ export function TabView({
         </Button>
         {exporting && tab ? (
           <TabExportSheet clip={clip} tab={tab} onClose={() => setExporting(false)} />
+        ) : null}
+        {chordHere ? (
+          <div className="surface-lcd grid justify-items-center p-1">
+            <ChordDiagram diagram={chordHere} compact />
+          </div>
         ) : null}
       </div>
       <div className="grid min-w-0 gap-2">

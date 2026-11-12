@@ -38,6 +38,28 @@ Then the phrase as a tab, wrapped to fit, with a cursor that follows
 while it plays. A chord exercise shows each strum as the strings it
 plays.
 
+## Chord diagrams and the fretboard
+
+Above the tab, a chord exercise shows the chord sounding as a box
+diagram, with the one coming next beside it, dimmer. A phrase of notes
+shows a box only on a beat where two strings or more start together,
+such as a power chord.
+
+- **The box** has the strings up and down, the lowest on the left, and
+  the frets across. A thick line at the top is the nut; a shape up the
+  neck has its first fret's number beside it instead. A dot is a string
+  held down, with the finger to use: 1 the index to 4 the little finger.
+  A bar is one finger laid across several strings. `o` over a string is
+  open and `×` is a string not played. A capo is named under the box.
+- **The fretboard** is the neck in the exercise's tuning, drop tunings
+  and a capo included, the highest string on top as tab reads. Every note
+  of the phrase is a faint dot, so a scale shows as the shape it makes;
+  the notes sounding are lit, and the ones coming next are rings. Stopped,
+  the rings show where to start.
+
+Left-handed players can turn on **Settings ▸ Fretboard ▸ Left-handed** to
+draw the neck with the nut on the right, as they see it.
+
 ## Hearing it and playing along
 
 **Play** (or **Space**) counts in the exercise's own bars, then plays the

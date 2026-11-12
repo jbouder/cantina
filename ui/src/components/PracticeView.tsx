@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { isTyping } from "../lib/actions";
+import { beatDiagram, chordDiagram, type Diagram } from "../lib/diagram";
 import {
   countInSet,
   type EngineStatus,
@@ -14,7 +15,9 @@ import {
 import { ladder, loopPlace, stepTempo, TEACHES_LABELS } from "../lib/exercise";
 import { jamPlace } from "../lib/jam";
 import { Button } from "./Button";
+import { ChordDiagram } from "./ChordDiagram";
 import { Field } from "./Field";
+import { Fretboard } from "./Fretboard";
 import { rigId } from "./JamBacking";
 import { Lcd } from "./Lcd";
 import { Led } from "./Led";
@@ -120,6 +123,24 @@ export function PracticeView({ status, frame, onPlay, onLeave, onStatus, onError
   const ownRig = status.rigs.find((r) => rigId(r.path) === exercise.rig) ?? null;
   const rigs = status.rigs.filter((r) => r.instrument === exercise.instrument);
   const loaded = (e: ExerciseInfo) => e.path === practice.path;
+  // The chord sounding and the one after it: the exercise's shapes, or
+  // the notes of the beat when it is a phrase of notes.
+  const diagrams: Diagram[] = (() => {
+    const at = where?.tick ?? 0;
+    const phrase = exercise.phrase;
+    if (phrase.kind === "chords") {
+      const order = [...phrase.chords].sort((a, b) => a.start - b.start);
+      const now = [...order].reverse().find((c) => c.start <= at) ?? order[0];
+      if (!now) return [];
+      const after =
+        order.find((c) => c.start > now.start && c.name !== now.name) ??
+        order.find((c) => c.name !== now.name);
+      const capo = exercise.capo ?? 0;
+      return [now, ...(after ? [after] : [])].map((c) => chordDiagram(c, capo));
+    }
+    const d = beatDiagram(practice.tab, at);
+    return d ? [d] : [];
+  })();
 
   return (
     <section
@@ -198,7 +219,7 @@ export function PracticeView({ status, frame, onPlay, onLeave, onStatus, onError
           </ul>
         </div>
 
-        <div className="surface-panel scroll-area grid max-h-full min-h-0 content-start gap-3 p-3">
+        <div className="surface-panel scroll-area grid max-h-full min-h-0 grid-cols-[minmax(0,1fr)] content-start gap-3 p-3">
           <Lcd aria-live="polite" className="grid gap-1 py-2 text-center">
             <span className="block text-display tabular-nums">
               {frame.countIn > 0
@@ -225,12 +246,25 @@ export function PracticeView({ status, frame, onPlay, onLeave, onStatus, onError
             <p className="m-0 max-w-prose text-body">{exercise.instructions}</p>
           </section>
 
-          <TabStaff
-            tab={practice.tab}
-            tick={where ? where.tick : null}
-            follow={rolling}
-            label={`Tab of ${exercise.name}`}
-          />
+          <div className="flex min-w-0 flex-wrap items-start gap-3">
+            {diagrams.length > 0 ? (
+              <div className="surface-lcd flex shrink-0 items-start gap-3 p-1">
+                {diagrams.map((d, i) => (
+                  <ChordDiagram key={i === 0 ? "now" : "next"} diagram={d} coming={i > 0} />
+                ))}
+              </div>
+            ) : null}
+            <div className="min-w-0 flex-1">
+              <Fretboard tab={practice.tab} tick={where ? where.tick : null} />
+            </div>
+
+            <TabStaff
+              tab={practice.tab}
+              tick={where ? where.tick : null}
+              follow={rolling}
+              label={`Tab of ${exercise.name}`}
+            />
+          </div>
 
           <div role="toolbar" aria-label="Transport" className="flex min-w-0 items-center gap-2">
             <Button

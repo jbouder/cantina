@@ -126,6 +126,7 @@ change the interface's gain knob or pick up another instrument.
 ## The rest of Settings
 
 The rest of Settings holds the **Skin**, **Motion** (Reduce flashing),
+**Fretboard** (Left-handed, for the [practice](/guides/practice/) neck),
 **Launch** (the start dialog, or the last project), the optional **Assistant**, off until you connect a model (see
 [The assistant](/guides/assistant/)), and **Updates**.
 

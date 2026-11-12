@@ -45,7 +45,7 @@ export function TabStaff({ tab, tick, follow, label }: Props) {
   }, [cursor, follow, height]);
 
   return (
-    <div ref={scroller} className="surface-lcd scroll-area max-h-80 min-h-0 p-0">
+    <div ref={scroller} className="surface-lcd scroll-area max-h-64 min-h-0 w-full p-0">
       <svg
         role="img"
         aria-label={`${label}: ${tab.notes.length} notes in ${layout.bars.length} bars`}
