@@ -59,7 +59,7 @@ function plain(m: Omit<StepMark, "step">): boolean {
 }
 
 /** A pad's row as cells, `length` long. */
-function cellsOf(pattern: PatternInfo, pad: string, length = pattern.length): Cell[] {
+export function cellsOf(pattern: PatternInfo, pad: string, length = pattern.length): Cell[] {
   const row = pattern.rows.find((r) => r.pad === pad);
   return Array.from({ length }, (_, s) => {
     const m = row?.marks?.find((x) => x.step === s);
@@ -70,7 +70,7 @@ function cellsOf(pattern: PatternInfo, pad: string, length = pattern.length): Ce
 }
 
 /** The pattern with `pad`'s cells replaced, keeping the row's own feel; a row is added when needed. */
-function withCells(pattern: PatternInfo, pad: string, cells: Cell[]): PatternInfo {
+export function withCells(pattern: PatternInfo, pad: string, cells: Cell[]): PatternInfo {
   const old = pattern.rows.find((r) => r.pad === pad);
   const marks: StepMark[] = [];
   cells.forEach((c, step) => {
@@ -182,7 +182,6 @@ export function duplicateRegion(pattern: PatternInfo, pads: string[], region: Re
   return pasteCells(grown, pads, copyRegion(pattern, pads, region), region.top, region.to + 1);
 }
 
-/** The pattern at a new length: cut off, or padded with silence. */
 /** The pattern cut or padded with silence to `length` steps. */
 export function resizePattern(pattern: PatternInfo, length: number): PatternInfo {
   return resize(pattern, Math.max(1, Math.min(MAX_STEPS, Math.round(length))));

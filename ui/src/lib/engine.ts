@@ -28,6 +28,7 @@ import {
   patternFileName,
 } from "./library";
 import { mockAnalysis, mockBeat } from "./mockAnalysis";
+import { addVariation, passes } from "./patternTools";
 import { sortTabNotes, tabPitch } from "./tabEdit";
 
 export type { BrokenFile, LibraryKind, LibraryPattern, LibraryStatus };
@@ -4288,7 +4289,8 @@ function mockDesignPlan(d: NonNullable<typeof mockDesign>): {
     const name = d.plays.name;
     const section = d.part.sections.find((s) => s.name === name);
     if (!section) return { spans: [], loopStart: 0, loopEnd: 0 };
-    const ticks = Math.max(1, patternTicks(section.pattern));
+    // A whole round of its variations.
+    const ticks = Math.max(1, patternTicks(section.pattern) * passes(section).length);
     const every = (section.fill?.every ?? 0) * bar;
     const length = Math.ceil(Math.max(every, ticks) / ticks) * ticks;
     return {
@@ -4351,6 +4353,30 @@ export async function drumDesignOpen(track: number): Promise<EngineStatus> {
   mock.audition = null;
   mockTransport.playing = false;
   mockTransport.position = 0;
+  // `?variations` gives the first section a B with a ghost, a flam and a
+  // ratchet, and the velocity lane something to show.
+  if (mockParams?.has("variations")) {
+    const first = part.sections[0];
+    if (first) {
+      const varied = addVariation(first, 0);
+      const b = varied.variations?.[0];
+      const snare = b?.rows.find((r) => r.pad === "snare");
+      if (snare) {
+        snare.steps[6] = 0.3;
+        snare.steps[14] = 0.3;
+        snare.marks = [{ step: 12, flam: true }];
+      }
+      const hat = b?.rows.find((r) => r.pad === "hh-closed");
+      if (hat) {
+        hat.steps = hat.steps.map((_, i) =>
+          i % 2 === 0 ? ([1, 0.5, 0.8, 0.5][(i / 2) % 4] ?? 0) : 0,
+        );
+        hat.marks = [{ step: 14, ratchet: 3 }];
+      }
+      part.sections[0] = varied;
+      mockDesign.base = structuredClone(part);
+    }
+  }
   // `?drumdesign=playing` has it rolling, for screenshots; `?position` says where.
   if (mockParams?.get("drumdesign") === "playing") {
     mockTransport.playing = true;

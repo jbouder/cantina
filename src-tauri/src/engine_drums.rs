@@ -143,7 +143,8 @@ impl DrumDesign {
                 let Some(i) = self.part.section_index(name) else {
                     return (Vec::new(), 0, 0);
                 };
-                let ticks = self.part.sections[i].pattern.ticks().max(1);
+                // A whole round of its variations.
+                let ticks = self.part.sections[i].played().ticks().max(1);
                 let every = self.fill_of(i).map_or(0, |f| u64::from(f.every)) * bar;
                 let length = every.max(ticks).div_ceil(ticks) * ticks;
                 (vec![clip(i, None, 0, length)], 0, length)
@@ -261,7 +262,7 @@ impl Engine {
             .enumerate()
             .map(|(i, s)| Pattern {
                 id: PatternId(DESIGN_PATTERNS + i as u64),
-                ..s.pattern.clone()
+                ..s.played()
             })
             .collect();
         project.tracks = vec![track];
@@ -525,6 +526,8 @@ mod tests {
                 ..Pattern::new(PatternId(1), name)
             },
             fill: None,
+            variations: Vec::new(),
+            vary: cantina_project::Vary::Alternate,
         };
         DrumPart {
             kit: "rock".into(),

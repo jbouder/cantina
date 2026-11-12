@@ -420,6 +420,11 @@
         ["1–9", "Edits the first nine sections; looping a section, plays it from the next bar"],
         ["← → ↑ ↓", "With a cell focused, move between cells"],
         ["Space or Return", "With a cell focused, toggles a hit"],
+        ["G A", "With a cell focused, plays it as a ghost note or an accent"],
+        ["⇧↑ ⇧↓", "With a hit focused, makes it 10% harder or softer"],
+        ["C R F", "With a hit focused, steps its chance, its ratchet (1 to 4 hits) or its flam"],
+        ["⌫", "With a cell focused, clears it"],
+        ["[ ]", "With a cell focused, shifts every hit a step earlier or later"],
         ["⌘Z ⇧⌘Z", "Undo and redo in the designer, apart from the project"],
         ["Esc", "Back to the project, asking first if the part has changes"]
       ]
