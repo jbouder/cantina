@@ -1,6 +1,6 @@
 ---
 title: "Practice"
-description: "The Practice view: pick an exercise by style and by what it teaches, read its instructions and its tab, hear it through its own rig over its groove, and play along through the same rig, looped, counted in and a tempo rung at a time."
+description: "The Practice view: pick an exercise or follow a course, read its instructions, chord diagrams, fretboard and tab, hear it through its own rig over its groove, play along looped and counted in while the tempo climbs, and keep a log of your bests and streak."
 ---
 
 Practice is a room for exercises: chords, changes, scales, technique,
@@ -21,6 +21,13 @@ start dialog. **Back to project**, **E** again or **View ▸ Arrange** goes
 back to the project. The exercise you had last comes back the next time,
 at the tempo you left it, with the loop and the groove as you left them.
 
+![The Practice view: the exercise list on the left; the display with the pass, bar and next rung, your bests, the instructions, the chord boxes and the fretboard, and the tab on the right](../../../assets/guides/practice.png)
+
+The left side picks what to practice. The right side, from the top, has
+the display, your bests, the instructions, the chord boxes and the neck,
+the tab, and under them the transport, the tempo, the climb and your
+rig.
+
 ## Courses
 
 A course is exercises in an order, each with a tempo to reach before the
@@ -30,6 +37,8 @@ foundations*, or one of yours from `~/Music/Cantina/Courses`. The list
 shows its steps in order, each lit when your best reaches its goal, with
 your best and the goal beside it. **Next step** opens the first step not
 done. Back to **Every exercise** for the whole list.
+
+![The Metal rhythm course: its steps in order, the first two done, the third marked next with a Next step button above](../../../assets/guides/practice-course.png)
 
 Not sure what to practice? Ask the [assistant](/guides/assistant/): it
 reads your courses and your log, never changing them, and suggests the
@@ -74,6 +83,8 @@ such as a power chord.
 
 Left-handed players can turn on **Settings ▸ Fretboard ▸ Left-handed** to
 draw the neck with the nut on the right, as they see it.
+
+![The fretboard left-handed, the nut on the right, with the D chord lit and the A coming as rings](../../../assets/guides/practice-lefty.png)
 
 ## Hearing it and playing along
 

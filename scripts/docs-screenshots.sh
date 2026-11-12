@@ -51,6 +51,9 @@ guides/tab-page.png|running&take&tabbed&tab=tab&tabpage&position=5.3&skin=midnig
 guides/tab-edit.png|running&take&tabbed&tab=tab&tabedit&tabselect=11,12,13
 guides/tab-practice.png|running&take&tabbed&tab=tab&practice&position=2.4&skin=toxic
 guides/tab-export.png|running&take&tabbed&tab=tab&tabexport
+guides/practice.png|running&exercise=playing&practicelog
+guides/practice-course.png|running&exercise&practicelog&course=Metal%20rhythm&skin=midnight
+guides/practice-lefty.png|running&exercise=playing&lefty&skin=hifi
 guides/assistant-chat.png|running&take&assistant&chat
 guides/assistant-droid.png|assistant&chat=empty&skin=midnight
 guides/assistant-settings.png|settings=assistant&assistant

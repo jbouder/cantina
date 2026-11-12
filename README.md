@@ -81,7 +81,7 @@ can write one and the app picks it up.
   it in the editor, play it back slowed down and looped through your
   pedals, and export MusicXML, ASCII tab, MIDI or PDF.
 
-### Drums and jamming
+### Drums, jamming and practice
 
 - **Drums.** Kits with velocity layers, a step sequencer with swing,
   humanize, fills and feel, pads you can play and record live, a pad
@@ -92,6 +92,12 @@ can write one and the app picks it up.
   file or one of your tracks), a tempo, a key and your rig, on an endless
   loop you steer while you play. The last minutes are always captured, so
   **Keep that** saves the riff you were not recording.
+- **Practice.** 59 exercises for chords, changes, scales, technique,
+  riffs and rhythm, from open chords to sweeps and djent, each heard
+  through its own rig over a groove, with its tab, chord diagrams and a
+  fretboard that lights the notes as they come. A tempo ladder climbs on
+  the bar line, a log keeps your bests and your streak, and five courses
+  put the exercises in order.
 
 ### Design and perform
 
@@ -153,6 +159,7 @@ everything, in three parts:
   [the designer](https://cantina-docs.vibeproject.workers.dev/guides/designer/),
   [drums](https://cantina-docs.vibeproject.workers.dev/guides/drums/),
   [jam](https://cantina-docs.vibeproject.workers.dev/guides/jam/),
+  [practice](https://cantina-docs.vibeproject.workers.dev/guides/practice/),
   [tabs](https://cantina-docs.vibeproject.workers.dev/guides/tabs/),
   [the stage](https://cantina-docs.vibeproject.workers.dev/guides/stage/),
   [the assistant](https://cantina-docs.vibeproject.workers.dev/guides/assistant/),
