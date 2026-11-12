@@ -42,7 +42,9 @@ This file keeps the decisions and the milestones.
 One issue per pull request. Each milestone has a demo you can play. A
 M10 Docs milestone runs alongside them: the Astro site goes up first, then each
 milestone lands its guides and references on it. M11 Layout was the UX
-redesign that ran before M8 Stage; M12 AI runs alongside M8.
+redesign that ran before M8 Stage; M12 AI runs alongside M8. The
+milestones after M14 (assistant, drums 2, rigs, jam, menus, polish) are on
+GitHub with their issues; the ones still to come are below.
 
 ### M0 Spike: can this work?
 
@@ -170,6 +172,57 @@ page.
 - Fit notes to strings and frets.
 - A tab viewer, an editor, a player with practice speed, and exports.
 - A guide to tabs.
+
+### M20 Practice
+
+Exercises for chords, techniques, scales and rhythm: read one, hear it,
+play it slowed and looped, and let Cantina listen and say how you did.
+Built on what is there: the tab format and the tab voice (a tab through
+your rig, looped, at practice speed), the tuner's pitch tracker, Basic
+Pitch for chords, the jam's capture ring and its key and chord spelling.
+
+- An exercise file format (`*.exercise.json`): a phrase in the tab
+  format's terms or a sequence of chord shapes, instructions, a tempo
+  range, a count-in and a key; schema, `cantina-cli check` and `render`,
+  the skill's references.
+- Stock exercises: open and barre chords and the changes between them,
+  the 12-bar blues, power chords and palm muting, pentatonic and major
+  scale boxes, alternate picking, hammer-ons and pull-offs, slides,
+  bends and vibrato, strumming patterns, and bass lines.
+- A practice view, opened like Jam: pick an exercise, read it as a tab,
+  hear it, slow it down, loop it, count in, play along through your rig.
+- Chord diagrams and a fretboard that lights the notes as they come.
+- Listening: what you play, heard off the audio thread; single notes
+  live from the pitch tracker, chords from Basic Pitch over each bar.
+- Scoring: each pass graded on notes and timing, shown on the tab as
+  you play and summarized after.
+- A tempo trainer that climbs after clean passes, and a practice log in
+  `~/Music/Cantina/Practice` with bests and streaks.
+- Courses (`*.course.json`): ordered exercises with goal tempos; the
+  assistant reads the log and suggests the next one.
+- A guide to practice.
+
+### M21 Drum designer
+
+A dedicated view for building a drum part, as the pedal designer is for
+pedals. Today drums live in the Beats tab, a strip under the timeline.
+
+- The view: opened from a drum track, the kit's pads down one side, a
+  large grid, an inspector and a transport of its own; it works on a copy
+  and is heard instead of the project while open.
+- Song structure: sections (intro, verse, chorus, bridge, fill, ending
+  and your own), each with its pattern, and an order lane that arranges
+  them into a song.
+- Pattern tools: velocity lanes, rolls, flams, ghost notes, accents,
+  probability, bar copy and shift, A/B/C/D variations.
+- A palette of the stock grooves and your patterns, and a groove file
+  format (`*.groove.json`) that saves the whole part to the library.
+- A kit workbench: audition, tune, decay, pan and level per pad, swap
+  samples, edit a recipe and synthesize again, save as a kit.
+- Play a part in on the pads, quantized, overdubbing on loop.
+- Place: the part becomes clips on the drum track as one undoable
+  command; reopen and revise.
+- A guide to the drum designer.
 
 ### Later
 
